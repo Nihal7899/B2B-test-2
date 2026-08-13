@@ -1,6 +1,9 @@
 // App.tsx
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode, useEffect } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import toast from 'react-hot-toast';
 import { Header } from '@/components/Header';
 import { BottomNavigation } from '@/components/BottomNavigation';
 import { SplashScreen } from '@/components/SplashScreen';
@@ -25,6 +28,7 @@ import { useCart } from '@/store';
 import { useAuth } from '@/auth';
 import { AuthScreen } from '@/screens/AuthScreen';
 import { handleHomeAction, type ActionContext } from '@/services/actionResolver';
+import { NavigationProvider, useNavigation } from '@/context/NavigationContext';
 
 const SCREEN_TO_PATH: Record<ScreenName, string> = {
   home: '/',
@@ -63,6 +67,66 @@ function parseRoute(pathname: string): { screen: ScreenName; key: string } {
   return { screen, key: pathname };
 }
 
+// ========== BACK BUTTON HANDLER ==========
+function BackButtonHandler() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { triggerBack } = useNavigation();
+  const lastBackPress = useRef(0);
+  const toastId = useRef<string | null>(null);
+  const listenerRef = useRef<{ remove: () => void } | null>(null);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let mounted = true;
+
+    const handleBack = () => {
+      // 1. Try custom back handler (if any screen registers one)
+      if (triggerBack()) {
+        return;
+      }
+
+      // 2. Default handling
+      const now = Date.now();
+      // Define main tabs (screens where double-back exits the app)
+      const mainRoutes = ['/', '/categories', '/orders', '/cart', '/account'];
+
+      if (mainRoutes.includes(location.pathname)) {
+        if (now - lastBackPress.current < 2000) {
+          if (toastId.current) toast.dismiss(toastId.current);
+          CapApp.exitApp();
+        } else {
+          lastBackPress.current = now;
+          toastId.current = toast('Press back again to exit', {
+            duration: 2000,
+            icon: '←',
+            style: { background: 'var(--bg-card)', color: 'var(--text-primary)' },
+          });
+        }
+      } else if (location.pathname === '/login') {
+        CapApp.exitApp();
+      } else {
+        navigate(-1);
+      }
+    };
+
+    CapApp.addListener('backButton', handleBack).then(l => {
+      if (mounted) listenerRef.current = l;
+    }).catch(err => console.warn('BackButton listener failed:', err));
+
+    return () => {
+      mounted = false;
+      if (listenerRef.current) {
+        listenerRef.current.remove();
+        listenerRef.current = null;
+      }
+    };
+  }, [location.pathname, navigate, triggerBack]);
+
+  return null;
+}
+
+// ========== MAIN APP ==========
 function App() {
   const cart = useCart();
   const { user, role, loading, profile } = useAuth();
@@ -256,6 +320,7 @@ function App() {
       <div className="mx-auto min-h-screen max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50">
         <Header cartCount={cart.totalItems} onCartClick={() => goTo('cart')} />
         <main className="py-4 pb-24 animate-fade-up">
+          <BackButtonHandler />
           <KeepAliveRenderer currentKey={key} render={renderScreen} />
         </main>
         <BottomNavigation
@@ -268,4 +333,11 @@ function App() {
   );
 }
 
-export default App;
+// ========== ROOT WITH PROVIDERS ==========
+export default function RootApp() {
+  return (
+    <NavigationProvider>
+      <App />
+    </NavigationProvider>
+  );
+}

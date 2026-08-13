@@ -103,14 +103,19 @@ export function HomeScreen({
     onViewAll,
   };
 
-  // Map background_color to Tailwind classes
+  // Map background_color to solid Tailwind classes
   const getBgClass = (color: string) => {
+    // If color is missing or not recognized, default to brand-600
     const map: Record<string, string> = {
       brand: 'bg-brand-600',
       accent: 'bg-accent-600',
       ink: 'bg-ink-800',
     };
-    return map[color] || 'bg-brand-600';
+    // If the color is a custom value (e.g., hex), we could apply it directly,
+    // but for now we use the mapping.
+    const bg = map[color] || 'bg-brand-600';
+    console.log(`Banner color: ${color} → mapped to ${bg}`);
+    return bg;
   };
 
   const getTextClass = (color: string) => {
@@ -122,10 +127,10 @@ export function HomeScreen({
     return map[color] || 'text-white';
   };
 
-  // Render a single action banner (for middle & bottom) – includes image, no tint/overlay
+  // Render a single action banner (middle & bottom)
   const renderActionBanner = (banner: PromoBanner) => {
-    const bg = getBgClass(banner.background_color);
-    const text = getTextClass(banner.background_color);
+    const bg = getBgClass(banner.background_color || 'brand');
+    const text = getTextClass(banner.background_color || 'brand');
 
     return (
       <div

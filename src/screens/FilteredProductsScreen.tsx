@@ -28,7 +28,12 @@ export function FilteredProductsScreen({
     void (async () => {
       try {
         const data = await fetchFilteredProducts(filter);
-        setProducts(data);
+        // Ensure every product has an 'id' field
+        const mapped = data.map((p: any) => ({
+          ...p,
+          id: p.id || p.product_id || p._id, // fallback
+        }));
+        setProducts(mapped);
       } catch (err) {
         console.error('Failed to fetch filtered products', err);
       }
@@ -72,7 +77,7 @@ export function FilteredProductsScreen({
               onDecrement={() =>
                 cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)
               }
-              onClick={onProduct}
+              onClick={() => onProduct(product)}
             />
           ))}
         </div>

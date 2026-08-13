@@ -147,11 +147,11 @@ function App() {
 
 // Inside App component
 const openProduct = (product: Product) => {
-  // Try both 'id' and 'product_id' fields
-  const productId = product?.id || product?.product_id;
+  // Ensure we have an id
+  const productId = product?.id || product?.product_id || product?._id;
   if (!productId) {
     console.warn('Product ID is undefined – check product data', product);
-    // Fallback to home to avoid broken page
+    // Fallback: navigate to home to avoid broken page
     navigate('/');
     return;
   }

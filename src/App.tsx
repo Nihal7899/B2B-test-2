@@ -69,12 +69,13 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const searchRef = useRef('');
+  const [search, setSearch] = useState('');
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
   const [showSplash, setShowSplash] = useState(true);
 
-  const { screen, key } = useMemo(() => parseRoute(location.pathname), [location.pathname]);
+  const { screen } = useMemo(() => parseRoute(location.pathname), [location.pathname]);
+  const key = location.pathname + '|' + location.key;
 
   const goTo = (next: ScreenName) => {
     navigate(pathFor(next));
@@ -85,8 +86,9 @@ function App() {
   };
 
   const openCategory = (category: Category) => {
-    searchRef.current = category.name;
-    navigate(pathFor('home'));
+    filterConfigRef.current = { category_ids: [category.id] };
+    filterTitleRef.current = category.name;
+    navigate(pathFor('filteredProducts'));
   };
 
   const openStore = (store: Store) => {
@@ -101,7 +103,7 @@ function App() {
 
   const actionCtx: ActionContext = {
     setScreen: goTo,
-    setSearch: (q: string) => { searchRef.current = q; },
+    setSearch: setSearch,
     openProduct,
     openCategory,
     setFilterConfig: (config: FilterConfig | null) => { filterConfigRef.current = config; },
@@ -140,9 +142,6 @@ function App() {
         {!showSplash && <AuthScreen />}
       </>
     );
-
-  const search = searchRef.current;
-  const setSearch = (value: string) => { searchRef.current = value; };
 
   const homeScreen = (
     <HomeScreen

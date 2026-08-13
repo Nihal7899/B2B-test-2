@@ -145,9 +145,16 @@ function App() {
     navigate(pathFor(next));
   };
 
-  const openProduct = (product: Product) => {
-    navigate(pathFor('product', { id: product.id }));
-  };
+// Inside App component
+const openProduct = (product: Product) => {
+  if (!product?.id) {
+    console.warn('Product ID is undefined – check product data', product);
+    // Optionally fallback to home
+    navigate('/');
+    return;
+  }
+  navigate(pathFor('product', { id: product.id }));
+};
 
   const openCategory = (category: Category) => {
     filterConfigRef.current = { category_ids: [category.id] };

@@ -46,11 +46,11 @@ export function HomeScreen({
   const [brands, setBrands] = useState<TrustedBrand[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- BANNER STATE (now arrays for middle & bottom) ---
+  // --- BANNER STATE ---
   const [topBanner, setTopBanner] = useState<PromoBanner | null>(null);
   const [carouselBanners, setCarouselBanners] = useState<PromoBanner[]>([]);
-  const [middleBanners, setMiddleBanners] = useState<PromoBanner[]>([]);  // array
-  const [bottomBanners, setBottomBanners] = useState<PromoBanner[]>([]);  // array
+  const [middleBanners, setMiddleBanners] = useState<PromoBanner[]>([]);
+  const [bottomBanners, setBottomBanners] = useState<PromoBanner[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -67,11 +67,10 @@ export function HomeScreen({
         setStores(storesRes);
         setBrands(brandsRes);
 
-        // Filter banners by position
         const top = banners.find((b) => b.position === 'top') || null;
         const carousel = banners.filter((b) => b.position === 'carousel');
-        const middle = banners.filter((b) => b.position === 'middle');      // all middle
-        const bottom = banners.filter((b) => b.position === 'bottom');      // all bottom
+        const middle = banners.filter((b) => b.position === 'middle');
+        const bottom = banners.filter((b) => b.position === 'bottom');
 
         setTopBanner(top);
         setCarouselBanners(carousel);
@@ -104,7 +103,7 @@ export function HomeScreen({
     onViewAll,
   };
 
-  // Helper to map background_color to Tailwind classes (for middle/bottom)
+  // Map background_color to solid Tailwind classes (no gradients/tints)
   const getBgClass = (color: string) => {
     const map: Record<string, string> = {
       brand: 'bg-brand-600',
@@ -123,7 +122,7 @@ export function HomeScreen({
     return map[color] || 'text-white';
   };
 
-  // Render a single action banner (used for middle & bottom)
+  // Render a single action banner (for middle & bottom) – no image overlay, pure background color
   const renderActionBanner = (banner: PromoBanner) => {
     const bg = getBgClass(banner.background_color);
     const text = getTextClass(banner.background_color);
@@ -133,17 +132,7 @@ export function HomeScreen({
         key={banner.id}
         className={`relative overflow-hidden rounded-2xl min-h-[116px] flex items-center ${bg} ${text} shadow-card`}
       >
-        {banner.image && (
-          <img
-            src={banner.image}
-            alt={banner.headline}
-            className="absolute right-0 top-0 h-full w-[44%] object-cover opacity-30"
-            onError={(e) => {
-              e.currentTarget.src = 'https://placehold.co/600x400/EEE/999?text=Banner';
-            }}
-          />
-        )}
-        <div className="relative z-10 p-4 w-[65%]">
+        <div className="relative z-10 p-4 w-full">
           {banner.badge && (
             <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
               {banner.badge}
@@ -296,10 +285,16 @@ export function HomeScreen({
             <ProductCarousel title="Popular Products" products={popular} {...actions} />
           )}
 
-          {/* 3. MIDDLE ACTION BANNERS (multiple) */}
+          {/* 3. MIDDLE ACTION BANNERS – HORIZONTAL CAROUSEL */}
           {middleBanners.length > 0 && (
-            <section className="px-4 space-y-3">
-              {middleBanners.map((banner) => renderActionBanner(banner))}
+            <section className="px-4">
+              <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch pb-1">
+                {middleBanners.map((banner) => (
+                  <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
+                    {renderActionBanner(banner)}
+                  </div>
+                ))}
+              </div>
             </section>
           )}
 
@@ -339,10 +334,16 @@ export function HomeScreen({
             <ProductCarousel title="Everyday Essentials" products={essentials} {...actions} />
           )}
 
-          {/* 4. BOTTOM ACTION BANNERS (multiple) */}
+          {/* 4. BOTTOM ACTION BANNERS – HORIZONTAL CAROUSEL */}
           {bottomBanners.length > 0 && (
-            <section className="px-4 space-y-3">
-              {bottomBanners.map((banner) => renderActionBanner(banner))}
+            <section className="px-4">
+              <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch pb-1">
+                {bottomBanners.map((banner) => (
+                  <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
+                    {renderActionBanner(banner)}
+                  </div>
+                ))}
+              </div>
             </section>
           )}
         </>

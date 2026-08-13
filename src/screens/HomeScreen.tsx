@@ -46,7 +46,7 @@ export function HomeScreen({
   const [brands, setBrands] = useState<TrustedBrand[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- BANNER STATE ---
+  // Banner states
   const [topBanner, setTopBanner] = useState<PromoBanner | null>(null);
   const [carouselBanners, setCarouselBanners] = useState<PromoBanner[]>([]);
   const [middleBanners, setMiddleBanners] = useState<PromoBanner[]>([]);
@@ -103,7 +103,7 @@ export function HomeScreen({
     onViewAll,
   };
 
-  // Map background_color to solid Tailwind classes (no gradients/tints)
+  // Map background_color to Tailwind classes
   const getBgClass = (color: string) => {
     const map: Record<string, string> = {
       brand: 'bg-brand-600',
@@ -122,7 +122,7 @@ export function HomeScreen({
     return map[color] || 'text-white';
   };
 
-  // Render a single action banner (for middle & bottom) – no image overlay, pure background color
+  // Render a single action banner (for middle & bottom) – includes image, no tint/overlay
   const renderActionBanner = (banner: PromoBanner) => {
     const bg = getBgClass(banner.background_color);
     const text = getTextClass(banner.background_color);
@@ -132,7 +132,18 @@ export function HomeScreen({
         key={banner.id}
         className={`relative overflow-hidden rounded-2xl min-h-[116px] flex items-center ${bg} ${text} shadow-card`}
       >
-        <div className="relative z-10 p-4 w-full">
+        {/* Image on the right – no opacity, no gradient overlay */}
+        {banner.image && (
+          <img
+            src={banner.image}
+            alt={banner.headline}
+            className="absolute right-0 top-0 h-full w-[44%] object-cover"
+            onError={(e) => {
+              e.currentTarget.src = 'https://placehold.co/600x400/EEE/999?text=Banner';
+            }}
+          />
+        )}
+        <div className="relative z-10 p-4 w-[65%]">
           {banner.badge && (
             <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
               {banner.badge}

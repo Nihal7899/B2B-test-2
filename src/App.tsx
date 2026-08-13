@@ -147,13 +147,15 @@ function App() {
 
 // Inside App component
 const openProduct = (product: Product) => {
-  if (!product?.id) {
+  // Try both 'id' and 'product_id' fields
+  const productId = product?.id || product?.product_id;
+  if (!productId) {
     console.warn('Product ID is undefined – check product data', product);
-    // Optionally fallback to home
+    // Fallback to home to avoid broken page
     navigate('/');
     return;
   }
-  navigate(pathFor('product', { id: product.id }));
+  navigate(pathFor('product', { id: productId }));
 };
 
   const openCategory = (category: Category) => {

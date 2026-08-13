@@ -103,68 +103,64 @@ export function HomeScreen({
     onViewAll,
   };
 
-  // Map background_color to solid Tailwind classes
-  const getBgClass = (color: string) => {
-    // If color is missing or not recognized, default to brand-600
+  // Map background_color to Tailwind solid background classes
+  const getBgClass = (color: string | undefined) => {
+    // Log to see what comes from the database
+    console.log('Raw background_color:', color);
+    // If missing or invalid, default to brand-600
+    if (!color) return 'bg-brand-600';
+    // Known values: 'brand', 'accent', 'ink'
     const map: Record<string, string> = {
       brand: 'bg-brand-600',
       accent: 'bg-accent-600',
       ink: 'bg-ink-800',
     };
-    // If the color is a custom value (e.g., hex), we could apply it directly,
-    // but for now we use the mapping.
     const bg = map[color] || 'bg-brand-600';
-    console.log(`Banner color: ${color} → mapped to ${bg}`);
+    console.log(`Mapped ${color} → ${bg}`);
     return bg;
   };
 
-  const getTextClass = (color: string) => {
-    const map: Record<string, string> = {
-      brand: 'text-white',
-      accent: 'text-white',
-      ink: 'text-white',
-    };
-    return map[color] || 'text-white';
-  };
-
-  // Render a single action banner (middle & bottom)
+  // Render a single action banner (middle & bottom) – uniform height, no overlay, image on right
   const renderActionBanner = (banner: PromoBanner) => {
-    const bg = getBgClass(banner.background_color || 'brand');
-    const text = getTextClass(banner.background_color || 'brand');
+    const bg = getBgClass(banner.background_color);
 
     return (
       <div
         key={banner.id}
-        className={`relative overflow-hidden rounded-2xl min-h-[116px] flex items-center ${bg} ${text} shadow-card`}
+        className={`relative overflow-hidden rounded-2xl h-32 flex items-center ${bg} text-white shadow-card`}
       >
-        {/* Image on the right – no opacity, no gradient overlay */}
-        {banner.image && (
-          <img
-            src={banner.image}
-            alt={banner.headline}
-            className="absolute right-0 top-0 h-full w-[44%] object-cover"
-            onError={(e) => {
-              e.currentTarget.src = 'https://placehold.co/600x400/EEE/999?text=Banner';
-            }}
-          />
-        )}
-        <div className="relative z-10 p-4 w-[65%]">
+        {/* Text content – left side */}
+        <div className="relative z-10 px-4 py-3 w-3/5 flex flex-col justify-center h-full">
           {banner.badge && (
             <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
               {banner.badge}
             </span>
           )}
-          <h3 className="text-[17px] font-extrabold mt-1 leading-tight">
+          <h3 className="text-[17px] font-extrabold leading-tight mt-0.5">
             {banner.headline}
           </h3>
-          <p className="text-[11px] opacity-80 mt-1">{banner.subtext}</p>
+          <p className="text-[11px] opacity-80 mt-0.5">{banner.subtext}</p>
           <button
             onClick={() => onBannerAction?.(banner)}
-            className="mt-2.5 bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 shadow-sm"
+            className="mt-2 bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 shadow-sm self-start"
           >
             {banner.cta}
           </button>
         </div>
+
+        {/* Image – right side, no opacity, no overlay */}
+        {banner.image && (
+          <div className="absolute right-0 top-0 h-full w-2/5">
+            <img
+              src={banner.image}
+              alt={banner.headline}
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
+              }}
+            />
+          </div>
+        )}
       </div>
     );
   };

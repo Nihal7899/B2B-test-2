@@ -22,6 +22,7 @@ export interface Category {
   color: string;
 }
 
+// types.ts (add this field inside PromoBanner)
 export interface PromoBanner {
   id: string;
   headline: string;
@@ -34,6 +35,7 @@ export interface PromoBanner {
   actionType?: string;
   actionConfig?: Record<string, unknown>;
   position?: string; // 'top' | 'carousel' | 'middle' | 'bottom'
+  background_color?: string; // 👈 add this
 }
 
 export interface CartItem {

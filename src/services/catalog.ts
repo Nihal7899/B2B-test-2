@@ -370,6 +370,8 @@ export interface DbHomeBanner {
   updated_at: string;
 }
 
+
+
 export function mapHomeBanner(db: DbHomeBanner): PromoBanner {
   return {
     id: db.id,
@@ -383,6 +385,7 @@ export function mapHomeBanner(db: DbHomeBanner): PromoBanner {
     actionType: db.action_type,
     actionConfig: db.action_config,
     position: db.position || 'top',
+    background_color: db.background_color, // 👈 pass the raw color
   };
 }
 

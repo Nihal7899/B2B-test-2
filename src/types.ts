@@ -12,6 +12,54 @@ export interface Product {
   rating: number;
   description: string;
   inStock: boolean;
+  hsn_code?: string;
+  gst_percentage?: number;
+}
+
+export interface VolumePricingTier {
+  id: string;
+  product_id: string;
+  min_quantity: number;
+  max_quantity: number | null;
+  unit_price: number;
+  discount_percent: number | null;
+}
+
+export interface PromoCode {
+  id: string;
+  code: string;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  min_order_value: number;
+  max_discount_amount: number | null;
+  applies_to: 'all' | 'category' | 'product';
+  applies_to_ids: string[];
+  start_date: string | null;
+  end_date: string | null;
+  usage_limit: number | null;
+  used_count: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeliveryZone {
+  id: string;
+  name: string;
+  pincodes: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeliveryCharge {
+  id: string;
+  zone_id: string;
+  min_order_value: number | null;
+  max_order_value: number | null;
+  charge: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Category {
@@ -48,6 +96,7 @@ export interface PromoBanner {
 export interface CartItem {
   product: Product;
   quantity: number;
+  effectiveUnitPrice: number; // after volume pricing
 }
 
 export interface Order {

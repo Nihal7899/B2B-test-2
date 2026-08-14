@@ -20,6 +20,11 @@ import {
   Store,
   Award,
   LayoutDashboard,
+  Gift,
+  Truck,
+  MapPin,
+  Percent,
+  Hash,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type {
@@ -30,6 +35,10 @@ import type {
   TrustedBrand,
   SmartCollection,
   FilterConfig,
+  VolumePricingTier,
+  PromoCode,
+  DeliveryZone,
+  DeliveryCharge,
 } from '@/types';
 import {
   fetchAllHomeBanners,
@@ -50,6 +59,22 @@ import {
   updateSmartCollection,
   deleteSmartCollection,
   fetchAllBrands,
+  fetchVolumePricing,
+  createVolumePricingTier,
+  updateVolumePricingTier,
+  deleteVolumePricingTier,
+  fetchAllPromoCodes,
+  createPromoCode,
+  updatePromoCode,
+  deletePromoCode,
+  fetchAllDeliveryZones,
+  createDeliveryZone,
+  updateDeliveryZone,
+  deleteDeliveryZone,
+  fetchDeliveryChargesForZone,
+  createDeliveryCharge,
+  updateDeliveryCharge,
+  deleteDeliveryCharge,
 } from '@/services/catalog';
 import { PromoBannerCard } from '@/components/PromoBanner';
 import type { ActionType, PromoBanner } from '@/types';
@@ -65,8 +90,11 @@ type Tab =
   | 'brands'
   | 'categories'
   | 'products'
-  | 'roles'
-  | 'smartcollections';
+  | 'volumepricing'
+  | 'promocodes'
+  | 'deliverysettings'
+  | 'smartcollections'
+  | 'roles';
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -77,6 +105,9 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'brands', label: 'Brands', icon: Award },
     { id: 'categories', label: 'Categories', icon: LayoutGrid },
     { id: 'products', label: 'Products', icon: Package },
+    { id: 'volumepricing', label: 'Volume Pricing', icon: Percent },
+    { id: 'promocodes', label: 'Promo Codes', icon: Gift },
+    { id: 'deliverysettings', label: 'Delivery Settings', icon: Truck },
     { id: 'smartcollections', label: 'Smart Collections', icon: LayoutGrid },
     { id: 'roles', label: 'Roles', icon: Users },
   ];
@@ -122,6 +153,9 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'brands' && <BrandsManager />}
         {tab === 'categories' && <CategoriesManager />}
         {tab === 'products' && <ProductsManager />}
+        {tab === 'volumepricing' && <VolumePricingManager />}
+        {tab === 'promocodes' && <PromoCodesManager />}
+        {tab === 'deliverysettings' && <DeliverySettingsManager />}
         {tab === 'smartcollections' && <SmartCollectionsManager />}
         {tab === 'roles' && <RolesManager />}
       </div>
@@ -149,7 +183,7 @@ function Dashboard() {
   );
 }
 
-// ----- BANNERS MANAGER -----
+// ----- BANNERS MANAGER (unchanged) -----
 const ACTION_TYPES: ActionType[] = [
   'VIEW_CATEGORY',
   'VIEW_PRODUCT',
@@ -229,7 +263,6 @@ function BannersManager() {
       actionType: b.action_type,
       actionConfig: b.action_config,
       position: b.position || 'top',
-      // map new fields for preview (optional)
       bgType: b.bg_type || 'color',
       bgColor: b.bg_color || '#16a34a',
       bgGradient: b.bg_gradient || 'from-brand-600 to-brand-800',
@@ -379,7 +412,7 @@ function BannersManager() {
   );
 }
 
-// ----- BANNER FORM (with advanced options) -----
+// ----- BANNER FORM (same as before) -----
 function BannerForm({
   initial,
   onClose,
@@ -403,7 +436,6 @@ function BannerForm({
     position: initial?.position ?? 'top',
     start_at: initial?.start_at ?? '',
     end_at: initial?.end_at ?? '',
-    // NEW fields
     bg_type: initial?.bg_type ?? 'color',
     bg_color: initial?.bg_color ?? '#16a34a',
     bg_gradient: initial?.bg_gradient ?? 'from-brand-600 to-brand-800',
@@ -569,7 +601,7 @@ function BannerForm({
         )}
       </div>
 
-      {/* NEW: Background Type */}
+      {/* Background Type */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Background Type</label>
         <select
@@ -583,7 +615,6 @@ function BannerForm({
         </select>
       </div>
 
-      {/* Colour picker (if bg_type = 'color') */}
       {form.bg_type === 'color' && (
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Background Colour</label>
@@ -615,7 +646,6 @@ function BannerForm({
         </div>
       )}
 
-      {/* Gradient picker (if bg_type = 'gradient') */}
       {form.bg_type === 'gradient' && (
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Gradient Classes</label>
@@ -637,7 +667,6 @@ function BannerForm({
         </div>
       )}
 
-      {/* Legacy background color (for carousel preview) – kept for backward compatibility */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Legacy Color (for carousel)</label>
@@ -662,7 +691,6 @@ function BannerForm({
         </div>
       </div>
 
-      {/* Position */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Position</label>
         <select
@@ -677,7 +705,6 @@ function BannerForm({
         </select>
       </div>
 
-      {/* Top banner promo code fields */}
       {form.position === 'top' && (
         <>
           <div>
@@ -701,7 +728,6 @@ function BannerForm({
         </>
       )}
 
-      {/* Action type and config (unchanged from original) */}
       {form.position !== 'top' && (
         <>
           <div>
@@ -903,7 +929,7 @@ function BannerForm({
         </>
       )}
 
-      {/* NEW: Overlay (tint) */}
+      {/* Overlay */}
       <div className="flex items-center gap-4">
         <label className="flex items-center gap-2 text-xs font-bold text-ink-700">
           <input
@@ -949,7 +975,6 @@ function BannerForm({
         </div>
       )}
 
-      {/* Show CTA button */}
       <div>
         <label className="flex items-center gap-2 text-xs font-bold text-ink-700">
           <input
@@ -962,7 +987,6 @@ function BannerForm({
         </label>
       </div>
 
-      {/* Date, order, active */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Start date</label>
@@ -1017,7 +1041,7 @@ function BannerForm({
   );
 }
 
-// ----- STORES MANAGER -----
+// ----- STORES MANAGER (unchanged) -----
 function StoresManager() {
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1286,7 +1310,7 @@ function StoreForm({
   );
 }
 
-// ----- BRANDS MANAGER -----
+// ----- BRANDS MANAGER (unchanged) -----
 function BrandsManager() {
   const [brands, setBrands] = useState<TrustedBrand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1468,7 +1492,7 @@ function BrandForm({
   );
 }
 
-// ----- CATEGORIES MANAGER -----
+// ----- CATEGORIES MANAGER (unchanged) -----
 function CategoriesManager() {
   const [categories, setCategories] = useState<DbCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1645,7 +1669,7 @@ function CategoryForm({
   );
 }
 
-// ----- PRODUCTS MANAGER -----
+// ----- PRODUCTS MANAGER (updated with GST/HSN) -----
 function ProductsManager() {
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [categories, setCategories] = useState<DbCategory[]>([]);
@@ -1702,6 +1726,9 @@ function ProductsManager() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-ink-800 truncate">{prod.brand} {prod.name}</p>
             <p className="text-xs text-ink-500">{prod.pack_size} · ₹{prod.wholesale_price} · Stock: {prod.stock_quantity}</p>
+            {prod.gst_percentage != null && prod.gst_percentage > 0 && (
+              <span className="text-[10px] text-brand-600">GST: {prod.gst_percentage}%</span>
+            )}
           </div>
           <button
             onClick={() => {
@@ -1746,6 +1773,8 @@ function ProductForm({
     description: initial?.description ?? '',
     rating: initial?.rating ?? 0,
     is_active: initial?.is_active ?? true,
+    hsn_code: initial?.hsn_code ?? '',
+    gst_percentage: initial?.gst_percentage ?? 0,
   });
   const [saving, setSaving] = useState(false);
 
@@ -1872,6 +1901,32 @@ function ProductForm({
           />
         </div>
       </div>
+      {/* GST and HSN fields */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">HSN Code</label>
+          <input
+            value={form.hsn_code}
+            onChange={(e) => setForm({ ...form, hsn_code: e.target.value })}
+            placeholder="e.g. 1512"
+            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">GST %</label>
+          <select
+            value={form.gst_percentage}
+            onChange={(e) => setForm({ ...form, gst_percentage: Number(e.target.value) })}
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          >
+            <option value="0">0%</option>
+            <option value="5">5%</option>
+            <option value="12">12%</option>
+            <option value="18">18%</option>
+            <option value="28">28%</option>
+          </select>
+        </div>
+      </div>
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Image URL</label>
         <input
@@ -1911,7 +1966,860 @@ function ProductForm({
   );
 }
 
-// ----- SMART COLLECTIONS MANAGER -----
+// ----- VOLUME PRICING MANAGER -----
+function VolumePricingManager() {
+  const [products, setProducts] = useState<{ id: string; brand: string; name: string }[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [tiers, setTiers] = useState<VolumePricingTier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<VolumePricingTier | null>(null);
+  const [form, setForm] = useState({
+    min_quantity: 1,
+    max_quantity: '',
+    unit_price: 0,
+    discount_percent: '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  // Fetch products
+  useEffect(() => {
+    async function fetchProducts() {
+      const { data } = await supabase.from('products').select('id, brand, name').order('name');
+      if (data && data.length > 0) {
+        setProducts(data);
+        setSelectedProductId(data[0].id);
+      }
+      setLoading(false);
+    }
+    fetchProducts();
+  }, []);
+
+  // Fetch tiers when product changes
+  useEffect(() => {
+    if (!selectedProductId) return;
+    async function loadTiers() {
+      setLoading(true);
+      const tiersData = await fetchVolumePricing(selectedProductId);
+      setTiers(tiersData);
+      setLoading(false);
+    }
+    loadTiers();
+  }, [selectedProductId]);
+
+  const handleSaveTier = async () => {
+    if (!selectedProductId) return;
+    setSaving(true);
+    const payload = {
+      product_id: selectedProductId,
+      min_quantity: form.min_quantity,
+      max_quantity: form.max_quantity ? parseInt(form.max_quantity) : null,
+      unit_price: form.unit_price,
+      discount_percent: form.discount_percent ? parseFloat(form.discount_percent) : null,
+    };
+    if (editing) {
+      await updateVolumePricingTier(editing.id, payload);
+    } else {
+      await createVolumePricingTier(payload);
+    }
+    const tiersData = await fetchVolumePricing(selectedProductId);
+    setTiers(tiersData);
+    setEditing(null);
+    setForm({ min_quantity: 1, max_quantity: '', unit_price: 0, discount_percent: '' });
+    setSaving(false);
+  };
+
+  const handleDeleteTier = async (id: string) => {
+    await deleteVolumePricingTier(id);
+    const tiersData = await fetchVolumePricing(selectedProductId);
+    setTiers(tiersData);
+  };
+
+  if (loading && products.length === 0) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Select Product</label>
+        <select
+          value={selectedProductId}
+          onChange={(e) => setSelectedProductId(e.target.value)}
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        >
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.brand} {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-3">
+        <h3 className="text-sm font-bold text-ink-900">{editing ? 'Edit' : 'Add'} Volume Tier</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-ink-600 mb-1">Min Quantity</label>
+            <input
+              type="number"
+              value={form.min_quantity}
+              onChange={(e) => setForm({ ...form, min_quantity: Number(e.target.value) })}
+              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-ink-600 mb-1">Max Quantity (empty = unlimited)</label>
+            <input
+              type="number"
+              value={form.max_quantity}
+              onChange={(e) => setForm({ ...form, max_quantity: e.target.value })}
+              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-ink-600 mb-1">Unit Price</label>
+            <input
+              type="number"
+              step="0.01"
+              value={form.unit_price}
+              onChange={(e) => setForm({ ...form, unit_price: Number(e.target.value) })}
+              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-ink-600 mb-1">Discount % (optional)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={form.discount_percent}
+              onChange={(e) => setForm({ ...form, discount_percent: e.target.value })}
+              placeholder="e.g. 10"
+              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleSaveTier}
+          disabled={saving || !form.unit_price}
+          className="w-full h-10 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
+        >
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          {editing ? 'Update Tier' : 'Add Tier'}
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-bold text-ink-600">Existing Tiers</p>
+        {tiers.length === 0 ? (
+          <p className="text-xs text-ink-400">No volume tiers defined for this product.</p>
+        ) : (
+          tiers.map((tier) => (
+            <div key={tier.id} className="bg-white border border-ink-100 rounded-xl p-3 flex items-center justify-between">
+              <div>
+                <span className="text-sm font-medium text-ink-800">
+                  {tier.min_quantity} – {tier.max_quantity ?? '∞'} qty
+                </span>
+                <span className="ml-3 text-sm text-brand-600">₹{tier.unit_price}</span>
+                {tier.discount_percent && <span className="ml-2 text-xs text-ink-500">({tier.discount_percent}% off)</span>}
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => {
+                    setEditing(tier);
+                    setForm({
+                      min_quantity: tier.min_quantity,
+                      max_quantity: tier.max_quantity?.toString() ?? '',
+                      unit_price: tier.unit_price,
+                      discount_percent: tier.discount_percent?.toString() ?? '',
+                    });
+                  }}
+                  className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button onClick={() => void handleDeleteTier(tier.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ----- PROMO CODES MANAGER -----
+function PromoCodesManager() {
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<PromoCode | null>(null);
+
+  const load = useCallback(async () => {
+    const data = await fetchAllPromoCodes();
+    setPromoCodes(data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const handleDelete = async (id: string) => {
+    await deletePromoCode(id);
+    void load();
+  };
+
+  const handleToggle = async (promo: PromoCode) => {
+    await updatePromoCode(promo.id, { is_active: !promo.is_active });
+    void load();
+  };
+
+  if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
+
+  return (
+    <div className="space-y-3">
+      <button
+        onClick={() => {
+          setEditing(null);
+          setShowForm(true);
+        }}
+        className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
+      >
+        <Plus size={16} /> Add Promo Code
+      </button>
+      {showForm && (
+        <PromoCodeForm
+          initial={editing}
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false);
+            void load();
+          }}
+        />
+      )}
+      {promoCodes.map((promo) => (
+        <div key={promo.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-ink-800">{promo.code}</p>
+              <p className="text-xs text-ink-500">
+                {promo.discount_type === 'percentage' ? `${promo.discount_value}% off` : `₹${promo.discount_value} off`}
+                {promo.min_order_value > 0 && ` · Min order ₹${promo.min_order_value}`}
+                {promo.max_discount_amount && ` · Max discount ₹${promo.max_discount_amount}`}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span
+                  className={`text-[10px] font-bold rounded-full px-2.5 py-0.5 ${
+                    promo.is_active ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500'
+                  }`}
+                >
+                  {promo.is_active ? 'ACTIVE' : 'HIDDEN'}
+                </span>
+                <span className="text-[10px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
+                  Used: {promo.used_count}/{promo.usage_limit ?? '∞'}
+                </span>
+                {promo.start_date && (
+                  <span className="text-[10px] text-amber-600">From: {new Date(promo.start_date).toLocaleDateString()}</span>
+                )}
+                {promo.end_date && (
+                  <span className="text-[10px] text-amber-600">To: {new Date(promo.end_date).toLocaleDateString()}</span>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <button
+                onClick={() => void handleToggle(promo)}
+                className="h-8 w-8 rounded-lg bg-ink-50 text-ink-600 flex items-center justify-center text-xs font-bold"
+              >
+                {promo.is_active ? 'ON' : 'OFF'}
+              </button>
+              <button
+                onClick={() => {
+                  setEditing(promo);
+                  setShowForm(true);
+                }}
+                className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                onClick={() => void handleDelete(promo.id)}
+                className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PromoCodeForm({
+  initial,
+  onClose,
+  onSaved,
+}: {
+  initial: PromoCode | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    code: initial?.code ?? '',
+    discount_type: initial?.discount_type ?? 'percentage' as 'percentage' | 'fixed',
+    discount_value: initial?.discount_value ?? 0,
+    min_order_value: initial?.min_order_value ?? 0,
+    max_discount_amount: initial?.max_discount_amount ?? '',
+    applies_to: initial?.applies_to ?? 'all',
+    applies_to_ids: initial?.applies_to_ids ?? [],
+    start_date: initial?.start_date ?? '',
+    end_date: initial?.end_date ?? '',
+    usage_limit: initial?.usage_limit ?? '',
+    is_active: initial?.is_active ?? true,
+  });
+  const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<DbCategory[]>([]);
+  const [products, setProducts] = useState<DbProduct[]>([]);
+
+  useEffect(() => {
+    void (async () => {
+      const [{ data: cats }, { data: prods }] = await Promise.all([
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('products').select('*').order('name'),
+      ]);
+      setCategories((cats as DbCategory[]) ?? []);
+      setProducts((prods as DbProduct[]) ?? []);
+    })();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const payload = {
+      code: form.code.toUpperCase().trim(),
+      discount_type: form.discount_type,
+      discount_value: form.discount_value,
+      min_order_value: form.min_order_value,
+      max_discount_amount: form.max_discount_amount ? parseFloat(form.max_discount_amount) : null,
+      applies_to: form.applies_to,
+      applies_to_ids: form.applies_to_ids,
+      start_date: form.start_date || null,
+      end_date: form.end_date || null,
+      usage_limit: form.usage_limit ? parseInt(form.usage_limit) : null,
+      is_active: form.is_active,
+    };
+    if (initial) {
+      await updatePromoCode(initial.id, payload);
+    } else {
+      await createPromoCode(payload);
+    }
+    setSaving(false);
+    onSaved();
+  };
+
+  return (
+    <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-4 shadow-card">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-ink-900">{initial ? 'Edit' : 'New'} Promo Code</h3>
+        <button onClick={onClose}>
+          <X size={16} className="text-ink-400" />
+        </button>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Code *</label>
+        <input
+          value={form.code}
+          onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase().replace(/\s/g, '') })}
+          placeholder="e.g. SAVE10"
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Discount Type</label>
+          <select
+            value={form.discount_type}
+            onChange={(e) => setForm({ ...form, discount_type: e.target.value as 'percentage' | 'fixed' })}
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          >
+            <option value="percentage">Percentage</option>
+            <option value="fixed">Fixed Amount</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Value</label>
+          <input
+            type="number"
+            step="0.01"
+            value={form.discount_value}
+            onChange={(e) => setForm({ ...form, discount_value: Number(e.target.value) })}
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Min Order Value</label>
+          <input
+            type="number"
+            value={form.min_order_value}
+            onChange={(e) => setForm({ ...form, min_order_value: Number(e.target.value) })}
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Max Discount (for percentage)</label>
+          <input
+            type="number"
+            value={form.max_discount_amount}
+            onChange={(e) => setForm({ ...form, max_discount_amount: e.target.value })}
+            placeholder="Leave empty for no limit"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Applies To</label>
+        <select
+          value={form.applies_to}
+          onChange={(e) => setForm({ ...form, applies_to: e.target.value as 'all' | 'category' | 'product', applies_to_ids: [] })}
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        >
+          <option value="all">All products</option>
+          <option value="category">Specific categories</option>
+          <option value="product">Specific products</option>
+        </select>
+      </div>
+      {form.applies_to !== 'all' && (
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">
+            {form.applies_to === 'category' ? 'Select Categories' : 'Select Products'}
+          </label>
+          <select
+            multiple
+            value={form.applies_to_ids}
+            onChange={(e) =>
+              setForm({ ...form, applies_to_ids: Array.from(e.target.selectedOptions).map((o) => o.value) })
+            }
+            className="w-full h-24 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            size={4}
+          >
+            {form.applies_to === 'category' &&
+              categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            {form.applies_to === 'product' &&
+              products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.brand} {p.name}
+                </option>
+              ))}
+          </select>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Start Date</label>
+          <input
+            type="datetime-local"
+            value={form.start_date ? form.start_date.slice(0, 16) : ''}
+            onChange={(e) => setForm({ ...form, start_date: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">End Date</label>
+          <input
+            type="datetime-local"
+            value={form.end_date ? form.end_date.slice(0, 16) : ''}
+            onChange={(e) => setForm({ ...form, end_date: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Usage Limit</label>
+          <input
+            type="number"
+            value={form.usage_limit}
+            onChange={(e) => setForm({ ...form, usage_limit: e.target.value })}
+            placeholder="Leave empty for unlimited"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+        <div className="flex items-end h-10">
+          <label className="flex items-center gap-2 text-sm text-ink-700">
+            <input
+              type="checkbox"
+              checked={form.is_active}
+              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+              className="accent-brand-600"
+            />{' '}
+            Active
+          </label>
+        </div>
+      </div>
+      <button
+        onClick={handleSave}
+        disabled={saving || !form.code}
+        className="w-full h-11 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+      >
+        {saving ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save Promo Code</>}
+      </button>
+    </div>
+  );
+}
+
+// ----- DELIVERY SETTINGS MANAGER -----
+function DeliverySettingsManager() {
+  const [zones, setZones] = useState<DeliveryZone[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedZoneId, setSelectedZoneId] = useState<string>('');
+  const [charges, setCharges] = useState<DeliveryCharge[]>([]);
+  const [showZoneForm, setShowZoneForm] = useState(false);
+  const [editingZone, setEditingZone] = useState<DeliveryZone | null>(null);
+  const [showChargeForm, setShowChargeForm] = useState(false);
+  const [editingCharge, setEditingCharge] = useState<DeliveryCharge | null>(null);
+
+  const loadZones = useCallback(async () => {
+    const data = await fetchAllDeliveryZones();
+    setZones(data);
+    if (data.length > 0 && !selectedZoneId) setSelectedZoneId(data[0].id);
+    setLoading(false);
+  }, [selectedZoneId]);
+
+  useEffect(() => {
+    void loadZones();
+  }, [loadZones]);
+
+  // Load charges when zone changes
+  useEffect(() => {
+    if (!selectedZoneId) return;
+    async function loadCharges() {
+      const data = await fetchDeliveryChargesForZone(selectedZoneId);
+      setCharges(data);
+    }
+    loadCharges();
+  }, [selectedZoneId]);
+
+  const handleDeleteZone = async (id: string) => {
+    await deleteDeliveryZone(id);
+    void loadZones();
+  };
+
+  const handleToggleZone = async (zone: DeliveryZone) => {
+    // No active flag for zone, but we can update if needed.
+    // We'll just soft delete by pincodes? For simplicity, we'll allow delete.
+  };
+
+  const handleDeleteCharge = async (id: string) => {
+    await deleteDeliveryCharge(id);
+    const data = await fetchDeliveryChargesForZone(selectedZoneId);
+    setCharges(data);
+  };
+
+  if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-ink-900">Delivery Zones</h3>
+          <button
+            onClick={() => {
+              setEditingZone(null);
+              setShowZoneForm(true);
+            }}
+            className="h-8 px-3 rounded-lg bg-brand-600 text-white text-xs font-bold flex items-center gap-1"
+          >
+            <Plus size={14} /> Add Zone
+          </button>
+        </div>
+        {showZoneForm && (
+          <ZoneForm
+            initial={editingZone}
+            onClose={() => setShowZoneForm(false)}
+            onSaved={() => {
+              setShowZoneForm(false);
+              void loadZones();
+            }}
+          />
+        )}
+        <div className="space-y-2">
+          {zones.map((zone) => (
+            <div key={zone.id} className="flex items-center justify-between p-2 bg-ink-50 rounded-xl">
+              <div>
+                <p className="text-sm font-bold text-ink-800">{zone.name}</p>
+                <p className="text-xs text-ink-500">{zone.pincodes.length} pincodes</p>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => {
+                    setSelectedZoneId(zone.id);
+                  }}
+                  className={`h-8 px-3 rounded-lg text-xs font-bold ${
+                    selectedZoneId === zone.id ? 'bg-brand-100 text-brand-700' : 'bg-ink-200 text-ink-600'
+                  }`}
+                >
+                  {selectedZoneId === zone.id ? 'Selected' : 'Select'}
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingZone(zone);
+                    setShowZoneForm(true);
+                  }}
+                  className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button onClick={() => void handleDeleteZone(zone.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+          {zones.length === 0 && <p className="text-xs text-ink-400">No delivery zones defined.</p>}
+        </div>
+      </div>
+
+      {selectedZoneId && (
+        <div className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-ink-900">
+              Charges for {zones.find(z => z.id === selectedZoneId)?.name}
+            </h3>
+            <button
+              onClick={() => {
+                setEditingCharge(null);
+                setShowChargeForm(true);
+              }}
+              className="h-8 px-3 rounded-lg bg-brand-600 text-white text-xs font-bold flex items-center gap-1"
+            >
+              <Plus size={14} /> Add Charge
+            </button>
+          </div>
+          {showChargeForm && (
+            <ChargeForm
+              zoneId={selectedZoneId}
+              initial={editingCharge}
+              onClose={() => setShowChargeForm(false)}
+              onSaved={() => {
+                setShowChargeForm(false);
+                async function reload() {
+                  const data = await fetchDeliveryChargesForZone(selectedZoneId);
+                  setCharges(data);
+                }
+                reload();
+              }}
+            />
+          )}
+          <div className="space-y-2">
+            {charges.map((charge) => (
+              <div key={charge.id} className="flex items-center justify-between p-2 bg-ink-50 rounded-xl">
+                <div>
+                  <p className="text-sm font-bold text-ink-800">
+                    ₹{charge.charge}
+                    {charge.min_order_value !== null && charge.min_order_value > 0 && ` (min ₹${charge.min_order_value})`}
+                    {charge.max_order_value !== null && ` - max ₹${charge.max_order_value}`}
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      setEditingCharge(charge);
+                      setShowChargeForm(true);
+                    }}
+                    className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button onClick={() => void handleDeleteCharge(charge.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {charges.length === 0 && <p className="text-xs text-ink-400">No charges defined for this zone.</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ----- Zone Form -----
+function ZoneForm({
+  initial,
+  onClose,
+  onSaved,
+}: {
+  initial: DeliveryZone | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: initial?.name ?? '',
+    pincodes: initial?.pincodes.join(', ') ?? '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const pincodesArray = form.pincodes.split(',').map(s => s.trim()).filter(Boolean);
+    const payload = {
+      name: form.name,
+      pincodes: pincodesArray,
+    };
+    if (initial) {
+      await updateDeliveryZone(initial.id, payload);
+    } else {
+      await createDeliveryZone(payload);
+    }
+    setSaving(false);
+    onSaved();
+  };
+
+  return (
+    <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-3 shadow-card mb-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-bold text-ink-900">{initial ? 'Edit' : 'New'} Zone</h4>
+        <button onClick={onClose}>
+          <X size={16} className="text-ink-400" />
+        </button>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Zone Name *</label>
+        <input
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="e.g. Delhi NCR"
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Pincodes (comma separated) *</label>
+        <input
+          value={form.pincodes}
+          onChange={(e) => setForm({ ...form, pincodes: e.target.value })}
+          placeholder="110001, 110002, 110003"
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        />
+      </div>
+      <button
+        onClick={handleSave}
+        disabled={saving || !form.name || !form.pincodes}
+        className="w-full h-10 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+      >
+        {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Zone
+      </button>
+    </div>
+  );
+}
+
+// ----- Charge Form -----
+function ChargeForm({
+  zoneId,
+  initial,
+  onClose,
+  onSaved,
+}: {
+  zoneId: string;
+  initial: DeliveryCharge | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    min_order_value: initial?.min_order_value ?? '',
+    max_order_value: initial?.max_order_value ?? '',
+    charge: initial?.charge ?? 0,
+    is_active: initial?.is_active ?? true,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const payload = {
+      zone_id: zoneId,
+      min_order_value: form.min_order_value ? parseFloat(form.min_order_value) : null,
+      max_order_value: form.max_order_value ? parseFloat(form.max_order_value) : null,
+      charge: form.charge,
+      is_active: form.is_active,
+    };
+    if (initial) {
+      await updateDeliveryCharge(initial.id, payload);
+    } else {
+      await createDeliveryCharge(payload);
+    }
+    setSaving(false);
+    onSaved();
+  };
+
+  return (
+    <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-3 shadow-card mb-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-bold text-ink-900">{initial ? 'Edit' : 'New'} Charge</h4>
+        <button onClick={onClose}>
+          <X size={16} className="text-ink-400" />
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Min Order Value</label>
+          <input
+            type="number"
+            value={form.min_order_value}
+            onChange={(e) => setForm({ ...form, min_order_value: e.target.value })}
+            placeholder="0"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Max Order Value</label>
+          <input
+            type="number"
+            value={form.max_order_value}
+            onChange={(e) => setForm({ ...form, max_order_value: e.target.value })}
+            placeholder="Unlimited"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Charge (₹) *</label>
+        <input
+          type="number"
+          step="0.01"
+          value={form.charge}
+          onChange={(e) => setForm({ ...form, charge: Number(e.target.value) })}
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        />
+      </div>
+      <label className="flex items-center gap-2 text-sm text-ink-700">
+        <input
+          type="checkbox"
+          checked={form.is_active}
+          onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+          className="accent-brand-600"
+        />{' '}
+        Active
+      </label>
+      <button
+        onClick={handleSave}
+        disabled={saving || !form.charge}
+        className="w-full h-10 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+      >
+        {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Charge
+      </button>
+    </div>
+  );
+}
+
+// ----- SMART COLLECTIONS MANAGER (unchanged) -----
 function SmartCollectionsManager() {
   const [collections, setCollections] = useState<SmartCollection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2020,7 +2928,6 @@ function SmartCollectionsManager() {
   );
 }
 
-// ----- SMART COLLECTION FORM -----
 function SmartCollectionForm({
   initial,
   categories,
@@ -2222,7 +3129,7 @@ function SmartCollectionForm({
   );
 }
 
-// ----- ROLES MANAGER -----
+// ----- ROLES MANAGER (unchanged) -----
 function RolesManager() {
   const [users, setUsers] = useState<{ user_id: string; role: string; full_name: string; phone: string }[]>([]);
   const [loading, setLoading] = useState(true);

@@ -1,8 +1,10 @@
+// screens/CheckoutScreen.tsx
+
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { ArrowLeft, MapPin, Tag, Truck, Loader as Loader2, CircleCheck as CheckCircle2, CreditCard, Banknote, AlertCircle, X } from 'lucide-react';
+import { ArrowLeft, MapPin, Tag, Truck, Loader2, CheckCircle2, CreditCard, Banknote, AlertCircle, X, Gift } from 'lucide-react';
 import type { useCart } from '@/store';
 import type { DbAddress } from '@/services/catalog';
-import { fetchAddresses, placeOrder, clearCartItems } from '@/services/catalog';
+import { fetchAddresses, getDeliveryCharge, computeGST } from '@/services/catalog';
 import { supabase } from '@/lib/supabase';
 
 interface CheckoutScreenProps {
@@ -21,27 +23,59 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod');
   const [showPaymentAlert, setShowPaymentAlert] = useState(false);
   const [paymentAlertMsg, setPaymentAlertMsg] = useState('');
+  const [deliveryCharge, setDeliveryCharge] = useState(0);
+  const [deliveryZoneId, setDeliveryZoneId] = useState<string | null>(null);
+  const [gstTotal, setGstTotal] = useState(0);
+  const [gstBreakdown, setGstBreakdown] = useState<Record<number, number>>({});
+  const [promoInput, setPromoInput] = useState('');
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [applyingPromo, setApplyingPromo] = useState(false);
+
   const keepAliveIntervalRef = useRef<number | null>(null);
   const isSubmittingRef = useRef(false);
 
-  const load = useCallback(async () => {
-    const data = await fetchAddresses();
-    setAddresses(data);
-    if (data.length > 0) {
-      const def = data.find((a) => a.is_default);
-      setSelectedAddr(def?.id ?? data[0].id);
+  // Compute derived values
+  const effectiveSubtotal = cart.subtotal; // already volume-discounted
+  const promoDiscount = cart.appliedPromo?.discount || 0;
+  const taxableAmount = effectiveSubtotal - promoDiscount;
+  const totalWithGST = taxableAmount + gstTotal;
+  const total = totalWithGST + deliveryCharge;
+
+  // Load addresses and calculate delivery/GST
+  const loadData = useCallback(async () => {
+    const addrData = await fetchAddresses();
+    setAddresses(addrData);
+    if (addrData.length > 0) {
+      const def = addrData.find((a) => a.is_default);
+      setSelectedAddr(def?.id ?? addrData[0].id);
     }
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadData();
+  }, [loadData]);
 
-  const deliveryFee = cart.subtotal >= 2000 ? 0 : 80;
-  const total = cart.subtotal + deliveryFee;
+  // When address or subtotal changes, recalculate delivery and GST
+  useEffect(() => {
+    async function recalc() {
+      if (!selectedAddr) return;
+      const addr = addresses.find(a => a.id === selectedAddr);
+      if (!addr) return;
+      // Delivery
+      const { charge, zoneId } = await getDeliveryCharge(addr.postal_code, effectiveSubtotal);
+      setDeliveryCharge(charge);
+      setDeliveryZoneId(zoneId || null);
 
-  // beforeunload handler to cancel on tab close
+      // GST
+      const { gstTotal, gstBreakdown } = computeGST(cart.items);
+      setGstTotal(gstTotal);
+      setGstBreakdown(gstBreakdown);
+    }
+    void recalc();
+  }, [selectedAddr, addresses, effectiveSubtotal, cart.items]);
+
+  // beforeunload handler (same as before)
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (sessionStorage.getItem('active_checkout') === 'true') {
@@ -56,7 +90,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         }
         sessionStorage.removeItem('active_checkout');
         sessionStorage.removeItem('checkout_order_id');
-        sessionStorage.removeItem('checkout_start_time');
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -70,9 +103,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         await supabase.functions.invoke('razorpay', {
           body: { action: 'keep_alive', order_id: orderId },
         });
-      } catch (e) {
-        // silent fail
-      }
+      } catch (e) { /* silent */ }
     }, 5 * 60 * 1000);
   };
 
@@ -83,11 +114,24 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     }
   };
 
+  const handleApplyPromo = async () => {
+    if (!promoInput.trim()) return;
+    setApplyingPromo(true);
+    setPromoError(null);
+    const result = await cart.applyPromo(promoInput.trim());
+    if (result.success) {
+      setPromoInput('');
+      // Recalculate delivery and GST (subtotal changed)
+      // Will happen via useEffect
+    } else {
+      setPromoError(result.error || 'Invalid promo code');
+    }
+    setApplyingPromo(false);
+  };
+
   const handlePlaceOrder = async () => {
-    // Prevent concurrent submissions
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
-
     if (!selectedAddr) {
       setError('Please select a delivery address.');
       isSubmittingRef.current = false;
@@ -97,15 +141,29 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     setError('');
 
     try {
-      const items = cart.items.map((i) => ({ product_id: i.product.id, quantity: i.quantity }));
-      const orderId = await placeOrder(selectedAddr, items);
-      if (!orderId) throw new Error('Order failed');
+      const items = cart.items.map((i) => ({
+        product_id: i.product.id,
+        quantity: i.quantity,
+      }));
+
+      // Call the new create_order with promo and delivery zone
+      const { data: orderId, error: orderError } = await supabase.rpc('create_order', {
+        p_address_id: selectedAddr,
+        p_items: items,
+        p_promo_code: cart.appliedPromo?.code || null,
+        p_delivery_zone_id: deliveryZoneId,
+      });
+
+      if (orderError || !orderId) {
+        throw new Error(orderError?.message || 'Order creation failed');
+      }
 
       sessionStorage.setItem('checkout_order_id', orderId);
       sessionStorage.setItem('active_checkout', 'true');
       sessionStorage.setItem('checkout_start_time', Date.now().toString());
 
       if (paymentMethod === 'razorpay') {
+        // ... (same Razorpay flow as before, but use orderId)
         const { data: payData, error: payErr } = await supabase.functions.invoke('razorpay', {
           body: { action: 'create_order', order_id: orderId, amount: total },
         });
@@ -113,7 +171,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
           await supabase.functions.invoke('razorpay', {
             body: { action: 'cancel_order', order_id: orderId },
           });
-          setPaymentAlertMsg('Payment setup failed. Your order was cancelled and items remain in your cart.');
+          setPaymentAlertMsg('Payment setup failed. Your order was cancelled.');
           setShowPaymentAlert(true);
           setPlacing(false);
           sessionStorage.removeItem('active_checkout');
@@ -137,7 +195,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
         const Razorpay = (window as any).Razorpay as new (opts: Record<string, unknown>) => { open: () => void };
         let paymentSucceeded = false;
-
         startKeepAlive(orderId);
 
         const rzp = new Razorpay({
@@ -158,7 +215,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                 },
               });
               if (verification.error || !verification.data?.verified) {
-                setPaymentAlertMsg('Payment could not be verified. Your order is on hold — please contact support.');
+                setPaymentAlertMsg('Payment could not be verified. Your order is on hold.');
                 setShowPaymentAlert(true);
                 setPlacing(false);
                 sessionStorage.removeItem('active_checkout');
@@ -169,11 +226,11 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
               paymentSucceeded = true;
               sessionStorage.removeItem('active_checkout');
               sessionStorage.removeItem('checkout_order_id');
-              await clearCartItems(cart.cartId ?? '');
               cart.clearCart();
+              cart.clearPromo();
               onOrderPlaced(orderId);
             } catch {
-              setPaymentAlertMsg('Payment verification failed. Please contact support before trying again.');
+              setPaymentAlertMsg('Payment verification failed.');
               setShowPaymentAlert(true);
               setPlacing(false);
               sessionStorage.removeItem('active_checkout');
@@ -188,7 +245,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                 void supabase.functions.invoke('razorpay', {
                   body: { action: 'cancel_order', order_id: orderId },
                 });
-                setPaymentAlertMsg('Payment was cancelled. Your order was not placed and items remain in your cart.');
+                setPaymentAlertMsg('Payment was cancelled.');
                 setShowPaymentAlert(true);
                 setPlacing(false);
                 sessionStorage.removeItem('active_checkout');
@@ -201,7 +258,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         });
         rzp.open();
       } else {
-        // COD – create a payment record via edge function (bypasses RLS)
+        // COD – create payment record
         const { error: codPayError } = await supabase.functions.invoke('razorpay', {
           body: { action: 'create_cod_payment', order_id: orderId, amount: total },
         });
@@ -213,8 +270,8 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         }
         sessionStorage.removeItem('active_checkout');
         sessionStorage.removeItem('checkout_order_id');
-        await clearCartItems(cart.cartId ?? '');
         cart.clearCart();
+        cart.clearPromo();
         onOrderPlaced(orderId);
       }
     } catch (err) {
@@ -238,6 +295,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
   return (
     <div className="px-4 pb-6 space-y-4">
+      {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center">
           <ArrowLeft size={18} />
@@ -248,13 +306,11 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         </div>
       </div>
 
+      {/* Address section (unchanged) */}
       <section>
         <h2 className="text-sm font-bold text-ink-900 mb-2">Delivery address</h2>
         {addresses.length === 0 ? (
-          <button
-            onClick={onAddAddress}
-            className="w-full h-14 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50 text-brand-700 text-sm font-bold flex items-center justify-center gap-2"
-          >
+          <button onClick={onAddAddress} className="w-full h-14 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50 text-brand-700 text-sm font-bold flex items-center justify-center gap-2">
             <MapPin size={16} /> Add a delivery address
           </button>
         ) : (
@@ -268,61 +324,74 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                 }`}
               >
                 <div className="flex items-start gap-2.5">
-                  <div
-                    className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                      selectedAddr === addr.id ? 'border-brand-600 bg-brand-600' : 'border-ink-300'
-                    }`}
-                  >
+                  <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                    selectedAddr === addr.id ? 'border-brand-600 bg-brand-600' : 'border-ink-300'
+                  }`}>
                     {selectedAddr === addr.id && <CheckCircle2 size={12} className="text-white" />}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-bold text-ink-800">{addr.label}</p>
-                      {addr.is_default && (
-                        <span className="text-[9px] font-bold bg-brand-100 text-brand-700 rounded-full px-2 py-0.5">
-                          DEFAULT
-                        </span>
-                      )}
+                      {addr.is_default && <span className="text-[9px] font-bold bg-brand-100 text-brand-700 rounded-full px-2 py-0.5">DEFAULT</span>}
                     </div>
-                    <p className="text-xs text-ink-600 mt-1 leading-relaxed">
-                      {addr.line1}, {addr.city}, {addr.state} - {addr.postal_code}
-                    </p>
-                    <p className="text-[11px] text-ink-400 mt-1">
-                      {addr.recipient_name} · {addr.phone}
-                    </p>
+                    <p className="text-xs text-ink-600 mt-1 leading-relaxed">{addr.line1}, {addr.city}, {addr.state} - {addr.postal_code}</p>
+                    <p className="text-[11px] text-ink-400 mt-1">{addr.recipient_name} · {addr.phone}</p>
                   </div>
                 </div>
               </button>
             ))}
-            <button
-              onClick={onAddAddress}
-              className="w-full h-10 rounded-xl border border-ink-200 text-ink-600 text-xs font-bold flex items-center justify-center gap-1"
-            >
+            <button onClick={onAddAddress} className="w-full h-10 rounded-xl border border-ink-200 text-ink-600 text-xs font-bold flex items-center justify-center gap-1">
               + Add another address
             </button>
           </div>
         )}
       </section>
 
+      {/* Promo Code */}
+      <section>
+        <h2 className="text-sm font-bold text-ink-900 mb-2">Promo Code</h2>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={promoInput}
+            onChange={(e) => setPromoInput(e.target.value)}
+            placeholder="Enter code"
+            className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            disabled={!!cart.appliedPromo}
+          />
+          <button
+            onClick={handleApplyPromo}
+            disabled={applyingPromo || !promoInput.trim() || !!cart.appliedPromo}
+            className="h-10 px-4 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-1 disabled:opacity-60"
+          >
+            {applyingPromo ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />} Apply
+          </button>
+          {cart.appliedPromo && (
+            <button onClick={() => { cart.clearPromo(); }} className="h-10 px-3 rounded-xl bg-ink-100 text-ink-600 text-sm font-bold">
+              Remove
+            </button>
+          )}
+        </div>
+        {promoError && <p className="text-xs text-red-500 mt-1">{promoError}</p>}
+        {cart.appliedPromo && (
+          <p className="text-xs text-brand-600 mt-1">Promo applied: {cart.appliedPromo.code} (₹{cart.appliedPromo.discount} off)</p>
+        )}
+      </section>
+
+      {/* Payment method (unchanged) */}
       <section>
         <h2 className="text-sm font-bold text-ink-900 mb-2">Payment method</h2>
         <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => setPaymentMethod('cod')}
-            className={`p-3.5 rounded-2xl border-2 text-left transition-colors ${
-              paymentMethod === 'cod' ? 'border-brand-500 bg-brand-50' : 'border-ink-100 bg-white'
-            }`}
-          >
+          <button onClick={() => setPaymentMethod('cod')} className={`p-3.5 rounded-2xl border-2 text-left transition-colors ${
+            paymentMethod === 'cod' ? 'border-brand-500 bg-brand-50' : 'border-ink-100 bg-white'
+          }`}>
             <Banknote size={20} className={paymentMethod === 'cod' ? 'text-brand-600' : 'text-ink-400'} />
             <p className="text-sm font-bold text-ink-800 mt-2">Cash on delivery</p>
             <p className="text-[10px] text-ink-400 mt-0.5">Pay when you receive</p>
           </button>
-          <button
-            onClick={() => setPaymentMethod('razorpay')}
-            className={`p-3.5 rounded-2xl border-2 text-left transition-colors ${
-              paymentMethod === 'razorpay' ? 'border-brand-500 bg-brand-50' : 'border-ink-100 bg-white'
-            }`}
-          >
+          <button onClick={() => setPaymentMethod('razorpay')} className={`p-3.5 rounded-2xl border-2 text-left transition-colors ${
+            paymentMethod === 'razorpay' ? 'border-brand-500 bg-brand-50' : 'border-ink-100 bg-white'
+          }`}>
             <CreditCard size={20} className={paymentMethod === 'razorpay' ? 'text-brand-600' : 'text-ink-400'} />
             <p className="text-sm font-bold text-ink-800 mt-2">Online payment</p>
             <p className="text-[10px] text-ink-400 mt-0.5">Razorpay secure</p>
@@ -330,6 +399,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         </div>
       </section>
 
+      {/* Order summary (with GST and delivery) */}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-3">
         <h2 className="text-sm font-bold text-ink-900">Order summary</h2>
         <div className="space-y-1.5">
@@ -339,28 +409,32 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                 {item.product.brand} {item.product.name} × {item.quantity}
               </span>
               <span className="font-semibold text-ink-800 ml-2">
-                ₹{(item.product.price * item.quantity).toLocaleString('en-IN')}
+                ₹{(item.effectiveUnitPrice * item.quantity).toLocaleString('en-IN')}
               </span>
             </div>
           ))}
         </div>
         <div className="border-t border-dashed border-ink-200 pt-3 space-y-1.5">
           <div className="flex justify-between text-xs text-ink-500">
-            <span>Subtotal</span>
-            <span>₹{cart.subtotal.toLocaleString('en-IN')}</span>
+            <span>Subtotal (after volume discount)</span>
+            <span>₹{effectiveSubtotal.toLocaleString('en-IN')}</span>
           </div>
-          <div className="flex justify-between text-xs text-brand-600">
-            <span className="flex items-center gap-1">
-              <Tag size={13} /> Discount
-            </span>
-            <span>- ₹{cart.discount.toLocaleString('en-IN')}</span>
-          </div>
+          {cart.appliedPromo && (
+            <div className="flex justify-between text-xs text-brand-600">
+              <span>Promo discount</span>
+              <span>- ₹{cart.appliedPromo.discount.toLocaleString('en-IN')}</span>
+            </div>
+          )}
+          {Object.entries(gstBreakdown).map(([rate, amount]) => (
+            <div key={rate} className="flex justify-between text-xs text-ink-500">
+              <span>GST @{rate}%</span>
+              <span>₹{amount.toLocaleString('en-IN')}</span>
+            </div>
+          ))}
           <div className="flex justify-between text-xs text-ink-500">
-            <span className="flex items-center gap-1">
-              <Truck size={13} /> Delivery
-            </span>
+            <span>Delivery</span>
             <span className="font-semibold text-brand-600">
-              {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
+              {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}
             </span>
           </div>
           <div className="border-t border-dashed border-ink-200 pt-2 flex justify-between">
@@ -378,23 +452,16 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft disabled:opacity-60"
       >
         {placing ? (
-          <>
-            <Loader2 size={17} className="animate-spin" /> Placing order...
-          </>
+          <><Loader2 size={17} className="animate-spin" /> Placing order...</>
         ) : (
           <>Place order · ₹{total.toLocaleString('en-IN')}</>
         )}
       </button>
 
+      {/* Payment alert modal (unchanged) */}
       {showPaymentAlert && (
-        <div
-          className="fixed inset-0 z-[300] bg-black/40 flex items-end sm:items-center justify-center p-4"
-          onClick={() => setShowPaymentAlert(false)}
-        >
-          <div
-            className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-3 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-[300] bg-black/40 flex items-end sm:items-center justify-center p-4" onClick={() => setShowPaymentAlert(false)}>
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-3 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 shrink-0">
                 <AlertCircle size={22} />
@@ -407,10 +474,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                 <X size={18} />
               </button>
             </div>
-            <button
-              onClick={() => setShowPaymentAlert(false)}
-              className="w-full h-10 rounded-xl bg-ink-900 text-white text-sm font-bold"
-            >
+            <button onClick={() => setShowPaymentAlert(false)} className="w-full h-10 rounded-xl bg-ink-900 text-white text-sm font-bold">
               Got it
             </button>
           </div>

@@ -11,6 +11,11 @@ import type {
   Store,
   TrustedBrand,
   SmartCollection,
+  VolumePricingTier,
+  PromoCode,
+  DeliveryZone,
+  DeliveryCharge,
+  CartItem,
 } from '@/types';
 
 export interface DbCategory {
@@ -38,6 +43,8 @@ export interface DbProduct {
   description: string;
   rating: number;
   is_active: boolean;
+  hsn_code?: string;
+  gst_percentage?: number;
 }
 
 export interface DbOrder {
@@ -52,6 +59,10 @@ export interface DbOrder {
   total: number;
   notes: string;
   created_at: string;
+  gst_amount?: number;
+  promo_code_id?: string | null;
+  promo_discount?: number;
+  delivery_zone_id?: string | null;
 }
 
 export interface DbOrderItem {
@@ -127,6 +138,8 @@ export function mapProduct(db: DbProduct, categoryId: string): Product {
     rating: Number(db.rating),
     description: db.description,
     inStock: db.stock_quantity > 0,
+    hsn_code: db.hsn_code || '',
+    gst_percentage: db.gst_percentage || 0,
   };
 }
 
@@ -316,11 +329,15 @@ export async function fetchOrderDetail(
 
 export async function placeOrder(
   addressId: string,
-  items: { product_id: string; quantity: number }[]
+  items: { product_id: string; quantity: number }[],
+  promoCode?: string | null,
+  deliveryZoneId?: string | null
 ): Promise<string | null> {
   const { data, error } = await supabase.rpc('create_order', {
     p_address_id: addressId,
     p_items: items,
+    p_promo_code: promoCode || null,
+    p_delivery_zone_id: deliveryZoneId || null,
   });
   if (error) throw error;
   return data as string;
@@ -443,7 +460,6 @@ export async function createHomeBanner(
       position: input.position || 'top',
       start_at: input.start_at,
       end_at: input.end_at,
-      // --- NEW FIELDS ADDED ---
       bg_type: input.bg_type,
       bg_color: input.bg_color,
       bg_gradient: input.bg_gradient,
@@ -475,7 +491,6 @@ export async function updateHomeBanner(id: string, updates: Partial<HomeBanner>)
       position: updates.position || 'top',
       start_at: updates.start_at,
       end_at: updates.end_at,
-      // --- NEW FIELDS ADDED ---
       bg_type: updates.bg_type,
       bg_color: updates.bg_color,
       bg_gradient: updates.bg_gradient,
@@ -516,7 +531,6 @@ export async function duplicateHomeBanner(id: string): Promise<HomeBanner | null
       position: orig.position || 'top',
       start_at: null,
       end_at: null,
-      // --- NEW FIELDS ADDED (copy from original) ---
       bg_type: orig.bg_type,
       bg_color: orig.bg_color,
       bg_gradient: orig.bg_gradient,
@@ -742,8 +756,6 @@ export async function deleteTrustedBrand(id: string): Promise<void> {
   await supabase.from('trusted_brands').delete().eq('id', id);
 }
 
-export type { ActionType };
-
 // ----- SMART COLLECTIONS CRUD -----
 export async function fetchSmartCollections(): Promise<SmartCollection[]> {
   const { data, error } = await supabase
@@ -809,4 +821,213 @@ export async function updateSmartCollection(
 
 export async function deleteSmartCollection(id: string): Promise<void> {
   await supabase.from('smart_collections').delete().eq('id', id);
+}
+
+// ================================================================
+// NEW: Volume Pricing
+// ================================================================
+export async function fetchVolumePricing(productId: string): Promise<VolumePricingTier[]> {
+  const { data, error } = await supabase
+    .from('product_volume_pricing')
+    .select('*')
+    .eq('product_id', productId)
+    .order('min_quantity');
+  if (error) throw error;
+  return data as VolumePricingTier[];
+}
+
+export async function getEffectiveUnitPrice(product: Product, quantity: number): Promise<number> {
+  if (quantity < 1) return product.price;
+  const tiers = await fetchVolumePricing(product.id);
+  if (!tiers.length) return product.price;
+  const applicable = tiers
+    .filter(t => quantity >= t.min_quantity && (t.max_quantity === null || quantity <= t.max_quantity))
+    .sort((a, b) => a.unit_price - b.unit_price);
+  return applicable.length ? applicable[0].unit_price : product.price;
+}
+
+export async function createVolumePricingTier(
+  input: Omit<VolumePricingTier, 'id' | 'created_at' | 'updated_at'>
+): Promise<VolumePricingTier | null> {
+  const { data, error } = await supabase.from('product_volume_pricing').insert(input).select().single();
+  if (error) throw error;
+  return data as VolumePricingTier;
+}
+
+export async function updateVolumePricingTier(id: string, updates: Partial<VolumePricingTier>): Promise<void> {
+  const { error } = await supabase.from('product_volume_pricing').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteVolumePricingTier(id: string): Promise<void> {
+  await supabase.from('product_volume_pricing').delete().eq('id', id);
+}
+
+// ================================================================
+// NEW: GST
+// ================================================================
+export function computeGST(items: CartItem[]): { gstTotal: number; gstBreakdown: Record<number, number> } {
+  const breakdown: Record<number, number> = {};
+  let total = 0;
+  for (const item of items) {
+    const rate = item.product.gst_percentage || 0;
+    const taxable = item.effectiveUnitPrice * item.quantity;
+    const gst = taxable * (rate / 100);
+    breakdown[rate] = (breakdown[rate] || 0) + gst;
+    total += gst;
+  }
+  return { gstTotal: total, gstBreakdown: breakdown };
+}
+
+// ================================================================
+// NEW: Promo Codes
+// ================================================================
+export async function fetchAllPromoCodes(): Promise<PromoCode[]> {
+  const { data, error } = await supabase.from('promo_codes').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return data as PromoCode[];
+}
+
+export async function createPromoCode(
+  input: Omit<PromoCode, 'id' | 'used_count' | 'created_at' | 'updated_at'>
+): Promise<PromoCode | null> {
+  const { data, error } = await supabase.from('promo_codes').insert(input).select().single();
+  if (error) throw error;
+  return data as PromoCode;
+}
+
+export async function updatePromoCode(id: string, updates: Partial<PromoCode>): Promise<void> {
+  const { error } = await supabase.from('promo_codes').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deletePromoCode(id: string): Promise<void> {
+  await supabase.from('promo_codes').delete().eq('id', id);
+}
+
+export async function validatePromoCode(
+  code: string,
+  subtotal: number,
+  items: CartItem[]
+): Promise<{ valid: boolean; discount: number; promoId?: string; error?: string }> {
+  const { data: promo, error } = await supabase
+    .from('promo_codes')
+    .select('*')
+    .eq('code', code)
+    .maybeSingle();
+
+  if (error || !promo) return { valid: false, discount: 0, error: 'Invalid promo code' };
+
+  const p = promo as PromoCode;
+  if (!p.is_active) return { valid: false, discount: 0, error: 'Promo code is inactive' };
+  if (p.start_date && new Date(p.start_date) > new Date()) return { valid: false, discount: 0, error: 'Promo code not yet active' };
+  if (p.end_date && new Date(p.end_date) < new Date()) return { valid: false, discount: 0, error: 'Promo code has expired' };
+  if (p.usage_limit !== null && p.used_count >= p.usage_limit) return { valid: false, discount: 0, error: 'Promo code usage limit reached' };
+  if (p.min_order_value > 0 && subtotal < p.min_order_value) {
+    return { valid: false, discount: 0, error: `Minimum order value ₹${p.min_order_value} required` };
+  }
+  // Check applies_to
+  if (p.applies_to === 'category' && p.applies_to_ids?.length) {
+    const itemCategories = items.map(i => i.product.category);
+    const allowed = p.applies_to_ids.some(id => itemCategories.includes(id));
+    if (!allowed) return { valid: false, discount: 0, error: 'Promo code does not apply to items in your cart' };
+  }
+  if (p.applies_to === 'product' && p.applies_to_ids?.length) {
+    const productIds = items.map(i => i.product.id);
+    const allowed = p.applies_to_ids.some(id => productIds.includes(id));
+    if (!allowed) return { valid: false, discount: 0, error: 'Promo code does not apply to items in your cart' };
+  }
+
+  let discount = 0;
+  if (p.discount_type === 'percentage') {
+    discount = subtotal * (p.discount_value / 100);
+    if (p.max_discount_amount && discount > p.max_discount_amount) {
+      discount = p.max_discount_amount;
+    }
+  } else {
+    discount = p.discount_value;
+  }
+  if (discount > subtotal) discount = subtotal;
+
+  return { valid: true, discount, promoId: p.id };
+}
+
+// ================================================================
+// NEW: Delivery Zones & Charges
+// ================================================================
+export async function fetchDeliveryZones(): Promise<DeliveryZone[]> {
+  const { data, error } = await supabase.from('delivery_zones').select('*').order('name');
+  if (error) throw error;
+  return data as DeliveryZone[];
+}
+
+export async function fetchAllDeliveryZones(): Promise<DeliveryZone[]> {
+  return fetchDeliveryZones(); // same
+}
+
+export async function createDeliveryZone(input: Omit<DeliveryZone, 'id' | 'created_at' | 'updated_at'>): Promise<DeliveryZone | null> {
+  const { data, error } = await supabase.from('delivery_zones').insert(input).select().single();
+  if (error) throw error;
+  return data as DeliveryZone;
+}
+
+export async function updateDeliveryZone(id: string, updates: Partial<DeliveryZone>): Promise<void> {
+  const { error } = await supabase.from('delivery_zones').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteDeliveryZone(id: string): Promise<void> {
+  await supabase.from('delivery_zones').delete().eq('id', id);
+}
+
+export async function fetchDeliveryChargesForZone(zoneId: string): Promise<DeliveryCharge[]> {
+  const { data, error } = await supabase
+    .from('delivery_charges')
+    .select('*')
+    .eq('zone_id', zoneId)
+    .eq('is_active', true)
+    .order('min_order_value');
+  if (error) throw error;
+  return data as DeliveryCharge[];
+}
+
+export async function createDeliveryCharge(input: Omit<DeliveryCharge, 'id' | 'created_at' | 'updated_at'>): Promise<DeliveryCharge | null> {
+  const { data, error } = await supabase.from('delivery_charges').insert(input).select().single();
+  if (error) throw error;
+  return data as DeliveryCharge;
+}
+
+export async function updateDeliveryCharge(id: string, updates: Partial<DeliveryCharge>): Promise<void> {
+  const { error } = await supabase.from('delivery_charges').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteDeliveryCharge(id: string): Promise<void> {
+  await supabase.from('delivery_charges').delete().eq('id', id);
+}
+
+export async function getDeliveryCharge(pincode: string, subtotal: number): Promise<{ charge: number; zoneId?: string }> {
+  // Find zone that contains this pincode
+  const { data: zones, error } = await supabase
+    .from('delivery_zones')
+    .select('id')
+    .contains('pincodes', [pincode]);
+  if (error || !zones || zones.length === 0) {
+    return { charge: 0 };
+  }
+  const zoneIds = zones.map(z => z.id);
+  // Find applicable charge rule
+  const { data: charges, error: chargeError } = await supabase
+    .from('delivery_charges')
+    .select('id, charge')
+    .in('zone_id', zoneIds)
+    .eq('is_active', true)
+    .or(`min_order_value.is.null,min_order_value.le.${subtotal}`)
+    .or(`max_order_value.is.null,max_order_value.ge.${subtotal}`)
+    .order('min_order_value', { ascending: false })
+    .limit(1);
+  if (chargeError || !charges || charges.length === 0) {
+    return { charge: 0, zoneId: zoneIds[0] };
+  }
+  return { charge: charges[0].charge, zoneId: zoneIds[0] };
 }

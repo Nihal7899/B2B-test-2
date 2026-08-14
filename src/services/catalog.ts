@@ -368,7 +368,7 @@ export async function updateProfile(updates: {
   if (error) throw error;
 }
 
-// ----- HOME BANNERS (Unified) -----
+// ----- HOME BANNERS -----
 export interface DbHomeBanner {
   id: string;
   badge: string | null;
@@ -636,7 +636,7 @@ export async function fetchAllBrands(): Promise<string[]> {
   return Array.from(brands).sort();
 }
 
-// ----- STORES CRUD -----
+// ----- STORES -----
 export async function fetchStores(): Promise<Store[]> {
   const { data, error } = await supabase
     .from('stores')
@@ -702,7 +702,7 @@ export async function deleteStore(id: string): Promise<void> {
   await supabase.from('stores').delete().eq('id', id);
 }
 
-// ----- TRUSTED BRANDS CRUD -----
+// ----- TRUSTED BRANDS -----
 export async function fetchTrustedBrands(): Promise<TrustedBrand[]> {
   const { data, error } = await supabase
     .from('trusted_brands')
@@ -756,7 +756,7 @@ export async function deleteTrustedBrand(id: string): Promise<void> {
   await supabase.from('trusted_brands').delete().eq('id', id);
 }
 
-// ----- SMART COLLECTIONS CRUD -----
+// ----- SMART COLLECTIONS -----
 export async function fetchSmartCollections(): Promise<SmartCollection[]> {
   const { data, error } = await supabase
     .from('smart_collections')
@@ -824,7 +824,7 @@ export async function deleteSmartCollection(id: string): Promise<void> {
 }
 
 // ================================================================
-// NEW: Volume Pricing
+// VOLUME PRICING
 // ================================================================
 export async function fetchVolumePricing(productId: string): Promise<VolumePricingTier[]> {
   const { data, error } = await supabase
@@ -864,7 +864,7 @@ export async function deleteVolumePricingTier(id: string): Promise<void> {
 }
 
 // ================================================================
-// NEW: GST
+// GST
 // ================================================================
 export function computeGST(items: CartItem[]): { gstTotal: number; gstBreakdown: Record<number, number> } {
   const breakdown: Record<number, number> = {};
@@ -880,7 +880,7 @@ export function computeGST(items: CartItem[]): { gstTotal: number; gstBreakdown:
 }
 
 // ================================================================
-// NEW: Promo Codes
+// PROMO CODES
 // ================================================================
 export async function fetchAllPromoCodes(): Promise<PromoCode[]> {
   const { data, error } = await supabase.from('promo_codes').select('*').order('created_at', { ascending: false });
@@ -953,7 +953,7 @@ export async function validatePromoCode(
 }
 
 // ================================================================
-// NEW: Delivery Zones & Charges
+// DELIVERY ZONES & CHARGES (using RPC)
 // ================================================================
 export async function fetchDeliveryZones(): Promise<DeliveryZone[]> {
   const { data, error } = await supabase.from('delivery_zones').select('*').order('name');
@@ -962,7 +962,7 @@ export async function fetchDeliveryZones(): Promise<DeliveryZone[]> {
 }
 
 export async function fetchAllDeliveryZones(): Promise<DeliveryZone[]> {
-  return fetchDeliveryZones(); // same
+  return fetchDeliveryZones();
 }
 
 export async function createDeliveryZone(input: Omit<DeliveryZone, 'id' | 'created_at' | 'updated_at'>): Promise<DeliveryZone | null> {
@@ -1006,12 +1006,7 @@ export async function deleteDeliveryCharge(id: string): Promise<void> {
   await supabase.from('delivery_charges').delete().eq('id', id);
 }
 
-// services/catalog.ts
-
-// services/catalog.ts
-
-// services/catalog.ts
-
+// ----- GET DELIVERY CHARGE (RPC) -----
 export async function getDeliveryCharge(
   pincode: string,
   subtotal: number
@@ -1026,7 +1021,6 @@ export async function getDeliveryCharge(
     return { charge: 0 };
   }
 
-  // data is { charge: number; zone_id: string } | null
   if (!data || data.charge === undefined) {
     return { charge: 0 };
   }
@@ -1035,14 +1029,4 @@ export async function getDeliveryCharge(
     charge: data.charge,
     zoneId: data.zone_id,
   };
-}
-
-export async function getSystemSetting(key: string): Promise<any> {
-  const { data, error } = await supabase
-    .from('system_settings')
-    .select('value')
-    .eq('key', key)
-    .maybeSingle();
-  if (error) throw error;
-  return data?.value;
 }

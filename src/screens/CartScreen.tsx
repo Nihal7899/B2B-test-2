@@ -19,7 +19,6 @@ import {
   fetchAddresses,
   getDeliveryCharge,
   computeGST,
-  getSystemSetting,
 } from '@/services/catalog';
 import type { DbAddress } from '@/services/catalog';
 
@@ -37,7 +36,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
   const [defaultAddress, setDefaultAddress] = useState<DbAddress | null>(null);
   const [deliveryCharge, setDeliveryCharge] = useState<number | null>(null);
   const [deliveryLoading, setDeliveryLoading] = useState(false);
-  const [freeThreshold, setFreeThreshold] = useState<number>(2000);
   const [gstTotal, setGstTotal] = useState(0);
   const [gstBreakdown, setGstBreakdown] = useState<Record<number, number>>({});
 
@@ -49,17 +47,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
       setDefaultAddress(def);
     }
     loadDefaultAddress();
-  }, []);
-
-  // Load free delivery threshold from system settings
-  useEffect(() => {
-    async function loadThreshold() {
-      const settings = await getSystemSetting('delivery');
-      if (settings?.free_threshold) {
-        setFreeThreshold(settings.free_threshold);
-      }
-    }
-    loadThreshold();
   }, []);
 
   // Recompute delivery and GST when items, subtotal, promo, or address changes
@@ -103,11 +90,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
 
   // Derived values
   const subtotalAfterDiscount = cart.subtotal - (cart.appliedPromo?.discount || 0);
-  const isFreeDelivery =
-    deliveryCharge !== null &&
-    deliveryCharge === 0 &&
-    subtotalAfterDiscount >= freeThreshold;
-  const displayDelivery = deliveryCharge !== null ? (isFreeDelivery ? 0 : deliveryCharge) : null;
+  const displayDelivery = deliveryCharge !== null ? deliveryCharge : null;
   const total = subtotalAfterDiscount + gstTotal + (displayDelivery ?? 0);
 
   if (cart.items.length === 0) {
@@ -153,10 +136,12 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
               {defaultAddress.city} – {defaultAddress.postal_code}
               {deliveryLoading ? (
                 <Loader2 size={12} className="inline animate-spin ml-1" />
-              ) : deliveryCharge !== null && isFreeDelivery ? (
-                <span className="ml-2 font-bold text-brand-600">FREE delivery</span>
               ) : deliveryCharge !== null ? (
-                <span className="ml-2">Delivery: ₹{deliveryCharge}</span>
+                deliveryCharge === 0 ? (
+                  <span className="ml-2 font-bold text-brand-600">FREE delivery</span>
+                ) : (
+                  <span className="ml-2">Delivery: ₹{deliveryCharge}</span>
+                )
               ) : (
                 <span className="ml-2 text-amber-600">Calculating…</span>
               )}
@@ -279,10 +264,12 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
             <span className="font-semibold">
               {deliveryLoading ? (
                 <Loader2 size={14} className="animate-spin inline" />
-              ) : deliveryCharge !== null && isFreeDelivery ? (
-                <span className="text-brand-600">FREE</span>
               ) : deliveryCharge !== null ? (
-                <span>₹{deliveryCharge}</span>
+                deliveryCharge === 0 ? (
+                  <span className="text-brand-600">FREE</span>
+                ) : (
+                  <span>₹{deliveryCharge}</span>
+                )
               ) : (
                 <span className="text-ink-400">—</span>
               )}

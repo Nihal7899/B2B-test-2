@@ -229,6 +229,14 @@ function BannersManager() {
       actionType: b.action_type,
       actionConfig: b.action_config,
       position: b.position || 'top',
+      // map new fields for preview (optional)
+      bgType: b.bg_type || 'color',
+      bgColor: b.bg_color || '#16a34a',
+      bgGradient: b.bg_gradient || 'from-brand-600 to-brand-800',
+      overlayEnabled: b.overlay_enabled || false,
+      overlayColor: b.overlay_color || '#000000',
+      overlayOpacity: b.overlay_opacity || 50,
+      showCta: b.show_cta !== undefined ? b.show_cta : true,
     };
   };
 
@@ -371,7 +379,7 @@ function BannersManager() {
   );
 }
 
-// ----- BANNER FORM -----
+// ----- BANNER FORM (with advanced options) -----
 function BannerForm({
   initial,
   onClose,
@@ -395,6 +403,14 @@ function BannerForm({
     position: initial?.position ?? 'top',
     start_at: initial?.start_at ?? '',
     end_at: initial?.end_at ?? '',
+    // NEW fields
+    bg_type: initial?.bg_type ?? 'color',
+    bg_color: initial?.bg_color ?? '#16a34a',
+    bg_gradient: initial?.bg_gradient ?? 'from-brand-600 to-brand-800',
+    overlay_enabled: initial?.overlay_enabled ?? false,
+    overlay_color: initial?.overlay_color ?? '#000000',
+    overlay_opacity: initial?.overlay_opacity ?? 50,
+    show_cta: initial?.show_cta ?? true,
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -438,13 +454,17 @@ function BannerForm({
   };
 
   const handleSave = async () => {
-    if (!form.title || !form.image_url) return;
+    if (!form.title) return;
+    if (form.bg_type === 'image' && !form.image_url) {
+      alert('Please upload an image for full‑screen banner.');
+      return;
+    }
     setSaving(true);
     const payload = {
       badge: form.badge || null,
       title: form.title,
       description: form.description,
-      image_url: form.image_url,
+      image_url: form.image_url || null,
       background_color: form.background_color,
       button_text: form.button_text,
       action_type: form.action_type,
@@ -454,6 +474,13 @@ function BannerForm({
       position: form.position,
       start_at: form.start_at || null,
       end_at: form.end_at || null,
+      bg_type: form.bg_type,
+      bg_color: form.bg_color,
+      bg_gradient: form.bg_gradient,
+      overlay_enabled: form.overlay_enabled,
+      overlay_color: form.overlay_color,
+      overlay_opacity: form.overlay_opacity,
+      show_cta: form.show_cta,
     };
     try {
       if (initial) {
@@ -462,8 +489,9 @@ function BannerForm({
         await createHomeBanner(payload);
       }
       onSaved();
-    } catch {
-      // error handled by caller
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save banner. Check console for details.');
     }
     setSaving(false);
   };
@@ -486,6 +514,7 @@ function BannerForm({
         </button>
       </div>
 
+      {/* Basic fields */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Badge</label>
         <input
@@ -514,7 +543,7 @@ function BannerForm({
         />
       </div>
       <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Image URL *</label>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Image URL {form.bg_type === 'image' && '*'}</label>
         <div className="flex gap-2">
           <input
             value={form.image_url}
@@ -539,9 +568,79 @@ function BannerForm({
           <img src={form.image_url} alt="" className="h-20 w-full rounded-xl object-cover mt-2" />
         )}
       </div>
+
+      {/* NEW: Background Type */}
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Background Type</label>
+        <select
+          value={form.bg_type}
+          onChange={(e) => setForm({ ...form, bg_type: e.target.value as 'color' | 'image' | 'gradient' })}
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        >
+          <option value="color">Solid Colour</option>
+          <option value="image">Full Image (no colour)</option>
+          <option value="gradient">Gradient</option>
+        </select>
+      </div>
+
+      {/* Colour picker (if bg_type = 'color') */}
+      {form.bg_type === 'color' && (
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Background Colour</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={form.bg_color}
+              onChange={(e) => setForm({ ...form, bg_color: e.target.value })}
+              className="h-10 w-14 rounded-xl border border-ink-200 p-1 cursor-pointer"
+            />
+            <input
+              type="text"
+              value={form.bg_color}
+              onChange={(e) => setForm({ ...form, bg_color: e.target.value })}
+              placeholder="#hex"
+              className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {['#16a34a', '#dc2626', '#2563eb', '#ea580c', '#8b5cf6', '#ec4899', '#f59e0b', '#14b8a6', '#4b5563'].map((c) => (
+              <button
+                key={c}
+                onClick={() => setForm({ ...form, bg_color: c })}
+                className="h-8 w-8 rounded-full border border-ink-200"
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Gradient picker (if bg_type = 'gradient') */}
+      {form.bg_type === 'gradient' && (
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Gradient Classes</label>
+          <select
+            value={form.bg_gradient}
+            onChange={(e) => setForm({ ...form, bg_gradient: e.target.value })}
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          >
+            <option value="from-brand-600 to-brand-800">Brand Green</option>
+            <option value="from-red-500 to-red-700">Red</option>
+            <option value="from-blue-500 to-blue-700">Blue</option>
+            <option value="from-orange-500 to-orange-700">Orange</option>
+            <option value="from-purple-500 to-purple-700">Purple</option>
+            <option value="from-pink-500 to-pink-700">Pink</option>
+            <option value="from-yellow-400 to-yellow-600">Yellow</option>
+            <option value="from-teal-400 to-teal-600">Teal</option>
+            <option value="from-gray-600 to-gray-800">Gray</option>
+          </select>
+        </div>
+      )}
+
+      {/* Legacy background color (for carousel preview) – kept for backward compatibility */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-bold text-ink-600 mb-1">Background</label>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Legacy Color (for carousel)</label>
           <select
             value={form.background_color}
             onChange={(e) => setForm({ ...form, background_color: e.target.value })}
@@ -562,6 +661,8 @@ function BannerForm({
           />
         </div>
       </div>
+
+      {/* Position */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Position</label>
         <select
@@ -576,6 +677,7 @@ function BannerForm({
         </select>
       </div>
 
+      {/* Top banner promo code fields */}
       {form.position === 'top' && (
         <>
           <div>
@@ -599,6 +701,7 @@ function BannerForm({
         </>
       )}
 
+      {/* Action type and config (unchanged from original) */}
       {form.position !== 'top' && (
         <>
           <div>
@@ -800,6 +903,66 @@ function BannerForm({
         </>
       )}
 
+      {/* NEW: Overlay (tint) */}
+      <div className="flex items-center gap-4">
+        <label className="flex items-center gap-2 text-xs font-bold text-ink-700">
+          <input
+            type="checkbox"
+            checked={form.overlay_enabled}
+            onChange={(e) => setForm({ ...form, overlay_enabled: e.target.checked })}
+            className="accent-brand-600"
+          />
+          Enable tint overlay
+        </label>
+      </div>
+
+      {form.overlay_enabled && (
+        <div className="space-y-2 border border-ink-100 rounded-xl p-3 bg-ink-50">
+          <div>
+            <label className="block text-xs font-bold text-ink-600 mb-1">Tint Colour</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={form.overlay_color}
+                onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                className="h-10 w-14 rounded-xl border border-ink-200 p-1 cursor-pointer"
+              />
+              <input
+                type="text"
+                value={form.overlay_color}
+                onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-ink-600 mb-1">Opacity: {form.overlay_opacity}%</label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={form.overlay_opacity}
+              onChange={(e) => setForm({ ...form, overlay_opacity: Number(e.target.value) })}
+              className="w-full"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Show CTA button */}
+      <div>
+        <label className="flex items-center gap-2 text-xs font-bold text-ink-700">
+          <input
+            type="checkbox"
+            checked={form.show_cta}
+            onChange={(e) => setForm({ ...form, show_cta: e.target.checked })}
+            className="accent-brand-600"
+          />
+          Show action button
+        </label>
+      </div>
+
+      {/* Date, order, active */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Start date</label>
@@ -842,9 +1005,10 @@ function BannerForm({
           </label>
         </div>
       </div>
+
       <button
         onClick={handleSave}
-        disabled={saving || !form.title || !form.image_url}
+        disabled={saving || !form.title || (form.bg_type === 'image' && !form.image_url)}
         className="w-full h-11 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
       >
         {saving ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save banner</>}

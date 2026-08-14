@@ -36,6 +36,13 @@ export interface PromoBanner {
   actionConfig?: Record<string, unknown>;
   position?: string; // 'top' | 'carousel' | 'middle' | 'bottom'
   background_color?: string; // 👈 add this
+  bgType?: 'color' | 'image' | 'gradient';
+  bgColor?: string;
+  bgGradient?: string;
+  overlayEnabled?: boolean;
+  overlayColor?: string;
+  overlayOpacity?: number;
+  showCta?: boolean;
 }
 
 export interface CartItem {
@@ -171,6 +178,13 @@ export interface HomeBanner {
   end_at: string | null;
   created_at: string;
   updated_at: string;
+  bg_type?: 'color' | 'image' | 'gradient';
+  bg_color?: string;          // hex colour
+  bg_gradient?: string;       // e.g. 'from-blue-500 to-purple-500'
+  overlay_enabled?: boolean;
+  overlay_color?: string;
+  overlay_opacity?: number;   // 0-100
+  show_cta?: boolean;
 }
 
 export interface SmartCollection {

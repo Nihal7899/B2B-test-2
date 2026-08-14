@@ -103,53 +103,53 @@ export function HomeScreen({
     onViewAll,
   };
 
-  // Map background_color to Tailwind solid background classes
-  const getBgClass = (color: string | undefined) => {
-    // Log to see what comes from the database
-    console.log('Raw background_color:', color);
-    // If missing or invalid, default to brand-600
-    if (!color) return 'bg-brand-600';
-    // Known values: 'brand', 'accent', 'ink'
-    const map: Record<string, string> = {
-      brand: 'bg-brand-600',
-      accent: 'bg-accent-600',
-      ink: 'bg-ink-800',
-    };
-    const bg = map[color] || 'bg-brand-600';
-    console.log(`Mapped ${color} → ${bg}`);
-    return bg;
-  };
-
-  // Render a single action banner (middle & bottom) – uniform height, no overlay, image on right
+  // Advanced banner rendering
   const renderActionBanner = (banner: PromoBanner) => {
-    const bg = getBgClass(banner.background_color);
+    let bgStyle: React.CSSProperties = {};
+    let overlayStyle: React.CSSProperties = {};
+
+    // Determine background
+    if (banner.bgType === 'image') {
+      bgStyle = {
+        backgroundImage: `url(${banner.image})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      };
+    } else if (banner.bgType === 'gradient') {
+      bgStyle = {
+        backgroundImage: `linear-gradient(to right, ${banner.bgGradient || 'from-brand-600 to-brand-800'})`,
+      };
+    } else {
+      // Solid colour (default)
+      bgStyle = {
+        backgroundColor: banner.bgColor || '#16a34a',
+      };
+    }
+
+    // Tint overlay
+    if (banner.overlayEnabled && banner.overlayColor) {
+      overlayStyle = {
+        backgroundColor: banner.overlayColor,
+        opacity: (banner.overlayOpacity || 50) / 100,
+      };
+    }
+
+    // Show image on the right if bgType is not 'image' (full‑screen) and image exists
+    const showImage = banner.bgType !== 'image' && banner.image;
 
     return (
       <div
         key={banner.id}
-        className={`relative overflow-hidden rounded-2xl h-32 flex items-center ${bg} text-white shadow-card`}
+        className="relative overflow-hidden rounded-2xl h-32 flex items-center text-white shadow-card"
+        style={bgStyle}
       >
-        {/* Text content – left side */}
-        <div className="relative z-10 px-4 py-3 w-3/5 flex flex-col justify-center h-full">
-          {banner.badge && (
-            <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
-              {banner.badge}
-            </span>
-          )}
-          <h3 className="text-[17px] font-extrabold leading-tight mt-0.5">
-            {banner.headline}
-          </h3>
-          <p className="text-[11px] opacity-80 mt-0.5">{banner.subtext}</p>
-          <button
-            onClick={() => onBannerAction?.(banner)}
-            className="mt-2 bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 shadow-sm self-start"
-          >
-            {banner.cta}
-          </button>
-        </div>
+        {/* Tint overlay */}
+        {banner.overlayEnabled && (
+          <div className="absolute inset-0" style={overlayStyle} />
+        )}
 
-        {/* Image – right side, no opacity, no overlay */}
-        {banner.image && (
+        {/* Image on the right (only if not full‑screen) */}
+        {showImage && (
           <div className="absolute right-0 top-0 h-full w-2/5">
             <img
               src={banner.image}
@@ -161,6 +161,27 @@ export function HomeScreen({
             />
           </div>
         )}
+
+        {/* Text content */}
+        <div className="relative z-10 px-4 py-3 w-3/5 flex flex-col justify-center h-full">
+          {banner.badge && (
+            <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
+              {banner.badge}
+            </span>
+          )}
+          <h3 className="text-[17px] font-extrabold leading-tight mt-0.5">
+            {banner.headline}
+          </h3>
+          <p className="text-[11px] opacity-80 mt-0.5">{banner.subtext}</p>
+          {banner.showCta !== false && (
+            <button
+              onClick={() => onBannerAction?.(banner)}
+              className="mt-2 bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 shadow-sm self-start"
+            >
+              {banner.cta}
+            </button>
+          )}
+        </div>
       </div>
     );
   };

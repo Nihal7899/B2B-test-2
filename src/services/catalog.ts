@@ -368,8 +368,14 @@ export interface DbHomeBanner {
   end_at: string | null;
   created_at: string;
   updated_at: string;
+  bg_type: string | null;
+  bg_color: string | null;
+  bg_gradient: string | null;
+  overlay_enabled: boolean | null;
+  overlay_color: string | null;
+  overlay_opacity: number | null;
+  show_cta: boolean | null;
 }
-
 
 
 export function mapHomeBanner(db: DbHomeBanner): PromoBanner {
@@ -385,7 +391,14 @@ export function mapHomeBanner(db: DbHomeBanner): PromoBanner {
     actionType: db.action_type,
     actionConfig: db.action_config,
     position: db.position || 'top',
-    background_color: db.background_color, // 👈 pass the raw color
+    background_color: db.background_color, // backward compatibility
+    bgType: (db.bg_type as 'color' | 'image' | 'gradient') || 'color',
+    bgColor: db.bg_color ?? undefined,
+    bgGradient: db.bg_gradient ?? undefined,
+    overlayEnabled: db.overlay_enabled ?? false,
+    overlayColor: db.overlay_color ?? undefined,
+    overlayOpacity: db.overlay_opacity ?? 0,
+    showCta: db.show_cta !== undefined ? db.show_cta : true,
   };
 }
 

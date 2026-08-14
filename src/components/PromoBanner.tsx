@@ -27,6 +27,7 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
     opacity: (banner.overlayOpacity || 50) / 100,
   };
 
+  // Show right-side image only if bgType is NOT 'image'
   const showImage = banner.bgType !== 'image' && banner.image;
 
   return (
@@ -38,13 +39,28 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         <div className="absolute inset-0" style={bgStyle} />
       )}
 
-      {/* Tint overlay – covers both background and image */}
-      {banner.overlayEnabled && (
-        <div className="absolute inset-0" style={overlayStyle} />
+      {/* Right‑side image – flex child, stays within flow */}
+      {showImage && (
+        <div className="relative w-[42%] shrink-0">
+          <img
+            src={banner.image}
+            alt={banner.headline}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
+            }}
+          />
+        </div>
       )}
 
-      {/* Text content – left side, flex-1 to take remaining space */}
-      <div className="relative z-10 flex-1 p-4 flex flex-col justify-between min-w-0">
+      {/* Tint overlay – absolute, covers background + image */}
+      {banner.overlayEnabled && (
+        <div className="absolute inset-0 z-10" style={overlayStyle} />
+      )}
+
+      {/* Text content – relative, on top of overlay */}
+      <div className="relative z-20 flex-1 p-4 flex flex-col justify-between min-w-0">
         <div>
           {banner.badge && (
             <span className="inline-block text-[9px] font-bold tracking-wider uppercase bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5 mb-2">
@@ -67,21 +83,6 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
           </button>
         )}
       </div>
-
-      {/* Image on the right – part of flex flow, occupies 42% width */}
-      {showImage && (
-        <div className="relative z-10 w-[42%] shrink-0">
-          <img
-            src={banner.image}
-            alt={banner.headline}
-            className="h-full w-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }

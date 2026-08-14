@@ -6,7 +6,7 @@ import type { useCart } from '@/store';
 import { SearchBar } from '@/components/SearchBar';
 import { PromoCarousel } from '@/components/PromoBanner';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
-import { CategoryCard } from '@/components/CategoryCard'; // keep for other uses
+import { CategoryCard } from '@/components/CategoryCard';
 import { ProductCarousel } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { StoreCarousel } from '@/components/StoreCard';
@@ -267,7 +267,7 @@ export function HomeScreen({
         </div>
       ) : (
         <>
-          {/* ★ NEW CATEGORY GRID – replaces the carousel */}
+          {/* ★ UPDATED CATEGORY GRID – shows up to 20 categories (5 rows of 4) */}
           <section className="px-4">
             <div className="mb-3 flex items-center justify-between">
               <div>
@@ -284,7 +284,7 @@ export function HomeScreen({
               </button>
             </div>
             <div className="grid grid-cols-4 gap-3">
-              {categories.slice(0, 8).map((category) => (
+              {categories.slice(0, 20).map((category) => (
                 <button
                   key={category.id}
                   onClick={() => onCategory(category)}

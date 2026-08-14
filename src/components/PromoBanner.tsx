@@ -1,3 +1,4 @@
+// components/PromoBanner.tsx
 import type { PromoBanner } from '@/types';
 
 interface PromoBannerCardProps {
@@ -17,19 +18,18 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
       backgroundPosition: 'center',
     };
   } else if (banner.bgType === 'color') {
-    bgStyle = {
-      backgroundColor: banner.bgColor || '#16a34a',
-    };
+    bgStyle = { backgroundColor: banner.bgColor || '#16a34a' };
   } else if (banner.bgType === 'gradient') {
     bgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
   }
 
+  // Tint overlay style
   const overlayStyle: React.CSSProperties = {
     backgroundColor: banner.overlayColor || '#000000',
     opacity: (banner.overlayOpacity || 50) / 100,
   };
 
-  // For image background, we don't show a separate image on the right
+  // Show right-side image only if bgType is NOT 'image' (i.e., not full‑screen)
   const showImage = banner.bgType !== 'image' && banner.image;
 
   return (
@@ -41,7 +41,7 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         <div className="absolute inset-0" style={bgStyle} />
       )}
 
-      {/* Image on the right (only if not full‑screen) */}
+      {/* Right‑side image (absolute, does not affect flex flow) */}
       {showImage && (
         <div className="absolute right-0 top-0 h-full w-[42%] shrink-0">
           <img
@@ -56,12 +56,12 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         </div>
       )}
 
-      {/* Tint overlay – placed AFTER image so it covers both background and image */}
+      {/* Tint overlay – covers both background and image */}
       {banner.overlayEnabled && (
         <div className="absolute inset-0" style={overlayStyle} />
       )}
 
-      {/* Content – always on top of everything */}
+      {/* Text content – always on top, using flex-1 to occupy left space */}
       <div className="relative z-10 flex-1 p-4 flex flex-col justify-between min-w-0">
         <div>
           {banner.badge && (

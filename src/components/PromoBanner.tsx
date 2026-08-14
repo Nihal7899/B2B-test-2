@@ -30,7 +30,7 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
   const showImage = banner.bgType !== 'image' && banner.image;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl h-[180px] flex text-white shadow-soft">
+    <div className="relative overflow-hidden rounded-2xl h-[150px] flex text-white shadow-soft">
       {/* Background layer */}
       {banner.bgType === 'gradient' ? (
         <div className={`absolute inset-0 z-0 ${bgClass}`} />
@@ -46,9 +46,11 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
               {banner.badge}
             </span>
           )}
-          <h3 className="text-[17px] font-extrabold leading-tight tracking-tight truncate">
+          {/* Title – allow up to 2 lines */}
+          <h3 className="text-[17px] font-extrabold leading-tight tracking-tight line-clamp-2">
             {banner.headline}
           </h3>
+          {/* Description – allow up to 2 lines */}
           <p className="text-[11px] opacity-90 mt-1 leading-snug line-clamp-2">
             {banner.subtext}
           </p>

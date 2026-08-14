@@ -156,7 +156,7 @@ const renderActionBanner = (banner: PromoBanner) => {
         <div className="absolute inset-0 z-10" style={overlayStyle} />
       )}
 
-      {/* Text content */}
+      {/* Text content – left side */}
       <div className="relative z-20 px-4 py-3 w-3/5 h-full flex flex-col justify-between overflow-hidden">
         <div className="flex-1 overflow-hidden">
           {banner.badge && (
@@ -164,9 +164,11 @@ const renderActionBanner = (banner: PromoBanner) => {
               {banner.badge}
             </span>
           )}
-          <h3 className="text-[17px] font-extrabold leading-tight mt-0.5 truncate">
+          {/* Title – allow up to 2 lines */}
+          <h3 className="text-[17px] font-extrabold leading-tight mt-0.5 line-clamp-2">
             {banner.headline}
           </h3>
+          {/* Description – allow up to 2 lines */}
           <p className="text-[11px] opacity-80 mt-0.5 line-clamp-2">
             {banner.subtext}
           </p>

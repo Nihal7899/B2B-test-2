@@ -126,13 +126,12 @@ const renderActionBanner = (banner: PromoBanner) => {
     opacity: (banner.overlayOpacity || 50) / 100,
   };
 
-  // For image background, we don't show a separate image on the right
   const showImage = banner.bgType !== 'image' && banner.image;
 
   return (
     <div
       key={banner.id}
-      className="relative overflow-hidden rounded-2xl h-32 flex items-center text-white shadow-card"
+      className="relative overflow-hidden rounded-2xl h-[150px] flex items-center text-white shadow-card"
     >
       {/* Background layer */}
       {banner.bgType === 'gradient' ? (
@@ -155,13 +154,13 @@ const renderActionBanner = (banner: PromoBanner) => {
         </div>
       )}
 
-      {/* Overlay (tint) – placed AFTER background and image, so it covers both */}
+      {/* Tint overlay – placed AFTER image so it covers both */}
       {banner.overlayEnabled && (
-        <div className="absolute inset-0" style={overlayStyle} />
+        <div className="absolute inset-0 z-10" style={overlayStyle} />
       )}
 
-      {/* Text content */}
-      <div className="relative z-10 px-4 py-3 w-3/5 flex flex-col justify-center h-full">
+      {/* Text content – on top of everything */}
+      <div className="relative z-20 px-4 py-3 w-3/5 flex flex-col justify-center h-full">
         {banner.badge && (
           <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
             {banner.badge}

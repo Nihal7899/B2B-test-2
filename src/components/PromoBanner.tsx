@@ -30,8 +30,7 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
   const showImage = banner.bgType !== 'image' && banner.image;
 
   return (
-    // Fixed height ensures all cards are identical in size
-    <div className="relative overflow-hidden rounded-2xl h-[124px] flex text-white shadow-soft">
+    <div className="relative overflow-hidden rounded-2xl h-[150px] flex text-white shadow-soft">
       {/* Background layer – z-0 */}
       {banner.bgType === 'gradient' ? (
         <div className={`absolute inset-0 z-0 ${bgClass}`} />
@@ -54,7 +53,6 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
             {banner.subtext}
           </p>
         </div>
-        {/* CTA button – optional; if hidden, flex column still fills space */}
         {banner.showCta !== false && (
           <button
             onClick={() => onAction?.(banner)}

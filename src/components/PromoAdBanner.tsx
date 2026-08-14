@@ -9,13 +9,45 @@ export function PromoAdBanner({ banner }: PromoAdBannerProps) {
   const promoCode = (banner.actionConfig?.promoCode as string) || 'HYPER10';
   const discount = (banner.actionConfig?.discount as string) || '10% OFF';
 
+  // Background styles
+  let bgStyle: React.CSSProperties = {};
+  let bgClass = '';
+
+  if (banner.bgType === 'image') {
+    bgStyle = {
+      backgroundImage: `url(${banner.image})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+    };
+  } else if (banner.bgType === 'color') {
+    bgStyle = {
+      backgroundColor: banner.bgColor || '#16a34a',
+    };
+  } else if (banner.bgType === 'gradient') {
+    bgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
+  }
+
+  // Overlay style
+  const overlayStyle: React.CSSProperties = {
+    backgroundColor: banner.overlayColor || '#000000',
+    opacity: (banner.overlayOpacity || 50) / 100,
+  };
+
   return (
     <div className="mx-4 rounded-2xl overflow-hidden relative min-h-[100px] shadow-card">
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: `url(${banner.image})` }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+      {/* Background layer */}
+      {banner.bgType === 'gradient' ? (
+        <div className={`absolute inset-0 ${bgClass}`} />
+      ) : (
+        <div className="absolute inset-0" style={bgStyle} />
+      )}
+
+      {/* Overlay (tint) – above background, below content */}
+      {banner.overlayEnabled && (
+        <div className="absolute inset-0" style={overlayStyle} />
+      )}
+
+      {/* Content */}
       <div className="relative z-10 p-4 flex flex-col justify-center h-full text-white">
         {banner.badge && (
           <p className="text-[10px] font-bold tracking-wider uppercase text-yellow-300">

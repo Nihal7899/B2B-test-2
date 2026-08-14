@@ -103,87 +103,86 @@ export function HomeScreen({
   };
 
   // ----- FIXED renderActionBanner (gradient via Tailwind classes, overlay layer) -----
-  const renderActionBanner = (banner: PromoBanner) => {
-    let bgStyle: React.CSSProperties = {};
-    let bgClass = '';
+const renderActionBanner = (banner: PromoBanner) => {
+  let bgStyle: React.CSSProperties = {};
+  let bgClass = '';
 
-    if (banner.bgType === 'image') {
-      bgStyle = {
-        backgroundImage: `url(${banner.image})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      };
-    } else if (banner.bgType === 'color') {
-      bgStyle = {
-        backgroundColor: banner.bgColor || '#16a34a',
-      };
-    } else if (banner.bgType === 'gradient') {
-      // Use Tailwind gradient classes – they are applied to a separate div
-      bgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
-    }
-
-    const overlayStyle: React.CSSProperties = {
-      backgroundColor: banner.overlayColor || '#000000',
-      opacity: (banner.overlayOpacity || 50) / 100,
+  if (banner.bgType === 'image') {
+    bgStyle = {
+      backgroundImage: `url(${banner.image})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
     };
+  } else if (banner.bgType === 'color') {
+    bgStyle = {
+      backgroundColor: banner.bgColor || '#16a34a',
+    };
+  } else if (banner.bgType === 'gradient') {
+    bgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
+  }
 
-    const showImage = banner.bgType !== 'image' && banner.image;
-
-    return (
-      <div
-        key={banner.id}
-        className="relative overflow-hidden rounded-2xl h-32 flex items-center text-white shadow-card"
-      >
-        {/* Background layer */}
-        {banner.bgType === 'gradient' ? (
-          <div className={`absolute inset-0 ${bgClass}`} />
-        ) : (
-          <div className="absolute inset-0" style={bgStyle} />
-        )}
-
-        {/* Tint overlay */}
-        {banner.overlayEnabled && (
-          <div className="absolute inset-0" style={overlayStyle} />
-        )}
-
-        {/* Image on the right (only if not full‑screen) */}
-        {showImage && (
-          <div className="absolute right-0 top-0 h-full w-2/5">
-            <img
-              src={banner.image}
-              alt={banner.headline}
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
-              }}
-            />
-          </div>
-        )}
-
-        {/* Text content */}
-        <div className="relative z-10 px-4 py-3 w-3/5 flex flex-col justify-center h-full">
-          {banner.badge && (
-            <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
-              {banner.badge}
-            </span>
-          )}
-          <h3 className="text-[17px] font-extrabold leading-tight mt-0.5">
-            {banner.headline}
-          </h3>
-          <p className="text-[11px] opacity-80 mt-0.5">{banner.subtext}</p>
-          {banner.showCta !== false && (
-            <button
-              onClick={() => onBannerAction?.(banner)}
-              className="mt-2 bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 shadow-sm self-start"
-            >
-              {banner.cta}
-            </button>
-          )}
-        </div>
-      </div>
-    );
+  const overlayStyle: React.CSSProperties = {
+    backgroundColor: banner.overlayColor || '#000000',
+    opacity: (banner.overlayOpacity || 50) / 100,
   };
 
+  // For image background, we don't show a separate image on the right
+  const showImage = banner.bgType !== 'image' && banner.image;
+
+  return (
+    <div
+      key={banner.id}
+      className="relative overflow-hidden rounded-2xl h-32 flex items-center text-white shadow-card"
+    >
+      {/* Background layer */}
+      {banner.bgType === 'gradient' ? (
+        <div className={`absolute inset-0 ${bgClass}`} />
+      ) : (
+        <div className="absolute inset-0" style={bgStyle} />
+      )}
+
+      {/* Image on the right (only if not full‑screen) */}
+      {showImage && (
+        <div className="absolute right-0 top-0 h-full w-2/5">
+          <img
+            src={banner.image}
+            alt={banner.headline}
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
+            }}
+          />
+        </div>
+      )}
+
+      {/* Overlay (tint) – placed AFTER background and image, so it covers both */}
+      {banner.overlayEnabled && (
+        <div className="absolute inset-0" style={overlayStyle} />
+      )}
+
+      {/* Text content */}
+      <div className="relative z-10 px-4 py-3 w-3/5 flex flex-col justify-center h-full">
+        {banner.badge && (
+          <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
+            {banner.badge}
+          </span>
+        )}
+        <h3 className="text-[17px] font-extrabold leading-tight mt-0.5">
+          {banner.headline}
+        </h3>
+        <p className="text-[11px] opacity-80 mt-0.5">{banner.subtext}</p>
+        {banner.showCta !== false && (
+          <button
+            onClick={() => onBannerAction?.(banner)}
+            className="mt-2 bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 shadow-sm self-start"
+          >
+            {banner.cta}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
   if (loading)
     return (
       <div className="flex items-center justify-center min-h-[50vh]">

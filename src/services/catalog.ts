@@ -1011,10 +1011,13 @@ export async function getDeliveryCharge(
   pincode: string,
   subtotal: number
 ): Promise<{ charge: number; zoneId?: string }> {
+  console.log('[getDeliveryCharge] Calling RPC with:', { pincode, subtotal });
   const { data, error } = await supabase.rpc('get_delivery_charge', {
     p_pincode: pincode,
     p_subtotal: subtotal,
   });
+
+  console.log('[getDeliveryCharge] RPC response:', { data, error });
 
   if (error) {
     console.error('[getDeliveryCharge] RPC error:', error);
@@ -1022,9 +1025,11 @@ export async function getDeliveryCharge(
   }
 
   if (!data || data.charge === undefined) {
+    console.warn('[getDeliveryCharge] No charge returned');
     return { charge: 0 };
   }
 
+  console.log('[getDeliveryCharge] Final charge:', data.charge);
   return {
     charge: data.charge,
     zoneId: data.zone_id,

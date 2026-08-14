@@ -30,7 +30,7 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
   const showImage = banner.bgType !== 'image' && banner.image;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl h-[150px] flex text-white shadow-soft">
+    <div className="relative overflow-hidden rounded-2xl h-[180px] flex text-white shadow-soft">
       {/* Background layer */}
       {banner.bgType === 'gradient' ? (
         <div className={`absolute inset-0 z-0 ${bgClass}`} />

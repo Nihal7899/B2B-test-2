@@ -1024,14 +1024,16 @@ export async function getDeliveryCharge(
     return { charge: 0 };
   }
 
-  if (!data || data.charge === undefined) {
+  // data is an array of rows: [{ charge, zone_id }, ...]
+  if (!data || !Array.isArray(data) || data.length === 0) {
     console.warn('[getDeliveryCharge] No charge returned');
     return { charge: 0 };
   }
 
-  console.log('[getDeliveryCharge] Final charge:', data.charge);
+  const firstRow = data[0];
+  console.log('[getDeliveryCharge] Final charge:', firstRow.charge);
   return {
-    charge: data.charge,
-    zoneId: data.zone_id,
+    charge: firstRow.charge,
+    zoneId: firstRow.zone_id,
   };
 }

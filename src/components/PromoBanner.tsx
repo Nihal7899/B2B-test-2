@@ -7,7 +7,6 @@ interface PromoBannerCardProps {
 }
 
 export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
-  // Background styles
   let bgStyle: React.CSSProperties = {};
   let bgClass = '';
 
@@ -23,13 +22,11 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
     bgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
   }
 
-  // Tint overlay style
   const overlayStyle: React.CSSProperties = {
     backgroundColor: banner.overlayColor || '#000000',
     opacity: (banner.overlayOpacity || 50) / 100,
   };
 
-  // Show right-side image only if bgType is NOT 'image' (i.e., not full‑screen)
   const showImage = banner.bgType !== 'image' && banner.image;
 
   return (
@@ -41,27 +38,12 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         <div className="absolute inset-0" style={bgStyle} />
       )}
 
-      {/* Right‑side image (absolute, does not affect flex flow) */}
-      {showImage && (
-        <div className="absolute right-0 top-0 h-full w-[42%] shrink-0">
-          <img
-            src={banner.image}
-            alt={banner.headline}
-            className="h-full w-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
-            }}
-          />
-        </div>
-      )}
-
       {/* Tint overlay – covers both background and image */}
       {banner.overlayEnabled && (
         <div className="absolute inset-0" style={overlayStyle} />
       )}
 
-      {/* Text content – always on top, using flex-1 to occupy left space */}
+      {/* Text content – left side, flex-1 to take remaining space */}
       <div className="relative z-10 flex-1 p-4 flex flex-col justify-between min-w-0">
         <div>
           {banner.badge && (
@@ -85,6 +67,21 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
           </button>
         )}
       </div>
+
+      {/* Image on the right – part of flex flow, occupies 42% width */}
+      {showImage && (
+        <div className="relative z-10 w-[42%] shrink-0">
+          <img
+            src={banner.image}
+            alt={banner.headline}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

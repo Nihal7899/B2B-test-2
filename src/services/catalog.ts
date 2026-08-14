@@ -866,17 +866,26 @@ export async function deleteVolumePricingTier(id: string): Promise<void> {
 // ================================================================
 // GST
 // ================================================================
-export function computeGST(items: CartItem[]): { gstTotal: number; gstBreakdown: Record<number, number> } {
+export function computeGST(items: CartItem[]): {
+  gstTotal: number;
+  gstBreakdown: Record<number, number>;
+  cgstTotal: number;
+  sgstTotal: number;
+} {
   const breakdown: Record<number, number> = {};
   let total = 0;
+  let cgst = 0;
+  let sgst = 0;
   for (const item of items) {
     const rate = item.product.gst_percentage || 0;
     const taxable = item.effectiveUnitPrice * item.quantity;
     const gst = taxable * (rate / 100);
     breakdown[rate] = (breakdown[rate] || 0) + gst;
     total += gst;
+    cgst += gst / 2;
+    sgst += gst / 2;
   }
-  return { gstTotal: total, gstBreakdown: breakdown };
+  return { gstTotal: total, gstBreakdown: breakdown, cgstTotal: cgst, sgstTotal: sgst };
 }
 
 // ================================================================
@@ -1038,24 +1047,3 @@ export async function getDeliveryCharge(
   };
 }
 
-export function computeGST(items: CartItem[]): {
-  gstTotal: number;
-  gstBreakdown: Record<number, number>;
-  cgstTotal: number;
-  sgstTotal: number;
-} {
-  const breakdown: Record<number, number> = {};
-  let total = 0;
-  let cgst = 0;
-  let sgst = 0;
-  for (const item of items) {
-    const rate = item.product.gst_percentage || 0;
-    const taxable = item.effectiveUnitPrice * item.quantity;
-    const gst = taxable * (rate / 100);
-    breakdown[rate] = (breakdown[rate] || 0) + gst;
-    total += gst;
-    cgst += gst / 2;
-    sgst += gst / 2;
-  }
-  return { gstTotal: total, gstBreakdown: breakdown, cgstTotal: cgst, sgstTotal: sgst };
-}

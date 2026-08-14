@@ -46,7 +46,6 @@ export function HomeScreen({
   const [brands, setBrands] = useState<TrustedBrand[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Banner states
   const [topBanner, setTopBanner] = useState<PromoBanner | null>(null);
   const [carouselBanners, setCarouselBanners] = useState<PromoBanner[]>([]);
   const [middleBanners, setMiddleBanners] = useState<PromoBanner[]>([]);
@@ -103,46 +102,45 @@ export function HomeScreen({
     onViewAll,
   };
 
-  // Advanced banner rendering
+  // ----- FIXED renderActionBanner (gradient via Tailwind classes, overlay layer) -----
   const renderActionBanner = (banner: PromoBanner) => {
     let bgStyle: React.CSSProperties = {};
-    let overlayStyle: React.CSSProperties = {};
+    let bgClass = '';
 
-    // Determine background
     if (banner.bgType === 'image') {
       bgStyle = {
         backgroundImage: `url(${banner.image})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       };
-    } else if (banner.bgType === 'gradient') {
-      bgStyle = {
-        backgroundImage: `linear-gradient(to right, ${banner.bgGradient || 'from-brand-600 to-brand-800'})`,
-      };
-    } else {
-      // Solid colour (default)
+    } else if (banner.bgType === 'color') {
       bgStyle = {
         backgroundColor: banner.bgColor || '#16a34a',
       };
+    } else if (banner.bgType === 'gradient') {
+      // Use Tailwind gradient classes – they are applied to a separate div
+      bgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
     }
 
-    // Tint overlay
-    if (banner.overlayEnabled && banner.overlayColor) {
-      overlayStyle = {
-        backgroundColor: banner.overlayColor,
-        opacity: (banner.overlayOpacity || 50) / 100,
-      };
-    }
+    const overlayStyle: React.CSSProperties = {
+      backgroundColor: banner.overlayColor || '#000000',
+      opacity: (banner.overlayOpacity || 50) / 100,
+    };
 
-    // Show image on the right if bgType is not 'image' (full‑screen) and image exists
     const showImage = banner.bgType !== 'image' && banner.image;
 
     return (
       <div
         key={banner.id}
         className="relative overflow-hidden rounded-2xl h-32 flex items-center text-white shadow-card"
-        style={bgStyle}
       >
+        {/* Background layer */}
+        {banner.bgType === 'gradient' ? (
+          <div className={`absolute inset-0 ${bgClass}`} />
+        ) : (
+          <div className="absolute inset-0" style={bgStyle} />
+        )}
+
         {/* Tint overlay */}
         {banner.overlayEnabled && (
           <div className="absolute inset-0" style={overlayStyle} />

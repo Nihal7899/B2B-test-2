@@ -10,6 +10,7 @@ import type {
   ActionType,
   Store,
   TrustedBrand,
+  SmartCollection,
 } from '@/types';
 
 export interface DbCategory {
@@ -104,7 +105,7 @@ const PLACEHOLDER_PRODUCT = 'https://placehold.co/400x400/EEE/999?text=Product';
 
 export function mapCategory(db: DbCategory, index: number, productCount?: number): Category {
   return {
-    id: db.slug, // use slug as ID for routing
+    id: db.slug,
     name: db.name,
     image: db.image_url?.trim() ? db.image_url : PLACEHOLDER_CATEGORY,
     count: productCount ?? 0,
@@ -363,7 +364,7 @@ export interface DbHomeBanner {
   action_config: Record<string, unknown>;
   display_order: number;
   is_active: boolean;
-  position: string; // 'top' | 'carousel' | 'middle' | 'bottom'
+  position: string;
   start_at: string | null;
   end_at: string | null;
   created_at: string;
@@ -376,7 +377,6 @@ export interface DbHomeBanner {
   overlay_opacity: number | null;
   show_cta: boolean | null;
 }
-
 
 export function mapHomeBanner(db: DbHomeBanner): PromoBanner {
   return {
@@ -391,7 +391,7 @@ export function mapHomeBanner(db: DbHomeBanner): PromoBanner {
     actionType: db.action_type,
     actionConfig: db.action_config,
     position: db.position || 'top',
-    background_color: db.background_color, // backward compatibility
+    background_color: db.background_color,
     bgType: (db.bg_type as 'color' | 'image' | 'gradient') || 'color',
     bgColor: db.bg_color ?? undefined,
     bgGradient: db.bg_gradient ?? undefined,
@@ -443,6 +443,14 @@ export async function createHomeBanner(
       position: input.position || 'top',
       start_at: input.start_at,
       end_at: input.end_at,
+      // --- NEW FIELDS ADDED ---
+      bg_type: input.bg_type,
+      bg_color: input.bg_color,
+      bg_gradient: input.bg_gradient,
+      overlay_enabled: input.overlay_enabled,
+      overlay_color: input.overlay_color,
+      overlay_opacity: input.overlay_opacity,
+      show_cta: input.show_cta,
     })
     .select()
     .single();
@@ -467,6 +475,14 @@ export async function updateHomeBanner(id: string, updates: Partial<HomeBanner>)
       position: updates.position || 'top',
       start_at: updates.start_at,
       end_at: updates.end_at,
+      // --- NEW FIELDS ADDED ---
+      bg_type: updates.bg_type,
+      bg_color: updates.bg_color,
+      bg_gradient: updates.bg_gradient,
+      overlay_enabled: updates.overlay_enabled,
+      overlay_color: updates.overlay_color,
+      overlay_opacity: updates.overlay_opacity,
+      show_cta: updates.show_cta,
     })
     .eq('id', id);
   if (error) throw error;
@@ -500,6 +516,14 @@ export async function duplicateHomeBanner(id: string): Promise<HomeBanner | null
       position: orig.position || 'top',
       start_at: null,
       end_at: null,
+      // --- NEW FIELDS ADDED (copy from original) ---
+      bg_type: orig.bg_type,
+      bg_color: orig.bg_color,
+      bg_gradient: orig.bg_gradient,
+      overlay_enabled: orig.overlay_enabled,
+      overlay_color: orig.overlay_color,
+      overlay_opacity: orig.overlay_opacity,
+      show_cta: orig.show_cta,
     })
     .select()
     .single();
@@ -740,7 +764,6 @@ export async function fetchAllSmartCollections(): Promise<SmartCollection[]> {
   return data as SmartCollection[];
 }
 
-// services/catalog.ts – add this function if not present
 export async function fetchSmartCollectionById(id: string): Promise<SmartCollection | null> {
   const { data, error } = await supabase
     .from('smart_collections')

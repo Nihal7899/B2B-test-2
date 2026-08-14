@@ -253,12 +253,21 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
               <span>- ₹{cart.appliedPromo.discount.toLocaleString('en-IN')}</span>
             </div>
           )}
-          {Object.entries(gstBreakdown).map(([rate, amount]) => (
-            <div key={rate} className="flex justify-between text-xs text-ink-500">
-              <span>GST @{rate}%</span>
-              <span>₹{amount.toLocaleString('en-IN')}</span>
-            </div>
-          ))}
+          {Object.entries(gstBreakdown).map(([rate, amount]) => {
+            const half = amount / 2;
+            return (
+              <div key={rate}>
+                <div className="flex justify-between text-xs text-ink-500">
+                  <span>CGST @{(Number(rate) / 2).toFixed(1)}%</span>
+                  <span>₹{half.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-xs text-ink-500">
+                  <span>SGST @{(Number(rate) / 2).toFixed(1)}%</span>
+                  <span>₹{half.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+            );
+          })}
           <div className="flex justify-between text-xs text-ink-500">
             <span>Delivery</span>
             <span className="font-semibold">

@@ -99,6 +99,7 @@ export interface CartItem {
   effectiveUnitPrice: number; // after volume pricing
 }
 
+
 export interface Order {
   id: string;
   orderNo: string;
@@ -107,6 +108,9 @@ export interface Order {
   total: number;
   status: 'Delivered' | 'Processing' | 'Out for Delivery' | 'Cancelled';
   items: string[];
+  // New GST fields (optional)
+  cgst_amount?: number;
+  sgst_amount?: number;
 }
 
 export type ScreenName =

@@ -30,7 +30,8 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
   const showImage = banner.bgType !== 'image' && banner.image;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl min-h-[124px] flex text-white shadow-soft">
+    // Fixed height ensures all cards are identical in size
+    <div className="relative overflow-hidden rounded-2xl h-[124px] flex text-white shadow-soft">
       {/* Background layer – z-0 */}
       {banner.bgType === 'gradient' ? (
         <div className={`absolute inset-0 z-0 ${bgClass}`} />
@@ -38,8 +39,8 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         <div className="absolute inset-0 z-0" style={bgStyle} />
       )}
 
-      {/* Text content – left side, z-30 (on top of everything) */}
-      <div className="relative z-30 flex-1 p-4 flex flex-col justify-between min-w-0">
+      {/* Text content – left side, takes remaining width, full height */}
+      <div className="relative z-30 flex-1 h-full p-4 flex flex-col justify-between min-w-0">
         <div>
           {banner.badge && (
             <span className="inline-block text-[9px] font-bold tracking-wider uppercase bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5 mb-2">
@@ -53,6 +54,7 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
             {banner.subtext}
           </p>
         </div>
+        {/* CTA button – optional; if hidden, flex column still fills space */}
         {banner.showCta !== false && (
           <button
             onClick={() => onAction?.(banner)}
@@ -63,9 +65,9 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         )}
       </div>
 
-      {/* Image on the right – z-10 (below overlay) */}
+      {/* Image on the right – fixed width, full height, shrink-0 prevents compression */}
       {showImage && (
-        <div className="relative z-10 w-[42%] shrink-0">
+        <div className="relative z-10 w-[42%] shrink-0 h-full">
           <img
             src={banner.image}
             alt={banner.headline}

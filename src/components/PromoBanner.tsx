@@ -27,7 +27,6 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
     opacity: (banner.overlayOpacity || 50) / 100,
   };
 
-  // Show right-side image only if bgType is NOT 'image'
   const showImage = banner.bgType !== 'image' && banner.image;
 
   return (
@@ -39,9 +38,9 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         <div className="absolute inset-0" style={bgStyle} />
       )}
 
-      {/* Right‑side image – flex child, stays within flow */}
+      {/* Right-side image (absolute, stays on the right) */}
       {showImage && (
-        <div className="relative w-[42%] shrink-0">
+        <div className="absolute right-0 top-0 h-full w-[42%]">
           <img
             src={banner.image}
             alt={banner.headline}
@@ -54,12 +53,12 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         </div>
       )}
 
-      {/* Tint overlay – absolute, covers background + image */}
+      {/* Tint overlay – covers background + image */}
       {banner.overlayEnabled && (
         <div className="absolute inset-0 z-10" style={overlayStyle} />
       )}
 
-      {/* Text content – relative, on top of overlay */}
+      {/* Text content – on top of everything */}
       <div className="relative z-20 flex-1 p-4 flex flex-col justify-between min-w-0">
         <div>
           {banner.badge && (

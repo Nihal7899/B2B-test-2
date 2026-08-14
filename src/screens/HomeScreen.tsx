@@ -102,7 +102,6 @@ export function HomeScreen({
     onViewAll,
   };
 
-  // ----- FIXED renderActionBanner (gradient via Tailwind classes, overlay layer) -----
 const renderActionBanner = (banner: PromoBanner) => {
   let bgStyle: React.CSSProperties = {};
   let bgClass = '';
@@ -114,9 +113,7 @@ const renderActionBanner = (banner: PromoBanner) => {
       backgroundPosition: 'center',
     };
   } else if (banner.bgType === 'color') {
-    bgStyle = {
-      backgroundColor: banner.bgColor || '#16a34a',
-    };
+    bgStyle = { backgroundColor: banner.bgColor || '#16a34a' };
   } else if (banner.bgType === 'gradient') {
     bgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
   }
@@ -140,7 +137,7 @@ const renderActionBanner = (banner: PromoBanner) => {
         <div className="absolute inset-0" style={bgStyle} />
       )}
 
-      {/* Image on the right (only if not full‑screen) */}
+      {/* Image on the right */}
       {showImage && (
         <div className="absolute right-0 top-0 h-full w-2/5">
           <img
@@ -154,26 +151,30 @@ const renderActionBanner = (banner: PromoBanner) => {
         </div>
       )}
 
-      {/* Tint overlay – placed AFTER image so it covers both */}
+      {/* Tint overlay */}
       {banner.overlayEnabled && (
         <div className="absolute inset-0 z-10" style={overlayStyle} />
       )}
 
-      {/* Text content – on top of everything */}
-      <div className="relative z-20 px-4 py-3 w-3/5 flex flex-col justify-center h-full">
-        {banner.badge && (
-          <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
-            {banner.badge}
-          </span>
-        )}
-        <h3 className="text-[17px] font-extrabold leading-tight mt-0.5">
-          {banner.headline}
-        </h3>
-        <p className="text-[11px] opacity-80 mt-0.5">{banner.subtext}</p>
+      {/* Text content */}
+      <div className="relative z-20 px-4 py-3 w-3/5 h-full flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          {banner.badge && (
+            <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
+              {banner.badge}
+            </span>
+          )}
+          <h3 className="text-[17px] font-extrabold leading-tight mt-0.5 truncate">
+            {banner.headline}
+          </h3>
+          <p className="text-[11px] opacity-80 mt-0.5 line-clamp-2">
+            {banner.subtext}
+          </p>
+        </div>
         {banner.showCta !== false && (
           <button
             onClick={() => onBannerAction?.(banner)}
-            className="mt-2 bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 shadow-sm self-start"
+            className="flex-shrink-0 mt-2 bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 shadow-sm self-start"
           >
             {banner.cta}
           </button>
@@ -182,6 +183,7 @@ const renderActionBanner = (banner: PromoBanner) => {
     </div>
   );
 };
+
   if (loading)
     return (
       <div className="flex items-center justify-center min-h-[50vh]">

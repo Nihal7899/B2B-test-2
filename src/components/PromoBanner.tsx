@@ -30,23 +30,23 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
   const showImage = banner.bgType !== 'image' && banner.image;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl h-[170px] flex text-white shadow-soft">
-      {/* Background layer – z-0 */}
+    <div className="relative overflow-hidden rounded-2xl h-[150px] flex text-white shadow-soft">
+      {/* Background layer */}
       {banner.bgType === 'gradient' ? (
         <div className={`absolute inset-0 z-0 ${bgClass}`} />
       ) : (
         <div className="absolute inset-0 z-0" style={bgStyle} />
       )}
 
-      {/* Text content – left side, takes remaining width, full height */}
-      <div className="relative z-30 flex-1 h-full p-4 flex flex-col justify-between min-w-0">
-        <div>
+      {/* Text content – left side */}
+      <div className="relative z-30 flex-1 h-full p-4 flex flex-col justify-between min-w-0 overflow-hidden">
+        <div className="flex-1 overflow-hidden">
           {banner.badge && (
             <span className="inline-block text-[9px] font-bold tracking-wider uppercase bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5 mb-2">
               {banner.badge}
             </span>
           )}
-          <h3 className="text-[17px] font-extrabold leading-tight tracking-tight">
+          <h3 className="text-[17px] font-extrabold leading-tight tracking-tight truncate">
             {banner.headline}
           </h3>
           <p className="text-[11px] opacity-90 mt-1 leading-snug line-clamp-2">
@@ -56,14 +56,14 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         {banner.showCta !== false && (
           <button
             onClick={() => onAction?.(banner)}
-            className="mt-2.5 self-start bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 tap-highlight active:scale-95 transition-transform shadow-sm"
+            className="flex-shrink-0 mt-2 self-start bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 tap-highlight active:scale-95 transition-transform shadow-sm"
           >
             {banner.cta}
           </button>
         )}
       </div>
 
-      {/* Image on the right – fixed width, full height, shrink-0 prevents compression */}
+      {/* Image on the right */}
       {showImage && (
         <div className="relative z-10 w-[42%] shrink-0 h-full">
           <img
@@ -78,7 +78,7 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         </div>
       )}
 
-      {/* Tint overlay – z-20, covers both background and image */}
+      {/* Tint overlay */}
       {banner.overlayEnabled && (
         <div className="absolute inset-0 z-20" style={overlayStyle} />
       )}
@@ -86,12 +86,7 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
   );
 }
 
-interface PromoCarouselProps {
-  banners: PromoBanner[];
-  onAction?: (banner: PromoBanner) => void;
-}
-
-export function PromoCarousel({ banners, onAction }: PromoCarouselProps) {
+export function PromoCarousel({ banners, onAction }: { banners: PromoBanner[]; onAction?: (banner: PromoBanner) => void }) {
   return (
     <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
       {banners.map((banner) => (

@@ -1,13 +1,26 @@
 // screens/CartScreen.tsx
 import { useEffect, useState, useCallback } from 'react';
-import { 
-  ArrowLeft, ArrowRight, CheckCircle2, ShoppingBag, Tag, Truck, Gift, Loader2, 
-  MapPin, X 
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  ShoppingBag,
+  Tag,
+  Truck,
+  Gift,
+  Loader2,
+  MapPin,
+  X,
 } from 'lucide-react';
 import type { Product } from '@/types';
 import type { useCart } from '@/store';
 import { CartItem } from '@/components/CartItem';
-import { fetchAddresses, getDeliveryCharge, computeGST, getSystemSetting } from '@/services/catalog';
+import {
+  fetchAddresses,
+  getDeliveryCharge,
+  computeGST,
+  getSystemSetting,
+} from '@/services/catalog';
 import type { DbAddress } from '@/services/catalog';
 
 interface CartScreenProps {
@@ -32,13 +45,13 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
   useEffect(() => {
     async function loadDefaultAddress() {
       const addresses = await fetchAddresses();
-      const def = addresses.find(a => a.is_default) || addresses[0] || null;
+      const def = addresses.find((a) => a.is_default) || addresses[0] || null;
       setDefaultAddress(def);
     }
     loadDefaultAddress();
   }, []);
 
-  // Load free delivery threshold
+  // Load free delivery threshold from system settings
   useEffect(() => {
     async function loadThreshold() {
       const settings = await getSystemSetting('delivery');
@@ -49,19 +62,19 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
     loadThreshold();
   }, []);
 
-  // Compute delivery charge and GST whenever items, subtotal, or address changes
+  // Recompute delivery and GST when items, subtotal, promo, or address changes
   useEffect(() => {
     async function compute() {
-      // Compute GST
+      // GST
       const { gstTotal, gstBreakdown } = computeGST(cart.items);
       setGstTotal(gstTotal);
       setGstBreakdown(gstBreakdown);
 
-      // Compute delivery
-      const subtotal = cart.subtotal - (cart.appliedPromo?.discount || 0);
+      // Delivery – only if we have a postal code
+      const subtotalAfterPromo = cart.subtotal - (cart.appliedPromo?.discount || 0);
       if (defaultAddress?.postal_code) {
         setDeliveryLoading(true);
-        const { charge } = await getDeliveryCharge(defaultAddress.postal_code, subtotal);
+        const { charge } = await getDeliveryCharge(defaultAddress.postal_code, subtotalAfterPromo);
         setDeliveryCharge(charge);
         setDeliveryLoading(false);
       } else {
@@ -88,45 +101,59 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
     cart.clearPromo();
   };
 
+  // Derived values
   const subtotalAfterDiscount = cart.subtotal - (cart.appliedPromo?.discount || 0);
-  const effectiveDelivery = deliveryCharge !== null ? deliveryCharge : 0;
-  const isFreeDelivery = deliveryCharge !== null && deliveryCharge === 0 && subtotalAfterDiscount >= freeThreshold;
+  const isFreeDelivery =
+    deliveryCharge !== null &&
+    deliveryCharge === 0 &&
+    subtotalAfterDiscount >= freeThreshold;
   const displayDelivery = deliveryCharge !== null ? (isFreeDelivery ? 0 : deliveryCharge) : null;
   const total = subtotalAfterDiscount + gstTotal + (displayDelivery ?? 0);
 
-  if (cart.items.length === 0)
+  if (cart.items.length === 0) {
     return (
       <div className="px-4 pb-6 min-h-[65vh] flex flex-col items-center justify-center text-center">
         <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600">
           <ShoppingBag size={36} strokeWidth={1.5} />
         </div>
         <h1 className="text-lg font-extrabold text-ink-900 mt-5">Your cart is empty</h1>
-        <p className="text-sm text-ink-500 mt-1 max-w-[250px]">Add products you need for your next business restock.</p>
-        <button onClick={onShop} className="mt-5 h-11 px-5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-2 shadow-soft">
+        <p className="text-sm text-ink-500 mt-1 max-w-[250px]">
+          Add products you need for your next business restock.
+        </p>
+        <button
+          onClick={onShop}
+          className="mt-5 h-11 px-5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-2 shadow-soft"
+        >
           Start shopping <ArrowRight size={16} />
         </button>
       </div>
     );
+  }
 
   return (
     <div className="px-4 pb-6 space-y-4">
+      {/* Header */}
       <div>
         <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">
-          Your cart <span className="text-sm font-semibold text-ink-400">({cart.totalItems} items)</span>
+          Your cart{' '}
+          <span className="text-sm font-semibold text-ink-400">
+            ({cart.totalItems} items)
+          </span>
         </h1>
         <p className="text-xs text-ink-500 mt-1">Review your wholesale order</p>
       </div>
 
-      {/* Delivery info */}
+      {/* Delivery info bar */}
       <div className="flex items-center gap-2 rounded-xl bg-brand-50 border border-brand-100 p-3">
         <Truck size={17} className="text-brand-600 shrink-0" />
         <div className="flex-1">
           {defaultAddress ? (
             <p className="text-xs text-brand-800">
-              <span className="font-bold">Deliver to:</span> {defaultAddress.line1}, {defaultAddress.city} – {defaultAddress.postal_code}
+              <span className="font-bold">Deliver to:</span> {defaultAddress.line1},{' '}
+              {defaultAddress.city} – {defaultAddress.postal_code}
               {deliveryLoading ? (
                 <Loader2 size={12} className="inline animate-spin ml-1" />
-              ) : deliveryCharge !== null && deliveryCharge === 0 && subtotalAfterDiscount >= freeThreshold ? (
+              ) : deliveryCharge !== null && isFreeDelivery ? (
                 <span className="ml-2 font-bold text-brand-600">FREE delivery</span>
               ) : deliveryCharge !== null ? (
                 <span className="ml-2">Delivery: ₹{deliveryCharge}</span>
@@ -136,7 +163,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
             </p>
           ) : (
             <p className="text-xs text-amber-600 flex items-center gap-1">
-              <MapPin size={14} /> Add a delivery address to see charges
+              <MapPin size={14} /> Add a delivery address in checkout
             </p>
           )}
         </div>
@@ -163,8 +190,12 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
           <div className="flex items-center justify-between rounded-xl bg-brand-50 border border-brand-200 p-3">
             <div className="flex items-center gap-2">
               <Gift size={16} className="text-brand-600" />
-              <span className="text-sm font-bold text-brand-700">{cart.appliedPromo.code}</span>
-              <span className="text-xs text-brand-600">– ₹{cart.appliedPromo.discount}</span>
+              <span className="text-sm font-bold text-brand-700">
+                {cart.appliedPromo.code}
+              </span>
+              <span className="text-xs text-brand-600">
+                – ₹{cart.appliedPromo.discount}
+              </span>
             </div>
             <button
               onClick={handleRemovePromo}
@@ -187,14 +218,19 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
               disabled={applyingPromo || !promoInput.trim()}
               className="h-10 px-4 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-1 disabled:opacity-60"
             >
-              {applyingPromo ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />} Apply
+              {applyingPromo ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Gift size={16} />
+              )}{' '}
+              Apply
             </button>
           </div>
         )}
         {promoError && <p className="text-xs text-red-500 mt-1">{promoError}</p>}
       </section>
 
-      {/* Order summary */}
+      {/* Order Summary */}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-3">
         <h2 className="text-sm font-bold text-ink-900">Order summary</h2>
         <div className="space-y-1.5">
@@ -243,7 +279,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
             <span className="font-semibold">
               {deliveryLoading ? (
                 <Loader2 size={14} className="animate-spin inline" />
-              ) : deliveryCharge !== null && deliveryCharge === 0 && subtotalAfterDiscount >= freeThreshold ? (
+              ) : deliveryCharge !== null && isFreeDelivery ? (
                 <span className="text-brand-600">FREE</span>
               ) : deliveryCharge !== null ? (
                 <span>₹{deliveryCharge}</span>
@@ -259,21 +295,28 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
             </span>
           </div>
         </div>
+
+        {/* Checkout button – always enabled */}
         <button
           onClick={onCheckout}
-          disabled={!defaultAddress || deliveryCharge === null}
-          className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft tap-highlight active:scale-[.98] transition-transform disabled:opacity-60"
+          className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft tap-highlight active:scale-[.98] transition-transform"
         >
           Proceed to Checkout <ArrowRight size={17} />
         </button>
+
+        {/* Non-blocking hint if no address */}
         {!defaultAddress && (
-          <p className="text-center text-[10px] text-amber-600">Please add a delivery address to proceed</p>
+          <p className="text-center text-[10px] text-amber-600">
+            You can add a delivery address in the next step.
+          </p>
         )}
+
         <p className="text-center text-[10px] text-ink-400 flex items-center justify-center gap-1">
           <CheckCircle2 size={12} className="text-brand-500" /> Secure checkout · No hidden charges
         </p>
       </section>
 
+      {/* Continue shopping */}
       <button
         onClick={onShop}
         className="w-full flex items-center justify-center gap-2 text-xs font-bold text-brand-600"

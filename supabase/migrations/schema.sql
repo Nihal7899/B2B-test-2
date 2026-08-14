@@ -56,6 +56,8 @@ CREATE TABLE public.products (
   min_order_quantity integer DEFAULT 1,
   brand_id uuid,
   subcategory_id uuid,
+  hsn_code text,
+  gst_percentage numeric DEFAULT 0 CHECK (gst_percentage >= 0::numeric AND gst_percentage <= 100::numeric),
   CONSTRAINT products_pkey PRIMARY KEY (id),
   CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
 );
@@ -141,9 +143,15 @@ CREATE TABLE public.orders (
   delivery_address_snapshot jsonb,
   billing_address_snapshot jsonb,
   business_snapshot jsonb,
+  gst_amount numeric DEFAULT 0,
+  promo_code_id uuid,
+  promo_discount numeric DEFAULT 0,
+  delivery_zone_id uuid,
   CONSTRAINT orders_pkey PRIMARY KEY (id),
   CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT orders_address_id_fkey FOREIGN KEY (address_id) REFERENCES public.addresses(id)
+  CONSTRAINT orders_address_id_fkey FOREIGN KEY (address_id) REFERENCES public.addresses(id),
+  CONSTRAINT orders_promo_code_id_fkey FOREIGN KEY (promo_code_id) REFERENCES public.promo_codes(id),
+  CONSTRAINT orders_delivery_zone_id_fkey FOREIGN KEY (delivery_zone_id) REFERENCES public.delivery_zones(id)
 );
 CREATE TABLE public.order_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -286,4 +294,72 @@ CREATE TABLE public.trusted_brands (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT trusted_brands_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.product_volume_pricing (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL,
+  min_quantity integer NOT NULL CHECK (min_quantity >= 1),
+  max_quantity integer,
+  unit_price numeric NOT NULL CHECK (unit_price >= 0::numeric),
+  discount_percent numeric CHECK (discount_percent >= 0::numeric AND discount_percent <= 100::numeric),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT product_volume_pricing_pkey PRIMARY KEY (id),
+  CONSTRAINT product_volume_pricing_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
+CREATE TABLE public.promo_codes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code text NOT NULL UNIQUE,
+  discount_type text NOT NULL CHECK (discount_type = ANY (ARRAY['percentage'::text, 'fixed'::text])),
+  discount_value numeric NOT NULL CHECK (discount_value > 0::numeric),
+  min_order_value numeric DEFAULT 0,
+  max_discount_amount numeric,
+  applies_to text DEFAULT 'all'::text CHECK (applies_to = ANY (ARRAY['all'::text, 'category'::text, 'product'::text])),
+  applies_to_ids ARRAY,
+  start_date timestamp with time zone,
+  end_date timestamp with time zone,
+  usage_limit integer,
+  used_count integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT promo_codes_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.promo_code_usage (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  promo_code_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  order_id uuid NOT NULL,
+  used_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT promo_code_usage_pkey PRIMARY KEY (id),
+  CONSTRAINT promo_code_usage_promo_code_id_fkey FOREIGN KEY (promo_code_id) REFERENCES public.promo_codes(id),
+  CONSTRAINT promo_code_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT promo_code_usage_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
+);
+CREATE TABLE public.delivery_zones (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  pincodes ARRAY NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT delivery_zones_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.delivery_charges (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  zone_id uuid NOT NULL,
+  min_order_value numeric DEFAULT 0,
+  max_order_value numeric,
+  charge numeric NOT NULL CHECK (charge >= 0::numeric),
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT delivery_charges_pkey PRIMARY KEY (id),
+  CONSTRAINT delivery_charges_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES public.delivery_zones(id)
+);
+CREATE TABLE public.system_settings (
+  key text NOT NULL,
+  value jsonb NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT system_settings_pkey PRIMARY KEY (key)
 );

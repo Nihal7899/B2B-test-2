@@ -7,7 +7,6 @@ interface PromoBannerCardProps {
 }
 
 export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
-  // Background styles
   let bgStyle: React.CSSProperties = {};
   let bgClass = '';
 
@@ -32,15 +31,15 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
 
   return (
     <div className="relative overflow-hidden rounded-2xl min-h-[124px] flex text-white shadow-soft">
-      {/* Background layer */}
+      {/* Background layer – z-0 */}
       {banner.bgType === 'gradient' ? (
-        <div className={`absolute inset-0 ${bgClass}`} />
+        <div className={`absolute inset-0 z-0 ${bgClass}`} />
       ) : (
-        <div className="absolute inset-0" style={bgStyle} />
+        <div className="absolute inset-0 z-0" style={bgStyle} />
       )}
 
-      {/* Text content – left side, flex-1 */}
-      <div className="relative z-20 flex-1 p-4 flex flex-col justify-between min-w-0">
+      {/* Text content – left side, z-30 (on top of everything) */}
+      <div className="relative z-30 flex-1 p-4 flex flex-col justify-between min-w-0">
         <div>
           {banner.badge && (
             <span className="inline-block text-[9px] font-bold tracking-wider uppercase bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5 mb-2">
@@ -64,7 +63,7 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         )}
       </div>
 
-      {/* Image on the right – flex child, naturally stays right */}
+      {/* Image on the right – z-10 (below overlay) */}
       {showImage && (
         <div className="relative z-10 w-[42%] shrink-0">
           <img
@@ -79,9 +78,9 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         </div>
       )}
 
-      {/* Tint overlay – covers both background and image */}
+      {/* Tint overlay – z-20, covers both background and image */}
       {banner.overlayEnabled && (
-        <div className="absolute inset-0 z-15" style={overlayStyle} />
+        <div className="absolute inset-0 z-20" style={overlayStyle} />
       )}
     </div>
   );

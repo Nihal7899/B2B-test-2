@@ -1008,63 +1008,31 @@ export async function deleteDeliveryCharge(id: string): Promise<void> {
 
 // services/catalog.ts
 
+// services/catalog.ts
+
 export async function getDeliveryCharge(
   pincode: string,
   subtotal: number
 ): Promise<{ charge: number; zoneId?: string }> {
-  console.log('[getDeliveryCharge] Input:', { pincode, subtotal });
+  const { data, error } = await supabase.rpc('get_delivery_charge', {
+    p_pincode: pincode,
+    p_subtotal: subtotal,
+  });
 
-  try {
-    // 1. Find zones containing this pincode
-    const { data: zones, error: zoneError } = await supabase
-      .from('delivery_zones')
-      .select('id')
-      .contains('pincodes', [pincode]);
-
-    console.log('[getDeliveryCharge] Zones result:', { zones, zoneError });
-
-    if (zoneError) {
-      console.error('[getDeliveryCharge] Zone query error:', zoneError);
-      return { charge: 0 };
-    }
-
-    if (!zones || zones.length === 0) {
-      console.log('[getDeliveryCharge] No zone found for pincode:', pincode);
-      return { charge: 0 };
-    }
-
-    const zoneIds = zones.map((z) => z.id);
-    console.log('[getDeliveryCharge] Zone IDs:', zoneIds);
-
-    // 2. Find matching delivery charge rule
-    const { data: charges, error: chargeError } = await supabase
-      .from('delivery_charges')
-      .select('id, charge, min_order_value, max_order_value')
-      .in('zone_id', zoneIds)
-      .eq('is_active', true)
-      .or(`min_order_value.is.null,min_order_value.le.${subtotal}`)
-      .or(`max_order_value.is.null,max_order_value.ge.${subtotal}`)
-      .order('min_order_value', { ascending: false })
-      .limit(1);
-
-    console.log('[getDeliveryCharge] Charges result:', { charges, chargeError });
-
-    if (chargeError) {
-      console.error('[getDeliveryCharge] Charge query error:', chargeError);
-      return { charge: 0 };
-    }
-
-    if (!charges || charges.length === 0) {
-      console.log('[getDeliveryCharge] No matching charge rule for subtotal:', subtotal);
-      return { charge: 0, zoneId: zoneIds[0] };
-    }
-
-    console.log('[getDeliveryCharge] Matched charge:', charges[0]);
-    return { charge: charges[0].charge, zoneId: zoneIds[0] };
-  } catch (err) {
-    console.error('[getDeliveryCharge] Unexpected error:', err);
+  if (error) {
+    console.error('[getDeliveryCharge] RPC error:', error);
     return { charge: 0 };
   }
+
+  // data is { charge: number; zone_id: string } | null
+  if (!data || data.charge === undefined) {
+    return { charge: 0 };
+  }
+
+  return {
+    charge: data.charge,
+    zoneId: data.zone_id,
+  };
 }
 
 export async function getSystemSetting(key: string): Promise<any> {

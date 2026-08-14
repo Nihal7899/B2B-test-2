@@ -1031,3 +1031,13 @@ export async function getDeliveryCharge(pincode: string, subtotal: number): Prom
   }
   return { charge: charges[0].charge, zoneId: zoneIds[0] };
 }
+
+export async function getSystemSetting(key: string): Promise<any> {
+  const { data, error } = await supabase
+    .from('system_settings')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.value;
+}

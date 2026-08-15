@@ -24,7 +24,7 @@ import {
   Truck,
   MapPin,
   Percent,
-  Hash,
+  Hash,FileText, Settings,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type {
@@ -78,6 +78,9 @@ import {
 } from '@/services/catalog';
 import { PromoBannerCard } from '@/components/PromoBanner';
 import type { ActionType, PromoBanner } from '@/types';
+import InvoiceSettings from '@/components/InvoiceSettings';
+import AdminInvoices from '@/components/AdminInvoices';
+
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -94,7 +97,9 @@ type Tab =
   | 'promocodes'
   | 'deliverysettings'
   | 'smartcollections'
-  | 'roles';
+  | 'roles'
+  | 'invoices'
+  | 'invoiceSettings';
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -110,6 +115,8 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'deliverysettings', label: 'Delivery Settings', icon: Truck },
     { id: 'smartcollections', label: 'Smart Collections', icon: LayoutGrid },
     { id: 'roles', label: 'Roles', icon: Users },
+    { id: 'invoices', label: 'Invoices', icon: FileText },
+    { id: 'invoiceSettings', label: 'Invoice Settings', icon: Settings },
   ];
 
   return (
@@ -158,6 +165,8 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'deliverysettings' && <DeliverySettingsManager />}
         {tab === 'smartcollections' && <SmartCollectionsManager />}
         {tab === 'roles' && <RolesManager />}
+        {tab === 'invoices' && <AdminInvoices />}
+        {tab === 'invoiceSettings' && <InvoiceSettings />}
       </div>
     </div>
   );

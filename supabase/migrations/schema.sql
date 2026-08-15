@@ -147,6 +147,8 @@ CREATE TABLE public.orders (
   promo_code_id uuid,
   promo_discount numeric DEFAULT 0,
   delivery_zone_id uuid,
+  cgst_amount numeric DEFAULT 0,
+  sgst_amount numeric DEFAULT 0,
   CONSTRAINT orders_pkey PRIMARY KEY (id),
   CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT orders_address_id_fkey FOREIGN KEY (address_id) REFERENCES public.addresses(id),
@@ -336,6 +338,13 @@ CREATE TABLE public.promo_code_usage (
   CONSTRAINT promo_code_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT promo_code_usage_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id)
 );
+CREATE TABLE public.system_settings (
+  key text NOT NULL,
+  value jsonb NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT system_settings_pkey PRIMARY KEY (key)
+);
 CREATE TABLE public.delivery_zones (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -355,11 +364,4 @@ CREATE TABLE public.delivery_charges (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT delivery_charges_pkey PRIMARY KEY (id),
   CONSTRAINT delivery_charges_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES public.delivery_zones(id)
-);
-CREATE TABLE public.system_settings (
-  key text NOT NULL,
-  value jsonb NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT system_settings_pkey PRIMARY KEY (key)
 );

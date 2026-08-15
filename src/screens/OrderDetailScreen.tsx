@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, MapPin, Package, Truck, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Package, Truck, CheckCircle2, Clock, XCircle, Printer } from 'lucide-react';
 import { fetchOrderDetail } from '@/services/catalog';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
+import { buildGstBillHtml } from '@/services/gstBill';
+import { printHtml } from '@/utils/printHtml';
 
 interface OrderDetailScreenProps { orderId: string; onBack: () => void; }
 
@@ -36,6 +38,15 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
   ];
 
   const currentStepIndex = order.status === 'cancelled' ? -1 : statusSteps.findIndex((s) => s.key === order.status);
+  
+  const handleDownloadInvoice = async (orderId: string) => {
+    try {
+      const html = await buildGstBillHtml(orderId);
+      printHtml(html);
+    } catch (err) {
+      alert('Failed to generate invoice.');
+    }
+  };
 
   return (
     <div className="px-4 pb-6 space-y-4">
@@ -74,6 +85,14 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             })}
           </div>
         </section>
+      )}
+      {order.status === 'confirmed' && (
+        <button
+          onClick={() => void handlePrintBill(order.id)}
+          className="flex-1 h-9 rounded-lg bg-blue-600 text-white text-xs font-bold flex items-center justify-center gap-1"
+        >
+          <Printer size={14} /> Print Bill
+        </button>
       )}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
         <h2 className="text-sm font-bold text-ink-900 mb-3">Items ({items.length})</h2>

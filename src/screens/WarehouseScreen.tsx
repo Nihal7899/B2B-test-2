@@ -1,11 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ArrowLeft, Package, Truck, CheckCircle2, Loader2, Search, ClipboardList, Boxes } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle2, Loader2, Search, ClipboardList, Boxes,Printer } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DbProduct, DbOrder, DbOrderItem } from '@/services/catalog';
+import { buildGstBillHtml } from '@/services/gstBill';
+import { printHtml } from '@/utils/printHtml';
+import AdminInvoices from '@/components/AdminInvoices';
 
 interface WarehouseScreenProps { onBack: () => void; }
 
-type Tab = 'orders' | 'stock';
+type Tab = 'orders' | 'stock' | 'invoices';
 
 export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   const [tab, setTab] = useState<Tab>('orders');
@@ -37,8 +40,12 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         >
           Stock
         </button>
+        <button onClick={() => setTab('invoices')} className={`flex-1 h-10 rounded-xl text-sm font-bold ${
+            tab === 'stock' ? 'bg-brand-600 text-white' : 'bg-white border border-ink-200 text-ink-600'
+          }`}>Invoices</button>
       </div>
       {tab === 'orders' ? <OrdersTab /> : <StockTab />}
+      {tab === 'invoices' && <AdminInvoices />}
     </div>
   );
 }
@@ -224,6 +231,15 @@ function OrdersTab() {
   const statusOptions = ['all', 'pending', 'confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'cancelled'];
 
   if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
+  
+    const handlePrintBill = async (orderId: string) => {
+      try {
+        const html = await buildGstBillHtml(orderId);
+        printHtml(html);
+      } catch (err) {
+        alert('Failed to generate bill.');
+      }
+    };
 
   return (
     <div className="space-y-3">
@@ -322,6 +338,14 @@ function OrdersTab() {
                     Confirm
                   </button>
                 )}
+                {order.status === 'confirmed' && (
+                  <button
+                    onClick={() => void handlePrintBill(order.id)}
+                    className="flex-1 h-9 rounded-lg bg-blue-600 text-white text-xs font-bold flex items-center justify-center gap-1"
+                  >
+                    <Printer size={14} /> Print Bill
+                  </button>
+                )}               
                 {order.status === 'confirmed' && (
                   <button
                     onClick={() => void updateStatus(order.id, 'packed')}

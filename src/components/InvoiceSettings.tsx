@@ -59,6 +59,9 @@ export default function InvoiceSettings() {
     try {
       await saveInvoiceConfig(config);
       await saveInvoiceDesign(design);
+      // Reload config to get the real ID if new
+      const updatedConfig = await getInvoiceConfig();
+      if (updatedConfig) setConfig(updatedConfig);
       toast.success('Settings saved');
     } catch (e) {
       toast.error('Failed to save');

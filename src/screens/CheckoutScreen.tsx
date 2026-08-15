@@ -68,7 +68,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
       setDeliveryZoneId(zoneId || null);
 
       // GST
-      const { gstTotal, gstBreakdown } = computeGST(cart.items);
+      const { gstTotal, gstBreakdown } = computeGST(cart.items, promoDiscount);
       setGstTotal(gstTotal);
       setGstBreakdown(gstBreakdown);
     }

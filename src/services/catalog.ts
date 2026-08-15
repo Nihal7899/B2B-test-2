@@ -866,7 +866,10 @@ export async function deleteVolumePricingTier(id: string): Promise<void> {
 // ================================================================
 // GST
 // ================================================================
-export function computeGST(items: CartItem[]): {
+export function computeGST(
+  items: CartItem[],
+  promoDiscount: number = 0
+): {
   gstTotal: number;
   gstBreakdown: Record<number, number>;
   cgstTotal: number;
@@ -876,10 +879,17 @@ export function computeGST(items: CartItem[]): {
   let total = 0;
   let cgst = 0;
   let sgst = 0;
+
+  // Total taxable before discount
+  const totalTaxable = items.reduce((sum, item) => sum + item.effectiveUnitPrice * item.quantity, 0);
+  const discountRatio = promoDiscount > 0 && totalTaxable > 0 ? promoDiscount / totalTaxable : 0;
+
   for (const item of items) {
     const rate = item.product.gst_percentage || 0;
-    const taxable = item.effectiveUnitPrice * item.quantity;
-    const gst = taxable * (rate / 100);
+    const taxableBeforeDiscount = item.effectiveUnitPrice * item.quantity;
+    const itemDiscount = taxableBeforeDiscount * discountRatio;
+    const taxableAfterDiscount = taxableBeforeDiscount - itemDiscount;
+    const gst = taxableAfterDiscount * (rate / 100);
     breakdown[rate] = (breakdown[rate] || 0) + gst;
     total += gst;
     cgst += gst / 2;

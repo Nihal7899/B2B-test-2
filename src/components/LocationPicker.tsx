@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Search, Navigation, MapPin, X, Loader2, Check, AlertCircle, Crosshair } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { checkPointInDeliveryRange } from '@/services/catalog'; // [NEW] import
 
 interface LocationPickerProps {
   initialLat?: number | null;
@@ -56,6 +57,27 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
   const [address, setAddress] = useState<ResolvedAddress | null>(null);
   const [lat, setLat] = useState(initialLat ?? DEFAULT_LAT);
   const [lng, setLng] = useState(initialLng ?? DEFAULT_LNG);
+
+  // [NEW] delivery range state
+  const [isInDeliveryRange, setIsInDeliveryRange] = useState<boolean | null>(null);
+  const [checkingRange, setCheckingRange] = useState(false);
+  const [rangeCheckError, setRangeCheckError] = useState<string | null>(null);
+
+  // [NEW] function to check delivery range
+  const checkDeliveryRange = useCallback(async (latVal: number, lngVal: number) => {
+    setCheckingRange(true);
+    setRangeCheckError(null);
+    try {
+      const inRange = await checkPointInDeliveryRange(latVal, lngVal);
+      setIsInDeliveryRange(inRange);
+    } catch (err) {
+      console.error('Range check failed', err);
+      setRangeCheckError('Could not check delivery availability.');
+      setIsInDeliveryRange(null);
+    } finally {
+      setCheckingRange(false);
+    }
+  }, []);
 
   const reverseGeocode = useCallback(async (latVal: number, lngVal: number) => {
     setGeocoding(true);
@@ -146,6 +168,8 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
             place_id: a.place_id ?? null,
             formatted_address: a.formatted_address ?? '',
           });
+          // [NEW] check delivery range for selected place
+          void checkDeliveryRange(latVal, lngVal);
         } else {
           setLocationError('Could not find this place. Try a different search.');
         }
@@ -155,7 +179,7 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
       }
       setGeocoding(false);
     },
-    [lat, lng]
+    [lat, lng, checkDeliveryRange]
   );
 
   const useCurrentLocation = useCallback(() => {
@@ -174,6 +198,8 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
         mapInstanceRef.current?.panTo({ lat: latitude, lng: longitude });
         markerRef.current?.setPosition({ lat: latitude, lng: longitude });
         void reverseGeocode(latitude, longitude);
+        // [NEW] check delivery range for current location
+        void checkDeliveryRange(latitude, longitude);
         setLocating(false);
       },
       (err) => {
@@ -190,9 +216,9 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
     );
-  }, [reverseGeocode]);
+  }, [reverseGeocode, checkDeliveryRange]);
 
-  // Fetch API key from edge function on mount
+  // Fetch API key from edge function on mount (unchanged)
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -221,7 +247,7 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     };
   }, []);
 
-  // Load Google Maps JS SDK once we have the API key
+  // Load Google Maps JS SDK once we have the API key (unchanged)
   useEffect(() => {
     if (!apiKey) return;
 
@@ -243,7 +269,7 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey]);
 
-  // Debounced search
+  // Debounced search (unchanged)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchQuery.trim().length >= 2) {
@@ -284,16 +310,22 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
         setLat(lt);
         setLng(ln);
         void reverseGeocode(lt, ln);
+        // [NEW] check delivery range on drag end
+        void checkDeliveryRange(lt, ln);
       }
     });
 
     // Tap/click on map to drop pin
     mapInstanceRef.current.addListener('click', (e: any) => {
       if (e.latLng) {
+        const lt = e.latLng.lat();
+        const ln = e.latLng.lng();
         markerRef.current?.setPosition(e.latLng);
-        setLat(e.latLng.lat());
-        setLng(e.latLng.lng());
-        void reverseGeocode(e.latLng.lat(), e.latLng.lng());
+        setLat(lt);
+        setLng(ln);
+        void reverseGeocode(lt, ln);
+        // [NEW] check delivery range on click
+        void checkDeliveryRange(lt, ln);
       }
     });
 
@@ -302,8 +334,11 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     // Reverse geocode initial position if no initial coords provided
     if (!initialLat || !initialLng) {
       void reverseGeocode(center.lat, center.lng);
+      // [NEW] check initial range
+      void checkDeliveryRange(center.lat, center.lng);
     } else {
       void reverseGeocode(initialLat, initialLng);
+      void checkDeliveryRange(initialLat, initialLng);
     }
   }
 
@@ -435,6 +470,32 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
         </div>
       )}
 
+      {/* [NEW] Delivery range status banner */}
+      {isInDeliveryRange !== null && (
+        <div className={`shrink-0 px-4 py-2 flex items-center gap-2 text-sm font-bold ${
+          isInDeliveryRange
+            ? 'bg-green-50 border-t border-green-200 text-green-700'
+            : 'bg-red-50 border-t border-red-200 text-red-700'
+        }`}>
+          {isInDeliveryRange ? (
+            <Check size={16} className="text-green-600 shrink-0" />
+          ) : (
+            <AlertCircle size={16} className="text-red-600 shrink-0" />
+          )}
+          <span className="flex-1">
+            {isInDeliveryRange
+              ? '✅ This location is within our delivery area'
+              : '❌ This location is outside our delivery area'}
+          </span>
+          {checkingRange && <Loader2 size={14} className="animate-spin ml-auto" />}
+        </div>
+      )}
+      {rangeCheckError && (
+        <div className="shrink-0 px-4 py-1 bg-red-50 border-t border-red-100">
+          <p className="text-xs text-red-500">{rangeCheckError}</p>
+        </div>
+      )}
+
       {/* Bottom panel with address + confirm */}
       <div className="shrink-0 border-t border-ink-100 px-4 py-3 space-y-3 bg-white">
         {address ? (
@@ -461,9 +522,10 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
             </div>
           </div>
         ) : null}
+
         <button
           onClick={handleConfirm}
-          disabled={!mapReady}
+          disabled={!mapReady || isInDeliveryRange === false || checkingRange} // [NEW] disabled if not in range
           className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
         >
           <Check size={18} /> Confirm location

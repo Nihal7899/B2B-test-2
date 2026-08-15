@@ -62,18 +62,62 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
       setError('Please fill all required fields.');
       return;
     }
+  
     setSaving(true);
     setError('');
+  
     try {
-      await saveAddress(form);
+      let lat = form.latitude;
+      let lng = form.longitude;
+  
+      // If no lat/lng, geocode the address
+      if (lat === null || lng === null) {
+        const fullAddress = `${form.line1}, ${form.city}, ${form.state} ${form.postal_code}`;
+        const { data, error } = await supabase.functions.invoke('maps', {
+          body: { action: 'search', query: fullAddress },
+        });
+        if (error || !data?.address?.latitude) {
+          setError('Could not determine location from address. Please use the map picker to set location.');
+          setSaving(false);
+          return;
+        }
+        lat = data.address.latitude;
+        lng = data.address.longitude;
+        // Optionally fill missing address parts from geocoded result
+        setForm(f => ({
+          ...f,
+          latitude: lat,
+          longitude: lng,
+          line1: data.address.line1 || f.line1,
+          city: data.address.city || f.city,
+          state: data.address.state || f.state,
+          postal_code: data.address.postal_code || f.postal_code,
+        }));
+      }
+  
+      // Check delivery range
+      const inRange = await checkPointInDeliveryRange(lat!, lng!);
+      if (!inRange) {
+        setError('This address is outside our delivery area. Please choose another location.');
+        setSaving(false);
+        return;
+      }
+  
+      // Proceed to save address (use existing logic)
+      await saveAddress({
+        ...form,
+        latitude: lat,
+        longitude: lng,
+      });
       setShowForm(false);
       setForm({ ...EMPTY_FORM });
       await load();
       onSaved?.();
-    } catch {
+    } catch (err) {
       setError('Could not save address. Please try again.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleDelete = async (id: string) => {

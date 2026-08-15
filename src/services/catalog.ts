@@ -1047,3 +1047,52 @@ export async function getDeliveryCharge(
   };
 }
 
+
+// ----- DELIVERY RANGES -----
+export async function fetchDeliveryRanges(): Promise<DeliveryRange[]> {
+  const { data, error } = await supabase
+    .from('delivery_ranges')
+    .select('*')
+    .order('name');
+  if (error) throw error;
+  return data as DeliveryRange[];
+}
+
+export async function createDeliveryRange(
+  input: Omit<DeliveryRange, 'id' | 'created_at' | 'updated_at'>
+): Promise<DeliveryRange | null> {
+  const { data, error } = await supabase
+    .from('delivery_ranges')
+    .insert(input)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as DeliveryRange;
+}
+
+export async function updateDeliveryRange(
+  id: string,
+  updates: Partial<DeliveryRange>
+): Promise<void> {
+  const { error } = await supabase
+    .from('delivery_ranges')
+    .update(updates)
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteDeliveryRange(id: string): Promise<void> {
+  await supabase.from('delivery_ranges').delete().eq('id', id);
+}
+
+export async function checkPointInDeliveryRange(lat: number, lng: number): Promise<boolean> {
+  const { data, error } = await supabase.rpc('is_point_in_delivery_range', {
+    p_lat: lat,
+    p_lng: lng,
+  });
+  if (error) {
+    console.error('checkPointInDeliveryRange error:', error);
+    return false;
+  }
+  return data ?? false;
+}

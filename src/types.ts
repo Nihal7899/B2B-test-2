@@ -275,3 +275,14 @@ export interface TrustedBrand {
   created_at: string;
   updated_at: string;
 }
+
+export interface DeliveryRange {
+  id: string;
+  name: string;
+  center_lat: number;
+  center_lng: number;
+  radius_km: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}

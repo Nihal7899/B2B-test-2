@@ -125,6 +125,19 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         <h2 className="text-sm font-bold text-ink-900 mb-1">Payment details</h2>
         <div className="flex justify-between text-xs text-ink-500"><span>Subtotal</span><span>₹{Number(order.subtotal).toLocaleString('en-IN')}</span></div>
         <div className="flex justify-between text-xs text-brand-600"><span>Discount</span><span>- ₹{Number(order.discount).toLocaleString('en-IN')}</span></div>
+        {/* CGST and SGST rows */}
+        {order.cgst_amount !== undefined && order.cgst_amount !== null && order.cgst_amount > 0 && (
+          <div className="flex justify-between text-xs text-ink-500">
+            <span>CGST</span>
+            <span>₹{Number(order.cgst_amount).toLocaleString('en-IN')}</span>
+          </div>
+        )}
+        {order.sgst_amount !== undefined && order.sgst_amount !== null && order.sgst_amount > 0 && (
+          <div className="flex justify-between text-xs text-ink-500">
+            <span>SGST</span>
+            <span>₹{Number(order.sgst_amount).toLocaleString('en-IN')}</span>
+          </div>
+        )}
         <div className="flex justify-between text-xs text-ink-500"><span>Delivery fee</span><span>₹{Number(order.delivery_fee).toLocaleString('en-IN')}</span></div>
         <div className="border-t border-dashed border-ink-200 pt-2 flex justify-between"><span className="text-sm font-bold text-ink-800">Total paid</span><span className="text-lg font-extrabold text-brand-700">₹{Number(order.total).toLocaleString('en-IN')}</span></div>
       </section>

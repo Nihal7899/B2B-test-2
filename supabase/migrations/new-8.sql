@@ -20,8 +20,11 @@ DECLARE
   v_discount_value NUMERIC;
   v_min_order_value NUMERIC;
   v_max_discount_amount NUMERIC;
-  v_item RECORD;
   v_gst_total NUMERIC := 0;
+  v_discount_ratio NUMERIC := 0;
+  v_pincode TEXT;
+  v_zone_id UUID;
+  v_charge NUMERIC;
 BEGIN
   -- 1. Authenticate
   v_user_id := auth.uid();
@@ -29,11 +32,11 @@ BEGIN
     RAISE EXCEPTION 'Not authenticated';
   END IF;
 
-  -- 2. Validate address
-  IF NOT EXISTS (
-    SELECT 1 FROM addresses
-    WHERE id = p_address_id AND user_id = v_user_id
-  ) THEN
+  -- 2. Validate address and get pincode
+  SELECT postal_code INTO v_pincode
+  FROM addresses
+  WHERE id = p_address_id AND user_id = v_user_id;
+  IF v_pincode IS NULL THEN
     RAISE EXCEPTION 'Invalid address: address not found or does not belong to user';
   END IF;
 
@@ -68,7 +71,20 @@ BEGIN
     RAISE EXCEPTION 'No valid items or all items are inactive';
   END IF;
 
-  -- 4. Validate promo code
+  -- 4. Compute delivery fee
+  -- Use the existing get_delivery_charge RPC
+  SELECT charge, zone_id INTO v_charge, v_zone_id
+  FROM get_delivery_charge(v_pincode, v_subtotal);
+  
+  IF v_charge IS NOT NULL THEN
+    v_delivery_fee := v_charge;
+    -- If zone_id is provided and p_delivery_zone_id is not passed, use the found zone
+    IF p_delivery_zone_id IS NULL AND v_zone_id IS NOT NULL THEN
+      p_delivery_zone_id := v_zone_id;
+    END IF;
+  END IF;
+
+  -- 5. Validate promo code and compute discount
   IF p_promo_code IS NOT NULL THEN
     SELECT
       id, discount_type, discount_value, min_order_value, max_discount_amount
@@ -96,28 +112,61 @@ BEGIN
     END IF;
   END IF;
 
-  -- 5. Delivery fee (adjust if you compute based on zone)
-  v_delivery_fee := 0;
+  -- 6. Compute discount ratio for GST adjustment
+  IF v_discount > 0 AND v_subtotal > 0 THEN
+    v_discount_ratio := v_discount / v_subtotal;
+    v_gst_total := v_gst_total * (1 - v_discount_ratio);
+  END IF;
 
-  -- 6. Total with GST
+  -- 7. Total (subtotal - discount + delivery + GST)
   v_total := v_subtotal - v_discount + v_delivery_fee + v_gst_total;
 
-  -- 7. Insert order
+  -- 8. Insert order with GST breakdown
   INSERT INTO orders (
-    user_id, address_id, status, subtotal, discount, delivery_fee, total,
-    promo_code_id, delivery_zone_id, order_number
+    user_id,
+    address_id,
+    status,
+    subtotal,
+    discount,
+    delivery_fee,
+    total,
+    promo_code_id,
+    delivery_zone_id,
+    order_number,
+    gst_amount,
+    cgst_amount,
+    sgst_amount
   )
   VALUES (
-    v_user_id, p_address_id, 'pending', v_subtotal, v_discount,
-    v_delivery_fee, v_total, v_promo_id, p_delivery_zone_id,
-    'SK-' || to_char(now(), 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))
+    v_user_id,
+    p_address_id,
+    'pending',
+    v_subtotal,
+    v_discount,
+    v_delivery_fee,
+    v_total,
+    v_promo_id,
+    p_delivery_zone_id,
+    'SK-' || to_char(now(), 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)),
+    v_gst_total,
+    v_gst_total / 2,
+    v_gst_total / 2
   )
   RETURNING id INTO v_order_id;
 
-  -- 8. Insert order items (with effective_price and GST)
+  -- 9. Insert order items with effective_price and GST
   INSERT INTO order_items (
-    order_id, product_id, brand, product_name, pack_size,
-    unit_price, mrp, quantity, line_total, hsn_code, gst_percentage
+    order_id,
+    product_id,
+    brand,
+    product_name,
+    pack_size,
+    unit_price,
+    mrp,
+    quantity,
+    line_total,
+    hsn_code,
+    gst_percentage
   )
   SELECT
     v_order_id,
@@ -153,7 +202,7 @@ BEGIN
   JOIN products p ON p.id = i.product_id
   WHERE p.is_active = true;
 
-  -- 9. Return order ID
+  -- 10. Return order ID
   RETURN v_order_id;
 END;
 $$;

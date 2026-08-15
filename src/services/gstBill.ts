@@ -41,24 +41,23 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     .eq('id', order.user_id)
     .maybeSingle();
 
-  // Fetch customer GST from businesses table
-  let customerGst = '';
   const { data: business } = await supabase
     .from('businesses')
-    .select('gstin')
+    .select('business_name, gstin')
     .eq('owner_user_id', order.user_id)
     .eq('gst_verification_status', 'verified')
     .maybeSingle();
-  if (business?.gstin) {
-    customerGst = business.gstin;
-  }
+
+  const customerName = business?.business_name || profile?.full_name || 'Customer';
+  const customerGst = business?.gstin || '';
+  const customerPhone = profile?.phone || '';
 
   return {
     order: order as DbOrder,
     items: items as (DbOrderItem & { hsn_code?: string; gst_percentage?: number })[],
     address,
-    customerName: profile?.full_name || 'Customer',
-    customerPhone: profile?.phone || '',
+    customerName,
+    customerPhone,
     customerGst,
   };
 }

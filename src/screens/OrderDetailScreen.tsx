@@ -119,21 +119,21 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           <span>Subtotal</span>
           <span>₹{Number(order.subtotal).toLocaleString('en-IN')}</span>
         </div>
-        {/* Discount row – only if discount > 0 */}
-        {order.discount && order.discount > 0 && (
+        {/* Discount – only if > 0 */}
+        {Number(order.discount) > 0 && (
           <div className="flex justify-between text-xs text-brand-600">
             <span>Discount</span>
             <span>- ₹{Number(order.discount).toLocaleString('en-IN')}</span>
           </div>
         )}
-        {/* CGST and SGST rows – only if values exist and > 0 */}
-        {order.cgst_amount !== undefined && order.cgst_amount !== null && order.cgst_amount > 0 && (
+        {/* CGST & SGST – only if > 0 */}
+        {Number(order.cgst_amount) > 0 && (
           <div className="flex justify-between text-xs text-ink-500">
             <span>CGST</span>
             <span>₹{Number(order.cgst_amount).toLocaleString('en-IN')}</span>
           </div>
         )}
-        {order.sgst_amount !== undefined && order.sgst_amount !== null && order.sgst_amount > 0 && (
+        {Number(order.sgst_amount) > 0 && (
           <div className="flex justify-between text-xs text-ink-500">
             <span>SGST</span>
             <span>₹{Number(order.sgst_amount).toLocaleString('en-IN')}</span>
@@ -149,7 +149,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         </div>
       </section>
 
-      {/* Print Bill button – only for confirmed orders, now placed after payment details */}
+      {/* Print Bill – only for confirmed orders, now after payment details */}
       {order.status === 'confirmed' && (
         <button
           onClick={() => void handlePrintBill(order.id)}

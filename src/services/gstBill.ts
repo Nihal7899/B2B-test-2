@@ -41,14 +41,25 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     .eq('id', order.user_id)
     .maybeSingle();
 
-  // For GST, you may want to fetch from business table if linked
+  // Fetch customer GST from businesses table
+  let customerGst = '';
+  const { data: business } = await supabase
+    .from('businesses')
+    .select('gstin')
+    .eq('owner_user_id', order.user_id)
+    .eq('gst_verification_status', 'verified')
+    .maybeSingle();
+  if (business?.gstin) {
+    customerGst = business.gstin;
+  }
+
   return {
     order: order as DbOrder,
     items: items as (DbOrderItem & { hsn_code?: string; gst_percentage?: number })[],
     address,
     customerName: profile?.full_name || 'Customer',
     customerPhone: profile?.phone || '',
-    customerGst: '', // Optional: fetch from business
+    customerGst,
   };
 }
 
@@ -73,11 +84,11 @@ function buildA4InvoiceHtml(
   const cgstTotal = gstTotal / 2;
   const sgstTotal = gstTotal / 2;
   const grandTotal = subtotal + gstTotal;
-  const outstandingCredit = 0; // not stored in orders, set to 0 or fetch from order
+  const outstandingCredit = 0;
   const finalGrand = grandTotal + outstandingCredit;
 
   const invoiceNumber = order.order_number || `INV-${order.id.slice(0, 8)}`;
-  const paymentType = 'cash'; // or derive from order
+  const paymentType = 'cash';
   const isGst = gstTotal > 0;
   const template = design.gstTemplate || 'template1';
   const fontSize = design.gstFont === 'small' ? 10 : design.gstFont === 'large' ? 14 : 12;
@@ -103,7 +114,7 @@ function buildA4InvoiceHtml(
   const overallSgst = sgstTotal;
   const overallGrand = grandTotal;
 
-  // Page slicing
+  // Page slicing helpers
   const computePageSlices = (totalItems: number, firstCapacity: number, nextCapacity: number) => {
     const slices: { start: number; end: number }[] = [];
     let start = 0;
@@ -217,34 +228,6 @@ function buildA4InvoiceHtml(
     day: 'numeric', month: 'short', year: 'numeric'
   });
 
-  // Build summary
-  const summaryHtml = `
-      <div class="summary" style="margin-top:24px;border-top:3px double #000;padding-top:16px;">
-        <div style="display:flex;justify-content:space-between;font-weight:700;padding:4px 0;">
-          <span>Total Subtotal</span><span>₹${overallSubtotal.toFixed(2)}</span>
-        </div>
-        ${isGst ? `
-          <div style="display:flex;justify-content:space-between;font-weight:700;padding:4px 0;">
-            <span>Total CGST</span><span>₹${overallCgst.toFixed(2)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-weight:700;padding:4px 0;">
-            <span>Total SGST</span><span>₹${overallSgst.toFixed(2)}</span>
-          </div>
-        ` : ''}
-        <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.2em;padding:8px 0;border-top:2px solid #000;">
-          <span>GRAND TOTAL</span><span>₹${overallGrand.toFixed(2)}</span>
-        </div>
-        ${outstandingCredit > 0 ? `
-          <div style="display:flex;justify-content:space-between;color:#dc2626;padding:4px 0;">
-            <span>Previous Credit</span><span>₹${outstandingCredit.toFixed(2)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.3em;color:#dc2626;padding:8px 0;border-top:2px solid #dc2626;">
-            <span>FINAL GRAND TOTAL</span><span>₹${finalGrand.toFixed(2)}</span>
-          </div>
-        ` : ''}
-      </div>
-    `;
-
   // ─── Build page table ────────────────────────────────────────────
   const buildPageTable = (startIdx: number, endIdx: number, pageNum: number, totalPages: number) => {
     const pageItems = itemsWithDetails.slice(startIdx, endIdx);
@@ -255,67 +238,71 @@ function buildA4InvoiceHtml(
 
     const rows = pageItems.map((item, idx) => {
       const serial = startIdx + idx + 1;
+      const cgst = item.gst_amount / 2;
+      const sgst = item.gst_amount / 2;
       return `<tr>
-          <td style="text-align:center">${serial}</td>
-          <td>${item.product_name}</td>
-          <td style="text-align:center">${item.hsn || '-'}</td>
-          ${isGst ? `<td style="text-align:center">${item.gst_rate}%</td>` : ''}
-          <td style="text-align:center">${item.quantity}</td>
-          <td style="text-align:right">₹${item.unit_price.toFixed(2)}</td>
-          ${isGst ? `<td style="text-align:right">₹${(item.gst_amount/2).toFixed(2)}</td>
-          <td style="text-align:right">₹${(item.gst_amount/2).toFixed(2)}</td>` : ''}
-          <td style="text-align:right">₹${(item.line_total + item.gst_amount).toFixed(2)}</td>
-        </tr>`;
+        <td style="text-align:center">${serial}</td>
+        <td>${item.product_name}</td>
+        <td style="text-align:center">${item.hsn || '-'}</td>
+        ${isGst ? `<td style="text-align:center">${item.gst_rate}%</td>` : ''}
+        <td style="text-align:center">${item.quantity}</td>
+        <td style="text-align:right">₹${item.unit_price.toFixed(2)}</td>
+        ${isGst ? `
+          <td style="text-align:right">₹${cgst.toFixed(2)}</td>
+          <td style="text-align:right">₹${sgst.toFixed(2)}</td>
+        ` : ''}
+        <td style="text-align:right">₹${(item.line_total + item.gst_amount).toFixed(2)}</td>
+      </tr>`;
     }).join('');
 
     const pageFooter = `
-        <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td colspan="${isGst ? 2 : 1}">Page Subtotal</td><td>₹${pageSubtotal.toFixed(2)}</td></tr>
-        ${isGst ? `
-          <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td>Page CGST</td><td>₹${pageCgst.toFixed(2)}</td><td></td></tr>
-          <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td>Page SGST</td><td>₹${pageSgst.toFixed(2)}</td><td></td></tr>
-        ` : ''}
-        <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td colspan="${isGst ? 2 : 1}">Page Total</td><td>₹${(pageSubtotal + pageGst).toFixed(2)}</td></tr>
-      `;
+      <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td colspan="${isGst ? 2 : 1}">Page Subtotal</td><td>₹${pageSubtotal.toFixed(2)}</td></tr>
+      ${isGst ? `
+        <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td>Page CGST</td><td>₹${pageCgst.toFixed(2)}</td><td></td></tr>
+        <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td>Page SGST</td><td>₹${pageSgst.toFixed(2)}</td><td></td></tr>
+      ` : ''}
+      <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td colspan="${isGst ? 2 : 1}">Page Total</td><td>₹${(pageSubtotal + pageGst).toFixed(2)}</td></tr>
+    `;
 
     const colCount = isGst ? 9 : 7;
     const metaRowHtml = `
-        <tr style="background:#f0f0f0; font-weight:600;">
-          <td colspan="${colCount}" style="border:none; padding:4px 8px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:${fontSize}px;">
-              <div style="text-align:left;">
-                <div><strong>${customerNameDisplay}</strong></div>
-                ${customerPhoneDisplay ? `<div style="font-weight:400;">${customerPhoneDisplay}</div>` : ''}
-                ${customerGstDisplay ? `<div style="font-weight:400;">GST: ${customerGstDisplay}</div>` : ''}
-              </div>
-              <div style="text-align:center; font-weight:400;">
-                Page ${pageNum} of ${totalPages}
-              </div>
-              <div style="text-align:right;">
-                <div><strong>Invoice:</strong> ${displayInvoiceNumber}</div>
-                <div style="font-weight:400;">${currentDate}</div>
-              </div>
+      <tr style="background:#f0f0f0; font-weight:600;">
+        <td colspan="${colCount}" style="border:none; padding:4px 8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:${fontSize}px;">
+            <div style="text-align:left;">
+              <div><strong>${customerNameDisplay}</strong></div>
+              ${customerPhoneDisplay ? `<div style="font-weight:400;">${customerPhoneDisplay}</div>` : ''}
+              ${customerGstDisplay ? `<div style="font-weight:400;">GST: ${customerGstDisplay}</div>` : ''}
             </div>
-          </td>
-        </tr>
-      `;
+            <div style="text-align:center; font-weight:400;">
+              Page ${pageNum} of ${totalPages}
+            </div>
+            <div style="text-align:right;">
+              <div><strong>Invoice:</strong> ${displayInvoiceNumber}</div>
+              <div style="font-weight:400;">${currentDate}</div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
 
     return `
-        <table>
-          <thead>
-            ${metaRowHtml}
-            <tr>
-              <th>S.No</th><th>Product</th><th>HSN</th>${isGst ? '<th>GST%</th>' : ''}<th>Qty</th><th>Rate</th>${isGst ? '<th>CGST</th><th>SGST</th>' : ''}<th>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows}
-            ${pageFooter}
-          </tbody>
-        </table>
-      `;
+      <table>
+        <thead>
+          ${metaRowHtml}
+          <tr>
+            <th>S.No</th><th>Product</th><th>HSN</th>${isGst ? '<th>GST%</th>' : ''}<th>Qty</th><th>Rate</th>${isGst ? '<th>CGST</th><th>SGST</th>' : ''}<th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+          ${pageFooter}
+        </tbody>
+      </table>
+    `;
   };
 
-  // ─── Build compact template (template5) ──────────────────────────
+  // ─── Build compact table (template5) ──────────────────────────────
   const buildCompactTable = (startIdx: number, endIdx: number, pageNum: number, totalPages: number) => {
     const pageItems = itemsWithDetails.slice(startIdx, endIdx);
     const pageSubtotal = pageItems.reduce((s, i) => s + i.line_total, 0);
@@ -325,57 +312,63 @@ function buildA4InvoiceHtml(
 
     const rows = pageItems.map((item, idx) => {
       const serial = startIdx + idx + 1;
+      const cgst = item.gst_amount / 2;
+      const sgst = item.gst_amount / 2;
       return `<tr>
-          <td>${serial}</td>
-          <td style="text-align:left">${item.product_name}</td>
-          <td>${item.quantity}</td>
-          <td>₹${item.unit_price.toFixed(2)}</td>
-          <td>${item.gst_rate}%</td>
-          <td>₹${(item.line_total + item.gst_amount).toFixed(2)}</td>
-        </tr>`;
+        <td>${serial}</td>
+        <td style="text-align:left">${item.product_name}</td>
+        <td>${item.hsn || '-'}</td>
+        <td>${item.gst_rate}%</td>
+        <td>${item.quantity}</td>
+        <td>₹${item.unit_price.toFixed(2)}</td>
+        <td>₹${cgst.toFixed(2)}</td>
+        <td>₹${sgst.toFixed(2)}</td>
+        <td>₹${(item.line_total + item.gst_amount).toFixed(2)}</td>
+      </tr>`;
     }).join('');
 
     const pageFooter = `
-        <tr class="total-row"><td colspan="4"></td><td>Page Subtotal</td><td>₹${pageSubtotal.toFixed(2)}</td></tr>
-        <tr class="total-row"><td colspan="4"></td><td>Page CGST</td><td>₹${pageCgst.toFixed(2)}</td><td></td></tr>
-        <tr class="total-row"><td colspan="4"></td><td>Page SGST</td><td>₹${pageSgst.toFixed(2)}</td><td></td></tr>
-        <tr class="total-row"><td colspan="4"></td><td>Page Total</td><td>₹${(pageSubtotal + pageGst).toFixed(2)}</td></tr>
-      `;
+      <tr class="total-row"><td colspan="6"></td><td>Page Subtotal</td><td>₹${pageSubtotal.toFixed(2)}</td></tr>
+      <tr class="total-row"><td colspan="6"></td><td>Page CGST</td><td>₹${pageCgst.toFixed(2)}</td><td></td></tr>
+      <tr class="total-row"><td colspan="6"></td><td>Page SGST</td><td>₹${pageSgst.toFixed(2)}</td><td></td></tr>
+      <tr class="total-row"><td colspan="6"></td><td>Page Total</td><td>₹${(pageSubtotal + pageGst).toFixed(2)}</td></tr>
+    `;
 
     const metaRowCompact = `
-        <tr style="background:#f3f4f6; font-weight:600;">
-          <td colspan="6" style="border:none; padding:2px 4px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:${Math.min(fontSize,10)}px;">
-              <div style="text-align:left;">
-                <div><strong>${customerNameDisplay}</strong></div>
-                ${customerPhoneDisplay ? `<div style="font-weight:400;">${customerPhoneDisplay}</div>` : ''}
-              </div>
-              <div style="text-align:center; font-weight:400;">
-                Page ${pageNum} of ${totalPages}
-              </div>
-              <div style="text-align:right;">
-                <div><strong>Invoice:</strong> ${displayInvoiceNumber}</div>
-                <div style="font-weight:400;">${currentDate}</div>
-              </div>
+      <tr style="background:#f3f4f6; font-weight:600;">
+        <td colspan="9" style="border:none; padding:2px 4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:${Math.min(fontSize,10)}px;">
+            <div style="text-align:left;">
+              <div><strong>${customerNameDisplay}</strong></div>
+              ${customerPhoneDisplay ? `<div style="font-weight:400;">${customerPhoneDisplay}</div>` : ''}
+              ${customerGstDisplay ? `<div style="font-weight:400;">GST: ${customerGstDisplay}</div>` : ''}
             </div>
-          </td>
-        </tr>
-      `;
+            <div style="text-align:center; font-weight:400;">
+              Page ${pageNum} of ${totalPages}
+            </div>
+            <div style="text-align:right;">
+              <div><strong>Invoice:</strong> ${displayInvoiceNumber}</div>
+              <div style="font-weight:400;">${currentDate}</div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
 
     return `
-        <table>
-          <thead>
-            ${metaRowCompact}
-            <tr>
-              <th>S.No</th><th>Product</th><th>Qty</th><th>Rate</th><th>GST%</th><th>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows}
-            ${pageFooter}
-          </tbody>
-        </table>
-      `;
+      <table>
+        <thead>
+          ${metaRowCompact}
+          <tr>
+            <th>S.No</th><th>Product</th><th>HSN</th><th>GST%</th><th>Qty</th><th>Rate</th><th>CGST</th><th>SGST</th><th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+          ${pageFooter}
+        </tbody>
+      </table>
+    `;
   };
 
   // ─── Build all pages ──────────────────────────────────────────────
@@ -391,6 +384,34 @@ function buildA4InvoiceHtml(
       allTablesHtml += `<div style="page-break-after: always;"></div>`;
     }
   });
+
+  // ─── Summary ──────────────────────────────────────────────────────
+  const summaryHtml = `
+    <div class="summary" style="margin-top:24px;border-top:3px double #000;padding-top:16px;">
+      <div style="display:flex;justify-content:space-between;font-weight:700;padding:4px 0;">
+        <span>Total Subtotal</span><span>₹${overallSubtotal.toFixed(2)}</span>
+      </div>
+      ${isGst ? `
+        <div style="display:flex;justify-content:space-between;font-weight:700;padding:4px 0;">
+          <span>Total CGST</span><span>₹${overallCgst.toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-weight:700;padding:4px 0;">
+          <span>Total SGST</span><span>₹${overallSgst.toFixed(2)}</span>
+        </div>
+      ` : ''}
+      <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.2em;padding:8px 0;border-top:2px solid #000;">
+        <span>GRAND TOTAL</span><span>₹${overallGrand.toFixed(2)}</span>
+      </div>
+      ${outstandingCredit > 0 ? `
+        <div style="display:flex;justify-content:space-between;color:#dc2626;padding:4px 0;">
+          <span>Previous Credit</span><span>₹${outstandingCredit.toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.3em;color:#dc2626;padding:8px 0;border-top:2px solid #dc2626;">
+          <span>FINAL GRAND TOTAL</span><span>₹${finalGrand.toFixed(2)}</span>
+        </div>
+      ` : ''}
+    </div>
+  `;
 
   // ─── Template-specific styles & body ────────────────────────────
   let templateStyles = '';
@@ -543,8 +564,7 @@ function buildA4InvoiceHtml(
       break;
 
     case 'template5':
-      // Compact template already handled above; we just need to insert the pre-built tables.
-      // But we need to wrap with the compact styles.
+      // Already handled as compact, return directly
       const compactStyles = `
         body { font-family: Arial, sans-serif; font-size: ${Math.min(fontSize, 10)}px; padding: 8px; margin: 0; }
         .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
@@ -576,7 +596,6 @@ function buildA4InvoiceHtml(
       return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${displayInvoiceNumber}</title>
         <style>${compactStyles}</style>
       </head><body>${compactBody}</body></html>`;
-      break;
 
     default:
       templateStyles = `
@@ -608,11 +627,7 @@ function buildA4InvoiceHtml(
   }
 
   // For templates 1-4, return the full HTML
-  if (template !== 'template5') {
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${displayInvoiceNumber}</title>
-      <style>${templateStyles}</style>
-    </head><body>${templateBody}</body></html>`;
-  }
-  // template5 already returned above
-  return '';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${displayInvoiceNumber}</title>
+    <style>${templateStyles}</style>
+  </head><body>${templateBody}</body></html>`;
 }

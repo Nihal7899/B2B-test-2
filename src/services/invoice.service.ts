@@ -73,16 +73,14 @@ export async function getInvoiceConfig(): Promise<InvoiceConfig | null> {
 export async function saveInvoiceConfig(config: Partial<InvoiceConfig>): Promise<void> {
   const existing = await getInvoiceConfig();
   if (existing) {
-    // Update existing
     await supabase.from('invoice_config').update(config).eq('id', existing.id);
   } else {
-    // Insert new – let Supabase generate a UUID (omit id)
+    // Insert without id – let Supabase generate UUID
     const { id, ...rest } = config;
     await supabase.from('invoice_config').insert(rest);
   }
   cachedConfig = null;
 }
-
 
 export async function getInvoiceDesign(): Promise<InvoiceDesignSettings> {
   if (cachedDesign) return cachedDesign;
@@ -117,7 +115,6 @@ export async function saveInvoiceDesign(settings: InvoiceDesignSettings): Promis
   if (existing) {
     await supabase.from('invoice_design').update({ settings }).eq('id', existing.id);
   } else {
-    // Insert new – let Supabase generate UUID
     await supabase.from('invoice_design').insert({ settings });
   }
   cachedDesign = settings;

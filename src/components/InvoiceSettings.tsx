@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, Save, Upload, Eye, X } from 'lucide-react';
+import { FileText, Save, Upload, Eye, X } from 'lucide-react';
 import { getInvoiceConfig, saveInvoiceConfig, getInvoiceDesign, saveInvoiceDesign, type InvoiceConfig, type InvoiceDesignSettings } from '@/services/invoice.service';
-import { buildGstBillHtml } from '@/services/gstBill';
-import { printHtml } from '@/utils/printHtml';
 import toast from 'react-hot-toast';
 
 export default function InvoiceSettings() {
@@ -41,7 +39,6 @@ export default function InvoiceSettings() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [logoUploading, setLogoUploading] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -81,19 +78,7 @@ export default function InvoiceSettings() {
   };
 
   const previewInvoice = async () => {
-    try {
-      // Use a dummy order ID – you can replace with a real order ID if needed
-      // For preview, we'll create a dummy HTML with dummy data.
-      // Or we can fetch a recent order. For simplicity, we'll generate a dummy preview.
-      const dummyOrderId = 'dummy';
-      // You can implement a dummy HTML builder or use a real order.
-      // For now, we'll just show a placeholder.
-      const html = await buildGstBillHtml(dummyOrderId); // will fail if dummy not found
-      // Better: use a separate preview builder. We'll just show a message.
-      alert('Preview will be available after connecting a real order.');
-    } catch (e) {
-      alert('Preview not available. Please save settings and use a real order.');
-    }
+    alert('Preview will be available using a real order. Use the "Print Bill" button in Warehouse.');
   };
 
   if (loading) return <div className="flex items-center justify-center py-8"><div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" /></div>;

@@ -1,3 +1,4 @@
+// services/gstBill.ts
 import { supabase } from '@/lib/supabase';
 import { getInvoiceConfig, getInvoiceDesign, type InvoiceConfig, type InvoiceDesignSettings } from './invoice.service';
 import type { DbOrder, DbOrderItem, DbAddress } from './catalog';
@@ -35,30 +36,37 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     address = addr as DbAddress | null;
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, phone')
-    .eq('id', order.user_id)
-    .maybeSingle();
-
+  // Fetch business (prefer verified, but fallback to any)
   const { data: business } = await supabase
     .from('businesses')
     .select('business_name, gstin')
     .eq('owner_user_id', order.user_id)
-    .eq('gst_verification_status', 'verified')
     .maybeSingle();
 
-  const customerName = business?.business_name || profile?.full_name || 'Customer';
-  const customerGst = business?.gstin || '';
-  const customerPhone = profile?.phone || '';
+  let customerName = business?.business_name || null;
+  let customerGst = business?.gstin || null;
+  let customerPhone = '';
+
+  if (!customerName) {
+    // Fallback to profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name, phone')
+      .eq('id', order.user_id)
+      .maybeSingle();
+    if (profile) {
+      customerName = profile.full_name || 'Customer';
+      customerPhone = profile.phone || '';
+    }
+  }
 
   return {
     order: order as DbOrder,
     items: items as (DbOrderItem & { hsn_code?: string; gst_percentage?: number })[],
     address,
-    customerName,
-    customerPhone,
-    customerGst,
+    customerName: customerName || 'Customer',
+    customerPhone: customerPhone || '',
+    customerGst: customerGst || '',
   };
 }
 
@@ -270,7 +278,6 @@ function buildA4InvoiceHtml(
           <div style="display:flex; justify-content:space-between; align-items:center; font-size:${fontSize}px;">
             <div style="text-align:left;">
               <div><strong>${customerNameDisplay}</strong></div>
-              ${customerPhoneDisplay ? `<div style="font-weight:400;">${customerPhoneDisplay}</div>` : ''}
               ${customerGstDisplay ? `<div style="font-weight:400;">GST: ${customerGstDisplay}</div>` : ''}
             </div>
             <div style="text-align:center; font-weight:400;">
@@ -339,7 +346,6 @@ function buildA4InvoiceHtml(
           <div style="display:flex; justify-content:space-between; align-items:center; font-size:${Math.min(fontSize,10)}px;">
             <div style="text-align:left;">
               <div><strong>${customerNameDisplay}</strong></div>
-              ${customerPhoneDisplay ? `<div style="font-weight:400;">${customerPhoneDisplay}</div>` : ''}
               ${customerGstDisplay ? `<div style="font-weight:400;">GST: ${customerGstDisplay}</div>` : ''}
             </div>
             <div style="text-align:center; font-weight:400;">
@@ -563,7 +569,7 @@ function buildA4InvoiceHtml(
       break;
 
     case 'template5':
-      // Already handled as compact, return directly
+      // Compact template already handled above
       const compactStyles = `
         body { font-family: Arial, sans-serif; font-size: ${Math.min(fontSize, 10)}px; padding: 8px; margin: 0; }
         .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 6px; }

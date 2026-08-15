@@ -39,7 +39,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
 
   const currentStepIndex = order.status === 'cancelled' ? -1 : statusSteps.findIndex((s) => s.key === order.status);
   
-  const handleDownloadInvoice = async (orderId: string) => {
+  const handlePrintBill = async (orderId: string) => {
     try {
       const html = await buildGstBillHtml(orderId);
       printHtml(html);
@@ -86,14 +86,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </div>
         </section>
       )}
-      {order.status === 'confirmed' && (
-        <button
-          onClick={() => void handlePrintBill(order.id)}
-          className="flex-1 h-9 rounded-lg bg-blue-600 text-white text-xs font-bold flex items-center justify-center gap-1"
-        >
-          <Printer size={14} /> Print Bill
-        </button>
-      )}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
         <h2 className="text-sm font-bold text-ink-900 mb-3">Items ({items.length})</h2>
         <div className="space-y-3">
@@ -123,9 +115,18 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
       )}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-2">
         <h2 className="text-sm font-bold text-ink-900 mb-1">Payment details</h2>
-        <div className="flex justify-between text-xs text-ink-500"><span>Subtotal</span><span>₹{Number(order.subtotal).toLocaleString('en-IN')}</span></div>
-        <div className="flex justify-between text-xs text-brand-600"><span>Discount</span><span>- ₹{Number(order.discount).toLocaleString('en-IN')}</span></div>
-        {/* CGST and SGST rows */}
+        <div className="flex justify-between text-xs text-ink-500">
+          <span>Subtotal</span>
+          <span>₹{Number(order.subtotal).toLocaleString('en-IN')}</span>
+        </div>
+        {/* Discount row – only if discount > 0 */}
+        {order.discount && order.discount > 0 && (
+          <div className="flex justify-between text-xs text-brand-600">
+            <span>Discount</span>
+            <span>- ₹{Number(order.discount).toLocaleString('en-IN')}</span>
+          </div>
+        )}
+        {/* CGST and SGST rows – only if values exist and > 0 */}
         {order.cgst_amount !== undefined && order.cgst_amount !== null && order.cgst_amount > 0 && (
           <div className="flex justify-between text-xs text-ink-500">
             <span>CGST</span>
@@ -138,9 +139,25 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             <span>₹{Number(order.sgst_amount).toLocaleString('en-IN')}</span>
           </div>
         )}
-        <div className="flex justify-between text-xs text-ink-500"><span>Delivery fee</span><span>₹{Number(order.delivery_fee).toLocaleString('en-IN')}</span></div>
-        <div className="border-t border-dashed border-ink-200 pt-2 flex justify-between"><span className="text-sm font-bold text-ink-800">Total paid</span><span className="text-lg font-extrabold text-brand-700">₹{Number(order.total).toLocaleString('en-IN')}</span></div>
+        <div className="flex justify-between text-xs text-ink-500">
+          <span>Delivery fee</span>
+          <span>₹{Number(order.delivery_fee).toLocaleString('en-IN')}</span>
+        </div>
+        <div className="border-t border-dashed border-ink-200 pt-2 flex justify-between">
+          <span className="text-sm font-bold text-ink-800">Total paid</span>
+          <span className="text-lg font-extrabold text-brand-700">₹{Number(order.total).toLocaleString('en-IN')}</span>
+        </div>
       </section>
+
+      {/* Print Bill button – only for confirmed orders, now placed after payment details */}
+      {order.status === 'confirmed' && (
+        <button
+          onClick={() => void handlePrintBill(order.id)}
+          className="w-full h-11 rounded-lg bg-blue-600 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-blue-700 transition-colors"
+        >
+          <Printer size={18} /> Print Bill
+        </button>
+      )}
     </div>
   );
 }

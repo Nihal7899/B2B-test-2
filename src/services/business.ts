@@ -92,10 +92,21 @@ export async function fetchDeliveryAddresses(businessId?: string): Promise<Deliv
 export async function saveDeliveryAddress(addr: Partial<DeliveryAddress> & { recipient_name: string; phone: string; line1: string; city: string; state: string; postal_code: string }): Promise<DeliveryAddress | null> {
   console.log('🔧 saveDeliveryAddress called with:', addr);
 
+  // 1. Handle "is_default" – unset any existing default for this user
   if (addr.is_default) {
-    await supabase.from('addresses').update({ is_default: false }).eq('is_default', true).eq('user_id', addr.user_id ?? '');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    // Update all addresses for this user where is_default = true to false
+    await supabase
+      .from('addresses')
+      .update({ is_default: false })
+      .eq('is_default', true)
+      .eq('user_id', user.id);
   }
 
+  // 2. Build insert data
   const insertData: Record<string, unknown> = {
     label: addr.label ?? 'Business',
     recipient_name: addr.recipient_name,
@@ -110,15 +121,27 @@ export async function saveDeliveryAddress(addr: Partial<DeliveryAddress> & { rec
     place_id: addr.place_id,
     is_default: addr.is_default ?? false,
   };
-  if (addr.business_id !== undefined) insertData.business_id = addr.business_id;
 
-  console.log('📤 Inserting address with:', insertData); // <-- add this
+  // Only set business_id if it's a non-empty string
+  if (addr.business_id && addr.business_id.trim() !== '') {
+    insertData.business_id = addr.business_id;
+  }
 
-  const { data, error } = await supabase.from('addresses').insert(insertData).select().single();
+  // Do NOT set user_id explicitly – it defaults to auth.uid()
+
+  console.log('📤 Inserting address with:', insertData);
+
+  const { data, error } = await supabase
+    .from('addresses')
+    .insert(insertData)
+    .select()
+    .single();
+
   if (error) {
-    console.error('🚨 Supabase insert error:', error); // <-- this is critical
+    console.error('🚨 Supabase insert error:', error);
     throw error;
   }
+
   console.log('✅ Address inserted:', data);
   return data as DeliveryAddress;
 }

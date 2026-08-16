@@ -29,6 +29,8 @@ import { useAuth } from '@/auth';
 import { AuthScreen } from '@/screens/AuthScreen';
 import { handleHomeAction, type ActionContext } from '@/services/actionResolver';
 import { NavigationProvider, useNavigation } from '@/context/NavigationContext';
+import { initializePushNotifications } from '@/services/push';
+
 
 const SCREEN_TO_PATH: Record<ScreenName, string> = {
   home: '/',
@@ -140,10 +142,18 @@ function App() {
 
   const { screen } = useMemo(() => parseRoute(location.pathname), [location.pathname]);
   const key = location.pathname + '|' + location.key;
+  const initPushRef = useRef(false);
 
   const goTo = (next: ScreenName) => {
     navigate(pathFor(next));
   };
+
+useEffect(() => {
+  if (user && !loading && !initPushRef.current) {
+    initPushRef.current = true;
+    initializePushNotifications(user.id);
+  }
+}, [user, loading]);
 
 // Inside App component
 const openProduct = (product: Product) => {

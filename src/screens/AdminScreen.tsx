@@ -1,5 +1,6 @@
 // screens/AdminScreen.tsx
 import { useEffect, useState, useCallback } from 'react';
+import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import {
   ArrowLeft,
   Plus,
@@ -24,7 +25,7 @@ import {
   Truck,
   MapPin,
   Percent,
-  Hash, FileText, Settings,
+  Hash, FileText, Settings, Bell,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type {
@@ -105,7 +106,8 @@ type Tab =
   | 'roles'
   | 'invoices'
   | 'invoiceSettings'
-  | 'deliveryRanges'; // [NEW] add new tab
+  | 'deliveryRanges'
+  | 'push';  // 👈 addednew tab
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -123,7 +125,8 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'roles', label: 'Roles', icon: Users },
     { id: 'invoices', label: 'Invoices', icon: FileText },
     { id: 'invoiceSettings', label: 'Invoice Settings', icon: Settings },
-    { id: 'deliveryRanges', label: 'Delivery Ranges', icon: MapPin }, // [NEW] tab
+    { id: 'deliveryRanges', label: 'Delivery Ranges', icon: MapPin },
+    { id: 'push', label: 'Push Notifications', icon: Bell },  // 👈 added
   ];
 
   return (
@@ -175,6 +178,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'invoices' && <AdminInvoices />}
         {tab === 'invoiceSettings' && <InvoiceSettings />}
         {tab === 'deliveryRanges' && <DeliveryRangesManager />} {/* [NEW] render new manager */}
+        {tab === 'push' && <PushNotificationSender />}
       </div>
     </div>
   );

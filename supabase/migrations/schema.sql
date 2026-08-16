@@ -167,6 +167,8 @@ CREATE TABLE public.order_items (
   quantity integer NOT NULL CHECK (quantity > 0),
   line_total numeric NOT NULL CHECK (line_total >= 0::numeric),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  hsn_code text,
+  gst_percentage numeric DEFAULT 0,
   CONSTRAINT order_items_pkey PRIMARY KEY (id),
   CONSTRAINT order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id),
   CONSTRAINT order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
@@ -364,4 +366,42 @@ CREATE TABLE public.delivery_charges (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT delivery_charges_pkey PRIMARY KEY (id),
   CONSTRAINT delivery_charges_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES public.delivery_zones(id)
+);
+CREATE TABLE public.invoice_config (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  company_name text,
+  company_address text,
+  company_gst text,
+  company_phone text,
+  company_email text,
+  company_logo text,
+  bank_name text,
+  bank_account text,
+  bank_ifsc text,
+  terms_conditions text,
+  primary_color text DEFAULT '#1d4ed8'::text,
+  color_opacity numeric DEFAULT 1,
+  first_page_rows integer,
+  next_page_rows integer,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT invoice_config_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.invoice_design (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  settings jsonb NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT invoice_design_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.delivery_ranges (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  center_lat double precision NOT NULL,
+  center_lng double precision NOT NULL,
+  radius_km double precision NOT NULL CHECK (radius_km > 0::double precision),
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT delivery_ranges_pkey PRIMARY KEY (id)
 );

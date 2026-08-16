@@ -258,3 +258,54 @@ $$;
 
 -- Grant execute permission to authenticated users (for manual triggers if needed)
 grant execute on function public.cleanup_stale_orders() to authenticated;
+
+
+-- Table for delivery ranges
+CREATE TABLE delivery_ranges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  center_lat DOUBLE PRECISION NOT NULL,
+  center_lng DOUBLE PRECISION NOT NULL,
+  radius_km DOUBLE PRECISION NOT NULL CHECK (radius_km > 0),
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE delivery_ranges ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies (allow read for all, write only for admins – adjust as per your roles)
+CREATE POLICY "Anyone can read delivery_ranges"
+  ON delivery_ranges FOR SELECT USING (true);
+
+CREATE POLICY "Admins can modify delivery_ranges"
+  ON delivery_ranges FOR ALL USING (auth.role() = 'admin' OR EXISTS (
+    SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'warehouse_manager')
+  ));
+
+-- RPC function to check if a point is inside any active delivery range
+CREATE OR REPLACE FUNCTION is_point_in_delivery_range(p_lat DOUBLE PRECISION, p_lng DOUBLE PRECISION)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+  in_range BOOLEAN;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1
+    FROM delivery_ranges
+    WHERE is_active = true
+      AND (
+        -- Haversine formula (earth radius = 6371 km)
+        6371 * acos(
+          cos(radians(center_lat)) * cos(radians(p_lat)) *
+          cos(radians(p_lng) - radians(center_lng)) +
+          sin(radians(center_lat)) * sin(radians(p_lat))
+        ) <= radius_km
+      )
+  ) INTO in_range;
+  RETURN COALESCE(in_range, false);
+END;
+$$;

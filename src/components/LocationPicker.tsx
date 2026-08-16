@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Search, Navigation, MapPin, X, Loader2, Check, AlertCircle, Crosshair } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { checkPointInDeliveryRange } from '@/services/catalog'; // [NEW] import
+import { checkPointInDeliveryRange } from '@/services/catalog';
+
+// [NEW] Capacitor imports
+import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
 
 interface LocationPickerProps {
   initialLat?: number | null;
@@ -58,12 +62,12 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
   const [lat, setLat] = useState(initialLat ?? DEFAULT_LAT);
   const [lng, setLng] = useState(initialLng ?? DEFAULT_LNG);
 
-  // [NEW] delivery range state
+  // Delivery range state
   const [isInDeliveryRange, setIsInDeliveryRange] = useState<boolean | null>(null);
   const [checkingRange, setCheckingRange] = useState(false);
   const [rangeCheckError, setRangeCheckError] = useState<string | null>(null);
 
-  // [NEW] function to check delivery range
+  // ---- Helper: check delivery range ----
   const checkDeliveryRange = useCallback(async (latVal: number, lngVal: number) => {
     setCheckingRange(true);
     setRangeCheckError(null);
@@ -79,6 +83,7 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     }
   }, []);
 
+  // ---- Reverse geocode ----
   const reverseGeocode = useCallback(async (latVal: number, lngVal: number) => {
     setGeocoding(true);
     setLocationError(null);
@@ -108,6 +113,7 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     setGeocoding(false);
   }, []);
 
+  // ---- Search places ----
   const searchPlaces = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSuggestions([]);
@@ -140,6 +146,7 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     setSearching(false);
   }, []);
 
+  // ---- Select a place ----
   const selectPlace = useCallback(
     async (placeId: string, description: string) => {
       setShowSuggestions(false);
@@ -168,7 +175,6 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
             place_id: a.place_id ?? null,
             formatted_address: a.formatted_address ?? '',
           });
-          // [NEW] check delivery range for selected place
           void checkDeliveryRange(latVal, lngVal);
         } else {
           setLocationError('Could not find this place. Try a different search.');
@@ -182,9 +188,8 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     [lat, lng, checkDeliveryRange]
   );
 
-  const useCurrentLocation = useCallback(() => {
-    setLocating(true);
-    setLocationError(null);
+  // ---- Browser geolocation (fallback) ----
+  const useBrowserGeolocation = useCallback(() => {
     if (!('geolocation' in navigator)) {
       setLocationError('Location services are not available on this device.');
       setLocating(false);
@@ -198,7 +203,6 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
         mapInstanceRef.current?.panTo({ lat: latitude, lng: longitude });
         markerRef.current?.setPosition({ lat: latitude, lng: longitude });
         void reverseGeocode(latitude, longitude);
-        // [NEW] check delivery range for current location
         void checkDeliveryRange(latitude, longitude);
         setLocating(false);
       },
@@ -218,7 +222,49 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     );
   }, [reverseGeocode, checkDeliveryRange]);
 
-  // Fetch API key from edge function on mount (unchanged)
+  // ---- Use current location (Capacitor or Browser) ----
+  const useCurrentLocation = useCallback(() => {
+    setLocating(true);
+    setLocationError(null);
+
+    // If running natively in Capacitor, use the plugin
+    if (Capacitor.isNativePlatform()) {
+      // Optionally request permissions first (uncomment if needed)
+      // Geolocation.requestPermissions().then(status => {
+      //   if (status.location === 'granted') { ... }
+      // });
+
+      Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 15000,
+      })
+        .then((pos) => {
+          const { latitude, longitude } = pos.coords;
+          setLat(latitude);
+          setLng(longitude);
+          mapInstanceRef.current?.panTo({ lat: latitude, lng: longitude });
+          markerRef.current?.setPosition({ lat: latitude, lng: longitude });
+          void reverseGeocode(latitude, longitude);
+          void checkDeliveryRange(latitude, longitude);
+          setLocating(false);
+        })
+        .catch((err) => {
+          setLocating(false);
+          console.error('Capacitor Geolocation error:', err);
+          // Fallback to browser geolocation if Capacitor fails
+          if (navigator.geolocation) {
+            useBrowserGeolocation();
+          } else {
+            setLocationError('Could not get your location. Please try searching instead.');
+          }
+        });
+    } else {
+      // Browser environment – use standard navigator.geolocation
+      useBrowserGeolocation();
+    }
+  }, [reverseGeocode, checkDeliveryRange, useBrowserGeolocation]);
+
+  // ---- Fetch API key and load map (unchanged) ----
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -247,7 +293,6 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     };
   }, []);
 
-  // Load Google Maps JS SDK once we have the API key (unchanged)
   useEffect(() => {
     if (!apiKey) return;
 
@@ -269,7 +314,6 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey]);
 
-  // Debounced search (unchanged)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchQuery.trim().length >= 2) {
@@ -281,6 +325,7 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     return () => clearTimeout(timer);
   }, [searchQuery, searchPlaces]);
 
+  // ---- Setup map (unchanged, except we call checkDeliveryRange on init) ----
   function setupMap() {
     if (!mapRef.current || typeof google === 'undefined' || !google.maps) return;
 
@@ -301,7 +346,6 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
       animation: google.maps.Animation.DROP,
     });
 
-    // Drag pin
     google.maps.event.addListener(markerRef.current, 'dragend', () => {
       const pos = markerRef.current?.getPosition();
       if (pos) {
@@ -310,12 +354,10 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
         setLat(lt);
         setLng(ln);
         void reverseGeocode(lt, ln);
-        // [NEW] check delivery range on drag end
         void checkDeliveryRange(lt, ln);
       }
     });
 
-    // Tap/click on map to drop pin
     mapInstanceRef.current.addListener('click', (e: any) => {
       if (e.latLng) {
         const lt = e.latLng.lat();
@@ -324,17 +366,14 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
         setLat(lt);
         setLng(ln);
         void reverseGeocode(lt, ln);
-        // [NEW] check delivery range on click
         void checkDeliveryRange(lt, ln);
       }
     });
 
     setMapReady(true);
 
-    // Reverse geocode initial position if no initial coords provided
     if (!initialLat || !initialLng) {
       void reverseGeocode(center.lat, center.lng);
-      // [NEW] check initial range
       void checkDeliveryRange(center.lat, center.lng);
     } else {
       void reverseGeocode(initialLat, initialLng);
@@ -354,6 +393,7 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     });
   };
 
+  // ---- Render ----
   return (
     <div className="fixed inset-0 z-[200] bg-white flex flex-col">
       {/* Header */}
@@ -470,7 +510,7 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
         </div>
       )}
 
-      {/* [NEW] Delivery range status banner */}
+      {/* Delivery range status banner */}
       {isInDeliveryRange !== null && (
         <div className={`shrink-0 px-4 py-2 flex items-center gap-2 text-sm font-bold ${
           isInDeliveryRange
@@ -525,7 +565,7 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
 
         <button
           onClick={handleConfirm}
-          disabled={!mapReady || isInDeliveryRange === false || checkingRange} // [NEW] disabled if not in range
+          disabled={!mapReady || isInDeliveryRange === false || checkingRange}
           className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
         >
           <Check size={18} /> Confirm location

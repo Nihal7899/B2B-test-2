@@ -4,45 +4,79 @@ import { Capacitor } from '@capacitor/core';
 const ONESIGNAL_APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID;
 
 export async function initializePushNotifications(userId: string) {
-  // Only proceed on native platforms (Android/iOS)
+  console.log('[Push] Starting initialization for user', userId);
+
   if (!Capacitor.isNativePlatform()) {
-    console.log('Push notifications are only available on native platforms');
+    console.log('[Push] Not native platform, skipping');
+    return;
+  }
+
+  if (!ONESIGNAL_APP_ID) {
+    console.error('[Push] VITE_ONESIGNAL_APP_ID is not defined');
     return;
   }
 
   try {
-    // Dynamically import the plugin to avoid web build issues
-    const { OneSignal } = await import('@onesignal/capacitor-plugin');
+    const module = await import('@onesignal/capacitor-plugin');
+    console.log('[Push] Module loaded successfully');
 
-    // 1. Initialize
+    // Get the OneSignal object – try different exports
+    const OneSignal = module.default || module.OneSignal || module;
+    console.log('[Push] OneSignal object:', OneSignal);
+
+    if (!OneSignal || typeof OneSignal.initialize !== 'function') {
+      console.error('[Push] OneSignal.initialize not found');
+      return;
+    }
+
+    // ✅ Pass app ID as a string (most compatible)
+    console.log('[Push] Initializing with app ID (string):', ONESIGNAL_APP_ID);
     await OneSignal.initialize(ONESIGNAL_APP_ID);
 
-    // 2. Request permission
+    // If string fails, fallback to object
+    // try {
+    //   await OneSignal.initialize(ONESIGNAL_APP_ID);
+    // } catch (e) {
+    //   console.warn('[Push] String init failed, trying object...', e);
+    //   await OneSignal.initialize({ appId: ONESIGNAL_APP_ID });
+    // }
+
+    console.log('[Push] Requesting permission...');
     const permission = await OneSignal.Notifications.requestPermission(true);
+    console.log('[Push] Permission result:', permission);
+
     if (!permission) {
-      console.warn('Push permission denied');
+      console.warn('[Push] Permission denied');
       return;
     }
 
-    // 3. Get player ID
     const playerId = await OneSignal.User.getOnesignalId();
+    console.log('[Push] Player ID:', playerId);
     if (!playerId) {
-      console.warn('No OneSignal player ID');
+      console.warn('[Push] No player ID');
       return;
     }
 
-    // 4. Store in Supabase
-    await supabase.from('user_push_subscriptions').upsert({
+    // Save to Supabase
+    const { error } = await supabase.from('user_push_subscriptions').upsert({
       user_id: userId,
       onesignal_player_id: playerId,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id, onesignal_player_id' });
 
-    // 5. (Optional) set external user ID
-    await OneSignal.User.setExternalUserId(userId);
+    if (error) {
+      console.error('[Push] DB upsert error:', error);
+    } else {
+      console.log('[Push] Subscription saved');
+    }
 
-    console.log('Push notifications initialised for user', userId);
+    await OneSignal.User.setExternalUserId(userId);
+    console.log('[Push] External user ID set');
   } catch (err) {
-    console.error('Push init error:', err);
+    console.error('[Push] Initialization error:', err);
+    if (err && typeof err === 'object') {
+      console.error('[Push] Error message:', err.message || err.toString());
+      console.error('[Push] Error stack:', err.stack);
+    }
   }
 }

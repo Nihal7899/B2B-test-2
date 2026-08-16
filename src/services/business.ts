@@ -90,9 +90,12 @@ export async function fetchDeliveryAddresses(businessId?: string): Promise<Deliv
 }
 
 export async function saveDeliveryAddress(addr: Partial<DeliveryAddress> & { recipient_name: string; phone: string; line1: string; city: string; state: string; postal_code: string }): Promise<DeliveryAddress | null> {
+  console.log('🔧 saveDeliveryAddress called with:', addr);
+
   if (addr.is_default) {
     await supabase.from('addresses').update({ is_default: false }).eq('is_default', true).eq('user_id', addr.user_id ?? '');
   }
+
   const insertData: Record<string, unknown> = {
     label: addr.label ?? 'Business',
     recipient_name: addr.recipient_name,
@@ -109,8 +112,14 @@ export async function saveDeliveryAddress(addr: Partial<DeliveryAddress> & { rec
   };
   if (addr.business_id !== undefined) insertData.business_id = addr.business_id;
 
+  console.log('📤 Inserting address with:', insertData); // <-- add this
+
   const { data, error } = await supabase.from('addresses').insert(insertData).select().single();
-  if (error) throw error;
+  if (error) {
+    console.error('🚨 Supabase insert error:', error); // <-- this is critical
+    throw error;
+  }
+  console.log('✅ Address inserted:', data);
   return data as DeliveryAddress;
 }
 

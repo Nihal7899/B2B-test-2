@@ -4,6 +4,8 @@ import type { DbAddress } from '@/services/catalog';
 import { fetchAddresses, deleteAddress } from '@/services/catalog';
 import { saveDeliveryAddress as saveAddress } from '@/services/business';
 import { LocationPicker } from '@/components/LocationPicker';
+import { supabase } from '@/lib/supabase'; // 👈 IMPORTANT: added
+import { checkPointInDeliveryRange } from '@/services/catalog'; // 👈 IMPORTANT: added
 
 interface AddressesScreenProps { onBack: () => void; onSaved?: () => void; }
 
@@ -58,25 +60,29 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
   };
 
   const handleSave = async () => {
+    console.log('🔧 handleSave called with form:', form);
+
     if (!form.recipient_name || !form.phone || !form.line1 || !form.city || !form.state || !form.postal_code) {
       setError('Please fill all required fields.');
       return;
     }
-  
+
     setSaving(true);
     setError('');
-  
+
     try {
       let lat = form.latitude;
       let lng = form.longitude;
-  
+
       // If no lat/lng, geocode the address
       if (lat === null || lng === null) {
+        console.log('📍 Geocoding address...');
         const fullAddress = `${form.line1}, ${form.city}, ${form.state} ${form.postal_code}`;
         const { data, error } = await supabase.functions.invoke('maps', {
           body: { action: 'search', query: fullAddress },
         });
         if (error || !data?.address?.latitude) {
+          console.error('❌ Geocoding error:', error || 'No lat/lng returned');
           setError('Could not determine location from address. Please use the map picker to set location.');
           setSaving(false);
           return;
@@ -93,28 +99,41 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
           state: data.address.state || f.state,
           postal_code: data.address.postal_code || f.postal_code,
         }));
+        console.log('✅ Geocoded lat/lng:', { lat, lng });
       }
-  
+
       // Check delivery range
+      console.log('📍 Checking delivery range for:', { lat, lng });
       const inRange = await checkPointInDeliveryRange(lat!, lng!);
+      console.log('📍 In range?', inRange);
       if (!inRange) {
         setError('This address is outside our delivery area. Please choose another location.');
         setSaving(false);
         return;
       }
-  
-      // Proceed to save address (use existing logic)
-      await saveAddress({
+
+      // Prepare data for saveAddress
+      const addressData = {
         ...form,
         latitude: lat,
         longitude: lng,
-      });
+      };
+      console.log('📦 Saving address with data:', addressData);
+
+      // Proceed to save address
+      const result = await saveAddress(addressData);
+      console.log('✅ Address saved successfully:', result);
+
       setShowForm(false);
       setForm({ ...EMPTY_FORM });
       await load();
       onSaved?.();
-    } catch (err) {
-      setError('Could not save address. Please try again.');
+    } catch (err: any) {
+      // Log the full error object
+      console.error('❌ Save address error:', err);
+      // Supabase errors usually have a 'message' and 'code'
+      const message = err?.message || err?.error_description || 'Could not save address. Please try again.';
+      setError(`Save failed: ${message}`);
     } finally {
       setSaving(false);
     }

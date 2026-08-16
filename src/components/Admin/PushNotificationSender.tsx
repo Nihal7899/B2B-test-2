@@ -29,7 +29,7 @@ const IOS_CATEGORY_PRESETS = [
 // ── Crop options ──
 const CROP_OPTIONS = [
   { value: 'landscape', label: 'Rich Media (2:1 landscape)', aspect: 2, width: 1024, height: 512 },
-  { value: 'square', label: 'Square Icon (1:1)', aspect: 1, width: 256, height: 256 },
+  { value: 'square', label: 'Square (1:1)', aspect: 1, width: 256, height: 256 },
 ];
 
 interface ActionButton {
@@ -55,41 +55,59 @@ export function PushNotificationSender() {
   const [iosCategory, setIosCategory] = useState('');
   const [iosCategoryPreset, setIosCategoryPreset] = useState('custom');
 
-  // Crop selection for upload
-  const [selectedCrop, setSelectedCrop] = useState('landscape');
+  // Crop selection for rich media upload
+  const [selectedImageCrop, setSelectedImageCrop] = useState('landscape');
+  // Crop selection for large icon upload
+  const [selectedLargeIconCrop, setSelectedLargeIconCrop] = useState('square');
 
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingLargeIcon, setUploadingLargeIcon] = useState(false);
   const [showAndroid, setShowAndroid] = useState(false);
   const [showIos, setShowIos] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const largeIconInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Image upload with custom crop ────────────────────────────
-  const handleImageUpload = async (file: File) => {
-    setUploadingImage(true);
+  // ── Image upload helper ────────────────────────────────────────
+  const uploadFile = async (
+    file: File,
+    setUrl: (url: string) => void,
+    setUploading: (loading: boolean) => void,
+    cropValue: string,
+    folder: string = 'push-notifications'
+  ) => {
+    setUploading(true);
     try {
-      const crop = CROP_OPTIONS.find(c => c.value === selectedCrop) || CROP_OPTIONS[0];
+      const crop = CROP_OPTIONS.find(c => c.value === cropValue) || CROP_OPTIONS[0];
       const processed = await processImage(file, crop.aspect, crop.width, crop.height, 0.8);
       const ext = processed.name.split('.').pop()?.toLowerCase() ?? 'jpg';
-      const fileName = `push-${Date.now()}.${ext}`;
+      const fileName = `${folder}-${Date.now()}.${ext}`;
       const bucket = 'push-notifications';
       const { error: uploadErr } = await supabase.storage
         .from(bucket)
         .upload(fileName, processed, { cacheControl: '3600', upsert: false });
       if (uploadErr) throw uploadErr;
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
-      setImage(urlData.publicUrl);
-      toast.success(`Image uploaded (${crop.label})`);
+      setUrl(urlData.publicUrl);
+      toast.success(`Uploaded (${crop.label})`);
     } catch (err: any) {
       toast.error(err.message || 'Upload failed');
     } finally {
-      setUploadingImage(false);
+      setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (largeIconInputRef.current) largeIconInputRef.current.value = '';
     }
   };
 
+  const handleImageUpload = (file: File) =>
+    uploadFile(file, setImage, setUploadingImage, selectedImageCrop, 'push-rich');
+
+  const handleLargeIconUpload = (file: File) =>
+    uploadFile(file, setLargeIcon, setUploadingLargeIcon, selectedLargeIconCrop, 'push-icon');
+
   const removeImage = () => setImage('');
+  const removeLargeIcon = () => setLargeIcon('');
 
   // ── Button management ──────────────────────────────────────────
   const addButton = () => {
@@ -214,13 +232,13 @@ export function PushNotificationSender() {
         />
       </div>
 
-      {/* Rich Media Image with Crop Option */}
+      {/* Rich Media Image */}
       <div>
         <label className="block text-sm font-medium text-ink-700">Rich Media Image</label>
         <div className="flex flex-wrap items-center gap-2 mt-1">
           <select
-            value={selectedCrop}
-            onChange={(e) => setSelectedCrop(e.target.value)}
+            value={selectedImageCrop}
+            onChange={(e) => setSelectedImageCrop(e.target.value)}
             className="px-3 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm bg-white"
           >
             {CROP_OPTIONS.map((c) => (
@@ -272,7 +290,7 @@ export function PushNotificationSender() {
           </div>
         )}
         <p className="text-xs text-ink-400 mt-1">
-          Choose crop: <strong>Rich Media (2:1)</strong> for big picture, <strong>Square (1:1)</strong> if using as an icon in custom data.
+          Choose crop: <strong>Rich Media (2:1)</strong> for big picture (Android) / iOS attachments, <strong>Square (1:1)</strong> for icon‑like images.
         </p>
       </div>
 
@@ -395,11 +413,12 @@ export function PushNotificationSender() {
           Android‑specific settings
         </button>
         {showAndroid && (
-          <div className="mt-3 space-y-3 bg-ink-50/30 p-3 rounded-xl border border-ink-100">
+          <div className="mt-3 space-y-4 bg-ink-50/30 p-3 rounded-xl border border-ink-100">
+            {/* Small Icon - text only */}
             <div>
               <label className="block text-sm font-medium text-ink-700">
                 Small Icon (drawable resource name)
-                <span className="text-xs text-ink-400 ml-1">(e.g. ic_notification)</span>
+                <span className="text-xs text-ink-400 ml-1">(must be a resource name, e.g. ic_notification)</span>
               </label>
               <input
                 type="text"
@@ -409,18 +428,70 @@ export function PushNotificationSender() {
                 placeholder="ic_small_icon"
               />
             </div>
+
+            {/* Large Icon - supports URL/upload */}
             <div>
               <label className="block text-sm font-medium text-ink-700">
-                Large Icon (drawable resource name)
-                <span className="text-xs text-ink-400 ml-1">(e.g. ic_large)</span>
+                Large Icon (URL or resource name)
+                <span className="text-xs text-ink-400 ml-1">(can be URL or resource name)</span>
               </label>
-              <input
-                type="text"
-                value={largeIcon}
-                onChange={(e) => setLargeIcon(e.target.value)}
-                className="w-full mt-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500"
-                placeholder="ic_large_icon"
-              />
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <select
+                  value={selectedLargeIconCrop}
+                  onChange={(e) => setSelectedLargeIconCrop(e.target.value)}
+                  className="px-3 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm bg-white"
+                >
+                  {CROP_OPTIONS.filter(c => c.value === 'square').map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="url"
+                  value={largeIcon}
+                  onChange={(e) => setLargeIcon(e.target.value)}
+                  className="flex-1 min-w-[200px] px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500"
+                  placeholder="https://example.com/icon.png or resource name"
+                />
+
+                <input
+                  ref={largeIconInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleLargeIconUpload(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => largeIconInputRef.current?.click()}
+                  disabled={uploadingLargeIcon}
+                  className="h-10 px-3 rounded-xl bg-brand-50 text-brand-600 text-sm font-bold flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {uploadingLargeIcon ? '...' : <Upload size={16} />} Upload
+                </button>
+                {largeIcon && (
+                  <button
+                    type="button"
+                    onClick={removeLargeIcon}
+                    className="h-10 px-3 rounded-xl bg-red-50 text-red-500 text-sm font-bold flex items-center gap-1.5"
+                  >
+                    <Trash2 size={16} /> Remove
+                  </button>
+                )}
+              </div>
+              {largeIcon && (
+                <div className="mt-2">
+                  <img src={largeIcon} alt="Large icon preview" className="h-16 w-16 rounded-xl object-cover border border-ink-100" />
+                </div>
+              )}
+              <p className="text-xs text-ink-400 mt-1">
+                Uploaded images are cropped to <strong>1:1 square</strong> (256×256). Resource names are passed as‑is.
+              </p>
             </div>
           </div>
         )}
@@ -502,7 +573,7 @@ export function PushNotificationSender() {
 
       <button
         onClick={sendNotification}
-        disabled={loading || uploadingImage}
+        disabled={loading || uploadingImage || uploadingLargeIcon}
         className="w-full py-2 px-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition disabled:opacity-50"
       >
         {loading ? 'Sending...' : 'Send Notification'}

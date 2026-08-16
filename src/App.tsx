@@ -1,4 +1,4 @@
-// App.tsx
+// App.tsx – full 1062 lines with notification action handler
 
 import {
   useMemo,
@@ -368,6 +368,80 @@ function App() {
     user,
     loading,
   ]);
+
+
+  // ==========================================================
+  // NEW: HANDLE NOTIFICATION ACTION BUTTON CLICKS
+  // ==========================================================
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (!user) return;
+
+    const setupListener = async () => {
+      try {
+        const module = await import('@onesignal/capacitor-plugin');
+        const OneSignal = module.default || module.OneSignal || module;
+        if (!OneSignal?.Notifications) return;
+
+        OneSignal.Notifications.addEventListener('click', (event: any) => {
+          const actionId = event.actionId;
+          const additionalData = event.notification?.additionalData || {};
+
+          // No actionId → user tapped the notification itself
+          if (!actionId) {
+            navigate(pathFor('home'));
+            return;
+          }
+
+          // Map action IDs to navigation
+          switch (actionId) {
+            case 'view_order': {
+              const orderId = additionalData.order_id;
+              navigate(orderId ? pathFor('orderDetail', { id: orderId }) : pathFor('orders'));
+              break;
+            }
+            case 'view_product': {
+              const productId = additionalData.product_id;
+              navigate(productId ? pathFor('product', { id: productId }) : pathFor('home'));
+              break;
+            }
+            case 'view_cart':
+              navigate(pathFor('cart'));
+              break;
+            case 'track_delivery': {
+              const orderId = additionalData.order_id;
+              navigate(orderId ? pathFor('orderDetail', { id: orderId }) : pathFor('orders'));
+              break;
+            }
+            case 'contact_support': {
+              // Example: open a support URL or phone number
+              const supportUrl = additionalData.support_url || 'tel:+123456789';
+              window.open(supportUrl, '_system');
+              break;
+            }
+            case 'accept':
+            case 'decline': {
+              // Example: handle accept/decline for delivery
+              const orderId = additionalData.order_id;
+              if (orderId) {
+                // You could call an API to update order status
+                // Then navigate to orders
+                navigate(pathFor('orders'));
+              }
+              break;
+            }
+            default:
+              navigate(pathFor('home'));
+          }
+        });
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    setupListener();
+  }, [user]);
 
 
   // ==========================================================

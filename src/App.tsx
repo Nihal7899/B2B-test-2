@@ -240,13 +240,8 @@ function BackButtonHandler() {
         }
 
       })
-      .catch((err) => {
-
-        console.warn(
-          'BackButton listener failed:',
-          err
-        );
-
+      .catch(() => {
+        // silently ignore
       });
 
 
@@ -335,201 +330,29 @@ function App() {
 
 
   // ==========================================================
-  // PUSH DEBUG LOG STATE
-  // ==========================================================
-
-  const [
-    pushDebugLog,
-    setPushDebugLog,
-  ] = useState<string[]>([]);
-
-
-  // ==========================================================
-  // CAPTURE CONSOLE LOGS
-  // ==========================================================
-
-  useEffect(() => {
-
-    const originalLog =
-      console.log;
-
-    const originalWarn =
-      console.warn;
-
-    const originalError =
-      console.error;
-
-
-    const addLog = (
-      type: string,
-      args: unknown[]
-    ) => {
-
-      const message =
-        args
-          .map((arg) => {
-
-            if (
-              typeof arg === 'string'
-            ) {
-              return arg;
-            }
-
-
-            try {
-
-              return JSON.stringify(
-                arg
-              );
-
-            } catch {
-
-              return String(arg);
-
-            }
-
-          })
-          .join(' ');
-
-
-      // Only capture Push / OneSignal logs
-
-      if (
-        message.includes('[Push]') ||
-        message.includes('[OneSignal]')
-      ) {
-
-        setPushDebugLog(
-          (previous) => [
-            ...previous,
-            `${new Date().toLocaleTimeString()} [${type}] ${message}`,
-          ]
-        );
-
-      }
-
-    };
-
-
-    console.log = (
-      ...args: unknown[]
-    ) => {
-
-      originalLog(...args);
-
-      addLog(
-        'LOG',
-        args
-      );
-
-    };
-
-
-    console.warn = (
-      ...args: unknown[]
-    ) => {
-
-      originalWarn(...args);
-
-      addLog(
-        'WARN',
-        args
-      );
-
-    };
-
-
-    console.error = (
-      ...args: unknown[]
-    ) => {
-
-      originalError(...args);
-
-      addLog(
-        'ERROR',
-        args
-      );
-
-    };
-
-
-    return () => {
-
-      console.log =
-        originalLog;
-
-      console.warn =
-        originalWarn;
-
-      console.error =
-        originalError;
-
-    };
-
-  }, []);
-
-
-  // ==========================================================
   // ONESIGNAL INITIALIZATION
   // ==========================================================
 
   useEffect(() => {
 
-    console.log(
-      '[Push] App user:',
-      user
-        ? {
-            id: user.id,
-            email: user.email,
-          }
-        : null
-    );
-
-
-    console.log(
-      '[Push] App loading:',
-      loading
-    );
-
-
     if (
       !Capacitor.isNativePlatform()
     ) {
-
-      console.log(
-        '[Push] Not running on native platform'
-      );
-
       return;
     }
 
 
     if (!user) {
-
-      console.log(
-        '[Push] No authenticated user yet'
-      );
-
       return;
     }
 
 
     if (loading) {
-
-      console.log(
-        '[Push] Auth still loading'
-      );
-
       return;
     }
 
 
     if (initPushRef.current) {
-
-      console.log(
-        '[Push] Initialization already attempted'
-      );
-
       return;
     }
 
@@ -537,30 +360,9 @@ function App() {
     initPushRef.current = true;
 
 
-    console.log(
-      '[Push] Calling initializePushNotifications:',
-      user.id
-    );
-
-
     initializePushNotifications(
       user.id
-    )
-      .then(() => {
-
-        console.log(
-          '[Push] initializePushNotifications completed'
-        );
-
-      })
-      .catch((error) => {
-
-        console.error(
-          '[Push] initializePushNotifications failed:',
-          error
-        );
-
-      });
+    );
 
   }, [
     user,
@@ -598,11 +400,6 @@ function App() {
 
 
     if (!productId) {
-
-      console.warn(
-        'Product ID is undefined – check product data',
-        product
-      );
 
       navigate('/');
 
@@ -1241,147 +1038,6 @@ function App() {
         />
 
       </div>
-
-
-      {/* ======================================================
-          TEMPORARY ON-SCREEN PUSH DEBUG PANEL
-          ====================================================== */}
-
-      {Capacitor.isNativePlatform() && (
-
-        <div
-          style={{
-            position: 'fixed',
-            left: '8px',
-            right: '8px',
-            bottom: '8px',
-
-            zIndex: 999999,
-
-            maxHeight: '250px',
-
-            overflowY: 'auto',
-
-            background:
-              'rgba(0, 0, 0, 0.95)',
-
-            color: '#00ff88',
-
-            borderRadius: '10px',
-
-            padding: '10px',
-
-            fontSize: '11px',
-
-            lineHeight: '1.5',
-
-            fontFamily:
-              'monospace',
-
-            boxShadow:
-              '0 4px 20px rgba(0,0,0,0.5)',
-          }}
-        >
-
-          {/* Header */}
-
-          <div
-            style={{
-              display: 'flex',
-
-              justifyContent:
-                'space-between',
-
-              alignItems:
-                'center',
-
-              marginBottom:
-                '8px',
-
-              color: 'white',
-
-              fontWeight:
-                'bold',
-            }}
-          >
-
-            <span>
-              OneSignal Debug
-            </span>
-
-
-            <button
-              onClick={() =>
-                setPushDebugLog([])
-              }
-              style={{
-                background:
-                  '#333',
-
-                color:
-                  'white',
-
-                border:
-                  'none',
-
-                borderRadius:
-                  '5px',
-
-                padding:
-                  '4px 8px',
-
-                fontSize:
-                  '10px',
-              }}
-            >
-              Clear
-            </button>
-
-          </div>
-
-
-          {/* Logs */}
-
-          {pushDebugLog.length === 0 ? (
-
-            <div
-              style={{
-                color:
-                  '#aaa',
-              }}
-            >
-              Waiting for Push logs...
-            </div>
-
-          ) : (
-
-            pushDebugLog.map(
-              (
-                log,
-                index
-              ) => (
-
-                <div
-                  key={index}
-                  style={{
-                    marginBottom:
-                      '4px',
-
-                    wordBreak:
-                      'break-word',
-                  }}
-                >
-                  {log}
-                </div>
-
-              )
-            )
-
-          )}
-
-        </div>
-
-      )}
 
     </div>
   );

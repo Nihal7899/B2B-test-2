@@ -52,9 +52,15 @@ function getDayRangeIST(offsetDays: number = 0): { start: Date; end: Date } {
   return { start, end };
 }
 
+// Get the full date range for a period (e.g., last 7 days) from startOffset to endOffset (inclusive)
+function getDateRangeIST(startOffset: number, endOffset: number): { start: Date; end: Date } {
+  const start = getDayRangeIST(startOffset).start;
+  const end = getDayRangeIST(endOffset).end;
+  return { start, end };
+}
+
 // Convert IST Date to UTC ISO string for Supabase queries
 function toUTCISO(date: Date): string {
-  // date is in IST (UTC+5:30); subtract 5:30 to get UTC
   const utc = new Date(date.getTime() - 5.5 * 3600000);
   return utc.toISOString();
 }
@@ -119,16 +125,14 @@ export default function Dashboard() {
 
         // ─── 2. Compute stats from delivered orders ───────────────
         const todayRange = getDayRangeIST(0);
-        const weekRange = getDayRangeIST(-6);
-        const monthStartIST = getISTDate();
-        monthStartIST.setDate(1);
-        monthStartIST.setHours(0, 0, 0, 0);
-        const monthEndIST = new Date(monthStartIST);
-        monthEndIST.setMonth(monthEndIST.getMonth() + 1);
+        const weekRange = getDateRangeIST(-6, 0); // last 7 days
+        const monthRange = getDateRangeIST(-29, 0); // last 30 days
 
         const todayDateStr = getISTDateStr(todayRange.start);
         const weekStartStr = getISTDateStr(weekRange.start);
-        const monthStartStr = getISTDateStr(monthStartIST);
+        const weekEndStr = getISTDateStr(weekRange.end);
+        const monthStartStr = getISTDateStr(monthRange.start);
+        const monthEndStr = getISTDateStr(monthRange.end);
 
         let todaySales = 0,
             weeklySales = 0,
@@ -140,8 +144,8 @@ export default function Dashboard() {
           const dateStr = getISTDateStr(istDate);
           const amount = Number(order.total);
           if (dateStr === todayDateStr) todaySales += amount;
-          if (dateStr >= weekStartStr && dateStr <= todayDateStr) weeklySales += amount;
-          if (dateStr >= monthStartStr && dateStr <= todayDateStr) monthlySales += amount;
+          if (dateStr >= weekStartStr && dateStr <= weekEndStr) weeklySales += amount;
+          if (dateStr >= monthStartStr && dateStr <= monthEndStr) monthlySales += amount;
         });
 
         // ─── 3. Today's orders (all statuses) ────────────────────
@@ -206,14 +210,14 @@ export default function Dashboard() {
         const weekStartDate = weekRange.start;
         const weekEndDate = weekRange.end;
         let current = new Date(weekStartDate);
-        while (current < weekEndDate) {
+        while (current <= weekEndDate) {
           const key = getISTDateStr(current);
           weeklyMap[key] = 0;
           current.setDate(current.getDate() + 1);
         }
         deliveredOrders?.forEach((order) => {
           const istDate = getISTDate(new Date(order.created_at));
-          if (istDate >= weekStartDate && istDate < weekEndDate) {
+          if (istDate >= weekStartDate && istDate <= weekEndDate) {
             const key = getISTDateStr(istDate);
             if (weeklyMap[key] !== undefined) {
               weeklyMap[key] += Number(order.total);
@@ -227,18 +231,18 @@ export default function Dashboard() {
         setWeeklySalesData(weeklyArray);
 
         // 6c. Monthly sales (last 30 days, daily)
-        const monthStart30 = getDayRangeIST(-29).start;
-        const monthEnd30 = getDayRangeIST(0).end;
         const monthlyMap: Record<string, number> = {};
-        current = new Date(monthStart30);
-        while (current < monthEnd30) {
+        const monthStartDate = monthRange.start;
+        const monthEndDate = monthRange.end;
+        current = new Date(monthStartDate);
+        while (current <= monthEndDate) {
           const key = getISTDateStr(current);
           monthlyMap[key] = 0;
           current.setDate(current.getDate() + 1);
         }
         deliveredOrders?.forEach((order) => {
           const istDate = getISTDate(new Date(order.created_at));
-          if (istDate >= monthStart30 && istDate < monthEnd30) {
+          if (istDate >= monthStartDate && istDate <= monthEndDate) {
             const key = getISTDateStr(istDate);
             if (monthlyMap[key] !== undefined) {
               monthlyMap[key] += Number(order.total);

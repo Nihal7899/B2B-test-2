@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { ChevronRight, Loader2 } from 'lucide-react';
 
 interface SlideToConfirmProps {
@@ -40,66 +40,9 @@ export function SlideToConfirm({
     }
   }, []);
 
-  const updateUI = useCallback((clientX: number) => {
-    if (!trackRef.current) return;
-    const rect = trackRef.current.getBoundingClientRect();
-    const max = rect.width - 56;
-    let raw = (clientX - rect.left) / max;
-    raw = Math.min(Math.max(raw, 0), 1);
-    progress.current = raw;
-    const px = raw * max;
-
-    if (thumbRef.current) {
-      thumbRef.current.style.transform = `translateX(${px}px)`;
-      thumbRef.current.style.transition = 'none';
-    }
-    if (fillRef.current) {
-      fillRef.current.style.width = `${raw * 100}%`;
-      fillRef.current.style.transition = 'none';
-    }
-    if (labelRef.current) {
-      labelRef.current.style.color = raw > 0.4 ? 'white' : '#1e293b';
-      labelRef.current.style.mixBlendMode = raw > 0.4 ? 'normal' : 'multiply';
-    }
-  }, []);
-
-  const handleStart = useCallback(
-    (clientX: number) => {
-      if (isLoading || disabled) return;
-      isDragging.current = true;
-      startX.current = clientX;
-      startProgress.current = progress.current;
-
-      // Add mouse listeners
-      const onMouseMove = (e: MouseEvent) => handleMove(e.clientX);
-      const onMouseUp = () => {
-        handleEnd();
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
-      };
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
-
-      // Add touch listeners
-      const onTouchMove = (e: TouchEvent) => {
-        e.preventDefault(); // prevent scrolling
-        handleMove(e.touches[0].clientX);
-      };
-      const onTouchEnd = () => {
-        handleEnd();
-        window.removeEventListener('touchmove', onTouchMove);
-        window.removeEventListener('touchend', onTouchEnd);
-      };
-      window.addEventListener('touchmove', onTouchMove, { passive: false });
-      window.addEventListener('touchend', onTouchEnd);
-    },
-    [isLoading, disabled, handleMove, handleEnd]
-  );
-
   const handleMove = useCallback((clientX: number) => {
-    if (!isDragging.current) return;
+    if (!isDragging.current || !trackRef.current) return;
     const delta = clientX - startX.current;
-    if (!trackRef.current) return;
     const rect = trackRef.current.getBoundingClientRect();
     const max = rect.width - 56;
     const deltaProgress = delta / max;
@@ -141,13 +84,50 @@ export function SlideToConfirm({
     }
   }, [onConfirm, snapBack]);
 
-  // Reset on loading
-  const prevLoading = useRef(isLoading);
-  if (isLoading && !prevLoading.current) {
-    snapBack();
-    isDragging.current = false;
-  }
-  prevLoading.current = isLoading;
+  const handleStart = useCallback(
+    (clientX: number) => {
+      if (isLoading || disabled) return;
+      isDragging.current = true;
+      startX.current = clientX;
+      startProgress.current = progress.current;
+    },
+    [isLoading, disabled]
+  );
+
+  // Mouse listeners – attached once
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => handleMove(e.clientX);
+    const onMouseUp = () => handleEnd();
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [handleMove, handleEnd]);
+
+  // Touch listeners – attached once, with passive: false to prevent scroll
+  useEffect(() => {
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      handleMove(e.touches[0].clientX);
+    };
+    const onTouchEnd = () => handleEnd();
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+    return () => {
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [handleMove, handleEnd]);
+
+  // Reset when loading starts
+  useEffect(() => {
+    if (isLoading) {
+      snapBack();
+      isDragging.current = false;
+    }
+  }, [isLoading, snapBack]);
 
   return (
     <div

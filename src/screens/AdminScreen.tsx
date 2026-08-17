@@ -12,7 +12,7 @@ import StoresManager from '@/components/Admin/StoresManager';
 import BrandsManager from '@/components/Admin/BrandsManager';
 import CategoriesManager from '@/components/Admin/CategoriesManager';
 import ProductsManager from '@/components/Admin/ProductsManager';
-import VolumePricingManager from '@/components/admin/VolumePricingManager';
+import VolumePricingManager from '@/components/Admin/VolumePricingManager';
 import PromoCodesManager from '@/components/Admin/PromoCodesManager';
 import DeliverySettingsManager from '@/components/Admin/DeliverySettingsManager';
 import SmartCollectionsManager from '@/components/Admin/SmartCollectionsManager';

@@ -27,7 +27,7 @@ export function SlideToConfirm({
   const snapBack = useCallback(() => {
     progress.current = 0;
     if (thumbRef.current) {
-      thumbRef.current.style.transform = 'translateX(0px)';
+      thumbRef.current.style.transform = 'translateX(0px) translateY(-50%)';
       thumbRef.current.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
     }
     if (fillRef.current) {
@@ -37,6 +37,29 @@ export function SlideToConfirm({
     if (labelRef.current) {
       labelRef.current.style.color = '#1e293b';
       labelRef.current.style.mixBlendMode = 'multiply';
+    }
+  }, []);
+
+  const updateUI = useCallback((clientX: number) => {
+    if (!trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const max = rect.width - 56;
+    let raw = (clientX - rect.left) / max;
+    raw = Math.min(Math.max(raw, 0), 1);
+    progress.current = raw;
+    const px = raw * max;
+
+    if (thumbRef.current) {
+      thumbRef.current.style.transform = `translateX(${px}px) translateY(-50%)`;
+      thumbRef.current.style.transition = 'none';
+    }
+    if (fillRef.current) {
+      fillRef.current.style.width = `${raw * 100}%`;
+      fillRef.current.style.transition = 'none';
+    }
+    if (labelRef.current) {
+      labelRef.current.style.color = raw > 0.4 ? 'white' : '#1e293b';
+      labelRef.current.style.mixBlendMode = raw > 0.4 ? 'normal' : 'multiply';
     }
   }, []);
 
@@ -53,7 +76,7 @@ export function SlideToConfirm({
     progress.current = newProgress;
     const px = newProgress * max;
     if (thumbRef.current) {
-      thumbRef.current.style.transform = `translateX(${px}px)`;
+      thumbRef.current.style.transform = `translateX(${px}px) translateY(-50%)`;
       thumbRef.current.style.transition = 'none';
     }
     if (fillRef.current) {
@@ -94,7 +117,7 @@ export function SlideToConfirm({
     [isLoading, disabled]
   );
 
-  // Mouse listeners – attached once
+  // Mouse listeners
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => handleMove(e.clientX);
     const onMouseUp = () => handleEnd();
@@ -106,7 +129,7 @@ export function SlideToConfirm({
     };
   }, [handleMove, handleEnd]);
 
-  // Touch listeners – attached once, with passive: false to prevent scroll
+  // Touch listeners
   useEffect(() => {
     const onTouchMove = (e: TouchEvent) => {
       e.preventDefault();
@@ -121,7 +144,7 @@ export function SlideToConfirm({
     };
   }, [handleMove, handleEnd]);
 
-  // Reset when loading starts
+  // Reset on loading
   useEffect(() => {
     if (isLoading) {
       snapBack();
@@ -170,9 +193,10 @@ export function SlideToConfirm({
       </span>
       <div
         ref={thumbRef}
-        className="absolute top-1/2 -translate-y-1/2 h-12 w-14 bg-white rounded-2xl shadow-lg flex items-center justify-center cursor-grab active:cursor-grabbing"
+        className="absolute top-1/2 h-12 w-14 bg-white rounded-2xl shadow-lg flex items-center justify-center cursor-grab active:cursor-grabbing"
         style={{
-          transform: 'translateX(0px)',
+          left: 0,
+          transform: 'translateX(0px) translateY(-50%)',
           boxShadow: '0 4px 12px rgba(99,102,241,0.3), 0 0 0 1px rgba(255,255,255,0.2)',
           willChange: 'transform',
           transition: 'none',

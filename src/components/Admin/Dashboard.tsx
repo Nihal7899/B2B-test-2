@@ -35,13 +35,14 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-// IST helpers
+// Get current date in IST (UTC+5:30)
 function getISTDate(date: Date = new Date()): Date {
   const utc = date.getTime() + date.getTimezoneOffset() * 60000;
   return new Date(utc + 5.5 * 3600000);
 }
 
-function getDateRangeIST(offsetDays: number = 0): { start: Date; end: Date } {
+// Get start and end of a day (IST) for a given offset (e.g., -6 for 6 days ago)
+function getDayRangeIST(offsetDays: number = 0): { start: Date; end: Date } {
   const now = getISTDate();
   const start = new Date(now);
   start.setDate(now.getDate() + offsetDays);
@@ -51,10 +52,17 @@ function getDateRangeIST(offsetDays: number = 0): { start: Date; end: Date } {
   return { start, end };
 }
 
+// Convert IST Date to UTC ISO string for Supabase queries
 function toUTCISO(date: Date): string {
-  // Convert IST (UTC+5:30) to UTC string
+  // date is in IST (UTC+5:30); subtract 5:30 to get UTC
   const utc = new Date(date.getTime() - 5.5 * 3600000);
   return utc.toISOString();
+}
+
+// Get the IST date string (YYYY-MM-DD) from a Date object
+function getISTDateStr(date: Date): string {
+  const ist = getISTDate(date);
+  return ist.toISOString().split('T')[0];
 }
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -97,70 +105,63 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // ─── 1. Stats ──────────────────────────────────────────────
-        // Today's sales: delivered orders in IST day
-        const todayRange = getDateRangeIST(0);
-        const todayStart = toUTCISO(todayRange.start);
-        const todayEnd = toUTCISO(todayRange.end);
-
-        // Weekly sales: delivered orders in last 7 days
-        const weekRange = getDateRangeIST(-6);
-        const weekStart = toUTCISO(weekRange.start);
-        const weekEnd = toUTCISO(weekRange.end);
-
-        // Monthly sales: delivered orders in current calendar month (IST)
-        const nowIST = getISTDate();
-        const monthStartIST = new Date(nowIST.getFullYear(), nowIST.getMonth(), 1, 0, 0, 0, 0);
-        const monthEndIST = new Date(nowIST.getFullYear(), nowIST.getMonth() + 1, 1, 0, 0, 0, 0);
-        const monthStart = toUTCISO(monthStartIST);
-        const monthEnd = toUTCISO(monthEndIST);
-
-        // Fetch delivered orders for these ranges in one query (last 30 days)
-        const thirtyDaysAgo = getDateRangeIST(-29);
-        const start30 = toUTCISO(thirtyDaysAgo.start);
-        const { data: allDelivered, error: delErr } = await supabase
+        // ─── 1. Fetch delivered orders for the last 30 days (IST) ──
+        const thirtyDaysAgo = getDayRangeIST(-29);
+        const start30UTC = toUTCISO(thirtyDaysAgo.start);
+        const { data: deliveredOrders, error: delErr } = await supabase
           .from('orders')
           .select('id, total, created_at, user_id')
           .eq('status', 'delivered')
-          .gte('created_at', start30)
+          .gte('created_at', start30UTC)
           .order('created_at', { ascending: true });
 
         if (delErr) throw delErr;
 
-        // Compute sales
-        let todaySales = 0,
-          weeklySales = 0,
-          monthlySales = 0;
-        const todayDateStr = todayRange.start.toISOString().split('T')[0];
-        const weekStartStr = weekRange.start.toISOString().split('T')[0];
-        const monthStartStr = monthStartIST.toISOString().split('T')[0];
+        // ─── 2. Compute stats from delivered orders ───────────────
+        const todayRange = getDayRangeIST(0);
+        const weekRange = getDayRangeIST(-6);
+        const monthStartIST = getISTDate();
+        monthStartIST.setDate(1);
+        monthStartIST.setHours(0, 0, 0, 0);
+        const monthEndIST = new Date(monthStartIST);
+        monthEndIST.setMonth(monthEndIST.getMonth() + 1);
 
-        (allDelivered || []).forEach((order) => {
+        const todayDateStr = getISTDateStr(todayRange.start);
+        const weekStartStr = getISTDateStr(weekRange.start);
+        const monthStartStr = getISTDateStr(monthStartIST);
+
+        let todaySales = 0,
+            weeklySales = 0,
+            monthlySales = 0;
+
+        deliveredOrders?.forEach((order) => {
           const orderDate = new Date(order.created_at);
-          const istDate = new Date(orderDate.getTime() + 5.5 * 3600000);
-          const dateStr = istDate.toISOString().split('T')[0];
+          const istDate = getISTDate(orderDate);
+          const dateStr = getISTDateStr(istDate);
           const amount = Number(order.total);
           if (dateStr === todayDateStr) todaySales += amount;
           if (dateStr >= weekStartStr && dateStr <= todayDateStr) weeklySales += amount;
           if (dateStr >= monthStartStr && dateStr <= todayDateStr) monthlySales += amount;
         });
 
-        // Today's orders (all statuses)
+        // ─── 3. Today's orders (all statuses) ────────────────────
+        const todayStartUTC = toUTCISO(todayRange.start);
+        const todayEndUTC = toUTCISO(todayRange.end);
         const { count: todayOrders, error: todayOrdersErr } = await supabase
           .from('orders')
           .select('*', { count: 'exact', head: true })
-          .gte('created_at', todayStart)
-          .lt('created_at', todayEnd);
+          .gte('created_at', todayStartUTC)
+          .lt('created_at', todayEndUTC);
         if (todayOrdersErr) throw todayOrdersErr;
 
-        // Total active products
+        // ─── 4. Total products ────────────────────────────────────
         const { count: totalProducts, error: productsErr } = await supabase
           .from('products')
           .select('*', { count: 'exact', head: true })
           .eq('is_active', true);
         if (productsErr) throw productsErr;
 
-        // Total users
+        // ─── 5. Total users ───────────────────────────────────────
         const { count: totalUsers, error: usersErr } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true });
@@ -175,45 +176,45 @@ export default function Dashboard() {
           totalUsers: totalUsers || 0,
         });
 
-        // ─── 2. Charts ──────────────────────────────────────────────
-        // Today's hourly sales (2-hour buckets from 6 AM to 10 PM)
-        const hourly = Array.from({ length: 9 }, (_, i) => {
+        // ─── 6. Chart data ────────────────────────────────────────
+
+        // 6a. Today's hourly sales (2‑hour buckets from 6 AM to 10 PM)
+        const hourlyBuckets = Array.from({ length: 9 }, (_, i) => {
           const hour = 6 + i * 2;
           const label = `${hour}:00 ${hour < 12 ? 'AM' : 'PM'}`;
           return { hour: label, sales: 0 };
         });
         const todayStartIST = todayRange.start;
         const todayEndIST = todayRange.end;
-        (allDelivered || []).forEach((order) => {
+        deliveredOrders?.forEach((order) => {
           const orderDate = new Date(order.created_at);
-          const istDate = new Date(orderDate.getTime() + 5.5 * 3600000);
+          const istDate = getISTDate(orderDate);
           if (istDate >= todayStartIST && istDate < todayEndIST) {
             let h = istDate.getHours();
             if (h < 6) h = 6;
             if (h > 22) h = 22;
             const bucket = h - (h % 2);
             const label = `${bucket}:00 ${bucket < 12 ? 'AM' : 'PM'}`;
-            const found = hourly.find((item) => item.hour === label);
+            const found = hourlyBuckets.find((item) => item.hour === label);
             if (found) found.sales += Number(order.total);
           }
         });
-        setTodaySalesData(hourly);
+        setTodaySalesData(hourlyBuckets);
 
-        // Weekly sales (last 7 days)
+        // 6b. Weekly sales (last 7 days, daily)
+        const weeklyMap: Record<string, number> = {};
         const weekStartDate = weekRange.start;
         const weekEndDate = weekRange.end;
-        const weeklyMap: Record<string, number> = {};
-        const current = new Date(weekStartDate);
+        let current = new Date(weekStartDate);
         while (current < weekEndDate) {
-          const key = current.toISOString().split('T')[0];
+          const key = getISTDateStr(current);
           weeklyMap[key] = 0;
           current.setDate(current.getDate() + 1);
         }
-        (allDelivered || []).forEach((order) => {
-          const orderDate = new Date(order.created_at);
-          const istDate = new Date(orderDate.getTime() + 5.5 * 3600000);
+        deliveredOrders?.forEach((order) => {
+          const istDate = getISTDate(new Date(order.created_at));
           if (istDate >= weekStartDate && istDate < weekEndDate) {
-            const key = istDate.toISOString().split('T')[0];
+            const key = getISTDateStr(istDate);
             if (weeklyMap[key] !== undefined) {
               weeklyMap[key] += Number(order.total);
             }
@@ -225,21 +226,20 @@ export default function Dashboard() {
         }));
         setWeeklySalesData(weeklyArray);
 
-        // Monthly sales (last 30 days)
-        const monthStart30 = getDateRangeIST(-29).start;
-        const monthEnd30 = getDateRangeIST(0).end;
+        // 6c. Monthly sales (last 30 days, daily)
+        const monthStart30 = getDayRangeIST(-29).start;
+        const monthEnd30 = getDayRangeIST(0).end;
         const monthlyMap: Record<string, number> = {};
-        const cur = new Date(monthStart30);
-        while (cur < monthEnd30) {
-          const key = cur.toISOString().split('T')[0];
+        current = new Date(monthStart30);
+        while (current < monthEnd30) {
+          const key = getISTDateStr(current);
           monthlyMap[key] = 0;
-          cur.setDate(cur.getDate() + 1);
+          current.setDate(current.getDate() + 1);
         }
-        (allDelivered || []).forEach((order) => {
-          const orderDate = new Date(order.created_at);
-          const istDate = new Date(orderDate.getTime() + 5.5 * 3600000);
+        deliveredOrders?.forEach((order) => {
+          const istDate = getISTDate(new Date(order.created_at));
           if (istDate >= monthStart30 && istDate < monthEnd30) {
-            const key = istDate.toISOString().split('T')[0];
+            const key = getISTDateStr(istDate);
             if (monthlyMap[key] !== undefined) {
               monthlyMap[key] += Number(order.total);
             }
@@ -251,8 +251,8 @@ export default function Dashboard() {
         }));
         setMonthlySalesData(monthlyArray);
 
-        // ─── 3. Top Products ──────────────────────────────────────
-        const deliveredOrderIds = (allDelivered || []).map((o) => o.id);
+        // ─── 7. Top Products (based on delivered orders) ──────────
+        const deliveredOrderIds = (deliveredOrders || []).map((o) => o.id);
         if (deliveredOrderIds.length > 0) {
           const { data: orderItems, error: itemsErr } = await supabase
             .from('order_items')
@@ -286,7 +286,7 @@ export default function Dashboard() {
           }
         }
 
-        // ─── 4. Recent Orders ─────────────────────────────────────
+        // ─── 8. Recent Orders (last 5, any status) ──────────────
         const { data: recent, error: recentErr } = await supabase
           .from('orders')
           .select('id, order_number, created_at, total, user_id')
@@ -316,6 +316,7 @@ export default function Dashboard() {
     fetchDashboardData();
   }, []);
 
+  // ─── Loading state ──────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -332,6 +333,7 @@ export default function Dashboard() {
     year: 'numeric',
   });
 
+  // ─── Render ──────────────────────────────────────────────────────
   return (
     <div className="space-y-6 pb-10">
       {/* Header */}
@@ -346,7 +348,11 @@ export default function Dashboard() {
             <span>{today.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
         </div>
-
+        <Link to="/billing">
+          <button className="h-10 px-5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-2 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition">
+            <Zap size={16} /> New Bill
+          </button>
+        </Link>
       </div>
 
       {/* Stat Cards */}

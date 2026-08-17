@@ -1,5 +1,5 @@
 // src/components/admin/RolesManager.tsx
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Loader2, Search, X, Shield, User, Building2, Truck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -99,17 +99,15 @@ export default function RolesManager() {
 
   const LIMIT = 20;
 
-  // Single fetch effect – runs when page or search changes
+  // --- Fetch logic (same as before) ---
   useEffect(() => {
     let isMounted = true;
     const fetchUsers = async () => {
-      const reset = page === 0; // reset when we are on first page
+      const reset = page === 0;
       const offset = page * LIMIT;
 
-      // Set loading states
       if (reset) {
         setListLoading(true);
-        if (initialLoading) setInitialLoading(false); // but we handle initial separately
       } else {
         setLoadingMore(true);
       }
@@ -119,7 +117,6 @@ export default function RolesManager() {
         let total = 0;
         const search = debouncedSearch.trim();
 
-        // 1. Get profile IDs if search term exists
         if (search) {
           const { data: profiles, count, error } = await supabase
             .from('profiles')
@@ -136,20 +133,17 @@ export default function RolesManager() {
           total = count || 0;
         }
 
-        // No matches
         if (search && profileIds.length === 0) {
           if (reset) {
             setUsers([]);
             setTotalCount(0);
             setHasMore(false);
           } else {
-            // If appending, but no more data? we should set hasMore false
             setHasMore(false);
           }
           return;
         }
 
-        // 2. Fetch roles with pagination
         let query = supabase
           .from('user_roles')
           .select('user_id, role')
@@ -174,7 +168,6 @@ export default function RolesManager() {
           return;
         }
 
-        // 3. Fetch profiles for these users
         const userIds = rolesData.map((r) => r.user_id);
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
@@ -215,20 +208,17 @@ export default function RolesManager() {
       }
     };
 
-    // If initialLoading is true and page is 0 and search empty, this is first load.
-    // We'll keep initialLoading true until data arrives.
     fetchUsers();
-
     return () => {
       isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedSearch]); // Only these two trigger a fetch
+  }, [page, debouncedSearch]);
 
-  // Handle search input change: reset page to 0
+  // --- Handlers ---
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-    setPage(0); // will trigger fetch with reset=true
+    setPage(0);
   };
 
   const clearSearch = () => {
@@ -236,13 +226,30 @@ export default function RolesManager() {
     setPage(0);
   };
 
-  const loadMore = () => {
-    if (!loadingMore && hasMore) {
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore && !listLoading) {
       setPage((prev) => prev + 1);
     }
-  };
+  }, [loadingMore, hasMore, listLoading]);
 
-  // Role change handler with confirmation
+  // --- Infinite scroll with Intersection Observer ---
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore || listLoading) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, listLoading, loadMore]);
+
+  // --- Role change with confirmation ---
   const openConfirmDialog = (userId: string, newRole: string) => {
     setPendingRoleChange({ userId, newRole });
     setDialogOpen(true);
@@ -252,7 +259,6 @@ export default function RolesManager() {
     if (!pendingRoleChange) return;
     const { userId, newRole } = pendingRoleChange;
 
-    // Optimistic update
     setUsers((prev) =>
       prev.map((u) => (u.user_id === userId ? { ...u, role: newRole } : u))
     );
@@ -263,7 +269,6 @@ export default function RolesManager() {
       await supabase.rpc('set_user_role', { p_user_id: userId, p_role: newRole });
     } catch (err) {
       console.error('Role update failed:', err);
-      // Revert by refetching current page (reset)
       setPage(0);
     }
   };
@@ -273,7 +278,7 @@ export default function RolesManager() {
     setPendingRoleChange(null);
   };
 
-  // Role labels with icons
+  // --- Role info ---
   const roleInfo: Record<string, { label: string; icon: typeof Shield }> = {
     customer: { label: 'Customer', icon: User },
     admin: { label: 'Admin', icon: Shield },
@@ -281,7 +286,6 @@ export default function RolesManager() {
     delivery_partner: { label: 'Delivery', icon: Truck },
   };
 
-  // Show skeleton cards during initial loading (not full-page spinner)
   const showSkeletons = initialLoading || listLoading;
 
   return (
@@ -374,23 +378,14 @@ export default function RolesManager() {
             })}
       </div>
 
-      {/* Load more */}
+      {/* Sentinel element – triggers infinite scroll */}
       {hasMore && !showSkeletons && (
-        <div className="flex justify-center pt-2">
-          <button
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="h-10 px-6 rounded-xl text-sm font-bold text-brand-600 border border-brand-200 hover:bg-brand-50 disabled:opacity-50 transition"
-          >
-            {loadingMore ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              'Load more'
-            )}
-          </button>
+        <div ref={sentinelRef} className="h-8 flex items-center justify-center">
+          {loadingMore && <Loader2 size={18} className="animate-spin text-brand-500" />}
         </div>
       )}
 
+      {/* No more message */}
       {!hasMore && users.length > 0 && !showSkeletons && (
         <p className="text-center text-xs text-ink-400 pt-2">No more users</p>
       )}

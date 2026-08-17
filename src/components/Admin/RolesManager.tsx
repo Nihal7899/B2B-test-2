@@ -1,5 +1,5 @@
 // src/components/admin/RolesManager.tsx
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Loader2, Search, X, Shield, User, Building2, Truck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -13,7 +13,6 @@ const useDebounce = (value: string, delay: number) => {
   return debounced;
 };
 
-// Generate a gradient background based on a string (user id or name)
 const getAvatarGradient = (seed: string) => {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
@@ -38,23 +37,19 @@ const SkeletonCard = () => (
   </div>
 );
 
-// --- Confirmation Dialog Component ---
+// --- Confirmation Dialog ---
 const ConfirmDialog = ({
   isOpen,
   onConfirm,
   onCancel,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
 }: {
   isOpen: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   title: string;
   message: string;
-  confirmText?: string;
-  cancelText?: string;
 }) => {
   if (!isOpen) return null;
   return (
@@ -67,13 +62,13 @@ const ConfirmDialog = ({
             onClick={onCancel}
             className="h-9 px-4 rounded-lg border border-ink-200 text-sm font-medium text-ink-700 hover:bg-ink-50"
           >
-            {cancelText}
+            Cancel
           </button>
           <button
             onClick={onConfirm}
             className="h-9 px-4 rounded-lg bg-brand-600 text-white text-sm font-bold hover:bg-brand-700"
           >
-            {confirmText}
+            Confirm
           </button>
         </div>
       </div>
@@ -87,36 +82,34 @@ export default function RolesManager() {
     { user_id: string; role: string; full_name: string; phone: string }[]
   >([]);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [listLoading, setListLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(false); // for reset (search)
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState<number | null>(null);
-  const LIMIT = 20;
 
-  // Ref to prevent double initial fetch
-  const initialFetchDone = useRef(false);
-
-  // Confirmation dialog state
+  // Confirmation dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingRoleChange, setPendingRoleChange] = useState<{
     userId: string;
     newRole: string;
   } | null>(null);
 
-  // Core fetch function – stable, depends only on debouncedSearch and page
-  const fetchUsers = useCallback(
-    async (reset: boolean = false) => {
-      const offset = reset ? 0 : page * LIMIT;
+  const LIMIT = 20;
 
+  // Single fetch effect – runs when page or search changes
+  useEffect(() => {
+    let isMounted = true;
+    const fetchUsers = async () => {
+      const reset = page === 0; // reset when we are on first page
+      const offset = page * LIMIT;
+
+      // Set loading states
       if (reset) {
         setListLoading(true);
-        setUsers([]);
-        setHasMore(true);
-        setTotalCount(null);
-        setPage(0);
+        if (initialLoading) setInitialLoading(false); // but we handle initial separately
       } else {
         setLoadingMore(true);
       }
@@ -132,7 +125,6 @@ export default function RolesManager() {
             .from('profiles')
             .select('id', { count: 'exact', head: false })
             .or(`full_name.ilike.%${search}%, phone.ilike.%${search}%`);
-
           if (error) throw error;
           profileIds = profiles?.map((p) => p.id) || [];
           total = count || 0;
@@ -146,9 +138,14 @@ export default function RolesManager() {
 
         // No matches
         if (search && profileIds.length === 0) {
-          if (reset) setUsers([]);
-          setHasMore(false);
-          setTotalCount(0);
+          if (reset) {
+            setUsers([]);
+            setTotalCount(0);
+            setHasMore(false);
+          } else {
+            // If appending, but no more data? we should set hasMore false
+            setHasMore(false);
+          }
           return;
         }
 
@@ -168,8 +165,12 @@ export default function RolesManager() {
         if (rolesError) throw rolesError;
 
         if (!rolesData || rolesData.length === 0) {
-          if (reset) setUsers([]);
-          setHasMore(false);
+          if (reset) {
+            setUsers([]);
+            setHasMore(false);
+          } else {
+            setHasMore(false);
+          }
           return;
         }
 
@@ -195,170 +196,53 @@ export default function RolesManager() {
 
         if (reset) {
           setUsers(merged);
-          setPage(1);
         } else {
           setUsers((prev) => [...prev, ...merged]);
-          setPage((prev) => prev + 1);
         }
 
         const loadedCount = reset ? merged.length : users.length + merged.length;
-        const currentTotal = total || 0;
-        setHasMore(loadedCount < currentTotal);
-        setTotalCount(currentTotal);
+        setHasMore(loadedCount < total);
+        setTotalCount(total);
       } catch (err) {
         console.error('Failed to load users:', err);
       } finally {
-        if (reset) setListLoading(false);
-        else setLoadingMore(false);
-        setInitialLoading(false);
-      }
-    },
-    [debouncedSearch, page, LIMIT, users.length] // users.length is needed for loadedCount calculation
-  );
-
-  // We need to avoid users.length in deps to prevent infinite re‑renders.
-  // Instead we'll compute loadedCount from current state inside fetchUsers.
-  // But fetchUsers uses users.length which is not stable.
-  // Solution: use a ref to track current users length, or use a functional update.
-  // Let's rewrite fetchUsers to not depend on users.length.
-  // We'll use a ref for the current users array.
-  const usersRef = useRef(users);
-  useEffect(() => {
-    usersRef.current = users;
-  }, [users]);
-
-  // Re‑define fetchUsers without users.length in deps, using usersRef.current.
-  const fetchUsersRef = useCallback(
-    async (reset: boolean = false) => {
-      const offset = reset ? 0 : page * LIMIT;
-
-      if (reset) {
-        setListLoading(true);
-        setUsers([]);
-        setHasMore(true);
-        setTotalCount(null);
-        setPage(0);
-      } else {
-        setLoadingMore(true);
-      }
-
-      try {
-        let profileIds: string[] = [];
-        let total = 0;
-        const search = debouncedSearch.trim();
-
-        if (search) {
-          const { data: profiles, count, error } = await supabase
-            .from('profiles')
-            .select('id', { count: 'exact', head: false })
-            .or(`full_name.ilike.%${search}%, phone.ilike.%${search}%`);
-          if (error) throw error;
-          profileIds = profiles?.map((p) => p.id) || [];
-          total = count || 0;
-        } else {
-          const { count, error } = await supabase
-            .from('user_roles')
-            .select('*', { count: 'exact', head: true });
-          if (error) throw error;
-          total = count || 0;
-        }
-
-        if (search && profileIds.length === 0) {
-          if (reset) setUsers([]);
-          setHasMore(false);
-          setTotalCount(0);
-          return;
-        }
-
-        let query = supabase
-          .from('user_roles')
-          .select('user_id, role')
-          .order('created_at', { ascending: false });
-
-        if (search) {
-          query = query.in('user_id', profileIds);
-        }
-
-        const { data: rolesData, error: rolesError } = await query
-          .range(offset, offset + LIMIT - 1);
-
-        if (rolesError) throw rolesError;
-
-        if (!rolesData || rolesData.length === 0) {
-          if (reset) setUsers([]);
-          setHasMore(false);
-          return;
-        }
-
-        const userIds = rolesData.map((r) => r.user_id);
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name, phone')
-          .in('id', userIds);
-
-        if (profilesError) throw profilesError;
-
-        const profilesMap = Object.fromEntries(
-          (profilesData || []).map((p) => [p.id, p])
-        );
-
-        const merged = rolesData.map((r) => ({
-          user_id: r.user_id,
-          role: r.role,
-          full_name: profilesMap[r.user_id]?.full_name || 'Unknown',
-          phone: profilesMap[r.user_id]?.phone || '',
-        }));
-
         if (reset) {
-          setUsers(merged);
-          setPage(1);
+          setListLoading(false);
+          setInitialLoading(false);
         } else {
-          setUsers((prev) => [...prev, ...merged]);
-          setPage((prev) => prev + 1);
+          setLoadingMore(false);
         }
-
-        const currentTotal = total || 0;
-        const loadedCount = reset ? merged.length : usersRef.current.length + merged.length;
-        setHasMore(loadedCount < currentTotal);
-        setTotalCount(currentTotal);
-      } catch (err) {
-        console.error('Failed to load users:', err);
-      } finally {
-        if (reset) setListLoading(false);
-        else setLoadingMore(false);
-        setInitialLoading(false);
       }
-    },
-    [debouncedSearch, page, LIMIT]
-  );
+    };
 
-  // Now we use fetchUsersRef in effects
+    // If initialLoading is true and page is 0 and search empty, this is first load.
+    // We'll keep initialLoading true until data arrives.
+    fetchUsers();
 
-  // Initial fetch
-  useEffect(() => {
-    if (!initialFetchDone.current) {
-      initialFetchDone.current = true;
-      fetchUsersRef(true);
-    }
-  }, [fetchUsersRef]);
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch]); // Only these two trigger a fetch
 
-  // Search change: reset and fetch
-  useEffect(() => {
-    // Only run if not initial (or we can check)
-    if (initialFetchDone.current) {
-      // Reset page and fetch
-      setPage(0);
-      fetchUsersRef(true);
-    }
-  }, [debouncedSearch, fetchUsersRef]);
+  // Handle search input change: reset page to 0
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setPage(0); // will trigger fetch with reset=true
+  };
 
-  // Load more: when page increments via button, fetch with reset=false
+  const clearSearch = () => {
+    setSearchTerm('');
+    setPage(0);
+  };
+
   const loadMore = () => {
     if (!loadingMore && hasMore) {
-      fetchUsersRef(false);
+      setPage((prev) => prev + 1);
     }
   };
 
+  // Role change handler with confirmation
   const openConfirmDialog = (userId: string, newRole: string) => {
     setPendingRoleChange({ userId, newRole });
     setDialogOpen(true);
@@ -379,8 +263,8 @@ export default function RolesManager() {
       await supabase.rpc('set_user_role', { p_user_id: userId, p_role: newRole });
     } catch (err) {
       console.error('Role update failed:', err);
-      // Revert by refetching current page
-      fetchUsersRef(true);
+      // Revert by refetching current page (reset)
+      setPage(0);
     }
   };
 
@@ -389,9 +273,7 @@ export default function RolesManager() {
     setPendingRoleChange(null);
   };
 
-  const clearSearch = () => setSearchTerm('');
-
-  // Role label mapping with icons
+  // Role labels with icons
   const roleInfo: Record<string, { label: string; icon: typeof Shield }> = {
     customer: { label: 'Customer', icon: User },
     admin: { label: 'Admin', icon: Shield },
@@ -399,14 +281,8 @@ export default function RolesManager() {
     delivery_partner: { label: 'Delivery', icon: Truck },
   };
 
-  // Show initial full‑page loader only for the very first load
-  if (initialLoading) {
-    return (
-      <div className="flex items-center justify-center h-48">
-        <Loader2 className="animate-spin text-brand-600" size={32} />
-      </div>
-    );
-  }
+  // Show skeleton cards during initial loading (not full-page spinner)
+  const showSkeletons = initialLoading || listLoading;
 
   return (
     <div className="space-y-4">
@@ -418,7 +294,7 @@ export default function RolesManager() {
         <input
           type="text"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={handleSearchChange}
           placeholder="Search by name or phone..."
           className="w-full h-10 pl-9 pr-9 rounded-xl border border-ink-200 bg-white text-sm outline-none focus:border-brand-500"
         />
@@ -438,12 +314,12 @@ export default function RolesManager() {
           {totalCount !== null && `${totalCount} user${totalCount !== 1 ? 's' : ''}`}
           {users.length > 0 && ` · showing ${users.length}`}
         </span>
-        {listLoading && <Loader2 size={14} className="animate-spin text-brand-500" />}
+        {loadingMore && <Loader2 size={14} className="animate-spin text-brand-500" />}
       </div>
 
       {/* User list / Skeleton */}
       <div className="space-y-3">
-        {listLoading
+        {showSkeletons
           ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
           : users.map((u) => {
               const info = roleInfo[u.role] || roleInfo.customer;
@@ -457,7 +333,6 @@ export default function RolesManager() {
                   className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card hover:shadow-md transition"
                 >
                   <div className="flex items-center gap-3">
-                    {/* Gradient Avatar */}
                     <div
                       className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
                       style={{ background: gradient }}
@@ -500,7 +375,7 @@ export default function RolesManager() {
       </div>
 
       {/* Load more */}
-      {hasMore && !listLoading && (
+      {hasMore && !showSkeletons && (
         <div className="flex justify-center pt-2">
           <button
             onClick={loadMore}
@@ -516,7 +391,7 @@ export default function RolesManager() {
         </div>
       )}
 
-      {!hasMore && users.length > 0 && !listLoading && (
+      {!hasMore && users.length > 0 && !showSkeletons && (
         <p className="text-center text-xs text-ink-400 pt-2">No more users</p>
       )}
 
@@ -527,8 +402,6 @@ export default function RolesManager() {
         onCancel={cancelDialog}
         title="Change role"
         message={`Are you sure you want to change this user's role to "${roleInfo[pendingRoleChange?.newRole || 'customer']?.label}"?`}
-        confirmText="Change role"
-        cancelText="Cancel"
       />
     </div>
   );

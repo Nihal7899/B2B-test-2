@@ -16,11 +16,8 @@ import {
 import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
-import { Capacitor } from '@capacitor/core';
-import { Share } from '@capacitor/share';
-import { Filesystem, Directory } from '@capacitor/filesystem';
 
-// ─── Helpers (same as Dashboard) ──────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────
 const IST_OFFSET = 5.5 * 60 * 60 * 1000;
 
 function toIST(utcDate: Date): Date {
@@ -41,6 +38,22 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+// ─── Download helper ──────────────────────────────────────────────
+const downloadExcel = (wb: XLSX.WorkBook, filename: string) => {
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${filename}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  toast.success('Excel downloaded!');
+};
+
+// ─── Types ──────────────────────────────────────────────────────────
 type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'custom' | 'range';
 type ReportTab = 'daily' | 'products' | 'individual' | 'gst' | 'stock';
 
@@ -72,6 +85,8 @@ interface GSTReport {
   invoice_number: string;
   created_at: string;
   customer_name: string;
+  customer_phone?: string;
+  customer_gst?: string;
   subtotal: number;
   cgst: number;
   sgst: number;
@@ -87,6 +102,7 @@ interface StockItem {
   stock_threshold: number;
 }
 
+// ─── Main Component ──────────────────────────────────────────────────
 export default function Reports() {
   const [period, setPeriod] = useState<DateFilter>('month');
   const [customDate, setCustomDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -113,7 +129,7 @@ export default function Reports() {
   const [stockData, setStockData] = useState<StockItem[]>([]);
   const [stockLoading, setStockLoading] = useState(false);
 
-  // Load product list for search
+  // ─── Load products for search ──────────────────────────────────
   useEffect(() => {
     supabase
       .from('products')
@@ -125,11 +141,12 @@ export default function Reports() {
       });
   }, []);
 
-  // Trigger reload on filter change
+  // ─── Reload on filter change (including individual product) ──
   useEffect(() => {
     load();
-  }, [period, customDate, rangeStart, rangeEnd, activeTab]);
+  }, [period, customDate, rangeStart, rangeEnd, activeTab, individualProductId]);
 
+  // ─── Date range helpers ──────────────────────────────────────
   const getDateRange = () => {
     const now = new Date();
     let from: Date, to: Date | null = null;
@@ -159,10 +176,10 @@ export default function Reports() {
       default:
         from = new Date(now.getFullYear(), now.getMonth(), 1);
     }
-    // Convert to UTC for Supabase
     return { fromUTC: from.toISOString(), toUTC: to ? to.toISOString() : null };
   };
 
+  // ─── Main load function ──────────────────────────────────────
   const load = async () => {
     setLoading(true);
     try {
@@ -179,10 +196,9 @@ export default function Reports() {
       const { data: orders, error } = await query;
       if (error) throw error;
 
-      // --- Daily grouping ---
+      // Daily
       const byDate: Record<string, { count: number; total: number }> = {};
       orders?.forEach((order) => {
-        // Use updated_at for grouping (as per spec)
         const istDateStr = getISTDateStr(new Date(order.updated_at));
         if (!byDate[istDateStr]) byDate[istDateStr] = { count: 0, total: 0 };
         byDate[istDateStr].count++;
@@ -196,10 +212,10 @@ export default function Reports() {
         total,
         count: orders?.length || 0,
         avgOrder: orders?.length ? total / orders.length : 0,
-        productsSold: 0, // will compute later
+        productsSold: 0,
       });
 
-      // --- Product sales ---
+      // Product sales
       const orderIds = orders?.map((o) => o.id) || [];
       if (orderIds.length > 0) {
         const { data: items, error: itemsErr } = await supabase
@@ -233,12 +249,12 @@ export default function Reports() {
         setProductSales([]);
       }
 
-      // --- GST report (orders with gst_amount > 0) ---
+      // GST
       const gstOrders = orders?.filter((o) => (o.gst_amount || 0) > 0) || [];
-      const gstData: GSTReport[] = gstOrders.map((o) => ({
+      let gstData: GSTReport[] = gstOrders.map((o) => ({
         invoice_number: o.order_number,
-        created_at: o.created_at, // use created_at for bill date
-        customer_name: '', // will fetch later
+        created_at: o.created_at,
+        customer_name: '',
         subtotal: o.subtotal || 0,
         cgst: o.cgst_amount || 0,
         sgst: o.sgst_amount || 0,
@@ -246,35 +262,38 @@ export default function Reports() {
         grand_total: o.total || 0,
       }));
 
-      // Fetch customer names for all orders
+      // Fetch customer details
       if (orders?.length) {
         const userIds = orders.map((o) => o.user_id);
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, full_name, business_name')
+          .select('id, full_name, business_name, phone')
           .in('id', userIds);
         const { data: businesses } = await supabase
           .from('businesses')
-          .select('owner_user_id, business_name')
+          .select('owner_user_id, business_name, gstin')
           .in('owner_user_id', userIds);
         const nameMap = new Map();
+        const phoneMap = new Map();
+        const gstMap = new Map();
         profiles?.forEach((p) => {
           nameMap.set(p.id, p.business_name || p.full_name || 'Customer');
+          phoneMap.set(p.id, p.phone || '');
         });
         businesses?.forEach((b) => {
           nameMap.set(b.owner_user_id, b.business_name);
+          gstMap.set(b.owner_user_id, b.gstin || '');
         });
-
-        // Update gstData with customer names
-        gstData.forEach((g) => {
+        gstData = gstData.map((g) => {
           const order = orders.find((o) => o.order_number === g.invoice_number);
           if (order) {
             g.customer_name = nameMap.get(order.user_id) || 'Customer';
+            g.customer_phone = phoneMap.get(order.user_id) || '';
+            g.customer_gst = gstMap.get(order.user_id) || '';
           }
+          return g;
         });
-        // Also update daily rows? Not needed.
       }
-
       setGstReport(gstData);
       const gstSum = gstData.reduce(
         (s, i) => ({
@@ -288,7 +307,7 @@ export default function Reports() {
       );
       setGstSummary(gstSum);
 
-      // --- Individual product sales (if product selected) ---
+      // Individual product sales (uses the same orderIds)
       if (individualProductId && orderIds.length > 0) {
         const { data: indItems, error: indErr } = await supabase
           .from('order_items')
@@ -300,14 +319,17 @@ export default function Reports() {
           const indSales: IndividualProductSale[] = indItems.map((item) => ({
             invoice_number: (item.orders as any)?.order_number || '',
             created_at: (item.orders as any)?.created_at || '',
-            customer_name: '', // could fetch from order user if needed, but we omit for simplicity
+            customer_name: '',
             quantity: item.quantity,
             unit_price: item.unit_price,
             total: item.line_total,
           }));
-          // Attach customer names – we can do a second query, but we'll skip for brevity
           setIndividualSales(indSales);
+        } else {
+          setIndividualSales([]);
         }
+      } else {
+        setIndividualSales([]);
       }
     } catch (err) {
       console.error(err);
@@ -317,6 +339,7 @@ export default function Reports() {
     }
   };
 
+  // ─── Stock report ─────────────────────────────────────────────
   const loadStockReport = async () => {
     setStockLoading(true);
     try {
@@ -343,8 +366,7 @@ export default function Reports() {
     }
   };
 
-  // ─── Export functions ──────────────────────────────────────────────
-
+  // ─── Exports ──────────────────────────────────────────────────
   const exportStockToExcel = () => {
     if (stockData.length === 0) {
       toast.error('No stock data to export');
@@ -364,58 +386,157 @@ export default function Reports() {
     downloadExcel(wb, `Stock_Report_${dateFilterLabel()}`);
   };
 
-  const exportGSTToExcel = () => {
+  const exportGSTToExcel = async () => {
     if (gstReport.length === 0) {
       toast.error('No GST data to export');
       return;
     }
-    const wb = XLSX.utils.book_new();
-    const data = gstReport.map((g) => ({
-      'Invoice': g.invoice_number,
+
+    // ─── 1. Build Summary Sheet ──────────────────────────────
+    const summaryData = gstReport.map((g) => ({
+      'Invoice Number': g.invoice_number,
       'Date': new Date(g.created_at).toLocaleDateString('en-IN'),
       'Customer': g.customer_name,
-      'Subtotal': g.subtotal,
+      'Customer Phone': g.customer_phone || '-',
+      'Customer GSTIN': g.customer_gst || '-',
+      'Taxable Value': g.subtotal,
       'CGST': g.cgst,
       'SGST': g.sgst,
       'Total GST': g.total_gst,
       'Grand Total': g.grand_total,
     }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    XLSX.utils.book_append_sheet(wb, ws, 'GST Report');
-    downloadExcel(wb, `GST_Report_${dateFilterLabel()}`);
-  };
+    summaryData.push({
+      'Invoice Number': 'TOTAL',
+      'Date': '',
+      'Customer': '',
+      'Customer Phone': '',
+      'Customer GSTIN': '',
+      'Taxable Value': gstSummary.subtotal,
+      'CGST': gstSummary.totalCGST,
+      'SGST': gstSummary.totalSGST,
+      'Total GST': gstSummary.totalGST,
+      'Grand Total': gstSummary.grandTotal,
+    });
 
-  const downloadExcel = (wb: XLSX.WorkBook, filename: string) => {
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const fileName = `${filename}.xlsx`;
-    if (Capacitor.isNativePlatform()) {
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(wbout)));
-      Filesystem.writeFile({
-        path: fileName,
-        data: base64,
-        directory: Directory.Documents,
-      })
-        .then(() => {
-          Share.share({
-            title: 'Report',
-            text: 'Excel report',
-            url: fileName,
-            dialogTitle: 'Share report',
+    // ─── 2. Build Details Sheet ──────────────────────────────
+    // Get order IDs for the invoices
+    const gstInvoiceNumbers = gstReport.map((g) => g.invoice_number);
+    const { data: ordersWithIds } = await supabase
+      .from('orders')
+      .select('id, order_number')
+      .in('order_number', gstInvoiceNumbers);
+    const invoiceIdMap = new Map(ordersWithIds?.map((o) => [o.order_number, o.id]) || []);
+    const invoiceIds = gstInvoiceNumbers.map((inv) => invoiceIdMap.get(inv)).filter(Boolean) as string[];
+
+    let detailsData: any[] = [];
+
+    if (invoiceIds.length > 0) {
+      const { data: items, error } = await supabase
+        .from('order_items')
+        .select('order_id, product_code, product_name, hsn_code, gst_percentage, quantity, unit_price, line_total')
+        .in('order_id', invoiceIds);
+
+      if (!error && items) {
+        // Group by invoice number
+        const itemsByInvoice: Record<string, any[]> = {};
+        items.forEach((item) => {
+          const orderNumber = gstReport.find((g) => invoiceIdMap.get(g.invoice_number) === item.order_id)?.invoice_number;
+          if (orderNumber) {
+            if (!itemsByInvoice[orderNumber]) itemsByInvoice[orderNumber] = [];
+            itemsByInvoice[orderNumber].push({
+              ...item,
+              cgst: (item.gst_percentage || 0) * item.line_total / 200,
+              sgst: (item.gst_percentage || 0) * item.line_total / 200,
+              line_total_with_gst: item.line_total + (item.gst_percentage || 0) * item.line_total / 100,
+            });
+          }
+        });
+
+        // Build rows: one header row per invoice, then item rows, then blank line
+        gstReport.forEach((g) => {
+          const invItems = itemsByInvoice[g.invoice_number] || [];
+          // Header row
+          detailsData.push({
+            'Invoice Number': g.invoice_number,
+            'Date': new Date(g.created_at).toLocaleDateString('en-IN'),
+            'Customer': g.customer_name,
+            'Customer Phone': g.customer_phone || '-',
+            'Customer GSTIN': g.customer_gst || '-',
+            'Product Code': '',
+            'Product Name': '',
+            'HSN': '',
+            'GST Rate': '',
+            'Qty': '',
+            'Rate': '',
+            'CGST': '',
+            'SGST': '',
+            'Line Total': '',
+            'Invoice Total': g.grand_total,
           });
-        })
-        .catch(() => toast.error('Failed to save file'));
-    } else {
-      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      toast.success('Excel downloaded!');
+
+          // Item rows
+          invItems.forEach((item) => {
+            detailsData.push({
+              'Invoice Number': '',
+              'Date': '',
+              'Customer': '',
+              'Customer Phone': '',
+              'Customer GSTIN': '',
+              'Product Code': item.product_code || '',
+              'Product Name': item.product_name,
+              'HSN': item.hsn_code || '',
+              'GST Rate': `${item.gst_percentage || 0}%`,
+              'Qty': item.quantity,
+              'Rate': item.unit_price,
+              'CGST': item.cgst,
+              'SGST': item.sgst,
+              'Line Total': item.line_total_with_gst,
+              'Invoice Total': '',
+            });
+          });
+
+          // Blank separator
+          detailsData.push({
+            'Invoice Number': '',
+            'Date': '',
+            'Customer': '',
+            'Customer Phone': '',
+            'Customer GSTIN': '',
+            'Product Code': '',
+            'Product Name': '',
+            'HSN': '',
+            'GST Rate': '',
+            'Qty': '',
+            'Rate': '',
+            'CGST': '',
+            'SGST': '',
+            'Line Total': '',
+            'Invoice Total': '',
+          });
+        });
+      }
     }
+
+    // ─── 3. Create workbook ────────────────────────────────────
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.json_to_sheet(summaryData);
+    const ws2 = XLSX.utils.json_to_sheet(detailsData);
+
+    // Set column widths
+    ws1['!cols'] = [
+      { wch: 16 }, { wch: 14 }, { wch: 25 }, { wch: 15 }, { wch: 20 },
+      { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
+    ];
+    ws2['!cols'] = [
+      { wch: 16 }, { wch: 14 }, { wch: 25 }, { wch: 15 }, { wch: 20 },
+      { wch: 12 }, { wch: 30 }, { wch: 10 }, { wch: 10 },
+      { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws1, 'GST Summary');
+    XLSX.utils.book_append_sheet(wb, ws2, 'GST Details');
+
+    downloadExcel(wb, `GST_Report_${dateFilterLabel()}`);
   };
 
   const dateFilterLabel = () => {
@@ -430,16 +551,15 @@ export default function Reports() {
     }
   };
 
-  // ─── UI ─────────────────────────────────────────────────────────────
-
   const filteredProducts = productSearch
     ? allProducts.filter(
         (p) =>
           p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-          p.product_code?.includes(productSearch)
+          (p.product_code && p.product_code.includes(productSearch))
       )
     : allProducts.slice(0, 20);
 
+  // ─── Render ──────────────────────────────────────────────────
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -471,6 +591,9 @@ export default function Reports() {
             onClick={() => {
               setPeriod(f);
               setShowDatePicker(false);
+              // Clear individual product selection when changing filter
+              setIndividualProductId('');
+              setProductSearch('');
             }}
           >
             {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -485,6 +608,8 @@ export default function Reports() {
           onClick={() => {
             setPeriod('custom');
             setShowDatePicker(true);
+            setIndividualProductId('');
+            setProductSearch('');
           }}
         >
           <Calendar size={14} /> Custom
@@ -498,6 +623,8 @@ export default function Reports() {
           onClick={() => {
             setPeriod('range');
             setShowDatePicker(true);
+            setIndividualProductId('');
+            setProductSearch('');
           }}
         >
           <Calendar size={14} /> Range
@@ -592,7 +719,7 @@ export default function Reports() {
         ))}
       </div>
 
-      {/* ─── Daily Tab ────────────────────────────────────────────────── */}
+      {/* ─── Daily Tab ────────────────────────────────────────────── */}
       {activeTab === 'daily' && (
         <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-ink-100 flex items-center justify-between">
@@ -633,7 +760,7 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ─── Products Tab ────────────────────────────────────────────── */}
+      {/* ─── Products Tab ──────────────────────────────────────────── */}
       {activeTab === 'products' && (
         <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-ink-100 flex items-center justify-between">
@@ -680,7 +807,7 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ─── Individual Tab ──────────────────────────────────────────── */}
+      {/* ─── Individual Tab ────────────────────────────────────────── */}
       {activeTab === 'individual' && (
         <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-ink-100">
@@ -695,7 +822,11 @@ export default function Reports() {
                 type="text"
                 placeholder="Search product by name or code..."
                 value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
+                onChange={(e) => {
+                  setProductSearch(e.target.value);
+                  // Clear selection if search is cleared
+                  if (!e.target.value) setIndividualProductId('');
+                }}
                 className="w-full h-10 pl-9 pr-9 rounded-xl border border-ink-200 text-sm outline-none focus:border-brand-500"
               />
               {productSearch && (
@@ -741,7 +872,7 @@ export default function Reports() {
               </div>
             )}
             {individualProductId && individualSales.length === 0 && !loading && (
-              <div className="text-center py-6 text-ink-400">No sales for this product</div>
+              <div className="text-center py-6 text-ink-400">No sales for this product in the selected period</div>
             )}
             {individualProductId && individualSales.length > 0 && (
               <div className="overflow-x-auto">
@@ -750,7 +881,7 @@ export default function Reports() {
                     <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
                       <th className="pb-2 font-semibold">Invoice</th>
                       <th className="pb-2 font-semibold">Date</th>
-                      <th className="pb-2 font-semibold">Qty</th>
+                      <th className="pb-2 font-semibold text-right">Qty</th>
                       <th className="pb-2 font-semibold text-right">Unit Price</th>
                       <th className="pb-2 font-semibold text-right">Total</th>
                     </tr>
@@ -760,7 +891,7 @@ export default function Reports() {
                       <tr key={idx} className="border-b border-ink-50 last:border-0">
                         <td className="py-2 font-mono text-xs">{sale.invoice_number}</td>
                         <td className="py-2 text-ink-600">{new Date(sale.created_at).toLocaleDateString('en-IN')}</td>
-                        <td className="py-2 text-ink-600">{sale.quantity}</td>
+                        <td className="py-2 text-right text-ink-600">{sale.quantity}</td>
                         <td className="py-2 text-right text-ink-600">{formatCurrency(sale.unit_price)}</td>
                         <td className="py-2 text-right font-bold text-ink-900">{formatCurrency(sale.total)}</td>
                       </tr>
@@ -773,7 +904,7 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ─── GST Tab ─────────────────────────────────────────────────── */}
+      {/* ─── GST Tab ────────────────────────────────────────────────── */}
       {activeTab === 'gst' && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -933,7 +1064,7 @@ export default function Reports() {
   );
 }
 
-// ─── StatCard sub‑component ──────────────────────────────────────────
+// ─── StatCard ──────────────────────────────────────────────────────────
 function StatCard({ label, value, icon, gradient }: { label: string; value: string; icon: React.ReactNode; gradient: string }) {
   return (
     <div
@@ -948,3 +1079,4 @@ function StatCard({ label, value, icon, gradient }: { label: string; value: stri
     </div>
   );
 }
+//just cheking

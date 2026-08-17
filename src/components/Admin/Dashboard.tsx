@@ -1,6 +1,5 @@
 // src/components/admin/Dashboard.tsx
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   TrendingUp,
   ShoppingCart,
@@ -26,7 +25,6 @@ import { supabase } from '@/lib/supabase';
 
 // ─── Helpers (UTC ↔ IST) ─────────────────────────────────────────────
 
-// Format currency in INR
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -36,19 +34,15 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-// IST offset in milliseconds
 const IST_OFFSET = 5.5 * 60 * 60 * 1000;
 
-// Convert a UTC date to an IST date (returns a new Date object set to IST time)
 function toIST(utcDate: Date): Date {
   return new Date(utcDate.getTime() + IST_OFFSET);
 }
 
-// Get the UTC start and end of a day in IST for a given offset from today
 function getDayRangeUTC(offsetDays = 0): { startUTC: Date; endUTC: Date } {
   const nowUTC = new Date();
   const nowIST = toIST(nowUTC);
-  // Use UTC getters to avoid local timezone interference
   const y = nowIST.getUTCFullYear();
   const m = nowIST.getUTCMonth();
   const d = nowIST.getUTCDate();
@@ -59,7 +53,6 @@ function getDayRangeUTC(offsetDays = 0): { startUTC: Date; endUTC: Date } {
   return { startUTC, endUTC };
 }
 
-// Get IST date string (YYYY-MM-DD) from a UTC Date
 function getISTDateStr(utcDate: Date): string {
   const ist = toIST(utcDate);
   return ist.toISOString().split('T')[0];
@@ -91,8 +84,12 @@ interface RecentOrder {
   total: number;
 }
 
+interface DashboardProps {
+  onNavigateToTab?: (tab: string) => void;
+}
+
 // ─── Main Component ──────────────────────────────────────────────────
-export default function Dashboard() {
+export default function Dashboard({ onNavigateToTab }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [todaySalesData, setTodaySalesData] = useState<HourlySales[]>([]);
@@ -105,7 +102,6 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // ─── 1. Fetch delivered orders for the last 30 days (UTC) ──
         const thirtyDaysAgoUTC = getDayRangeUTC(-29).startUTC;
         const { data: deliveredOrders, error: delErr } = await supabase
           .from('orders')
@@ -116,7 +112,6 @@ export default function Dashboard() {
 
         if (delErr) throw delErr;
 
-        // ─── 2. Compute stats ──────────────────────────────────────
         const todayRange = getDayRangeUTC(0);
         const todayDateStr = getISTDateStr(todayRange.startUTC);
 
@@ -143,7 +138,6 @@ export default function Dashboard() {
           if (dateStr >= monthStartStr && dateStr <= monthEndStr) monthlySales += amount;
         });
 
-        // Today's orders (all statuses)
         const { count: todayOrders, error: todayOrdersErr } = await supabase
           .from('orders')
           .select('*', { count: 'exact', head: true })
@@ -151,14 +145,12 @@ export default function Dashboard() {
           .lt('created_at', todayRange.endUTC.toISOString());
         if (todayOrdersErr) throw todayOrdersErr;
 
-        // Total active products
         const { count: totalProducts, error: productsErr } = await supabase
           .from('products')
           .select('*', { count: 'exact', head: true })
           .eq('is_active', true);
         if (productsErr) throw productsErr;
 
-        // Total users
         const { count: totalUsers, error: usersErr } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true });
@@ -173,9 +165,7 @@ export default function Dashboard() {
           totalUsers: totalUsers || 0,
         });
 
-        // ─── 3. Chart data ─────────────────────────────────────────
-
-        // 3a. Today's hourly sales (2‑hour buckets from 6 AM to 10 PM)
+        // --- Chart data ---
         const hourlyBuckets = Array.from({ length: 9 }, (_, i) => {
           const hour = 6 + i * 2;
           const label = `${hour}:00 ${hour < 12 ? 'AM' : 'PM'}`;
@@ -198,7 +188,7 @@ export default function Dashboard() {
         });
         setTodaySalesData(hourlyBuckets);
 
-        // 3b. Weekly sales (last 7 days, daily)
+        // Weekly
         const weeklyMap: Record<string, number> = {};
         const weekStartDate = weekStart;
         const weekEndDate = weekEnd;
@@ -224,7 +214,7 @@ export default function Dashboard() {
         }));
         setWeeklySalesData(weeklyArray);
 
-        // 3c. Monthly sales (last 30 days, daily)
+        // Monthly
         const monthlyMap: Record<string, number> = {};
         const monthStartDate = monthStart;
         const monthEndDate = monthEnd;
@@ -250,7 +240,7 @@ export default function Dashboard() {
         }));
         setMonthlySalesData(monthlyArray);
 
-        // ─── 4. Top Products ──────────────────────────────────────
+        // Top Products
         const deliveredOrderIds = (deliveredOrders || []).map((o) => o.id);
         if (deliveredOrderIds.length > 0) {
           const { data: orderItems, error: itemsErr } = await supabase
@@ -285,7 +275,7 @@ export default function Dashboard() {
           }
         }
 
-        // ─── 5. Recent Orders ─────────────────────────────────────
+        // Recent Orders
         const { data: recent, error: recentErr } = await supabase
           .from('orders')
           .select('id, order_number, created_at, total, user_id')
@@ -455,14 +445,14 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </ChartCard>
 
-        {/* Top Products */}
+        {/* Top Products - no View All */}
         <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-ink-100 bg-ink-50/50 flex items-center justify-between">
             <span className="text-sm font-bold text-ink-800 flex items-center gap-2">
               <Package size={16} className="text-brand-600" />
               Top Products
             </span>
-            {/* Removed View All link */}
+            {/* View All removed */}
           </div>
           <div className="p-4 space-y-3">
             {topProducts.length === 0 ? (
@@ -481,16 +471,19 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Orders */}
+        {/* Recent Orders - View All navigates to invoices tab */}
         <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-ink-100 bg-ink-50/50 flex items-center justify-between">
             <span className="text-sm font-bold text-ink-800 flex items-center gap-2">
               <ReceiptText size={16} className="text-brand-600" />
               Recent Orders
             </span>
-            <Link to="/invoices" className="text-xs font-semibold text-brand-600 hover:underline">
+            <button
+              onClick={() => onNavigateToTab?.('invoices')}
+              className="text-xs font-semibold text-brand-600 hover:underline"
+            >
               View All
-            </Link>
+            </button>
           </div>
           <div className="p-4 space-y-3">
             {recentOrders.length === 0 ? (

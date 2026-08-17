@@ -42,6 +42,7 @@ type Tab =
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
+
   const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'banners', label: 'Banners', icon: Tag },
@@ -95,7 +96,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
 
       {/* Main content */}
       <div className="flex-1 space-y-4">
-        {tab === 'dashboard' && <Dashboard />}
+        {tab === 'dashboard' && <Dashboard onNavigateToTab={(tabId: Tab) => setTab(tabId)} />}
         {tab === 'banners' && <BannersManager />}
         {tab === 'stores' && <StoresManager />}
         {tab === 'brands' && <BrandsManager />}

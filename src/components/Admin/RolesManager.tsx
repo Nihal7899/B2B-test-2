@@ -8,17 +8,37 @@ export default function RolesManager() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const { data } = await supabase
+    // 1. Fetch all user roles
+    const { data: rolesData } = await supabase
       .from('user_roles')
-      .select('user_id, role, profiles!inner(full_name, phone)')
+      .select('user_id, role')
       .order('created_at', { ascending: false });
-    if (data) {
-      setUsers(
-        data.map((r: Record<string, unknown>) => {
-          const p = r.profiles as { full_name: string; phone: string };
-          return { user_id: r.user_id as string, role: r.role as string, full_name: p.full_name, phone: p.phone };
-        })
+  
+    if (rolesData && rolesData.length > 0) {
+      const userIds = rolesData.map((r) => r.user_id);
+  
+      // 2. Fetch profiles for those user IDs
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone')
+        .in('id', userIds);
+  
+      // Build a lookup map for quick access
+      const profilesMap = Object.fromEntries(
+        (profilesData || []).map((p) => [p.id, p])
       );
+  
+      // 3. Merge the data
+      setUsers(
+        rolesData.map((r) => ({
+          user_id: r.user_id,
+          role: r.role,
+          full_name: profilesMap[r.user_id]?.full_name || 'Unknown',
+          phone: profilesMap[r.user_id]?.phone || '',
+        }))
+      );
+    } else {
+      setUsers([]);
     }
     setLoading(false);
   }, []);

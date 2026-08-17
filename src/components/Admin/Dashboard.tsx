@@ -49,13 +49,17 @@ function toIST(utcDate: Date): Date {
 function getDayRangeUTC(offsetDays = 0): { startUTC: Date; endUTC: Date } {
   const nowUTC = new Date();
   const nowIST = toIST(nowUTC);
-  const day = new Date(nowIST);
-  day.setDate(day.getDate() + offsetDays);
-  day.setHours(0, 0, 0, 0);
-  // Convert back to UTC by subtracting offset
-  const startUTC = new Date(day.getTime() - IST_OFFSET);
+  // Read the IST "wall clock" date using UTC getters — this avoids depending
+  // on the browser's local timezone (setDate/setHours use local time and
+  // would double-apply the IST offset if the browser isn't already in UTC).
+  const y = nowIST.getUTCFullYear();
+  const m = nowIST.getUTCMonth();
+  const d = nowIST.getUTCDate();
+  const istMidnightAsUTCValue = Date.UTC(y, m, d + offsetDays, 0, 0, 0, 0);
+  // Convert back to real UTC by subtracting the IST offset
+  const startUTC = new Date(istMidnightAsUTCValue - IST_OFFSET);
   const endUTC = new Date(startUTC);
-  endUTC.setDate(endUTC.getDate() + 1);
+  endUTC.setUTCDate(endUTC.getUTCDate() + 1);
   return { startUTC, endUTC };
 }
 

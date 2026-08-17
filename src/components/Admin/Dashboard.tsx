@@ -10,7 +10,6 @@ import {
   Calendar,
   Clock,
   BarChart3,
-  Zap,
 } from 'lucide-react';
 import {
   LineChart,
@@ -49,25 +48,15 @@ function toIST(utcDate: Date): Date {
 function getDayRangeUTC(offsetDays = 0): { startUTC: Date; endUTC: Date } {
   const nowUTC = new Date();
   const nowIST = toIST(nowUTC);
-  // Read the IST "wall clock" date using UTC getters — this avoids depending
-  // on the browser's local timezone (setDate/setHours use local time and
-  // would double-apply the IST offset if the browser isn't already in UTC).
+  // Use UTC getters to avoid local timezone interference
   const y = nowIST.getUTCFullYear();
   const m = nowIST.getUTCMonth();
   const d = nowIST.getUTCDate();
   const istMidnightAsUTCValue = Date.UTC(y, m, d + offsetDays, 0, 0, 0, 0);
-  // Convert back to real UTC by subtracting the IST offset
   const startUTC = new Date(istMidnightAsUTCValue - IST_OFFSET);
   const endUTC = new Date(startUTC);
   endUTC.setUTCDate(endUTC.getUTCDate() + 1);
   return { startUTC, endUTC };
-}
-
-// Get the full UTC range for a period (e.g., last 7 days) with inclusive end
-function getPeriodRangeUTC(startOffset: number, endOffset: number): { startUTC: Date; endUTC: Date } {
-  const start = getDayRangeUTC(startOffset).startUTC;
-  const end = getDayRangeUTC(endOffset + 1).startUTC; // end is start of next day
-  return { startUTC: start, endUTC: end };
 }
 
 // Get IST date string (YYYY-MM-DD) from a UTC Date
@@ -128,15 +117,14 @@ export default function Dashboard() {
         if (delErr) throw delErr;
 
         // ─── 2. Compute stats ──────────────────────────────────────
-        // Today
         const todayRange = getDayRangeUTC(0);
         const todayDateStr = getISTDateStr(todayRange.startUTC);
-        // Week: last 7 days (start -6, end 0)
+
         const weekStart = getDayRangeUTC(-6).startUTC;
         const weekEnd = getDayRangeUTC(0).endUTC;
         const weekStartStr = getISTDateStr(weekStart);
         const weekEndStr = getISTDateStr(weekEnd);
-        // Month: last 30 days (start -29, end 0)
+
         const monthStart = getDayRangeUTC(-29).startUTC;
         const monthEnd = getDayRangeUTC(0).endUTC;
         const monthStartStr = getISTDateStr(monthStart);
@@ -155,7 +143,7 @@ export default function Dashboard() {
           if (dateStr >= monthStartStr && dateStr <= monthEndStr) monthlySales += amount;
         });
 
-        // Today's orders (all statuses) – using the same UTC range
+        // Today's orders (all statuses)
         const { count: todayOrders, error: todayOrdersErr } = await supabase
           .from('orders')
           .select('*', { count: 'exact', head: true })
@@ -360,11 +348,7 @@ export default function Dashboard() {
             <span>{todayIST.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
         </div>
-        <Link to="/billing">
-          <button className="h-10 px-5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-2 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition">
-            <Zap size={16} /> New Bill
-          </button>
-        </Link>
+        {/* Removed New Bill button */}
       </div>
 
       {/* Stat Cards */}
@@ -478,9 +462,7 @@ export default function Dashboard() {
               <Package size={16} className="text-brand-600" />
               Top Products
             </span>
-            <Link to="/reports" className="text-xs font-semibold text-brand-600 hover:underline">
-              View All
-            </Link>
+            {/* Removed View All link */}
           </div>
           <div className="p-4 space-y-3">
             {topProducts.length === 0 ? (
@@ -506,7 +488,7 @@ export default function Dashboard() {
               <ReceiptText size={16} className="text-brand-600" />
               Recent Orders
             </span>
-            <Link to="/orders" className="text-xs font-semibold text-brand-600 hover:underline">
+            <Link to="/invoices" className="text-xs font-semibold text-brand-600 hover:underline">
               View All
             </Link>
           </div>

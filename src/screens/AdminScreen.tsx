@@ -1,6 +1,6 @@
 // screens/AdminScreen.tsx
 import { useState } from 'react';
-import { ArrowLeft, LayoutDashboard, Tag, Store, Award, LayoutGrid, Package, Percent, Gift, Truck, MapPin, Users, FileText, Settings, Bell } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard, Tag, Store, Award, LayoutGrid, Package, Percent, Gift, Truck, MapPin, Users, FileText, Settings, Bell, BarChart2 } from 'lucide-react';
 import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import InvoiceSettings from '@/components/InvoiceSettings';
 import AdminInvoices from '@/components/AdminInvoices';
@@ -18,6 +18,7 @@ import DeliverySettingsManager from '@/components/Admin/DeliverySettingsManager'
 import SmartCollectionsManager from '@/components/Admin/SmartCollectionsManager';
 import RolesManager from '@/components/Admin/RolesManager';
 import DeliveryRangesManager from '@/components/Admin/DeliveryRangesManager';
+import Reports from '@/components/Admin/Reports
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -59,6 +60,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'invoiceSettings', label: 'Invoice Settings', icon: Settings },
     { id: 'deliveryRanges', label: 'Delivery Ranges', icon: MapPin },
     { id: 'push', label: 'Push Notifications', icon: Bell },
+      { id: 'reports', label: 'Reports', icon: BarChart2 }
   ];
 
   return (
@@ -111,6 +113,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'invoiceSettings' && <InvoiceSettings />}
         {tab === 'deliveryRanges' && <DeliveryRangesManager />}
         {tab === 'push' && <PushNotificationSender />}
+        {tab === 'reports' && <Reports />}
       </div>
     </div>
   );

@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import InvoiceSettings from '@/components/InvoiceSettings';
-import AdminInvoices from '@/components/Admin/AdminInvoices';
+import AdminInvoices from '@/components/AdminInvoices';
 
 // Import all extracted managers
 import Dashboard from '@/components/Admin/Dashboard';

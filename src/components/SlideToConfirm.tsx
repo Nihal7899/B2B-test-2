@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import { ChevronRight, Loader2 } from 'lucide-react';
 
 interface SlideToConfirmProps {
@@ -69,39 +69,59 @@ export function SlideToConfirm({
       isDragging.current = true;
       startX.current = clientX;
       startProgress.current = progress.current;
+
+      // Add mouse listeners
+      const onMouseMove = (e: MouseEvent) => handleMove(e.clientX);
+      const onMouseUp = () => {
+        handleEnd();
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+
+      // Add touch listeners
+      const onTouchMove = (e: TouchEvent) => {
+        e.preventDefault(); // prevent scrolling
+        handleMove(e.touches[0].clientX);
+      };
+      const onTouchEnd = () => {
+        handleEnd();
+        window.removeEventListener('touchmove', onTouchMove);
+        window.removeEventListener('touchend', onTouchEnd);
+      };
+      window.addEventListener('touchmove', onTouchMove, { passive: false });
+      window.addEventListener('touchend', onTouchEnd);
     },
-    [isLoading, disabled]
+    [isLoading, disabled, handleMove, handleEnd]
   );
 
-  const handleMove = useCallback(
-    (clientX: number) => {
-      if (!isDragging.current) return;
-      const delta = clientX - startX.current;
-      if (!trackRef.current) return;
-      const rect = trackRef.current.getBoundingClientRect();
-      const max = rect.width - 56;
-      const deltaProgress = delta / max;
-      let newProgress = Math.min(
-        Math.max(startProgress.current + deltaProgress, 0),
-        1
-      );
-      progress.current = newProgress;
-      const px = newProgress * max;
-      if (thumbRef.current) {
-        thumbRef.current.style.transform = `translateX(${px}px)`;
-        thumbRef.current.style.transition = 'none';
-      }
-      if (fillRef.current) {
-        fillRef.current.style.width = `${newProgress * 100}%`;
-        fillRef.current.style.transition = 'none';
-      }
-      if (labelRef.current) {
-        labelRef.current.style.color = newProgress > 0.4 ? 'white' : '#1e293b';
-        labelRef.current.style.mixBlendMode = newProgress > 0.4 ? 'normal' : 'multiply';
-      }
-    },
-    []
-  );
+  const handleMove = useCallback((clientX: number) => {
+    if (!isDragging.current) return;
+    const delta = clientX - startX.current;
+    if (!trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const max = rect.width - 56;
+    const deltaProgress = delta / max;
+    let newProgress = Math.min(
+      Math.max(startProgress.current + deltaProgress, 0),
+      1
+    );
+    progress.current = newProgress;
+    const px = newProgress * max;
+    if (thumbRef.current) {
+      thumbRef.current.style.transform = `translateX(${px}px)`;
+      thumbRef.current.style.transition = 'none';
+    }
+    if (fillRef.current) {
+      fillRef.current.style.width = `${newProgress * 100}%`;
+      fillRef.current.style.transition = 'none';
+    }
+    if (labelRef.current) {
+      labelRef.current.style.color = newProgress > 0.4 ? 'white' : '#1e293b';
+      labelRef.current.style.mixBlendMode = newProgress > 0.4 ? 'normal' : 'multiply';
+    }
+  }, []);
 
   const handleEnd = useCallback(() => {
     if (!isDragging.current) return;
@@ -121,49 +141,13 @@ export function SlideToConfirm({
     }
   }, [onConfirm, snapBack]);
 
-  // Mouse events
-  const onMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    handleStart(e.clientX);
-  };
-  useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => handleMove(e.clientX);
-    const onMouseUp = () => handleEnd();
-    if (isDragging.current) {
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
-    }
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [handleMove, handleEnd]);
-
-  // Touch events
-  const onTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault();
-    handleStart(e.touches[0].clientX);
-  };
-  useEffect(() => {
-    const onTouchMove = (e: TouchEvent) => handleMove(e.touches[0].clientX);
-    const onTouchEnd = () => handleEnd();
-    if (isDragging.current) {
-      window.addEventListener('touchmove', onTouchMove, { passive: true });
-      window.addEventListener('touchend', onTouchEnd);
-    }
-    return () => {
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
-    };
-  }, [handleMove, handleEnd]);
-
   // Reset on loading
-  useEffect(() => {
-    if (isLoading) {
-      snapBack();
-      isDragging.current = false;
-    }
-  }, [isLoading, snapBack]);
+  const prevLoading = useRef(isLoading);
+  if (isLoading && !prevLoading.current) {
+    snapBack();
+    isDragging.current = false;
+  }
+  prevLoading.current = isLoading;
 
   return (
     <div
@@ -213,8 +197,14 @@ export function SlideToConfirm({
           willChange: 'transform',
           transition: 'none',
         }}
-        onMouseDown={onMouseDown}
-        onTouchStart={onTouchStart}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          handleStart(e.clientX);
+        }}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          handleStart(e.touches[0].clientX);
+        }}
       >
         <ChevronRight
           size={22}

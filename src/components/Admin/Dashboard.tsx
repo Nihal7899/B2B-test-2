@@ -346,11 +346,7 @@ export default function Dashboard() {
             <span>{today.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
         </div>
-        <Link to="/billing">
-          <button className="h-10 px-5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-2 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition">
-            <Zap size={16} /> New Bill
-          </button>
-        </Link>
+
       </div>
 
       {/* Stat Cards */}

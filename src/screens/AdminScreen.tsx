@@ -18,7 +18,7 @@ import DeliverySettingsManager from '@/components/Admin/DeliverySettingsManager'
 import SmartCollectionsManager from '@/components/Admin/SmartCollectionsManager';
 import RolesManager from '@/components/Admin/RolesManager';
 import DeliveryRangesManager from '@/components/Admin/DeliveryRangesManager';
-import Reports from '@/components/Admin/Reports
+import Reports from '@/components/Admin/Reports;
 
 interface AdminScreenProps {
   onBack: () => void;

@@ -419,7 +419,6 @@ export default function Reports() {
     });
 
     // ─── 2. Build Details Sheet ──────────────────────────────
-    // Get order IDs for the invoices
     const gstInvoiceNumbers = gstReport.map((g) => g.invoice_number);
     const { data: ordersWithIds } = await supabase
       .from('orders')
@@ -437,7 +436,6 @@ export default function Reports() {
         .in('order_id', invoiceIds);
 
       if (!error && items) {
-        // Group by invoice number
         const itemsByInvoice: Record<string, any[]> = {};
         items.forEach((item) => {
           const orderNumber = gstReport.find((g) => invoiceIdMap.get(g.invoice_number) === item.order_id)?.invoice_number;
@@ -452,7 +450,6 @@ export default function Reports() {
           }
         });
 
-        // Build rows: one header row per invoice, then item rows, then blank line
         gstReport.forEach((g) => {
           const invItems = itemsByInvoice[g.invoice_number] || [];
           // Header row
@@ -474,7 +471,6 @@ export default function Reports() {
             'Invoice Total': g.grand_total,
           });
 
-          // Item rows
           invItems.forEach((item) => {
             detailsData.push({
               'Invoice Number': '',
@@ -495,7 +491,6 @@ export default function Reports() {
             });
           });
 
-          // Blank separator
           detailsData.push({
             'Invoice Number': '',
             'Date': '',
@@ -517,12 +512,10 @@ export default function Reports() {
       }
     }
 
-    // ─── 3. Create workbook ────────────────────────────────────
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.json_to_sheet(summaryData);
     const ws2 = XLSX.utils.json_to_sheet(detailsData);
 
-    // Set column widths
     ws1['!cols'] = [
       { wch: 16 }, { wch: 14 }, { wch: 25 }, { wch: 15 }, { wch: 20 },
       { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
@@ -591,7 +584,6 @@ export default function Reports() {
             onClick={() => {
               setPeriod(f);
               setShowDatePicker(false);
-              // Clear individual product selection when changing filter
               setIndividualProductId('');
               setProductSearch('');
             }}
@@ -780,14 +772,14 @@ export default function Reports() {
                 <p className="text-sm mt-2">No product sales</p>
               </div>
             ) : (
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[500px]">
                 <thead>
                   <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                    <th className="pb-2 font-semibold">Code</th>
-                    <th className="pb-2 font-semibold">Product</th>
-                    <th className="pb-2 font-semibold text-right">Qty</th>
-                    <th className="pb-2 font-semibold text-right">Invoices</th>
-                    <th className="pb-2 font-semibold text-right">Revenue</th>
+                    <th className="pb-2 font-semibold min-w-[80px]">Code</th>
+                    <th className="pb-2 font-semibold min-w-[150px]">Product</th>
+                    <th className="pb-2 font-semibold text-right min-w-[60px]">Qty</th>
+                    <th className="pb-2 font-semibold text-right min-w-[80px]">Invoices</th>
+                    <th className="pb-2 font-semibold text-right min-w-[100px]">Revenue</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -824,7 +816,6 @@ export default function Reports() {
                 value={productSearch}
                 onChange={(e) => {
                   setProductSearch(e.target.value);
-                  // Clear selection if search is cleared
                   if (!e.target.value) setIndividualProductId('');
                 }}
                 className="w-full h-10 pl-9 pr-9 rounded-xl border border-ink-200 text-sm outline-none focus:border-brand-500"
@@ -876,14 +867,14 @@ export default function Reports() {
             )}
             {individualProductId && individualSales.length > 0 && (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[500px]">
                   <thead>
                     <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                      <th className="pb-2 font-semibold">Invoice</th>
-                      <th className="pb-2 font-semibold">Date</th>
-                      <th className="pb-2 font-semibold text-right">Qty</th>
-                      <th className="pb-2 font-semibold text-right">Unit Price</th>
-                      <th className="pb-2 font-semibold text-right">Total</th>
+                      <th className="pb-2 font-semibold min-w-[100px]">Invoice</th>
+                      <th className="pb-2 font-semibold min-w-[100px]">Date</th>
+                      <th className="pb-2 font-semibold text-right min-w-[60px]">Qty</th>
+                      <th className="pb-2 font-semibold text-right min-w-[100px]">Unit Price</th>
+                      <th className="pb-2 font-semibold text-right min-w-[100px]">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -954,16 +945,16 @@ export default function Reports() {
                   <p className="text-sm mt-2">No GST invoices</p>
                 </div>
               ) : (
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[700px]">
                   <thead>
                     <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                      <th className="pb-2 font-semibold">Invoice</th>
-                      <th className="pb-2 font-semibold">Date</th>
-                      <th className="pb-2 font-semibold">Customer</th>
-                      <th className="pb-2 font-semibold text-right">Taxable</th>
-                      <th className="pb-2 font-semibold text-right">CGST</th>
-                      <th className="pb-2 font-semibold text-right">SGST</th>
-                      <th className="pb-2 font-semibold text-right">Total</th>
+                      <th className="pb-2 font-semibold min-w-[110px]">Invoice</th>
+                      <th className="pb-2 font-semibold min-w-[100px]">Date</th>
+                      <th className="pb-2 font-semibold min-w-[150px]">Customer</th>
+                      <th className="pb-2 font-semibold text-right min-w-[100px]">Taxable</th>
+                      <th className="pb-2 font-semibold text-right min-w-[80px]">CGST</th>
+                      <th className="pb-2 font-semibold text-right min-w-[80px]">SGST</th>
+                      <th className="pb-2 font-semibold text-right min-w-[100px]">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -971,7 +962,9 @@ export default function Reports() {
                       <tr key={inv.invoice_number} className="border-b border-ink-50 last:border-0">
                         <td className="py-2 font-mono text-xs">{inv.invoice_number}</td>
                         <td className="py-2 text-ink-600">{new Date(inv.created_at).toLocaleDateString('en-IN')}</td>
-                        <td className="py-2 text-ink-600">{inv.customer_name}</td>
+                        <td className="py-2 text-ink-600 truncate max-w-[150px]" title={inv.customer_name}>
+                          {inv.customer_name}
+                        </td>
                         <td className="py-2 text-right text-ink-600">{formatCurrency(inv.subtotal)}</td>
                         <td className="py-2 text-right text-ink-600">{formatCurrency(inv.cgst)}</td>
                         <td className="py-2 text-right text-ink-600">{formatCurrency(inv.sgst)}</td>
@@ -1024,14 +1017,14 @@ export default function Reports() {
                 <p className="text-sm mt-2">No products found</p>
               </div>
             ) : (
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[500px]">
                 <thead>
                   <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                    <th className="pb-2 font-semibold">Code</th>
-                    <th className="pb-2 font-semibold">Name</th>
-                    <th className="pb-2 font-semibold text-right">Stock</th>
-                    <th className="pb-2 font-semibold text-right">Threshold</th>
-                    <th className="pb-2 font-semibold text-right">Status</th>
+                    <th className="pb-2 font-semibold min-w-[80px]">Code</th>
+                    <th className="pb-2 font-semibold min-w-[150px]">Name</th>
+                    <th className="pb-2 font-semibold text-right min-w-[60px]">Stock</th>
+                    <th className="pb-2 font-semibold text-right min-w-[80px]">Threshold</th>
+                    <th className="pb-2 font-semibold text-right min-w-[100px]">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1079,4 +1072,3 @@ function StatCard({ label, value, icon, gradient }: { label: string; value: stri
     </div>
   );
 }
-//just cheking

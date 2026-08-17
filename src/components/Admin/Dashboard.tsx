@@ -25,7 +25,9 @@ import {
 } from 'recharts';
 import { supabase } from '@/lib/supabase';
 
-// ─── Helpers ──────────────────────────────────────────────────────────
+// ─── Helpers (UTC ↔ IST) ─────────────────────────────────────────────
+
+// Format currency in INR
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -35,39 +37,38 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-// Get current date in IST (UTC+5:30)
-function getISTDate(date: Date = new Date()): Date {
-  const utc = date.getTime() + date.getTimezoneOffset() * 60000;
-  return new Date(utc + 5.5 * 3600000);
+// IST offset in milliseconds
+const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+
+// Convert a UTC date to an IST date (returns a new Date object set to IST time)
+function toIST(utcDate: Date): Date {
+  return new Date(utcDate.getTime() + IST_OFFSET);
 }
 
-// Get start and end of a day (IST) for a given offset (e.g., -6 for 6 days ago)
-function getDayRangeIST(offsetDays: number = 0): { start: Date; end: Date } {
-  const now = getISTDate();
-  const start = new Date(now);
-  start.setDate(now.getDate() + offsetDays);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 1);
-  return { start, end };
+// Get the UTC start and end of a day in IST for a given offset from today
+function getDayRangeUTC(offsetDays = 0): { startUTC: Date; endUTC: Date } {
+  const nowUTC = new Date();
+  const nowIST = toIST(nowUTC);
+  const day = new Date(nowIST);
+  day.setDate(day.getDate() + offsetDays);
+  day.setHours(0, 0, 0, 0);
+  // Convert back to UTC by subtracting offset
+  const startUTC = new Date(day.getTime() - IST_OFFSET);
+  const endUTC = new Date(startUTC);
+  endUTC.setDate(endUTC.getDate() + 1);
+  return { startUTC, endUTC };
 }
 
-// Get the full date range for a period (e.g., last 7 days) from startOffset to endOffset (inclusive)
-function getDateRangeIST(startOffset: number, endOffset: number): { start: Date; end: Date } {
-  const start = getDayRangeIST(startOffset).start;
-  const end = getDayRangeIST(endOffset).end;
-  return { start, end };
+// Get the full UTC range for a period (e.g., last 7 days) with inclusive end
+function getPeriodRangeUTC(startOffset: number, endOffset: number): { startUTC: Date; endUTC: Date } {
+  const start = getDayRangeUTC(startOffset).startUTC;
+  const end = getDayRangeUTC(endOffset + 1).startUTC; // end is start of next day
+  return { startUTC: start, endUTC: end };
 }
 
-// Convert IST Date to UTC ISO string for Supabase queries
-function toUTCISO(date: Date): string {
-  const utc = new Date(date.getTime() - 5.5 * 3600000);
-  return utc.toISOString();
-}
-
-// Get the IST date string (YYYY-MM-DD) from a Date object
-function getISTDateStr(date: Date): string {
-  const ist = getISTDate(date);
+// Get IST date string (YYYY-MM-DD) from a UTC Date
+function getISTDateStr(utcDate: Date): string {
+  const ist = toIST(utcDate);
   return ist.toISOString().split('T')[0];
 }
 
@@ -111,28 +112,31 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // ─── 1. Fetch delivered orders for the last 30 days (IST) ──
-        const thirtyDaysAgo = getDayRangeIST(-29);
-        const start30UTC = toUTCISO(thirtyDaysAgo.start);
+        // ─── 1. Fetch delivered orders for the last 30 days (UTC) ──
+        const thirtyDaysAgoUTC = getDayRangeUTC(-29).startUTC;
         const { data: deliveredOrders, error: delErr } = await supabase
           .from('orders')
           .select('id, total, created_at, user_id')
           .eq('status', 'delivered')
-          .gte('created_at', start30UTC)
+          .gte('created_at', thirtyDaysAgoUTC.toISOString())
           .order('created_at', { ascending: true });
 
         if (delErr) throw delErr;
 
-        // ─── 2. Compute stats from delivered orders ───────────────
-        const todayRange = getDayRangeIST(0);
-        const weekRange = getDateRangeIST(-6, 0); // last 7 days
-        const monthRange = getDateRangeIST(-29, 0); // last 30 days
-
-        const todayDateStr = getISTDateStr(todayRange.start);
-        const weekStartStr = getISTDateStr(weekRange.start);
-        const weekEndStr = getISTDateStr(weekRange.end);
-        const monthStartStr = getISTDateStr(monthRange.start);
-        const monthEndStr = getISTDateStr(monthRange.end);
+        // ─── 2. Compute stats ──────────────────────────────────────
+        // Today
+        const todayRange = getDayRangeUTC(0);
+        const todayDateStr = getISTDateStr(todayRange.startUTC);
+        // Week: last 7 days (start -6, end 0)
+        const weekStart = getDayRangeUTC(-6).startUTC;
+        const weekEnd = getDayRangeUTC(0).endUTC;
+        const weekStartStr = getISTDateStr(weekStart);
+        const weekEndStr = getISTDateStr(weekEnd);
+        // Month: last 30 days (start -29, end 0)
+        const monthStart = getDayRangeUTC(-29).startUTC;
+        const monthEnd = getDayRangeUTC(0).endUTC;
+        const monthStartStr = getISTDateStr(monthStart);
+        const monthEndStr = getISTDateStr(monthEnd);
 
         let todaySales = 0,
             weeklySales = 0,
@@ -140,32 +144,29 @@ export default function Dashboard() {
 
         deliveredOrders?.forEach((order) => {
           const orderDate = new Date(order.created_at);
-          const istDate = getISTDate(orderDate);
-          const dateStr = getISTDateStr(istDate);
+          const dateStr = getISTDateStr(orderDate);
           const amount = Number(order.total);
           if (dateStr === todayDateStr) todaySales += amount;
           if (dateStr >= weekStartStr && dateStr <= weekEndStr) weeklySales += amount;
           if (dateStr >= monthStartStr && dateStr <= monthEndStr) monthlySales += amount;
         });
 
-        // ─── 3. Today's orders (all statuses) ────────────────────
-        const todayStartUTC = toUTCISO(todayRange.start);
-        const todayEndUTC = toUTCISO(todayRange.end);
+        // Today's orders (all statuses) – using the same UTC range
         const { count: todayOrders, error: todayOrdersErr } = await supabase
           .from('orders')
           .select('*', { count: 'exact', head: true })
-          .gte('created_at', todayStartUTC)
-          .lt('created_at', todayEndUTC);
+          .gte('created_at', todayRange.startUTC.toISOString())
+          .lt('created_at', todayRange.endUTC.toISOString());
         if (todayOrdersErr) throw todayOrdersErr;
 
-        // ─── 4. Total products ────────────────────────────────────
+        // Total active products
         const { count: totalProducts, error: productsErr } = await supabase
           .from('products')
           .select('*', { count: 'exact', head: true })
           .eq('is_active', true);
         if (productsErr) throw productsErr;
 
-        // ─── 5. Total users ───────────────────────────────────────
+        // Total users
         const { count: totalUsers, error: usersErr } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true });
@@ -180,19 +181,19 @@ export default function Dashboard() {
           totalUsers: totalUsers || 0,
         });
 
-        // ─── 6. Chart data ────────────────────────────────────────
+        // ─── 3. Chart data ─────────────────────────────────────────
 
-        // 6a. Today's hourly sales (2‑hour buckets from 6 AM to 10 PM)
+        // 3a. Today's hourly sales (2‑hour buckets from 6 AM to 10 PM)
         const hourlyBuckets = Array.from({ length: 9 }, (_, i) => {
           const hour = 6 + i * 2;
           const label = `${hour}:00 ${hour < 12 ? 'AM' : 'PM'}`;
           return { hour: label, sales: 0 };
         });
-        const todayStartIST = todayRange.start;
-        const todayEndIST = todayRange.end;
+        const todayStartIST = toIST(todayRange.startUTC);
+        const todayEndIST = toIST(todayRange.endUTC);
         deliveredOrders?.forEach((order) => {
           const orderDate = new Date(order.created_at);
-          const istDate = getISTDate(orderDate);
+          const istDate = toIST(orderDate);
           if (istDate >= todayStartIST && istDate < todayEndIST) {
             let h = istDate.getHours();
             if (h < 6) h = 6;
@@ -205,20 +206,21 @@ export default function Dashboard() {
         });
         setTodaySalesData(hourlyBuckets);
 
-        // 6b. Weekly sales (last 7 days, daily)
+        // 3b. Weekly sales (last 7 days, daily)
         const weeklyMap: Record<string, number> = {};
-        const weekStartDate = weekRange.start;
-        const weekEndDate = weekRange.end;
+        const weekStartDate = weekStart;
+        const weekEndDate = weekEnd;
         let current = new Date(weekStartDate);
-        while (current <= weekEndDate) {
+        while (current < weekEndDate) {
           const key = getISTDateStr(current);
           weeklyMap[key] = 0;
           current.setDate(current.getDate() + 1);
         }
         deliveredOrders?.forEach((order) => {
-          const istDate = getISTDate(new Date(order.created_at));
-          if (istDate >= weekStartDate && istDate <= weekEndDate) {
-            const key = getISTDateStr(istDate);
+          const orderDate = new Date(order.created_at);
+          const istDate = toIST(orderDate);
+          if (istDate >= toIST(weekStartDate) && istDate < toIST(weekEndDate)) {
+            const key = getISTDateStr(orderDate);
             if (weeklyMap[key] !== undefined) {
               weeklyMap[key] += Number(order.total);
             }
@@ -230,20 +232,21 @@ export default function Dashboard() {
         }));
         setWeeklySalesData(weeklyArray);
 
-        // 6c. Monthly sales (last 30 days, daily)
+        // 3c. Monthly sales (last 30 days, daily)
         const monthlyMap: Record<string, number> = {};
-        const monthStartDate = monthRange.start;
-        const monthEndDate = monthRange.end;
+        const monthStartDate = monthStart;
+        const monthEndDate = monthEnd;
         current = new Date(monthStartDate);
-        while (current <= monthEndDate) {
+        while (current < monthEndDate) {
           const key = getISTDateStr(current);
           monthlyMap[key] = 0;
           current.setDate(current.getDate() + 1);
         }
         deliveredOrders?.forEach((order) => {
-          const istDate = getISTDate(new Date(order.created_at));
-          if (istDate >= monthStartDate && istDate <= monthEndDate) {
-            const key = getISTDateStr(istDate);
+          const orderDate = new Date(order.created_at);
+          const istDate = toIST(orderDate);
+          if (istDate >= toIST(monthStartDate) && istDate < toIST(monthEndDate)) {
+            const key = getISTDateStr(orderDate);
             if (monthlyMap[key] !== undefined) {
               monthlyMap[key] += Number(order.total);
             }
@@ -255,7 +258,7 @@ export default function Dashboard() {
         }));
         setMonthlySalesData(monthlyArray);
 
-        // ─── 7. Top Products (based on delivered orders) ──────────
+        // ─── 4. Top Products ──────────────────────────────────────
         const deliveredOrderIds = (deliveredOrders || []).map((o) => o.id);
         if (deliveredOrderIds.length > 0) {
           const { data: orderItems, error: itemsErr } = await supabase
@@ -290,7 +293,7 @@ export default function Dashboard() {
           }
         }
 
-        // ─── 8. Recent Orders (last 5, any status) ──────────────
+        // ─── 5. Recent Orders ─────────────────────────────────────
         const { data: recent, error: recentErr } = await supabase
           .from('orders')
           .select('id, order_number, created_at, total, user_id')
@@ -329,8 +332,9 @@ export default function Dashboard() {
     );
   }
 
-  const today = getISTDate();
-  const formattedDate = today.toLocaleDateString('en-IN', {
+  const todayUTC = new Date();
+  const todayIST = toIST(todayUTC);
+  const formattedDate = todayIST.toLocaleDateString('en-IN', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -349,7 +353,7 @@ export default function Dashboard() {
             <span>{formattedDate}</span>
             <span className="opacity-30">•</span>
             <Clock size={14} />
-            <span>{today.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+            <span>{todayIST.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
         </div>
         <Link to="/billing">

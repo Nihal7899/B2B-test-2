@@ -1,5 +1,5 @@
 // src/components/admin/Dashboard.tsx
-export function Dashboard() {
+export default function Dashboard() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
       <div className="bg-white rounded-2xl p-5 border border-ink-100 shadow-card">

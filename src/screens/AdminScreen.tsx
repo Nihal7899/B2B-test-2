@@ -6,18 +6,18 @@ import InvoiceSettings from '@/components/InvoiceSettings';
 import AdminInvoices from '@/components/AdminInvoices';
 
 // Import all extracted managers
-import Dashboard from '@/components/admin/Dashboard';
-import BannersManager from '@/components/admin/BannersManager';
-import StoresManager from '@/components/admin/StoresManager';
-import BrandsManager from '@/components/admin/BrandsManager';
-import CategoriesManager from '@/components/admin/CategoriesManager';
-import ProductsManager from '@/components/admin/ProductsManager';
+import Dashboard from '@/components/Admin/Dashboard';
+import BannersManager from '@/components/Admin/BannersManager';
+import StoresManager from '@/components/Admin/StoresManager';
+import BrandsManager from '@/components/Admin/BrandsManager';
+import CategoriesManager from '@/components/Admin/CategoriesManager';
+import ProductsManager from '@/components/Admin/ProductsManager';
 import VolumePricingManager from '@/components/admin/VolumePricingManager';
-import PromoCodesManager from '@/components/admin/PromoCodesManager';
-import DeliverySettingsManager from '@/components/admin/DeliverySettingsManager';
-import SmartCollectionsManager from '@/components/admin/SmartCollectionsManager';
-import RolesManager from '@/components/admin/RolesManager';
-import DeliveryRangesManager from '@/components/admin/DeliveryRangesManager';
+import PromoCodesManager from '@/components/Admin/PromoCodesManager';
+import DeliverySettingsManager from '@/components/Admin/DeliverySettingsManager';
+import SmartCollectionsManager from '@/components/Admin/SmartCollectionsManager';
+import RolesManager from '@/components/Admin/RolesManager';
+import DeliveryRangesManager from '@/components/Admin/DeliveryRangesManager';
 
 interface AdminScreenProps {
   onBack: () => void;

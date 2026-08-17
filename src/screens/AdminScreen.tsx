@@ -1,9 +1,26 @@
 // screens/AdminScreen.tsx
 import { useState } from 'react';
-import { ArrowLeft, LayoutDashboard, Tag, Store, Award, LayoutGrid, Package, Percent, Gift, Truck, MapPin, Users, FileText, Settings, Bell, BarChart2 } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  LayoutDashboard, 
+  Tag, 
+  Store, 
+  Award, 
+  LayoutGrid, 
+  Package, 
+  Percent, 
+  Gift, 
+  Truck, 
+  MapPin, 
+  Users, 
+  FileText, 
+  Settings, 
+  Bell,
+  BarChart2  // <- added for Reports
+} from 'lucide-react';
 import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import InvoiceSettings from '@/components/InvoiceSettings';
-import AdminInvoices from '@/components/AdminInvoices';
+import AdminInvoices from '@/components/Admin/AdminInvoices';
 
 // Import all extracted managers
 import Dashboard from '@/components/Admin/Dashboard';
@@ -18,7 +35,7 @@ import DeliverySettingsManager from '@/components/Admin/DeliverySettingsManager'
 import SmartCollectionsManager from '@/components/Admin/SmartCollectionsManager';
 import RolesManager from '@/components/Admin/RolesManager';
 import DeliveryRangesManager from '@/components/Admin/DeliveryRangesManager';
-import Reports from '@/components/Admin/Reports';
+import Reports from '@/components/Admin/Reports';  // <- new
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -39,7 +56,8 @@ type Tab =
   | 'invoices'
   | 'invoiceSettings'
   | 'deliveryRanges'
-  | 'push';
+  | 'push'
+  | 'reports';  // <- added
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -60,7 +78,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'invoiceSettings', label: 'Invoice Settings', icon: Settings },
     { id: 'deliveryRanges', label: 'Delivery Ranges', icon: MapPin },
     { id: 'push', label: 'Push Notifications', icon: Bell },
-      { id: 'reports', label: 'Reports', icon: BarChart2 }
+    { id: 'reports', label: 'Reports', icon: BarChart2 },  // <- added
   ];
 
   return (
@@ -113,7 +131,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'invoiceSettings' && <InvoiceSettings />}
         {tab === 'deliveryRanges' && <DeliveryRangesManager />}
         {tab === 'push' && <PushNotificationSender />}
-        {tab === 'reports' && <Reports />}
+        {tab === 'reports' && <Reports />}  {/* <- added */}
       </div>
     </div>
   );

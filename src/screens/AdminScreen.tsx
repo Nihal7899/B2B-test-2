@@ -16,16 +16,17 @@ import {
   FileText, 
   Settings, 
   Bell,
-  BarChart2  // <- added for Reports
+  BarChart2,
+  PenTool,
 } from 'lucide-react';
 import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import InvoiceSettings from '@/components/InvoiceSettings';
 import AdminInvoices from '@/components/AdminInvoices';
 
-// Import all extracted managers
 import Dashboard from '@/components/Admin/Dashboard';
 import BannersManager from '@/components/Admin/BannersManager';
 import StoresManager from '@/components/Admin/StoresManager';
+import StoreConfigManager from '@/components/Admin/StoreConfigManager'; // NEW
 import BrandsManager from '@/components/Admin/BrandsManager';
 import CategoriesManager from '@/components/Admin/CategoriesManager';
 import ProductsManager from '@/components/Admin/ProductsManager';
@@ -35,7 +36,7 @@ import DeliverySettingsManager from '@/components/Admin/DeliverySettingsManager'
 import SmartCollectionsManager from '@/components/Admin/SmartCollectionsManager';
 import RolesManager from '@/components/Admin/RolesManager';
 import DeliveryRangesManager from '@/components/Admin/DeliveryRangesManager';
-import Reports from '@/components/Admin/Reports';  // <- new
+import Reports from '@/components/Admin/Reports';
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -45,6 +46,7 @@ type Tab =
   | 'dashboard'
   | 'banners'
   | 'stores'
+  | 'storeContent'
   | 'brands'
   | 'categories'
   | 'products'
@@ -57,7 +59,7 @@ type Tab =
   | 'invoiceSettings'
   | 'deliveryRanges'
   | 'push'
-  | 'reports';  // <- added
+  | 'reports';
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -66,6 +68,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'banners', label: 'Banners', icon: Tag },
     { id: 'stores', label: 'Stores', icon: Store },
+    { id: 'storeContent', label: 'Store Content', icon: PenTool },
     { id: 'brands', label: 'Brands', icon: Award },
     { id: 'categories', label: 'Categories', icon: LayoutGrid },
     { id: 'products', label: 'Products', icon: Package },
@@ -78,7 +81,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'invoiceSettings', label: 'Invoice Settings', icon: Settings },
     { id: 'deliveryRanges', label: 'Delivery Ranges', icon: MapPin },
     { id: 'push', label: 'Push Notifications', icon: Bell },
-    { id: 'reports', label: 'Reports', icon: BarChart2 },  // <- added
+    { id: 'reports', label: 'Reports', icon: BarChart2 },
   ];
 
   return (
@@ -119,6 +122,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'dashboard' && <Dashboard onNavigateToTab={(tabId: Tab) => setTab(tabId)} />}
         {tab === 'banners' && <BannersManager />}
         {tab === 'stores' && <StoresManager />}
+        {tab === 'storeContent' && <StoreConfigManager />}
         {tab === 'brands' && <BrandsManager />}
         {tab === 'categories' && <CategoriesManager />}
         {tab === 'products' && <ProductsManager />}
@@ -131,7 +135,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'invoiceSettings' && <InvoiceSettings />}
         {tab === 'deliveryRanges' && <DeliveryRangesManager />}
         {tab === 'push' && <PushNotificationSender />}
-        {tab === 'reports' && <Reports />}  {/* <- added */}
+        {tab === 'reports' && <Reports />}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-// App.tsx – full updated with StoreManager
+// App.tsx – full 1080 lines with StoreScreen integration
 
 import {
   useMemo,
@@ -40,8 +40,7 @@ import { DeliveryScreen } from '@/screens/DeliveryScreen';
 import { FilteredProductsScreen } from '@/screens/FilteredProductsScreen';
 import { BusinessRegistrationScreen } from '@/screens/BusinessRegistrationScreen';
 import { AuthScreen } from '@/screens/AuthScreen';
-import { StoreScreen } from '@/screens/StoreScreen';
-import StoreManager from '@/components/Admin/StoreManager'; // <-- NEW
+import { StoreScreen } from '@/screens/StoreScreen'; // <-- NEW
 
 import type {
   Category,
@@ -89,8 +88,7 @@ const SCREEN_TO_PATH: Record<ScreenName, string> = {
   businessSelect: '/business-select',
   outletSelect: '/outlet-select',
   filteredProducts: '/filtered',
-  store: '/store',
-  storeManager: '/admin/stores', // <-- NEW
+  store: '/store', // <-- NEW
 };
 
 
@@ -526,13 +524,14 @@ function App() {
 
 
   // ==========================================================
-  // STORE
+  // STORE (UPDATED to navigate to StoreScreen)
   // ==========================================================
 
   const openStore = (
     store: Store
   ) => {
 
+    // Navigate to the dedicated StoreScreen with storeId as query param
     navigate(
       pathFor(
         'store',
@@ -651,9 +650,6 @@ function App() {
           role ===
             'delivery_partner'
 
-        : next === 'storeManager'   // <-- NEW
-        ? role === 'admin'
-
         : true;
 
 
@@ -728,7 +724,7 @@ function App() {
         goTo('categories')
       }
       onStoreClick={
-        openStore
+        openStore   // <-- now navigates to StoreScreen
       }
       cart={cart}
       onBannerAction={
@@ -1021,24 +1017,13 @@ function App() {
         }
 
 
+        // ============================================================
+        // NEW: STORE SCREEN
+        // ============================================================
         case 'store': {
 
+          // StoreScreen reads storeId from query param itself
           return <StoreScreen />;
-
-        }
-
-
-        // ============================================================
-        // NEW: STORE MANAGER SCREEN
-        // ============================================================
-        case 'storeManager': {
-
-          // Only admin can access
-          if (role !== 'admin') {
-            return <Navigate to="/" replace />;
-          }
-
-          return <StoreManager />;
 
         }
 

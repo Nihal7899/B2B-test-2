@@ -1145,6 +1145,7 @@ export async function fetchStoreConfig(storeId: string): Promise<StoreConfig> {
   return data.config as StoreConfig;
 }
 
+// Update a store's config
 export async function updateStoreConfig(storeId: string, config: StoreConfig): Promise<void> {
   const { error } = await supabase
     .from('stores')
@@ -1153,6 +1154,7 @@ export async function updateStoreConfig(storeId: string, config: StoreConfig): P
   if (error) throw error;
 }
 
+// Upload image to Supabase Storage and return public URL
 export async function uploadStoreImage(
   storeId: string,
   file: File,

@@ -1,486 +1,300 @@
-import React, { useEffect, useState } from 'react';
+// src/components/admin/StoresManager.tsx
+import { useEffect, useState, useCallback } from 'react';
+import { Plus, Pencil, Trash2, X, Loader2, Save } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { Store } from '@/types';
-import { StoreProvider, useStore } from '@/context/StoreContext';
-import { Edit, Save, Upload, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
-import { uploadStoreImage } from '@/services/catalog';
-import { StoreConfig, IconGridItem, CategoryCard, PromoBanner, PackagingItem, CategorySection, Product } from '@/types/storeConfig';
+import type { Store } from '@/types';
+import { fetchAllStores, createStore, updateStore, deleteStore } from '@/services/catalog';
 
-// Main component
-export default function StoreManager() {
+export default function StoresManager() {
   const [stores, setStores] = useState<Store[]>([]);
-  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Store | null>(null);
+  const [products, setProducts] = useState<{ id: string; brand: string; name: string }[]>([]);
 
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase.from('stores').select('*').order('name');
-      if (error) console.error(error);
-      else setStores(data || []);
-      setLoading(false);
-    })();
+  const load = useCallback(async () => {
+    const [storesRes, prodsRes] = await Promise.all([
+      fetchAllStores(),
+      supabase.from('products').select('id, brand, name').order('name'),
+    ]);
+    setStores(storesRes);
+    setProducts((prodsRes.data as { id: string; brand: string; name: string }[]) ?? []);
+    setLoading(false);
   }, []);
 
-  if (loading) return <div className="p-4">Loading stores...</div>;
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  return (
-    <div className="max-w-6xl mx-auto p-4 space-y-6">
-      <h1 className="text-2xl font-bold">Store Manager</h1>
-      <div className="flex flex-wrap gap-2 border-b pb-3">
-        {stores.map(store => (
-          <button
-            key={store.id}
-            onClick={() => setSelectedStoreId(store.id)}
-            className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${
-              selectedStoreId === store.id
-                ? 'bg-green-600 text-white border-green-600'
-                : 'bg-white border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            {store.name}
-          </button>
-        ))}
-      </div>
-      {selectedStoreId && (
-        <div className="mt-4">
-          <StoreProvider storeId={selectedStoreId}>
-            <StoreConfigEditor />
-          </StoreProvider>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ----- StoreConfigEditor with tabs -----
-function StoreConfigEditor() {
-  const { config, updateConfig } = useStore();
-  const [activeTab, setActiveTab] = useState<'header' | 'iconGrid' | 'dietary' | 'promo' | 'categories' | 'packaging' | 'other'>('header');
-
-  const tabs = [
-    { id: 'header', label: 'Header' },
-    { id: 'iconGrid', label: 'Icon Grid' },
-    { id: 'dietary', label: 'Dietary Needs' },
-    { id: 'promo', label: 'Promo Banner' },
-    { id: 'categories', label: 'Categories' },
-    { id: 'packaging', label: 'Packaging' },
-    { id: 'other', label: 'Other Stores' },
-  ];
-
-  return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
-      <div className="flex gap-2 border-b pb-2 mb-4 overflow-x-auto">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ${
-              activeTab === tab.id ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'header' && <HeaderEditor />}
-      {activeTab === 'iconGrid' && (
-        <ListEditor<IconGridItem>
-          items={config.iconGrid}
-          setItems={(items) => updateConfig({ ...config, iconGrid: items })}
-          fields={[
-            { key: 'title', label: 'Title' },
-            { key: 'iconUrl', label: 'Icon (URL/Emoji)' },
-            { key: 'route', label: 'Route' },
-          ]}
-          imageField="iconUrl"
-          storeId={config.storeId}
-        />
-      )}
-      {activeTab === 'dietary' && (
-        <ListEditor<CategoryCard>
-          items={config.dietaryNeeds}
-          setItems={(items) => updateConfig({ ...config, dietaryNeeds: items })}
-          fields={[
-            { key: 'title', label: 'Title' },
-            { key: 'imageUrl', label: 'Image URL' },
-            { key: 'route', label: 'Route' },
-          ]}
-          imageField="imageUrl"
-          storeId={config.storeId}
-        />
-      )}
-      {activeTab === 'promo' && <PromoEditor />}
-      {activeTab === 'categories' && <CategoriesEditor />}
-      {activeTab === 'packaging' && (
-        <ListEditor<PackagingItem>
-          items={config.packaging}
-          setItems={(items) => updateConfig({ ...config, packaging: items })}
-          fields={[
-            { key: 'title', label: 'Title' },
-            { key: 'imageUrl', label: 'Image URL' },
-          ]}
-          imageField="imageUrl"
-          storeId={config.storeId}
-        />
-      )}
-      {activeTab === 'other' && (
-        <ListEditor<CategoryCard>
-          items={config.otherStores}
-          setItems={(items) => updateConfig({ ...config, otherStores: items })}
-          fields={[
-            { key: 'title', label: 'Title' },
-            { key: 'imageUrl', label: 'Image URL' },
-            { key: 'route', label: 'Route' },
-          ]}
-          imageField="imageUrl"
-          storeId={config.storeId}
-        />
-      )}
-    </div>
-  );
-}
-
-// ----- Header Editor -----
-function HeaderEditor() {
-  const { config, updateHeader } = useStore();
-  const { header } = config;
-
-  return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Header & Branding</h3>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Store Title</label>
-        <input
-          type="text"
-          value={header.title}
-          onChange={e => updateHeader({ title: e.target.value })}
-          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
-        <input
-          type="text"
-          value={header.subtitle}
-          onChange={e => updateHeader({ subtitle: e.target.value })}
-          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Cart Badge Count (demo)</label>
-        <input
-          type="number"
-          value={header.cartBadgeCount}
-          onChange={e => updateHeader({ cartBadgeCount: Number(e.target.value) })}
-          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-    </div>
-  );
-}
-
-// ----- Promo Banner Editor -----
-function PromoEditor() {
-  const { config, updatePromoBanner } = useStore();
-  const { promoBanner } = config;
-
-  const handleChange = (field: keyof PromoBanner, value: string | string[]) => {
-    updatePromoBanner({ ...promoBanner, [field]: value });
+  const handleDelete = async (id: string) => {
+    await deleteStore(id);
+    void load();
   };
 
-  return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Promo Banner</h3>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Badge</label>
-        <input
-          value={promoBanner.badge}
-          onChange={e => handleChange('badge', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Title</label>
-        <input
-          value={promoBanner.title}
-          onChange={e => handleChange('title', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
-        <input
-          value={promoBanner.subtitle}
-          onChange={e => handleChange('subtitle', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Background Theme (Tailwind class)</label>
-        <input
-          value={promoBanner.backgroundTheme}
-          onChange={e => handleChange('backgroundTheme', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Floating Images (URLs, comma separated)</label>
-        <input
-          value={promoBanner.floatingProductImages.join(', ')}
-          onChange={e => handleChange('floatingProductImages', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-    </div>
-  );
-}
-
-// ----- Categories Editor (with nested product editor) -----
-function CategoriesEditor() {
-  const { config, updateCategory, addProduct, updateProduct, deleteProduct } = useStore();
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-
-  const selectedCategory = config.categories.find(c => c.id === selectedCategoryId);
-
-  return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Categories & Products</h3>
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {config.categories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setSelectedCategoryId(cat.id)}
-            className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${
-              selectedCategoryId === cat.id ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700'
-            }`}
-          >
-            {cat.title}
-          </button>
-        ))}
-        <button
-          onClick={() => {
-            const title = prompt('New category title?');
-            if (title) {
-              const newCat: CategorySection = {
-                id: Date.now().toString(),
-                title,
-                tabs: [],
-                products: [],
-                pillFilters: [],
-              };
-              updateCategory(newCat.id, newCat);
-              setSelectedCategoryId(newCat.id);
-            }
-          }}
-          className="px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-600 border border-green-200"
-        >
-          + Add Category
-        </button>
-      </div>
-
-      {selectedCategory && (
-        <div className="border-t pt-3">
-          <div className="flex items-center gap-2 mb-3">
-            <input
-              value={selectedCategory.title}
-              onChange={e => updateCategory(selectedCategory.id, { title: e.target.value })}
-              className="flex-1 rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
-            />
-            <button
-              onClick={() => {
-                const newProduct: Product = {
-                  id: Date.now().toString(),
-                  title: 'New Product',
-                  category: selectedCategory.title,
-                  subCategory: selectedCategory.tabs[0]?.label || '',
-                  imageUrl: 'https://picsum.photos/200/200?random=' + Date.now(),
-                  packSize: '200g',
-                  price: 99,
-                  originalPrice: 129,
-                  tieredPricing: [{ minQty: 6, unitPrice: 85 }],
-                  inStock: true,
-                };
-                addProduct(selectedCategory.id, newProduct);
-              }}
-              className="flex items-center gap-1 text-sm text-green-600 font-medium"
-            >
-              <Plus size={16} /> Add Product
-            </button>
-          </div>
-
-          {/* Tabs editor (simplified) */}
-          <div className="mb-3">
-            <label className="text-xs text-gray-500">Tabs (comma separated icons)</label>
-            <input
-              value={selectedCategory.tabs.map(t => t.label).join(', ')}
-              onChange={e => {
-                const labels = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                const newTabs = labels.map((label, i) => ({
-                  id: `tab-${i}`,
-                  label,
-                  iconUrl: '🍽️', // default emoji; could be improved
-                }));
-                updateCategory(selectedCategory.id, { tabs: newTabs });
-              }}
-              className="w-full rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
-            />
-          </div>
-
-          {/* Product list */}
-          <div className="space-y-2">
-            {selectedCategory.products.map(product => (
-              <div key={product.id} className="flex items-center gap-2 border-b border-gray-100 py-1 flex-wrap">
-                <img src={product.imageUrl} alt="" className="w-10 h-10 rounded object-cover" />
-                <input
-                  value={product.title}
-                  onChange={e => updateProduct(selectedCategory.id, product.id, { title: e.target.value })}
-                  className="flex-1 min-w-[120px] rounded border border-gray-200 px-2 py-0.5 text-sm"
-                />
-                <input
-                  type="number"
-                  value={product.price}
-                  onChange={e => updateProduct(selectedCategory.id, product.id, { price: Number(e.target.value) })}
-                  className="w-16 rounded border border-gray-200 px-1 py-0.5 text-sm"
-                />
-                <button
-                  onClick={() => {
-                    // Upload image for this product
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = 'image/*';
-                    input.onchange = async (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0];
-                      if (file) {
-                        try {
-                          const url = await uploadStoreImage(selectedCategory.storeId, file, 'products');
-                          updateProduct(selectedCategory.id, product.id, { imageUrl: url });
-                        } catch (err) {
-                          console.error('Upload failed', err);
-                        }
-                      }
-                    };
-                    input.click();
-                  }}
-                  className="text-blue-500 text-xs"
-                >
-                  Upload
-                </button>
-                <button onClick={() => deleteProduct(selectedCategory.id, product.id)} className="text-red-400">
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ----- Reusable ListEditor with image upload support -----
-function ListEditor<T extends { id: string }>({
-  items,
-  setItems,
-  fields,
-  imageField,
-  storeId,
-}: {
-  items: T[];
-  setItems: (items: T[]) => void;
-  fields: { key: keyof T; label: string }[];
-  imageField?: keyof T;
-  storeId: string;
-}) {
-  const [localItems, setLocalItems] = useState(items);
-
-  const handleSave = () => setItems(localItems);
-
-  const addItem = () => {
-    const newItem: any = { id: Date.now().toString() };
-    fields.forEach(f => (newItem[f.key] = ''));
-    setLocalItems([...localItems, newItem]);
+  const handleToggle = async (store: Store) => {
+    await updateStore(store.id, { is_active: !store.is_active });
+    void load();
   };
 
-  const updateItem = (index: number, key: keyof T, value: string) => {
-    const updated = [...localItems];
-    updated[index] = { ...updated[index], [key]: value as any };
-    setLocalItems(updated);
-  };
-
-  const deleteItem = (index: number) => {
-    setLocalItems(localItems.filter((_, i) => i !== index));
-  };
-
-  const moveItem = (index: number, direction: 'up' | 'down') => {
-    const newItems = [...localItems];
-    const swap = direction === 'up' ? index - 1 : index + 1;
-    if (swap < 0 || swap >= localItems.length) return;
-    [newItems[index], newItems[swap]] = [newItems[swap], newItems[index]];
-    setLocalItems(newItems);
-  };
-
-  const handleImageUpload = async (index: number, file: File) => {
-    try {
-      const url = await uploadStoreImage(storeId, file, 'listEditor');
-      updateItem(index, imageField!, url);
-    } catch (e) {
-      console.error('Upload failed', e);
-    }
-  };
+  if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-between">
-        <h3 className="font-semibold">Items</h3>
-        <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600">
-          <Plus size={16} /> Add
-        </button>
-      </div>
-      {localItems.map((item, idx) => (
-        <div key={item.id} className="flex items-center gap-2 border-b pb-2 flex-wrap">
-          {fields.map(f => (
-            <div key={String(f.key)} className="flex-1 min-w-[100px]">
-              {f.key === imageField ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    value={String(item[f.key] || '')}
-                    onChange={e => updateItem(idx, f.key, e.target.value)}
-                    placeholder={f.label}
-                    className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                  />
-                  <label className="cursor-pointer bg-gray-100 p-1 rounded hover:bg-gray-200">
-                    <Upload size={14} />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) await handleImageUpload(idx, file);
-                      }}
-                    />
-                  </label>
+      <button
+        onClick={() => {
+          setEditing(null);
+          setShowForm(true);
+        }}
+        className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
+      >
+        <Plus size={16} /> Add store
+      </button>
+      {showForm && (
+        <StoreForm
+          initial={editing}
+          products={products}
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false);
+            void load();
+          }}
+        />
+      )}
+      {stores.map((store) => (
+        <div key={store.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3">
+                {store.image_url && (
+                  <img src={store.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                )}
+                <div>
+                  <p className="text-sm font-bold text-ink-800 truncate">{store.name}</p>
+                  <p className="text-xs text-ink-500 truncate">{store.description}</p>
                 </div>
-              ) : (
-                <input
-                  value={String(item[f.key] || '')}
-                  onChange={e => updateItem(idx, f.key, e.target.value)}
-                  placeholder={f.label}
-                  className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                />
-              )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span
+                  className={`text-[10px] font-bold rounded-full px-2.5 py-0.5 ${
+                    store.is_active ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500'
+                  }`}
+                >
+                  {store.is_active ? 'ACTIVE' : 'HIDDEN'}
+                </span>
+                <span className="text-[10px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
+                  Order: {store.sort_order}
+                </span>
+                <span className="text-[10px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
+                  {store.product_ids?.length ?? 0} products
+                </span>
+              </div>
             </div>
-          ))}
-          <div className="flex gap-1">
-            <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
-            <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>
-            <button onClick={() => deleteItem(idx)} className="text-red-400"><Trash2 size={16} /></button>
+            <div className="flex gap-1">
+              <button
+                onClick={() => void handleToggle(store)}
+                className="h-8 w-8 rounded-lg bg-ink-50 text-ink-600 flex items-center justify-center text-xs font-bold"
+              >
+                {store.is_active ? 'ON' : 'OFF'}
+              </button>
+              <button
+                onClick={() => {
+                  setEditing(store);
+                  setShowForm(true);
+                }}
+                className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                onClick={() => void handleDelete(store.id)}
+                className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
         </div>
       ))}
-      <button onClick={handleSave} className="w-full py-2 rounded-xl bg-green-600 text-white font-bold flex items-center justify-center gap-2">
-        <Save size={16} /> Save Changes
+    </div>
+  );
+}
+
+// ---- StoreForm ----
+function StoreForm({
+  initial,
+  products,
+  onClose,
+  onSaved,
+}: {
+  initial: Store | null;
+  products: { id: string; brand: string; name: string }[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: initial?.name ?? '',
+    image_url: initial?.image_url ?? '',
+    banner_image_url: initial?.banner_image_url ?? '',
+    description: initial?.description ?? '',
+    theme_bg: initial?.theme_bg ?? 'bg-emerald-50',
+    theme_border: initial?.theme_border ?? 'border-emerald-200',
+    theme_text: initial?.theme_text ?? 'text-emerald-900',
+    theme_accent: initial?.theme_accent ?? 'bg-emerald-600',
+    button_style: initial?.button_style ?? 'brand',
+    product_ids: initial?.product_ids ?? [],
+    sort_order: initial?.sort_order ?? 0,
+    is_active: initial?.is_active ?? true,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    if (initial) {
+      await updateStore(initial.id, form);
+    } else {
+      await createStore(form);
+    }
+    setSaving(false);
+    onSaved();
+  };
+
+  return (
+    <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-4 shadow-card">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-ink-900">{initial ? 'Edit' : 'New'} store</h3>
+        <button onClick={onClose}>
+          <X size={16} className="text-ink-400" />
+        </button>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Store name *</label>
+        <input
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="e.g. Fresh Harvest"
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Image URL *</label>
+        <input
+          value={form.image_url}
+          onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+          placeholder="https://..."
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        />
+        {form.image_url && (
+          <img src={form.image_url} alt="" className="h-16 w-full rounded-xl object-cover mt-2" />
+        )}
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Banner Image URL</label>
+        <input
+          value={form.banner_image_url}
+          onChange={(e) => setForm({ ...form, banner_image_url: e.target.value })}
+          placeholder="https://..."
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        />
+        {form.banner_image_url && (
+          <img src={form.banner_image_url} alt="" className="h-20 w-full rounded-xl object-cover mt-2" />
+        )}
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Description</label>
+        <input
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          placeholder="e.g. Farm-fresh staples"
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Theme colors</label>
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            value={form.theme_bg}
+            onChange={(e) => setForm({ ...form, theme_bg: e.target.value })}
+            placeholder="bg-*"
+            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+          <input
+            value={form.theme_border}
+            onChange={(e) => setForm({ ...form, theme_border: e.target.value })}
+            placeholder="border-*"
+            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+          <input
+            value={form.theme_text}
+            onChange={(e) => setForm({ ...form, theme_text: e.target.value })}
+            placeholder="text-*"
+            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+          <input
+            value={form.theme_accent}
+            onChange={(e) => setForm({ ...form, theme_accent: e.target.value })}
+            placeholder="bg-* (accent)"
+            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Button style</label>
+        <select
+          value={form.button_style}
+          onChange={(e) => setForm({ ...form, button_style: e.target.value })}
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        >
+          <option value="brand">Solid (brand accent)</option>
+          <option value="outline">Outline</option>
+          <option value="ghost">Ghost</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Products (select multiple)</label>
+        <select
+          multiple
+          value={form.product_ids}
+          onChange={(e) =>
+            setForm({ ...form, product_ids: Array.from(e.target.selectedOptions).map((o) => o.value) })
+          }
+          className="w-full h-32 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          size={4}
+        >
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.brand} {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Sort order</label>
+          <input
+            type="number"
+            value={form.sort_order}
+            onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })}
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+        <div className="flex items-end h-10">
+          <label className="flex items-center gap-2 text-sm text-ink-700">
+            <input
+              type="checkbox"
+              checked={form.is_active}
+              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+              className="accent-brand-600"
+            />{' '}
+            Active
+          </label>
+        </div>
+      </div>
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full h-11 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
+      >
+        {saving ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save store</>}
       </button>
     </div>
   );

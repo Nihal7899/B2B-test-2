@@ -18,7 +18,6 @@ function StoreScreenContent() {
     }));
   };
 
-  // Helper to render product cards
   const renderProductCard = (product: Product) => {
     const qty = quantities[product.id] || 0;
     const tier = product.tieredPricing[0];
@@ -222,7 +221,6 @@ function StoreScreenContent() {
   );
 }
 
-// Wrapper that reads storeId from URL
 export default function StoreScreen() {
   const { storeId } = useParams<{ storeId: string }>();
   if (!storeId) return <div className="p-4 text-center">Store ID missing</div>;

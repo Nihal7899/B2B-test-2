@@ -11,58 +11,58 @@ interface StoreScreenProps {
   goTo: (screen: string) => void;
 }
 
+// Skeleton component
+function StoreSkeleton() {
+  return (
+    <div className="min-h-screen bg-white pb-20">
+      <div className="h-16 bg-gray-100 animate-pulse"></div>
+      <div className="px-4 py-2">
+        <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+      </div>
+      <div className="px-4 py-4">
+        <div className="grid grid-cols-4 gap-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-20 bg-gray-100 rounded-2xl animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+      <div className="px-4 py-2">
+        <div className="h-8 w-32 bg-gray-100 rounded animate-pulse mb-3"></div>
+        <div className="grid grid-cols-2 gap-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+      <div className="px-4 py-3">
+        <div className="h-40 bg-gray-100 rounded-2xl animate-pulse"></div>
+      </div>
+      <div className="px-4 py-3">
+        <div className="h-8 w-32 bg-gray-100 rounded animate-pulse mb-3"></div>
+        <div className="grid grid-cols-2 gap-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StoreScreenContent({ goTo }: StoreScreenProps) {
   const { config, loading } = useStore();
   const navigate = useNavigate();
   const cart = useCart();
   const { header, iconGrid, dietaryNeeds, promoBanner, categories, packaging, otherStores } = config;
 
-  // If loading, show skeleton
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white pb-20">
-        <div className="h-16 bg-gray-100 animate-pulse"></div>
-        <div className="px-4 py-2">
-          <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
-        </div>
-        <div className="px-4 py-4">
-          <div className="grid grid-cols-4 gap-3">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-20 bg-gray-100 rounded-2xl animate-pulse"></div>
-            ))}
-          </div>
-        </div>
-        <div className="px-4 py-2">
-          <div className="h-8 w-32 bg-gray-100 rounded animate-pulse mb-3"></div>
-          <div className="grid grid-cols-2 gap-3">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
-            ))}
-          </div>
-        </div>
-        <div className="px-4 py-3">
-          <div className="h-40 bg-gray-100 rounded-2xl animate-pulse"></div>
-        </div>
-        <div className="px-4 py-3">
-          <div className="h-8 w-32 bg-gray-100 rounded animate-pulse mb-3"></div>
-          <div className="grid grid-cols-2 gap-3">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // State
+  // ✅ ALL hooks at the top – unconditionally called
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [otherStoreDetails, setOtherStoreDetails] = useState<Store[]>([]);
 
-  // Fetch all product IDs from all categories
+  // Memoized values
   const allProductIds = useMemo(() => {
     const ids: string[] = [];
     categories.forEach(cat => {
@@ -73,7 +73,32 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     return ids;
   }, [categories]);
 
-  // Fetch product details
+  const categoryMap = useMemo(() => {
+    const map: Record<string, { title: string; productIds: string[] }> = {};
+    categories.forEach(c => { map[c.id] = { title: c.title, productIds: c.productIds }; });
+    return map;
+  }, [categories]);
+
+  const filteredProducts = useMemo(() => {
+    let result = products;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.brand.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q)
+      );
+    }
+    if (selectedCategoryId) {
+      const category = categoryMap[selectedCategoryId];
+      if (category) {
+        result = result.filter(p => category.productIds.includes(p.id));
+      }
+    }
+    return result;
+  }, [products, searchQuery, selectedCategoryId, categoryMap]);
+
+  // Effects
   useEffect(() => {
     if (allProductIds.length === 0) {
       setProducts([]);
@@ -89,7 +114,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       .finally(() => setProductsLoading(false));
   }, [allProductIds]);
 
-  // Fetch other store details
   useEffect(() => {
     if (otherStores.length === 0) return;
     const storeIds = otherStores.map(s => s.storeId);
@@ -98,34 +122,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       setOtherStoreDetails(filtered);
     });
   }, [otherStores]);
-
-  // Build a map of category ID -> category object
-  const categoryMap = useMemo(() => {
-    const map: Record<string, { title: string; productIds: string[] }> = {};
-    categories.forEach(c => { map[c.id] = { title: c.title, productIds: c.productIds }; });
-    return map;
-  }, [categories]);
-
-  // Filter logic
-  const filteredProducts = useMemo(() => {
-    let result = products;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.brand.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
-      );
-    }
-    if (selectedCategoryId) {
-      const category = categoryMap[selectedCategoryId];
-      if (category) {
-        // Filter by product IDs that belong to this category
-        result = result.filter(p => category.productIds.includes(p.id));
-      }
-    }
-    return result;
-  }, [products, searchQuery, selectedCategoryId, categoryMap]);
 
   // Handlers
   const handleIconClick = (categoryId: string) => {
@@ -145,33 +141,13 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
   const hasActiveFilter = !!(selectedCategoryId || searchQuery.trim());
 
+  // ✅ Conditional returns are now at the bottom, after ALL hooks
+  if (loading) {
+    return <StoreSkeleton />;
+  }
+
   if (productsLoading) {
-    return (
-      <div className="min-h-screen bg-white pb-20">
-        <div className="h-16 bg-gray-100 animate-pulse"></div>
-        <div className="px-4 py-2">
-          <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
-        </div>
-        <div className="px-4 py-4">
-          <div className="grid grid-cols-4 gap-3">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-20 bg-gray-100 rounded-2xl animate-pulse"></div>
-            ))}
-          </div>
-        </div>
-        <div className="px-4 py-3">
-          <div className="h-40 bg-gray-100 rounded-2xl animate-pulse"></div>
-        </div>
-        <div className="px-4 py-3">
-          <div className="h-8 w-32 bg-gray-100 rounded animate-pulse mb-3"></div>
-          <div className="grid grid-cols-2 gap-3">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <StoreSkeleton />;
   }
 
   return (

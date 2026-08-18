@@ -6,7 +6,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, Search, X } from 'l
 import { uploadStoreImage } from '@/services/catalog';
 import { StoreConfig, IconGridItem, CategoryCard, PromoBanner, PackagingItem, CategorySection, Product } from '@/types/storeConfig';
 
-// ----- Main component -----
+// ----- Main component (unchanged) -----
 export default function StoreConfigManager() {
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
@@ -226,7 +226,7 @@ function PromoEditor() {
   );
 }
 
-// ----- Categories Editor with Inline Forms -----
+// ----- Categories Editor with fixed existing product import -----
 function CategoriesEditor() {
   const { config, updateConfig } = useStore();
   const { categories, storeId } = config;
@@ -311,23 +311,43 @@ function CategoriesEditor() {
     setShowAddProduct(false);
   };
 
-  // Add existing product to category
-  const handleAddExistingProduct = (productId: string) => {
+  // ----- FIXED: Add existing product from main catalog with full details -----
+  const handleAddExistingProduct = async (productId: string) => {
     if (!selectedCategory) return;
-    const product = allProducts.find(p => p.id === productId);
-    if (!product) return;
+    // Fetch full product details from main catalog
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, brand, name, image_url, pack_size, mrp, wholesale_price, category_id')
+      .eq('id', productId)
+      .single();
+    if (error || !data) {
+      console.error('Failed to fetch product details', error);
+      return;
+    }
+    // Fetch category name for the product
+    let categoryName = selectedCategory.title;
+    if (data.category_id) {
+      const { data: catData } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('id', data.category_id)
+        .single();
+      if (catData) categoryName = catData.name;
+    }
+
     const newProduct: Product = {
-      id: productId,
-      title: product.name,
-      category: selectedCategory.title,
+      id: data.id,
+      title: data.name,
+      category: categoryName, // use the product's actual category
       subCategory: selectedCategory.tabs[0]?.label || '',
-      imageUrl: '',
-      packSize: '',
-      price: 0,
-      originalPrice: 0,
+      imageUrl: data.image_url || '',
+      packSize: data.pack_size || '',
+      price: data.wholesale_price || 0,
+      originalPrice: data.mrp || 0,
       tieredPricing: [],
       inStock: true,
     };
+
     const updatedCategories = categories.map(cat =>
       cat.id === selectedCategory.id
         ? { ...cat, products: [...cat.products, newProduct] }

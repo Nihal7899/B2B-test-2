@@ -254,11 +254,14 @@ export interface Store {
   id: string;
   name: string;
   image_url: string;
+  banner_image_url?: string;
   description: string;
-  theme_bg: string;
-  theme_border: string;
-  theme_text: string;
-  theme_accent: string;
+  // New hex colors
+  primary_color: string;    // #hex
+  secondary_color: string;
+  text_color: string;
+  border_color: string;
+  button_style: 'brand' | 'outline' | 'ghost';
   product_ids: string[];
   sort_order: number;
   is_active: boolean;

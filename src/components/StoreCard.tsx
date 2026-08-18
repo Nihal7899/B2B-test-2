@@ -6,18 +6,19 @@ export function StoreCard({ store, onClick }: { store: Store; onClick: (store: S
   return (
     <button
       onClick={() => onClick(store)}
-      className={`relative shrink-0 w-44 rounded-2xl overflow-hidden border ${store.theme_border} shadow-card tap-highlight active:scale-[0.98] transition-transform`}
+      className="relative shrink-0 w-44 rounded-2xl overflow-hidden border shadow-card tap-highlight active:scale-[0.98] transition-transform"
+      style={{ borderColor: store.border_color }}
     >
-      <div className={`h-28 ${store.theme_bg} relative`}>
+      <div className="h-28 relative" style={{ backgroundColor: store.primary_color }}>
         <img src={store.image_url} alt={store.name} className="h-full w-full object-cover opacity-80" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-        <div className={`absolute bottom-2 left-2 text-white font-bold text-sm ${store.theme_text}`}>
+        <div className="absolute bottom-2 left-2 text-white font-bold text-sm" style={{ color: store.text_color }}>
           {store.name}
         </div>
       </div>
       <div className="p-2 flex items-center justify-between text-xs bg-white">
         <span className="text-ink-600 truncate">{store.description}</span>
-        <ChevronRight size={14} className={store.theme_text} />
+        <ChevronRight size={14} style={{ color: store.text_color }} />
       </div>
     </button>
   );

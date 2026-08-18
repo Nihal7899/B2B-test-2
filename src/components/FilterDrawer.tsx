@@ -1,3 +1,4 @@
+// components/FilterDrawer.tsx
 import { X } from 'lucide-react';
 
 interface FilterDrawerProps {
@@ -10,7 +11,13 @@ interface FilterDrawerProps {
   onPriceChange: (min: number, max: number) => void;
   inStock: boolean;
   onInStockToggle: () => void;
-  theme: any;
+  theme: {
+    primary: string;
+    secondary: string;
+    textColor: string;
+    borderColor: string;
+    buttonStyle: string;
+  };
 }
 
 export function FilterDrawer({
@@ -27,14 +34,14 @@ export function FilterDrawer({
 }: FilterDrawerProps) {
   if (!isOpen) return null;
 
+  const { primary, secondary, textColor, borderColor, buttonStyle } = theme;
+
   return (
     <div className="fixed inset-0 z-30 flex">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      {/* Panel */}
       <div className="relative ml-auto w-full max-w-sm bg-white h-full shadow-xl overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-ink-100 p-4 flex justify-between items-center">
-          <h2 className="font-bold text-lg">Filters</h2>
+        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center" style={{ borderColor }}>
+          <h2 className="font-bold text-lg" style={{ color: textColor }}>Filters</h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-ink-50">
             <X size={20} />
           </button>
@@ -48,11 +55,12 @@ export function FilterDrawer({
                 <button
                   key={cat}
                   onClick={() => onCategoryToggle(cat)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
-                    selectedCategories.includes(cat)
-                      ? `${theme.bg} ${theme.border} ${theme.text} border-2`
-                      : 'bg-ink-50 border-ink-200 text-ink-600'
-                  }`}
+                  className="px-3 py-1 rounded-full text-xs font-medium border transition-all"
+                  style={{
+                    backgroundColor: selectedCategories.includes(cat) ? primary : 'transparent',
+                    color: selectedCategories.includes(cat) ? '#fff' : textColor,
+                    borderColor: borderColor,
+                  }}
                 >
                   {cat}
                 </button>
@@ -87,15 +95,15 @@ export function FilterDrawer({
                 type="checkbox"
                 checked={inStock}
                 onChange={onInStockToggle}
-                className={`accent-${theme.accent.replace('bg-', '')}`}
+                style={{ accentColor: primary }}
               />
               In Stock only
             </label>
           </div>
-          {/* Apply button */}
           <button
             onClick={onClose}
-            className={`w-full h-11 rounded-xl ${theme.accent} text-white font-bold text-sm`}
+            className="w-full h-11 rounded-xl text-white font-bold text-sm"
+            style={{ backgroundColor: primary }}
           >
             Apply Filters
           </button>

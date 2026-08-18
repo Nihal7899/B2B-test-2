@@ -636,7 +636,7 @@ export async function fetchAllBrands(): Promise<string[]> {
   return Array.from(brands).sort();
 }
 
-// ----- STORES -----
+// ----- STORES (UPDATED) -----
 export async function fetchStores(): Promise<Store[]> {
   const { data, error } = await supabase
     .from('stores')
@@ -656,6 +656,7 @@ export async function fetchAllStores(): Promise<Store[]> {
   return data as Store[];
 }
 
+// UPDATED: include all new fields
 export async function createStore(
   input: Omit<Store, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Store | null> {
@@ -664,11 +665,13 @@ export async function createStore(
     .insert({
       name: input.name,
       image_url: input.image_url,
+      banner_image_url: input.banner_image_url,
       description: input.description,
-      theme_bg: input.theme_bg,
-      theme_border: input.theme_border,
-      theme_text: input.theme_text,
-      theme_accent: input.theme_accent,
+      primary_color: input.primary_color,
+      secondary_color: input.secondary_color,
+      text_color: input.text_color,
+      border_color: input.border_color,
+      button_style: input.button_style,
       product_ids: input.product_ids,
       sort_order: input.sort_order,
       is_active: input.is_active,
@@ -679,17 +682,20 @@ export async function createStore(
   return data as Store;
 }
 
+// UPDATED: include all new fields
 export async function updateStore(id: string, updates: Partial<Store>): Promise<void> {
   const { error } = await supabase
     .from('stores')
     .update({
       name: updates.name,
       image_url: updates.image_url,
+      banner_image_url: updates.banner_image_url,
       description: updates.description,
-      theme_bg: updates.theme_bg,
-      theme_border: updates.theme_border,
-      theme_text: updates.theme_text,
-      theme_accent: updates.theme_accent,
+      primary_color: updates.primary_color,
+      secondary_color: updates.secondary_color,
+      text_color: updates.text_color,
+      border_color: updates.border_color,
+      button_style: updates.button_style,
       product_ids: updates.product_ids,
       sort_order: updates.sort_order,
       is_active: updates.is_active,
@@ -700,6 +706,27 @@ export async function updateStore(id: string, updates: Partial<Store>): Promise<
 
 export async function deleteStore(id: string): Promise<void> {
   await supabase.from('stores').delete().eq('id', id);
+}
+
+export async function fetchStoreById(id: string): Promise<Store> {
+  const { data, error } = await supabase
+    .from('stores')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data as Store;
+}
+
+export async function fetchProductsByIds(ids: string[]): Promise<Product[]> {
+  if (!ids.length) return [];
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .in('id', ids)
+    .order('name');
+  if (error) throw error;
+  return data as Product[];
 }
 
 // ----- TRUSTED BRANDS -----
@@ -1105,25 +1132,4 @@ export async function checkPointInDeliveryRange(lat: number, lng: number): Promi
     return false;
   }
   return data ?? false;
-}
-
-export async function fetchStoreById(id: string): Promise<Store> {
-  const { data, error } = await supabase
-    .from('stores')
-    .select('*')
-    .eq('id', id)
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function fetchProductsByIds(ids: string[]): Promise<Product[]> {
-  if (!ids.length) return [];
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .in('id', ids)
-    .order('name');
-  if (error) throw error;
-  return data;
 }

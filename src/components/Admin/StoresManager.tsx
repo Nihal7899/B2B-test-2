@@ -119,7 +119,7 @@ export default function StoresManager() {
   );
 }
 
-// ---- StoreForm ----
+// ---- StoreForm with Color Pickers ----
 function StoreForm({
   initial,
   products,
@@ -136,10 +136,10 @@ function StoreForm({
     image_url: initial?.image_url ?? '',
     banner_image_url: initial?.banner_image_url ?? '',
     description: initial?.description ?? '',
-    theme_bg: initial?.theme_bg ?? 'bg-emerald-50',
-    theme_border: initial?.theme_border ?? 'border-emerald-200',
-    theme_text: initial?.theme_text ?? 'text-emerald-900',
-    theme_accent: initial?.theme_accent ?? 'bg-emerald-600',
+    primary_color: initial?.primary_color ?? '#10b981',
+    secondary_color: initial?.secondary_color ?? '#059669',
+    text_color: initial?.text_color ?? '#064e3b',
+    border_color: initial?.border_color ?? '#a7f3d0',
     button_style: initial?.button_style ?? 'brand',
     product_ids: initial?.product_ids ?? [],
     sort_order: initial?.sort_order ?? 0,
@@ -208,35 +208,50 @@ function StoreForm({
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
       </div>
+
+      {/* Color Pickers */}
       <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Theme colors</label>
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            value={form.theme_bg}
-            onChange={(e) => setForm({ ...form, theme_bg: e.target.value })}
-            placeholder="bg-*"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-          <input
-            value={form.theme_border}
-            onChange={(e) => setForm({ ...form, theme_border: e.target.value })}
-            placeholder="border-*"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-          <input
-            value={form.theme_text}
-            onChange={(e) => setForm({ ...form, theme_text: e.target.value })}
-            placeholder="text-*"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-          <input
-            value={form.theme_accent}
-            onChange={(e) => setForm({ ...form, theme_accent: e.target.value })}
-            placeholder="bg-* (accent)"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
+        <label className="block text-xs font-bold text-ink-600 mb-1">Theme Colors</label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-ink-500">Primary</label>
+            <input
+              type="color"
+              value={form.primary_color}
+              onChange={(e) => setForm({ ...form, primary_color: e.target.value })}
+              className="w-full h-10 rounded-xl border border-ink-200 p-1"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-ink-500">Secondary</label>
+            <input
+              type="color"
+              value={form.secondary_color}
+              onChange={(e) => setForm({ ...form, secondary_color: e.target.value })}
+              className="w-full h-10 rounded-xl border border-ink-200 p-1"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-ink-500">Text</label>
+            <input
+              type="color"
+              value={form.text_color}
+              onChange={(e) => setForm({ ...form, text_color: e.target.value })}
+              className="w-full h-10 rounded-xl border border-ink-200 p-1"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-ink-500">Border</label>
+            <input
+              type="color"
+              value={form.border_color}
+              onChange={(e) => setForm({ ...form, border_color: e.target.value })}
+              className="w-full h-10 rounded-xl border border-ink-200 p-1"
+            />
+          </div>
         </div>
       </div>
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Button style</label>
         <select
@@ -244,11 +259,12 @@ function StoreForm({
           onChange={(e) => setForm({ ...form, button_style: e.target.value })}
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         >
-          <option value="brand">Solid (brand accent)</option>
+          <option value="brand">Solid (primary)</option>
           <option value="outline">Outline</option>
           <option value="ghost">Ghost</option>
         </select>
       </div>
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Products (select multiple)</label>
         <select
@@ -267,6 +283,7 @@ function StoreForm({
           ))}
         </select>
       </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Sort order</label>
@@ -289,6 +306,7 @@ function StoreForm({
           </label>
         </div>
       </div>
+
       <button
         onClick={handleSave}
         disabled={saving}

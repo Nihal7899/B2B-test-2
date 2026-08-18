@@ -4,20 +4,7 @@ import { Store } from '@/types';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, Search, X } from 'lucide-react';
 import { uploadStoreImage } from '@/services/catalog';
-import { StoreConfig, IconGridItem, CategoryCard, PromoBanner, PackagingItem, CategorySection, Product } from '@/types/storeConfig';
-
-// All available screen names (for route dropdown)
-const AVAILABLE_ROUTES = [
-  { label: 'Home', value: '/' },
-  { label: 'Categories', value: '/categories' },
-  { label: 'Orders', value: '/orders' },
-  { label: 'Cart', value: '/cart' },
-  { label: 'Account', value: '/account' },
-  { label: 'Wishlist', value: '/wishlist' },
-  { label: 'Checkout', value: '/checkout' },
-  { label: 'Admin', value: '/admin' },
-  // Add any other screens as needed
-];
+import { StoreConfig, IconGridItem, CategoryCard, PromoBanner, PackagingItem, CategorySection, OtherStoreItem } from '@/types/storeConfig';
 
 // ----- Main component (unchanged) -----
 export default function StoreConfigManager() {
@@ -65,10 +52,26 @@ export default function StoreConfigManager() {
   );
 }
 
-// ----- Editor with tabs (updated) -----
+// ----- Editor with tabs -----
 function StoreConfigEditor() {
   const { config, updateConfig } = useStore();
   const [activeTab, setActiveTab] = useState<'header' | 'iconGrid' | 'dietary' | 'promo' | 'categories' | 'packaging' | 'other'>('header');
+  const [allCategories, setAllCategories] = useState<{ id: string; name: string }[]>([]);
+  const [allStores, setAllStores] = useState<{ id: string; name: string; image_url: string }[]>([]);
+  const [loadingMeta, setLoadingMeta] = useState(true);
+
+  // Fetch all categories and stores for dropdowns
+  useEffect(() => {
+    (async () => {
+      const [catsRes, storesRes] = await Promise.all([
+        supabase.from('categories').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('stores').select('id, name, image_url').eq('is_active', true).order('name'),
+      ]);
+      if (!catsRes.error) setAllCategories(catsRes.data || []);
+      if (!storesRes.error) setAllStores(storesRes.data || []);
+      setLoadingMeta(false);
+    })();
+  }, []);
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
@@ -94,10 +97,9 @@ function StoreConfigEditor() {
           fields={[
             { key: 'title', label: 'Title' },
             { key: 'iconUrl', label: 'Icon (URL/Emoji)' },
-            { key: 'route', label: 'Route' },
           ]}
+          selectField={{ key: 'categoryId', label: 'Category', options: allCategories.map(c => ({ value: c.id, label: c.name })) }}
           imageField="iconUrl"
-          routeOptions={AVAILABLE_ROUTES}
         />
       )}
       {activeTab === 'dietary' && (
@@ -107,10 +109,9 @@ function StoreConfigEditor() {
           fields={[
             { key: 'title', label: 'Title' },
             { key: 'imageUrl', label: 'Image URL' },
-            { key: 'route', label: 'Route' },
           ]}
+          selectField={{ key: 'categoryId', label: 'Category', options: allCategories.map(c => ({ value: c.id, label: c.name })) }}
           imageField="imageUrl"
-          routeOptions={AVAILABLE_ROUTES}
         />
       )}
       {activeTab === 'promo' && <PromoEditor />}
@@ -127,16 +128,11 @@ function StoreConfigEditor() {
         />
       )}
       {activeTab === 'other' && (
-        <ListEditor<CategoryCard>
-          items={config.otherStores}
+        <ListEditor<OtherStoreItem>
+          items={config.otherStores || []}
           setItems={(items) => updateConfig({ ...config, otherStores: items })}
-          fields={[
-            { key: 'title', label: 'Title' },
-            { key: 'imageUrl', label: 'Image URL' },
-            { key: 'route', label: 'Route' },
-          ]}
-          imageField="imageUrl"
-          routeOptions={AVAILABLE_ROUTES}
+          fields={[]}
+          selectField={{ key: 'storeId', label: 'Store', options: allStores.map(s => ({ value: s.id, label: s.name })) }}
         />
       )}
     </div>
@@ -238,7 +234,7 @@ function PromoEditor() {
   );
 }
 
-// ----- Categories Editor – now stores product IDs -----
+// ----- Categories Editor (unchanged from previous version, using productIds) -----
 function CategoriesEditor() {
   const { config, updateConfig } = useStore();
   const { categories, storeId } = config;
@@ -250,7 +246,6 @@ function CategoriesEditor() {
 
   const selectedCategory = categories.find(c => c.id === selectedCategoryId);
 
-  // Load only minimal product info for the selector
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
@@ -279,7 +274,6 @@ function CategoriesEditor() {
     setShowAddCategory(false);
   };
 
-  // Add product ID to category
   const handleAddProductId = (productId: string) => {
     if (!selectedCategory) return;
     if (selectedCategory.productIds.includes(productId)) return;
@@ -291,7 +285,6 @@ function CategoriesEditor() {
     updateConfig({ ...config, categories: updatedCategories });
   };
 
-  // Remove product ID from category
   const handleRemoveProductId = (productId: string) => {
     if (!selectedCategory) return;
     const updatedCategories = categories.map(cat =>
@@ -302,7 +295,6 @@ function CategoriesEditor() {
     updateConfig({ ...config, categories: updatedCategories });
   };
 
-  // Update category field
   const updateCategoryField = (field: keyof CategorySection, value: any) => {
     if (!selectedCategory) return;
     const updatedCategories = categories.map(cat =>
@@ -363,7 +355,6 @@ function CategoriesEditor() {
             />
           </div>
 
-          {/* Tabs editor */}
           <div className="mb-3">
             <label className="text-xs text-gray-500">Tabs (comma separated labels)</label>
             <input
@@ -381,7 +372,6 @@ function CategoriesEditor() {
             />
           </div>
 
-          {/* Pill filters */}
           <div className="mb-3">
             <label className="text-xs text-gray-500">Pill Filters (comma separated)</label>
             <input
@@ -394,7 +384,6 @@ function CategoriesEditor() {
             />
           </div>
 
-          {/* Add Existing Product (by ID) */}
           <div className="mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
             <label className="block text-xs font-medium text-gray-700 mb-1">Add Existing Product to "{selectedCategory.title}"</label>
             <div className="relative">
@@ -432,7 +421,6 @@ function CategoriesEditor() {
             </div>
           </div>
 
-          {/* List of product IDs in this category */}
           <div className="space-y-2">
             <h4 className="text-sm font-semibold">Products in this category</h4>
             {selectedCategory.productIds.length === 0 && (
@@ -456,19 +444,19 @@ function CategoriesEditor() {
   );
 }
 
-// ----- Updated ListEditor with route dropdown -----
-function ListEditor<T extends { id: string; route?: string }>({
+// ----- Updated ListEditor with select dropdown support -----
+function ListEditor<T extends { id: string }>({
   items,
   setItems,
   fields,
+  selectField,
   imageField,
-  routeOptions,
 }: {
   items: T[];
   setItems: (items: T[]) => void;
   fields: { key: keyof T; label: string }[];
+  selectField?: { key: keyof T; label: string; options: { value: string; label: string }[] };
   imageField?: keyof T;
-  routeOptions?: { label: string; value: string }[];
 }) {
   const [localItems, setLocalItems] = useState(items);
 
@@ -477,6 +465,7 @@ function ListEditor<T extends { id: string; route?: string }>({
   const addItem = () => {
     const newItem: any = { id: Date.now().toString() };
     fields.forEach(f => (newItem[f.key] = ''));
+    if (selectField) newItem[selectField.key] = '';
     setLocalItems([...localItems, newItem]);
   };
 
@@ -508,57 +497,56 @@ function ListEditor<T extends { id: string; route?: string }>({
       </div>
       {localItems.map((item, idx) => (
         <div key={item.id} className="flex items-center gap-2 border-b pb-2 flex-wrap">
-          {fields.map(f => {
-            const isRoute = f.key === 'route' && routeOptions;
-            return (
-              <div key={String(f.key)} className="flex-1 min-w-[100px]">
-                {isRoute ? (
-                  <select
-                    value={String(item[f.key] || '')}
-                    onChange={e => updateItem(idx, f.key, e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                  >
-                    <option value="">Select route</option>
-                    {routeOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                ) : f.key === imageField ? (
-                  <div className="flex items-center gap-1">
-                    <input
-                      value={String(item[f.key] || '')}
-                      onChange={e => updateItem(idx, f.key, e.target.value)}
-                      placeholder={f.label}
-                      className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                    />
-                    <label className="cursor-pointer bg-gray-100 p-1 rounded hover:bg-gray-200">
-                      <Upload size={14} />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            // In a real app, you'd upload to storage and get URL
-                            // For now, just set a placeholder
-                            updateItem(idx, f.key, URL.createObjectURL(file));
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
-                ) : (
+          {fields.map(f => (
+            <div key={String(f.key)} className="flex-1 min-w-[100px]">
+              {f.key === imageField ? (
+                <div className="flex items-center gap-1">
                   <input
                     value={String(item[f.key] || '')}
                     onChange={e => updateItem(idx, f.key, e.target.value)}
                     placeholder={f.label}
                     className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
                   />
-                )}
-              </div>
-            );
-          })}
+                  <label className="cursor-pointer bg-gray-100 p-1 rounded hover:bg-gray-200">
+                    <Upload size={14} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          // In real app, upload to storage
+                          updateItem(idx, f.key, URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <input
+                  value={String(item[f.key] || '')}
+                  onChange={e => updateItem(idx, f.key, e.target.value)}
+                  placeholder={f.label}
+                  className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
+                />
+              )}
+            </div>
+          ))}
+          {selectField && (
+            <div className="flex-1 min-w-[150px]">
+              <select
+                value={String(item[selectField.key] || '')}
+                onChange={e => updateItem(idx, selectField.key, e.target.value)}
+                className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
+              >
+                <option value="">Select {selectField.label}</option>
+                {selectField.options.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex gap-1">
             <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
             <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>

@@ -2,14 +2,14 @@ export interface IconGridItem {
   id: string;
   title: string;
   iconUrl: string;
-  route: string;
+  categoryId: string;   // reference to a category ID
 }
 
 export interface CategoryCard {
   id: string;
   title: string;
   imageUrl: string;
-  route: string;
+  categoryId: string;   // reference to a category ID
 }
 
 export interface PromoBanner {
@@ -61,6 +61,11 @@ export interface PackagingItem {
   imageUrl: string;
 }
 
+export interface OtherStoreItem {
+  id: string;
+  storeId: string;      // reference to a store ID
+}
+
 export interface StoreConfig {
   header: {
     title: string;
@@ -72,5 +77,4 @@ export interface StoreConfig {
   promoBanner: PromoBanner;
   categories: CategorySection[];
   packaging: PackagingItem[];
-  otherStores: CategoryCard[];
-}
+  otherStores: OtherStoreItem[];}

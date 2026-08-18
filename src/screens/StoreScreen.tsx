@@ -3,8 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { ChevronLeft, Search, ShoppingCart, ChevronRight, X } from 'lucide-react';
 import { useCart } from '@/store';
-import { fetchProductsByIds } from '@/services/catalog';
-import type { Product as AppProduct } from '@/types';
+import { fetchProductsByIds, fetchStores } from '@/services/catalog';
+import type { Product as AppProduct, Store } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 
 interface StoreScreenProps {
@@ -22,6 +22,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const [selectedFilter, setSelectedFilter] = useState<{ type: 'category' | 'dietary'; value: string } | null>(null);
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [otherStoreDetails, setOtherStoreDetails] = useState<Store[]>([]);
 
   // Fetch all product IDs from all categories
   const allProductIds = useMemo(() => {
@@ -50,7 +51,17 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       .finally(() => setLoading(false));
   }, [allProductIds]);
 
-  // Filter logic (by category name or product fields)
+  // Fetch other store details
+  useEffect(() => {
+    if (otherStores.length === 0) return;
+    const storeIds = otherStores.map(s => s.storeId);
+    fetchStores().then(allStores => {
+      const filtered = allStores.filter(s => storeIds.includes(s.id));
+      setOtherStoreDetails(filtered);
+    });
+  }, [otherStores]);
+
+  // Filter logic
   const filteredProducts = useMemo(() => {
     let result = products;
     if (searchQuery.trim()) {
@@ -62,26 +73,28 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       );
     }
     if (selectedFilter) {
-      if (selectedFilter.type === 'category') {
-        // filter by product category name
-        result = result.filter(p => p.category === selectedFilter.value);
-      } else if (selectedFilter.type === 'dietary') {
-        // For dietary, we filter by category or a custom field; you can adjust
-        result = result.filter(p => p.category === selectedFilter.value);
-      }
+      // Filter by category name (we need to match by category name)
+      result = result.filter(p => p.category === selectedFilter.value);
     }
     return result;
   }, [products, searchQuery, selectedFilter]);
 
   // Handlers
-  const handleIconClick = (title: string) => {
-    setSelectedFilter({ type: 'category', value: title });
-    setSearchQuery('');
+  const handleIconClick = (categoryId: string) => {
+    // Find the category name from the config categories
+    const cat = categories.find(c => c.id === categoryId);
+    if (cat) {
+      setSelectedFilter({ type: 'category', value: cat.title });
+      setSearchQuery('');
+    }
   };
 
-  const handleDietaryClick = (title: string) => {
-    setSelectedFilter({ type: 'dietary', value: title });
-    setSearchQuery('');
+  const handleDietaryClick = (categoryId: string) => {
+    const cat = categories.find(c => c.id === categoryId);
+    if (cat) {
+      setSelectedFilter({ type: 'dietary', value: cat.title });
+      setSearchQuery('');
+    }
   };
 
   const clearFilter = () => {
@@ -169,11 +182,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                 onAdd={() => cart.addToCart(product)}
                 onIncrement={() => cart.addToCart(product)}
                 onDecrement={() => cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)}
-                onClick={() => {
-                  // Navigate to product detail
-                  // You'll need to implement this – pass the product to the parent
-                  goTo(`product?id=${product.id}`);
-                }}
+                onClick={() => navigate(`/product?id=${product.id}`)}
               />
             ))}
           </div>
@@ -187,7 +196,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                 {iconGrid.map(item => (
                   <button
                     key={item.id}
-                    onClick={() => handleIconClick(item.title)}
+                    onClick={() => handleIconClick(item.categoryId)}
                     className="flex flex-col items-center tap-highlight active:scale-95 transition-transform"
                   >
                     <div className="w-14 h-14 rounded-2xl bg-[#F4F9EC] flex items-center justify-center text-3xl">
@@ -208,7 +217,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                 {dietaryNeeds.map(item => (
                   <button
                     key={item.id}
-                    onClick={() => handleDietaryClick(item.title)}
+                    onClick={() => handleDietaryClick(item.categoryId)}
                     className="rounded-2xl overflow-hidden shadow-sm border border-gray-100 tap-highlight active:scale-95 transition-transform"
                   >
                     <img src={item.imageUrl} alt={item.title} className="w-full h-28 object-cover" />
@@ -243,7 +252,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             </section>
           )}
 
-          {/* Categories with product IDs */}
+          {/* Categories with products */}
           {categories.map((category) => {
             const categoryProducts = products.filter(p => category.productIds.includes(p.id));
             if (categoryProducts.length === 0) return null;
@@ -253,7 +262,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                   <h2 className="text-base font-bold text-gray-800">{category.title}</h2>
                   {categoryProducts.length > 4 && (
                     <button
-                      onClick={() => handleIconClick(category.title)}
+                      onClick={() => handleIconClick(category.id)}
                       className="text-xs font-semibold text-green-600 flex items-center"
                     >
                       See all <ChevronRight size={14} />
@@ -296,10 +305,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                       onAdd={() => cart.addToCart(product)}
                       onIncrement={() => cart.addToCart(product)}
                       onDecrement={() => cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)}
-                      onClick={() => {
-                        // Navigate to product detail using react-router navigate
-                        navigate(`/product?id=${product.id}`);
-                      }}
+                      onClick={() => navigate(`/product?id=${product.id}`)}
                     />
                   ))}
                 </div>
@@ -307,7 +313,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             );
           })}
 
-          {/* All Products (fallback) */}
+          {/* All Products */}
           {products.length > 0 && (
             <section className="px-4 py-3 border-t border-gray-100">
               <h2 className="text-base font-bold text-gray-800 mb-3">All Products</h2>
@@ -320,9 +326,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                     onAdd={() => cart.addToCart(product)}
                     onIncrement={() => cart.addToCart(product)}
                     onDecrement={() => cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)}
-                    onClick={() => {
-                      goTo(`product?id=${product.id}`);
-                    }}
+                    onClick={() => navigate(`/product?id=${product.id}`)}
                   />
                 ))}
               </div>
@@ -345,21 +349,18 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
           )}
 
           {/* Other Stores */}
-          {otherStores.length > 0 && (
+          {otherStoreDetails.length > 0 && (
             <section className="px-4 py-3 border-t border-gray-100">
               <h2 className="text-base font-bold text-gray-800 mb-3">Other Stores for You</h2>
               <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                {otherStores.map(store => (
+                {otherStoreDetails.map(store => (
                   <button
                     key={store.id}
-                    onClick={() => {
-                      if (store.route.startsWith('/')) navigate(store.route);
-                      else goTo(store.route);
-                    }}
+                    onClick={() => navigate(`/store?storeId=${store.id}`)}
                     className="shrink-0 w-32 rounded-2xl overflow-hidden border border-gray-100 bg-[#F8FAF4] tap-highlight active:scale-95 transition-transform"
                   >
-                    <img src={store.imageUrl} alt={store.title} className="w-full h-20 object-cover" />
-                    <div className="p-2 text-center text-xs font-medium text-gray-700">{store.title}</div>
+                    <img src={store.image_url} alt={store.name} className="w-full h-20 object-cover" />
+                    <div className="p-2 text-center text-xs font-medium text-gray-700">{store.name}</div>
                   </button>
                 ))}
               </div>

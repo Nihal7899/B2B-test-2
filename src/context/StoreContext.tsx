@@ -2,6 +2,10 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { StoreConfig } from '@/types/storeConfig';
 import { fetchStoreConfig, updateStoreConfig } from '@/services/catalog';
 
+// Cache for store configs
+const configCache = new Map<string, { data: StoreConfig; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 interface StoreContextType {
   config: StoreConfig;
   storeId: string;
@@ -32,23 +36,59 @@ export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> =
     otherStores: [],
   });
   const [loading, setLoading] = useState(true);
+  const isMounted = React.useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
 
   useEffect(() => {
     if (!storeId) return;
-    (async () => {
+
+    const loadConfig = async () => {
+      // Check cache
+      const cached = configCache.get(storeId);
+      const now = Date.now();
+      if (cached && (now - cached.timestamp) < CACHE_TTL) {
+        if (isMounted.current) {
+          setConfig(cached.data);
+          setLoading(false);
+        }
+        // Refresh in background
+        try {
+          const fresh = await fetchStoreConfig(storeId);
+          if (isMounted.current) {
+            configCache.set(storeId, { data: fresh, timestamp: now });
+            setConfig(fresh);
+          }
+        } catch (e) {
+          console.error('Background refresh failed', e);
+        }
+        return;
+      }
+
       try {
         const data = await fetchStoreConfig(storeId);
-        setConfig(data);
+        if (isMounted.current) {
+          configCache.set(storeId, { data, timestamp: now });
+          setConfig(data);
+        }
       } catch (e) {
         console.error('Failed to load store config', e);
       } finally {
-        setLoading(false);
+        if (isMounted.current) {
+          setLoading(false);
+        }
       }
-    })();
+    };
+
+    loadConfig();
   }, [storeId]);
 
   const updateConfig = async (newConfig: StoreConfig) => {
     setConfig(newConfig);
+    configCache.set(storeId, { data: newConfig, timestamp: Date.now() });
     await updateStoreConfig(storeId, newConfig);
   };
 
@@ -81,10 +121,7 @@ export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> =
   const updateProduct = (categoryId: string, productId: string, updates: Partial<StoreConfig['categories'][0]['products'][0]>) => {
     const categories = config.categories.map(cat =>
       cat.id === categoryId
-        ? {
-            ...cat,
-            products: cat.products.map(p => (p.id === productId ? { ...p, ...updates } : p)),
-          }
+        ? { ...cat, products: cat.products.map(p => (p.id === productId ? { ...p, ...updates } : p)) }
         : cat
     );
     updateConfig({ ...config, categories });

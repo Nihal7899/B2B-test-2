@@ -2,14 +2,14 @@ export interface IconGridItem {
   id: string;
   title: string;
   iconUrl: string;
-  categoryId: string;   // reference to a category ID
+  categoryId: string;
 }
 
 export interface CategoryCard {
   id: string;
   title: string;
   imageUrl: string;
-  categoryId: string;   // reference to a category ID
+  categoryId: string;
 }
 
 export interface PromoBanner {
@@ -48,12 +48,9 @@ export interface CategorySection {
   id: string;
   title: string;
   tabs: SubCategoryTab[];
-  productIds: string[];   // <-- now stores IDs only
+  productIds: string[];
   pillFilters?: string[];
-  // ... no products array
 }
-
-// The rest of the types remain the same
 
 export interface PackagingItem {
   id: string;
@@ -63,7 +60,7 @@ export interface PackagingItem {
 
 export interface OtherStoreItem {
   id: string;
-  storeId: string;      // reference to a store ID
+  storeId: string;
 }
 
 export interface StoreConfig {
@@ -77,4 +74,5 @@ export interface StoreConfig {
   promoBanner: PromoBanner;
   categories: CategorySection[];
   packaging: PackagingItem[];
-  otherStores: OtherStoreItem[];}
+  otherStores: OtherStoreItem[];
+}

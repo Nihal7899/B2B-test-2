@@ -1,5 +1,5 @@
 // screens/HomeScreen.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { ArrowRight, Truck, ShieldCheck, Tag, RotateCcw, ChevronRight } from 'lucide-react';
 import type { Category, Product, PromoBanner, Store, TrustedBrand } from '@/types';
 import type { useCart } from '@/store';
@@ -17,6 +17,7 @@ import {
   fetchHomeBanners,
   fetchStores,
   fetchTrustedBrands,
+  fetchStoreConfig, // <-- added for prefetch
 } from '@/services/catalog';
 
 interface HomeScreenProps {
@@ -50,6 +51,15 @@ export function HomeScreen({
   const [carouselBanners, setCarouselBanners] = useState<PromoBanner[]>([]);
   const [middleBanners, setMiddleBanners] = useState<PromoBanner[]>([]);
   const [bottomBanners, setBottomBanners] = useState<PromoBanner[]>([]);
+
+  // Prefetch store config on hover (for instant loading)
+  const prefetchStore = useCallback(async (storeId: string) => {
+    try {
+      await fetchStoreConfig(storeId);
+    } catch (e) {
+      // silently ignore – prefetch is optional
+    }
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -319,7 +329,11 @@ export function HomeScreen({
                 subtitle="Curated collections"
                 accent="bg-purple-600"
               />
-              <StoreCarousel stores={stores} onStoreClick={onStoreClick} />
+              <StoreCarousel
+                stores={stores}
+                onStoreClick={onStoreClick}
+                onPrefetch={prefetchStore}
+              />
             </div>
           )}
 

@@ -2,10 +2,17 @@
 import { Store } from '@/types';
 import { ChevronRight } from 'lucide-react';
 
-export function StoreCard({ store, onClick }: { store: Store; onClick: (store: Store) => void }) {
+interface StoreCardProps {
+  store: Store;
+  onClick: (store: Store) => void;
+  onPrefetch?: (storeId: string) => void;
+}
+
+export function StoreCard({ store, onClick, onPrefetch }: StoreCardProps) {
   return (
     <button
       onClick={() => onClick(store)}
+      onMouseEnter={() => onPrefetch?.(store.id)}
       className="relative shrink-0 w-44 rounded-2xl overflow-hidden border shadow-card tap-highlight active:scale-[0.98] transition-transform"
       style={{ borderColor: store.border_color }}
     >
@@ -24,11 +31,22 @@ export function StoreCard({ store, onClick }: { store: Store; onClick: (store: S
   );
 }
 
-export function StoreCarousel({ stores, onStoreClick }: { stores: Store[]; onStoreClick: (store: Store) => void }) {
+interface StoreCarouselProps {
+  stores: Store[];
+  onStoreClick: (store: Store) => void;
+  onPrefetch?: (storeId: string) => void;
+}
+
+export function StoreCarousel({ stores, onStoreClick, onPrefetch }: StoreCarouselProps) {
   return (
     <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
       {stores.map((store) => (
-        <StoreCard key={store.id} store={store} onClick={onStoreClick} />
+        <StoreCard
+          key={store.id}
+          store={store}
+          onClick={onStoreClick}
+          onPrefetch={onPrefetch}
+        />
       ))}
     </div>
   );

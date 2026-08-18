@@ -12,16 +12,54 @@ interface StoreScreenProps {
 }
 
 function StoreScreenContent({ goTo }: StoreScreenProps) {
-  const { config } = useStore();
+  const { config, loading } = useStore();
   const navigate = useNavigate();
   const cart = useCart();
   const { header, iconGrid, dietaryNeeds, promoBanner, categories, packaging, otherStores } = config;
+
+  // If loading, show skeleton
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white pb-20">
+        <div className="h-16 bg-gray-100 animate-pulse"></div>
+        <div className="px-4 py-2">
+          <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+        </div>
+        <div className="px-4 py-4">
+          <div className="grid grid-cols-4 gap-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-20 bg-gray-100 rounded-2xl animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+        <div className="px-4 py-2">
+          <div className="h-8 w-32 bg-gray-100 rounded animate-pulse mb-3"></div>
+          <div className="grid grid-cols-2 gap-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+        <div className="px-4 py-3">
+          <div className="h-40 bg-gray-100 rounded-2xl animate-pulse"></div>
+        </div>
+        <div className="px-4 py-3">
+          <div className="h-8 w-32 bg-gray-100 rounded animate-pulse mb-3"></div>
+          <div className="grid grid-cols-2 gap-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<AppProduct[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [otherStoreDetails, setOtherStoreDetails] = useState<Store[]>([]);
 
   // Fetch all product IDs from all categories
@@ -39,16 +77,16 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   useEffect(() => {
     if (allProductIds.length === 0) {
       setProducts([]);
-      setLoading(false);
+      setProductsLoading(false);
       return;
     }
-    setLoading(true);
+    setProductsLoading(true);
     fetchProductsByIds(allProductIds)
       .then(data => {
         setProducts(data);
       })
       .catch(console.error)
-      .finally(() => setLoading(false));
+      .finally(() => setProductsLoading(false));
   }, [allProductIds]);
 
   // Fetch other store details
@@ -107,10 +145,31 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
   const hasActiveFilter = !!(selectedCategoryId || searchQuery.trim());
 
-  if (loading) {
+  if (productsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="h-8 w-8 rounded-full border-2 border-green-200 border-t-green-600 animate-spin" />
+      <div className="min-h-screen bg-white pb-20">
+        <div className="h-16 bg-gray-100 animate-pulse"></div>
+        <div className="px-4 py-2">
+          <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
+        </div>
+        <div className="px-4 py-4">
+          <div className="grid grid-cols-4 gap-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-20 bg-gray-100 rounded-2xl animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+        <div className="px-4 py-3">
+          <div className="h-40 bg-gray-100 rounded-2xl animate-pulse"></div>
+        </div>
+        <div className="px-4 py-3">
+          <div className="h-8 w-32 bg-gray-100 rounded animate-pulse mb-3"></div>
+          <div className="grid grid-cols-2 gap-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

@@ -52,7 +52,7 @@ export default function StoreConfigManager() {
 }
 
 function StoreConfigEditor() {
-  const { config, updateConfig } = useStore();
+  const { config, updateConfig, updateCategory, addProduct, updateProduct, deleteProduct } = useStore();
   const [activeTab, setActiveTab] = useState<'header' | 'iconGrid' | 'dietary' | 'promo' | 'categories' | 'packaging' | 'other'>('header');
 
   return (
@@ -99,7 +99,18 @@ function StoreConfigEditor() {
         />
       )}
       {activeTab === 'promo' && <PromoEditor />}
-      {activeTab === 'categories' && <CategoriesEditor />}
+      {activeTab === 'categories' && (
+        <CategoriesEditor
+          categories={config.categories}
+          updateCategory={updateCategory}
+          addProduct={addProduct}
+          updateProduct={updateProduct}
+          deleteProduct={deleteProduct}
+          storeId={config.storeId}
+          updateConfig={updateConfig}
+          config={config}
+        />
+      )}
       {activeTab === 'packaging' && (
         <ListEditor<PackagingItem>
           items={config.packaging}
@@ -224,18 +235,70 @@ function PromoEditor() {
   );
 }
 
-// ----- Categories Editor (with nested product editor) -----
-function CategoriesEditor() {
-  const { config, updateCategory, addProduct, updateProduct, deleteProduct } = useStore();
+// ----- Categories Editor (with FIXED add category and add product) -----
+function CategoriesEditor({
+  categories,
+  updateCategory,
+  addProduct,
+  updateProduct,
+  deleteProduct,
+  storeId,
+  updateConfig,
+  config,
+}: {
+  categories: CategorySection[];
+  updateCategory: (id: string, updates: Partial<CategorySection>) => void;
+  addProduct: (categoryId: string, product: Product) => void;
+  updateProduct: (categoryId: string, productId: string, updates: Partial<Product>) => void;
+  deleteProduct: (categoryId: string, productId: string) => void;
+  storeId: string;
+  updateConfig: (newConfig: StoreConfig) => void;
+  config: StoreConfig;
+}) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
-  const selectedCategory = config.categories.find(c => c.id === selectedCategoryId);
+  const selectedCategory = categories.find(c => c.id === selectedCategoryId);
+
+  // FIXED: Add Category – properly adds to the array
+  const handleAddCategory = () => {
+    const title = prompt('New category title?');
+    if (!title) return;
+    const newCat: CategorySection = {
+      id: Date.now().toString(),
+      title,
+      tabs: [],
+      products: [],
+      pillFilters: [],
+    };
+    const updatedCategories = [...categories, newCat];
+    updateConfig({ ...config, categories: updatedCategories });
+    setSelectedCategoryId(newCat.id);
+  };
+
+  // FIXED: Add Product – uses the context's addProduct
+  const handleAddProduct = (categoryId: string) => {
+    const title = prompt('Product title?');
+    if (!title) return;
+    const newProduct: Product = {
+      id: Date.now().toString(),
+      title,
+      category: selectedCategory?.title || '',
+      subCategory: selectedCategory?.tabs[0]?.label || '',
+      imageUrl: 'https://picsum.photos/200/200?random=' + Date.now(),
+      packSize: '200g',
+      price: 99,
+      originalPrice: 129,
+      tieredPricing: [{ minQty: 6, unitPrice: 85 }],
+      inStock: true,
+    };
+    addProduct(categoryId, newProduct);
+  };
 
   return (
     <div className="space-y-4">
       <h3 className="font-semibold text-lg">Categories & Products</h3>
       <div className="flex gap-2 overflow-x-auto pb-2">
-        {config.categories.map(cat => (
+        {categories.map(cat => (
           <button
             key={cat.id}
             onClick={() => setSelectedCategoryId(cat.id)}
@@ -247,22 +310,7 @@ function CategoriesEditor() {
           </button>
         ))}
         <button
-          onClick={() => {
-            const title = prompt('New category title?');
-            if (title) {
-              const newCat: CategorySection = {
-                id: Date.now().toString(),
-                title,
-                tabs: [],
-                products: [],
-                pillFilters: [],
-              };
-              // We need to add the category to the config
-              const categories = [...config.categories, newCat];
-              updateCategory(newCat.id, newCat);
-              setSelectedCategoryId(newCat.id);
-            }
-          }}
+          onClick={handleAddCategory}
           className="px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-600 border border-green-200"
         >
           + Add Category
@@ -278,21 +326,7 @@ function CategoriesEditor() {
               className="flex-1 rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
             />
             <button
-              onClick={() => {
-                const newProduct: Product = {
-                  id: Date.now().toString(),
-                  title: 'New Product',
-                  category: selectedCategory.title,
-                  subCategory: selectedCategory.tabs[0]?.label || '',
-                  imageUrl: 'https://picsum.photos/200/200?random=' + Date.now(),
-                  packSize: '200g',
-                  price: 99,
-                  originalPrice: 129,
-                  tieredPricing: [{ minQty: 6, unitPrice: 85 }],
-                  inStock: true,
-                };
-                addProduct(selectedCategory.id, newProduct);
-              }}
+              onClick={() => handleAddProduct(selectedCategory.id)}
               className="flex items-center gap-1 text-sm text-green-600 font-medium"
             >
               <Plus size={16} /> Add Product
@@ -355,7 +389,7 @@ function CategoriesEditor() {
                       const file = (e.target as HTMLInputElement).files?.[0];
                       if (file) {
                         try {
-                          const url = await uploadStoreImage(selectedCategory.storeId, file, 'products');
+                          const url = await uploadStoreImage(storeId, file, 'products');
                           updateProduct(selectedCategory.id, product.id, { imageUrl: url });
                         } catch (err) {
                           console.error('Upload failed', err);

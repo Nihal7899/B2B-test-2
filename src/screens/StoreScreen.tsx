@@ -297,8 +297,8 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                       onIncrement={() => cart.addToCart(product)}
                       onDecrement={() => cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)}
                       onClick={() => {
-                        // Navigate to product detail
-                        goTo(`product?id=${product.id}`);
+                        // Navigate to product detail using react-router navigate
+                        navigate(`/product?id=${product.id}`);
                       }}
                     />
                   ))}

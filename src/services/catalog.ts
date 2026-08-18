@@ -721,13 +721,28 @@ export async function fetchStoreById(id: string): Promise<Store> {
 
 export async function fetchProductsByIds(ids: string[]): Promise<Product[]> {
   if (!ids.length) return [];
-  const { data, error } = await supabase
+
+  // Fetch products
+  const { data: products, error } = await supabase
     .from('products')
     .select('*')
     .in('id', ids)
     .order('name');
   if (error) throw error;
-  return data as Product[];
+
+  // Fetch all categories to map category_id → slug
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('id, slug');
+  const categoryMap: Record<string, string> = {};
+  (categories || []).forEach((c: any) => {
+    categoryMap[c.id] = c.slug;
+  });
+
+  // Map each product using the existing mapProduct function
+  return (products as DbProduct[]).map((p) =>
+    mapProduct(p, categoryMap[p.category_id] || '')
+  );
 }
 
 // ----- TRUSTED BRANDS -----

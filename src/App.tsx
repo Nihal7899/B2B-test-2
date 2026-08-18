@@ -858,15 +858,6 @@ function App() {
 
         }
         
-        case 'store': {
-          return (
-            <StoreScreen
-              onProduct={openProduct}
-              onCategory={openCategory}
-              goTo={goTo}
-            />
-          );
-        }
 
 
         case 'addresses':
@@ -1031,10 +1022,7 @@ function App() {
         // NEW: STORE SCREEN
         // ============================================================
         case 'store': {
-
-          // StoreScreen reads storeId from query param itself
-          return <StoreScreen />;
-
+          return <StoreScreen goTo={goTo} />;
         }
 
 

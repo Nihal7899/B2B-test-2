@@ -4,6 +4,7 @@ import { StoreProvider, useStore } from '@/context/StoreContext';
 import { ChevronLeft, Search, ShoppingCart, ChevronRight, X } from 'lucide-react';
 import { useCart } from '@/store';
 import { fetchProductsByIds, fetchStores } from '@/services/catalog';
+import { supabase } from '@/lib/supabase';
 import type { Product as AppProduct, Store } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 
@@ -23,6 +24,24 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [otherStoreDetails, setOtherStoreDetails] = useState<Store[]>([]);
+  const [globalCategoryMap, setGlobalCategoryMap] = useState<Record<string, string>>({}); // title -> slug
+
+  // Fetch global categories to map title -> slug
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('name, slug')
+        .eq('is_active', true);
+      if (!error && data) {
+        const map: Record<string, string> = {};
+        data.forEach((c: any) => {
+          map[c.name] = c.slug;
+        });
+        setGlobalCategoryMap(map);
+      }
+    })();
+  }, []);
 
   // Fetch all product IDs from all categories
   const allProductIds = useMemo(() => {
@@ -61,7 +80,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     });
   }, [otherStores]);
 
-  // Build a map of category ID -> category title
+  // Build a map of category ID -> title
   const categoryMap = useMemo(() => {
     const map: Record<string, string> = {};
     categories.forEach(c => { map[c.id] = c.title; });
@@ -80,11 +99,17 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       );
     }
     if (selectedFilter) {
-      // Filter by category name (from the selected category title)
-      result = result.filter(p => p.category === selectedFilter.value);
+      // Convert the selected category title to a slug using the global category map
+      const slug = globalCategoryMap[selectedFilter.value];
+      if (slug) {
+        result = result.filter(p => p.category === slug);
+      } else {
+        // If no match, fallback to filtering by title (for products that might have title stored)
+        result = result.filter(p => p.category === selectedFilter.value);
+      }
     }
     return result;
-  }, [products, searchQuery, selectedFilter]);
+  }, [products, searchQuery, selectedFilter, globalCategoryMap]);
 
   // Handlers
   const handleIconClick = (categoryId: string) => {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { ChevronLeft, Search, ShoppingCart, Plus, Minus, ChevronRight } from 'lucide-react';
 import { Product } from '@/types/storeConfig';
@@ -221,9 +221,23 @@ function StoreScreenContent() {
   );
 }
 
+// ===== WRAPPER THAT READS storeId FROM QUERY PARAM =====
 export default function StoreScreen() {
-  const { storeId } = useParams<{ storeId: string }>();
-  if (!storeId) return <div className="p-4 text-center">Store ID missing</div>;
+  const [searchParams] = useSearchParams();
+  const storeId = searchParams.get('storeId');
+  const navigate = useNavigate();
+
+  if (!storeId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-4">
+        <p className="text-ink-600">Store ID missing</p>
+        <button onClick={() => navigate(-1)} className="text-brand-600 font-bold">
+          Go back
+        </button>
+      </div>
+    );
+  }
+
   return (
     <StoreProvider storeId={storeId}>
       <StoreScreenContent />

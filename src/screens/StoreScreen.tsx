@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
-import { ChevronLeft, Search, ShoppingCart, Plus, Minus, ChevronRight, X } from 'lucide-react';
-import { Product as StoreProduct } from '@/types/storeConfig';
+import { ChevronLeft, Search, ShoppingCart, ChevronRight, X } from 'lucide-react';
 import { useCart } from '@/store';
+import { fetchProductsByIds } from '@/services/catalog';
+import type { Product as AppProduct } from '@/types';
+import { ProductCard } from '@/components/ProductCard';
 
 interface StoreScreenProps {
   goTo: (screen: string) => void;
@@ -18,102 +20,58 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   // State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<{ type: 'category' | 'dietary'; value: string } | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
+  const [products, setProducts] = useState<AppProduct[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // All products from categories
-  const allProducts: StoreProduct[] = useMemo(() => {
-    return categories.flatMap(cat => cat.products);
+  // Fetch all product IDs from all categories
+  const allProductIds = useMemo(() => {
+    const ids: string[] = [];
+    categories.forEach(cat => {
+      cat.productIds.forEach(id => {
+        if (!ids.includes(id)) ids.push(id);
+      });
+    });
+    return ids;
   }, [categories]);
 
-  // Filter logic
+  // Fetch product details
+  useEffect(() => {
+    if (allProductIds.length === 0) {
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    fetchProductsByIds(allProductIds)
+      .then(data => {
+        setProducts(data);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [allProductIds]);
+
+  // Filter logic (by category name or product fields)
   const filteredProducts = useMemo(() => {
-    let result = allProducts;
+    let result = products;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(p =>
-        p.title.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
-        p.subCategory.toLowerCase().includes(q)
+        p.name.toLowerCase().includes(q) ||
+        p.brand.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q)
       );
     }
     if (selectedFilter) {
       if (selectedFilter.type === 'category') {
+        // filter by product category name
         result = result.filter(p => p.category === selectedFilter.value);
       } else if (selectedFilter.type === 'dietary') {
-        // For dietary, we also filter by category (or you could use a 'dietary' field if added)
-        result = result.filter(p => p.category === selectedFilter.value || p.subCategory === selectedFilter.value);
+        // For dietary, we filter by category or a custom field; you can adjust
+        result = result.filter(p => p.category === selectedFilter.value);
       }
     }
     return result;
-  }, [allProducts, searchQuery, selectedFilter]);
-
-  // Cart helpers
-  const getQuantity = (id: string) => cart.getQuantity(id);
-  const addToCart = (product: StoreProduct) => {
-    const appProduct: any = {
-      id: product.id,
-      brand: product.category,
-      name: product.title,
-      packSize: product.packSize,
-      mrp: product.originalPrice,
-      price: product.price,
-      image: product.imageUrl,
-      category: product.category,
-      moq: 1,
-      rating: 0,
-      description: '',
-      inStock: product.inStock,
-    };
-    cart.addToCart(appProduct);
-  };
-  const updateQuantity = (id: string, qty: number) => {
-    if (qty <= 0) cart.removeFromCart(id);
-    else cart.updateQuantity(id, qty);
-  };
-
-  // Render product card
-  const renderProductCard = (product: StoreProduct) => {
-    const qty = getQuantity(product.id) || 0;
-    const tier = product.tieredPricing[0];
-    const tierLabel = tier ? `₹${tier.unitPrice} for ${tier.minQty} ${product.packSize}+` : null;
-
-    return (
-      <div key={product.id} className="bg-white rounded-2xl border border-gray-100 p-2 shadow-sm">
-        <div onClick={() => setSelectedProduct(product)} className="cursor-pointer">
-          <img src={product.imageUrl || 'https://placehold.co/400x400/EEE/999?text=Product'} alt={product.title} className="w-full h-32 object-cover rounded-xl" />
-        </div>
-        <div className="mt-2">
-          <h4 className="text-sm font-bold text-gray-800 line-clamp-2">{product.title}</h4>
-          <p className="text-xs text-gray-500">{product.packSize}</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-base font-extrabold text-gray-900">₹{product.price}</span>
-            <span className="text-xs text-gray-400 line-through">₹{product.originalPrice}</span>
-          </div>
-          {tierLabel && <p className="text-[10px] text-blue-600 font-medium mt-0.5">{tierLabel}</p>}
-          <div className="mt-2">
-            {qty === 0 ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); addToCart(product); }}
-                className="w-full py-1.5 rounded-lg border border-red-200 text-red-500 font-bold text-sm hover:bg-red-50 transition"
-              >
-                + ADD
-              </button>
-            ) : (
-              <div className="flex items-center justify-between bg-red-50 rounded-lg px-2 py-1">
-                <button onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, qty - 1); }} className="p-1 rounded-full hover:bg-red-100">
-                  <Minus size={14} className="text-red-500" />
-                </button>
-                <span className="text-sm font-bold text-red-700">{qty}</span>
-                <button onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, qty + 1); }} className="p-1 rounded-full hover:bg-red-100">
-                  <Plus size={14} className="text-red-500" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
+  }, [products, searchQuery, selectedFilter]);
 
   // Handlers
   const handleIconClick = (title: string) => {
@@ -132,6 +90,14 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   };
 
   const hasActiveFilter = !!(selectedFilter || searchQuery.trim());
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="h-8 w-8 rounded-full border-2 border-green-200 border-t-green-600 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white pb-20">
@@ -195,7 +161,21 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         <section className="px-4 py-3">
           <p className="text-xs text-gray-500 mb-3">{filteredProducts.length} products found</p>
           <div className="grid grid-cols-2 gap-3">
-            {filteredProducts.map(renderProductCard)}
+            {filteredProducts.map(product => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                quantity={cart.getQuantity(product.id)}
+                onAdd={() => cart.addToCart(product)}
+                onIncrement={() => cart.addToCart(product)}
+                onDecrement={() => cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)}
+                onClick={() => {
+                  // Navigate to product detail
+                  // You'll need to implement this – pass the product to the parent
+                  goTo(`product?id=${product.id}`);
+                }}
+              />
+            ))}
           </div>
         </section>
       ) : (
@@ -263,58 +243,88 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             </section>
           )}
 
-          {/* Categories */}
-          {categories.map((category) => (
-            <section key={category.id} className="px-4 py-3 border-t border-gray-100">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-gray-800">{category.title}</h2>
-                {category.products.length > 4 && (
-                  <button onClick={() => handleIconClick(category.title)} className="text-xs font-semibold text-green-600 flex items-center">
-                    See all <ChevronRight size={14} />
-                  </button>
-                )}
-              </div>
+          {/* Categories with product IDs */}
+          {categories.map((category) => {
+            const categoryProducts = products.filter(p => category.productIds.includes(p.id));
+            if (categoryProducts.length === 0) return null;
+            return (
+              <section key={category.id} className="px-4 py-3 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-bold text-gray-800">{category.title}</h2>
+                  {categoryProducts.length > 4 && (
+                    <button
+                      onClick={() => handleIconClick(category.title)}
+                      className="text-xs font-semibold text-green-600 flex items-center"
+                    >
+                      See all <ChevronRight size={14} />
+                    </button>
+                  )}
+                </div>
 
-              {/* Tabs */}
-              {category.tabs.length > 0 && (
-                <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                  {category.tabs.map(tab => (
-                    <div key={tab.id} className="flex flex-col items-center shrink-0">
-                      <div className="w-12 h-12 rounded-full bg-[#F4F9EC] flex items-center justify-center text-xl">
-                        {tab.iconUrl}
+                {/* Tabs */}
+                {category.tabs.length > 0 && (
+                  <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                    {category.tabs.map(tab => (
+                      <div key={tab.id} className="flex flex-col items-center shrink-0">
+                        <div className="w-12 h-12 rounded-full bg-[#F4F9EC] flex items-center justify-center text-xl">
+                          {tab.iconUrl}
+                        </div>
+                        <span className="text-[10px] mt-1 text-gray-600 whitespace-nowrap">{tab.label}</span>
                       </div>
-                      <span className="text-[10px] mt-1 text-gray-600 whitespace-nowrap">{tab.label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
 
-              {/* Pill filters */}
-              {category.pillFilters && category.pillFilters.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {category.pillFilters.map(pill => (
-                    <span key={pill} className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
-                      {pill}
-                    </span>
-                  ))}
-                </div>
-              )}
+                {/* Pill filters */}
+                {category.pillFilters && category.pillFilters.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {category.pillFilters.map(pill => (
+                      <span key={pill} className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                        {pill}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-              {/* Products */}
-              {category.products.length > 0 && (
+                {/* Products */}
                 <div className="mt-3 grid grid-cols-2 gap-3">
-                  {category.products.slice(0, 4).map(renderProductCard)}
+                  {categoryProducts.slice(0, 4).map(product => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      quantity={cart.getQuantity(product.id)}
+                      onAdd={() => cart.addToCart(product)}
+                      onIncrement={() => cart.addToCart(product)}
+                      onDecrement={() => cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)}
+                      onClick={() => {
+                        // Navigate to product detail
+                        goTo(`product?id=${product.id}`);
+                      }}
+                    />
+                  ))}
                 </div>
-              )}
-            </section>
-          ))}
+              </section>
+            );
+          })}
 
-          {/* All Products section (optional) */}
-          {allProducts.length > 0 && (
+          {/* All Products (fallback) */}
+          {products.length > 0 && (
             <section className="px-4 py-3 border-t border-gray-100">
               <h2 className="text-base font-bold text-gray-800 mb-3">All Products</h2>
               <div className="grid grid-cols-2 gap-3">
-                {allProducts.map(renderProductCard)}
+                {products.map(product => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    quantity={cart.getQuantity(product.id)}
+                    onAdd={() => cart.addToCart(product)}
+                    onIncrement={() => cart.addToCart(product)}
+                    onDecrement={() => cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)}
+                    onClick={() => {
+                      goTo(`product?id=${product.id}`);
+                    }}
+                  />
+                ))}
               </div>
             </section>
           )}
@@ -356,52 +366,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             </section>
           )}
         </>
-      )}
-
-      {/* Product Detail Modal */}
-      {selectedProduct && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={() => setSelectedProduct(null)}>
-          <div
-            className="bg-white rounded-t-3xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5 animate-slide-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-start mb-4">
-              <h2 className="text-xl font-bold text-gray-900">{selectedProduct.title}</h2>
-              <button onClick={() => setSelectedProduct(null)} className="p-1 rounded-full hover:bg-gray-100">
-                <X size={20} />
-              </button>
-            </div>
-            <img
-              src={selectedProduct.imageUrl || 'https://placehold.co/400x400/EEE/999?text=Product'}
-              alt={selectedProduct.title}
-              className="w-full h-56 object-cover rounded-xl mb-4"
-            />
-            <p className="text-sm text-gray-600">{selectedProduct.category} · {selectedProduct.subCategory}</p>
-            <p className="text-xs text-gray-500 mt-1">{selectedProduct.packSize}</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-2xl font-extrabold text-green-700">₹{selectedProduct.price}</span>
-              <span className="text-sm text-gray-400 line-through">₹{selectedProduct.originalPrice}</span>
-            </div>
-            {selectedProduct.tieredPricing.length > 0 && (
-              <div className="mt-2 p-2 bg-blue-50 rounded-lg text-xs text-blue-700">
-                {selectedProduct.tieredPricing.map(t => (
-                  <div key={t.minQty}>₹{t.unitPrice} for {t.minQty}+ units</div>
-                ))}
-              </div>
-            )}
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}
-                className="flex-1 py-3 rounded-xl bg-green-600 text-white font-bold"
-              >
-                Add to Cart
-              </button>
-              <button onClick={() => setSelectedProduct(null)} className="px-4 py-3 rounded-xl border border-gray-300 text-gray-700">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

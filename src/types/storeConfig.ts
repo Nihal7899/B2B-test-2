@@ -48,10 +48,12 @@ export interface CategorySection {
   id: string;
   title: string;
   tabs: SubCategoryTab[];
-  products: Product[];
-  seeAllLink?: string;
+  productIds: string[];   // <-- now stores IDs only
   pillFilters?: string[];
+  // ... no products array
 }
+
+// The rest of the types remain the same
 
 export interface PackagingItem {
   id: string;

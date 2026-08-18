@@ -6,6 +6,19 @@ import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, Search, X } from 'l
 import { uploadStoreImage } from '@/services/catalog';
 import { StoreConfig, IconGridItem, CategoryCard, PromoBanner, PackagingItem, CategorySection, Product } from '@/types/storeConfig';
 
+// All available screen names (for route dropdown)
+const AVAILABLE_ROUTES = [
+  { label: 'Home', value: '/' },
+  { label: 'Categories', value: '/categories' },
+  { label: 'Orders', value: '/orders' },
+  { label: 'Cart', value: '/cart' },
+  { label: 'Account', value: '/account' },
+  { label: 'Wishlist', value: '/wishlist' },
+  { label: 'Checkout', value: '/checkout' },
+  { label: 'Admin', value: '/admin' },
+  // Add any other screens as needed
+];
+
 // ----- Main component (unchanged) -----
 export default function StoreConfigManager() {
   const [stores, setStores] = useState<Store[]>([]);
@@ -52,7 +65,7 @@ export default function StoreConfigManager() {
   );
 }
 
-// ----- Editor with tabs -----
+// ----- Editor with tabs (updated) -----
 function StoreConfigEditor() {
   const { config, updateConfig } = useStore();
   const [activeTab, setActiveTab] = useState<'header' | 'iconGrid' | 'dietary' | 'promo' | 'categories' | 'packaging' | 'other'>('header');
@@ -84,7 +97,7 @@ function StoreConfigEditor() {
             { key: 'route', label: 'Route' },
           ]}
           imageField="iconUrl"
-          storeId={config.storeId}
+          routeOptions={AVAILABLE_ROUTES}
         />
       )}
       {activeTab === 'dietary' && (
@@ -97,7 +110,7 @@ function StoreConfigEditor() {
             { key: 'route', label: 'Route' },
           ]}
           imageField="imageUrl"
-          storeId={config.storeId}
+          routeOptions={AVAILABLE_ROUTES}
         />
       )}
       {activeTab === 'promo' && <PromoEditor />}
@@ -111,7 +124,6 @@ function StoreConfigEditor() {
             { key: 'imageUrl', label: 'Image URL' },
           ]}
           imageField="imageUrl"
-          storeId={config.storeId}
         />
       )}
       {activeTab === 'other' && (
@@ -124,14 +136,14 @@ function StoreConfigEditor() {
             { key: 'route', label: 'Route' },
           ]}
           imageField="imageUrl"
-          storeId={config.storeId}
+          routeOptions={AVAILABLE_ROUTES}
         />
       )}
     </div>
   );
 }
 
-// ----- Header Editor -----
+// ----- Header Editor (unchanged) -----
 function HeaderEditor() {
   const { config, updateHeader } = useStore();
   const { header } = config;
@@ -170,7 +182,7 @@ function HeaderEditor() {
   );
 }
 
-// ----- Promo Banner Editor -----
+// ----- Promo Banner Editor (unchanged) -----
 function PromoEditor() {
   const { config, updatePromoBanner } = useStore();
   const { promoBanner } = config;
@@ -226,56 +238,39 @@ function PromoEditor() {
   );
 }
 
-// ----- Categories Editor with fixed existing product import -----
+// ----- Categories Editor – now stores product IDs -----
 function CategoriesEditor() {
   const { config, updateConfig } = useStore();
   const { categories, storeId } = config;
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [allProducts, setAllProducts] = useState<{ id: string; brand: string; name: string; category: string }[]>([]);
+  const [allProducts, setAllProducts] = useState<{ id: string; brand: string; name: string }[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryTitle, setNewCategoryTitle] = useState('');
-  const [showAddProduct, setShowAddProduct] = useState(false);
-  const [newProductTitle, setNewProductTitle] = useState('');
-  const [newProductPrice, setNewProductPrice] = useState('');
-  const [newProductPackSize, setNewProductPackSize] = useState('');
 
   const selectedCategory = categories.find(c => c.id === selectedCategoryId);
 
-  // Load all products from main catalog
+  // Load only minimal product info for the selector
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, brand, name, category_id')
+        .select('id, brand, name')
         .eq('is_active', true)
         .order('name');
       if (!error && data) {
-        const catIds = data.map(p => p.category_id).filter(Boolean);
-        const { data: cats } = await supabase
-          .from('categories')
-          .select('id, name')
-          .in('id', catIds);
-        const catMap: Record<string, string> = {};
-        (cats || []).forEach(c => catMap[c.id] = c.name);
-        setAllProducts(data.map(p => ({
-          id: p.id,
-          brand: p.brand,
-          name: p.name,
-          category: catMap[p.category_id] || 'Uncategorized',
-        })));
+        setAllProducts(data);
       }
     })();
   }, []);
 
-  // Add new category
   const handleAddCategory = () => {
     if (!newCategoryTitle.trim()) return;
     const newCat: CategorySection = {
       id: Date.now().toString(),
       title: newCategoryTitle.trim(),
       tabs: [],
-      products: [],
+      productIds: [],
       pillFilters: [],
     };
     updateConfig({ ...config, categories: [...categories, newCat] });
@@ -284,107 +279,41 @@ function CategoriesEditor() {
     setShowAddCategory(false);
   };
 
-  // Add new product (store-specific)
-  const handleAddProduct = () => {
-    if (!selectedCategory || !newProductTitle.trim()) return;
-    const newProduct: Product = {
-      id: Date.now().toString(),
-      title: newProductTitle.trim(),
-      category: selectedCategory.title,
-      subCategory: selectedCategory.tabs[0]?.label || '',
-      imageUrl: '',
-      packSize: newProductPackSize || '200g',
-      price: parseFloat(newProductPrice) || 0,
-      originalPrice: parseFloat(newProductPrice) || 0,
-      tieredPricing: [],
-      inStock: true,
-    };
-    const updatedCategories = categories.map(cat =>
-      cat.id === selectedCategory.id
-        ? { ...cat, products: [...cat.products, newProduct] }
-        : cat
-    );
-    updateConfig({ ...config, categories: updatedCategories });
-    setNewProductTitle('');
-    setNewProductPrice('');
-    setNewProductPackSize('');
-    setShowAddProduct(false);
-  };
-
-  // ----- FIXED: Add existing product from main catalog with full details -----
-  const handleAddExistingProduct = async (productId: string) => {
+  // Add product ID to category
+  const handleAddProductId = (productId: string) => {
     if (!selectedCategory) return;
-    // Fetch full product details from main catalog
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, brand, name, image_url, pack_size, mrp, wholesale_price, category_id')
-      .eq('id', productId)
-      .single();
-    if (error || !data) {
-      console.error('Failed to fetch product details', error);
-      return;
-    }
-    // Fetch category name for the product
-    let categoryName = selectedCategory.title;
-    if (data.category_id) {
-      const { data: catData } = await supabase
-        .from('categories')
-        .select('name')
-        .eq('id', data.category_id)
-        .single();
-      if (catData) categoryName = catData.name;
-    }
-
-    const newProduct: Product = {
-      id: data.id,
-      title: data.name,
-      category: categoryName, // use the product's actual category
-      subCategory: selectedCategory.tabs[0]?.label || '',
-      imageUrl: data.image_url || '',
-      packSize: data.pack_size || '',
-      price: data.wholesale_price || 0,
-      originalPrice: data.mrp || 0,
-      tieredPricing: [],
-      inStock: true,
-    };
-
+    if (selectedCategory.productIds.includes(productId)) return;
     const updatedCategories = categories.map(cat =>
       cat.id === selectedCategory.id
-        ? { ...cat, products: [...cat.products, newProduct] }
+        ? { ...cat, productIds: [...cat.productIds, productId] }
         : cat
     );
     updateConfig({ ...config, categories: updatedCategories });
   };
 
-  // Remove product
-  const handleRemoveProduct = (categoryId: string, productId: string) => {
+  // Remove product ID from category
+  const handleRemoveProductId = (productId: string) => {
+    if (!selectedCategory) return;
     const updatedCategories = categories.map(cat =>
-      cat.id === categoryId
-        ? { ...cat, products: cat.products.filter(p => p.id !== productId) }
+      cat.id === selectedCategory.id
+        ? { ...cat, productIds: cat.productIds.filter(id => id !== productId) }
         : cat
     );
     updateConfig({ ...config, categories: updatedCategories });
   };
 
-  // Update product field inline
-  const updateProductField = (categoryId: string, productId: string, field: keyof Product, value: any) => {
+  // Update category field
+  const updateCategoryField = (field: keyof CategorySection, value: any) => {
+    if (!selectedCategory) return;
     const updatedCategories = categories.map(cat =>
-      cat.id === categoryId
-        ? {
-            ...cat,
-            products: cat.products.map(p =>
-              p.id === productId ? { ...p, [field]: value } : p
-            ),
-          }
-        : cat
+      cat.id === selectedCategory.id ? { ...cat, [field]: value } : cat
     );
     updateConfig({ ...config, categories: updatedCategories });
   };
 
   const filteredExisting = allProducts.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.category.toLowerCase().includes(searchTerm.toLowerCase())
+    p.brand.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -410,7 +339,6 @@ function CategoriesEditor() {
         </button>
       </div>
 
-      {/* Add Category Inline Form */}
       {showAddCategory && (
         <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex gap-2 items-center">
           <input
@@ -430,54 +358,10 @@ function CategoriesEditor() {
           <div className="flex items-center gap-2 mb-3">
             <input
               value={selectedCategory.title}
-              onChange={e => {
-                const updated = categories.map(cat =>
-                  cat.id === selectedCategory.id ? { ...cat, title: e.target.value } : cat
-                );
-                updateConfig({ ...config, categories: updated });
-              }}
+              onChange={e => updateCategoryField('title', e.target.value)}
               className="flex-1 rounded-xl border border-gray-300 px-3 py-1.5 text-sm font-semibold"
             />
-            <button
-              onClick={() => setShowAddProduct(true)}
-              className="flex items-center gap-1 text-sm text-green-600 font-medium"
-            >
-              <Plus size={16} /> Add Product
-            </button>
           </div>
-
-          {/* Add Product Inline Form */}
-          {showAddProduct && (
-            <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
-              <input
-                type="text"
-                value={newProductTitle}
-                onChange={e => setNewProductTitle(e.target.value)}
-                placeholder="Product title"
-                className="w-full rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
-              />
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  value={newProductPrice}
-                  onChange={e => setNewProductPrice(e.target.value)}
-                  placeholder="Price"
-                  className="w-1/2 rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
-                />
-                <input
-                  type="text"
-                  value={newProductPackSize}
-                  onChange={e => setNewProductPackSize(e.target.value)}
-                  placeholder="Pack size (e.g. 200g)"
-                  className="w-1/2 rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button onClick={handleAddProduct} className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-sm font-medium">Add</button>
-                <button onClick={() => setShowAddProduct(false)} className="px-3 py-1.5 rounded-xl bg-gray-200 text-sm font-medium">Cancel</button>
-              </div>
-            </div>
-          )}
 
           {/* Tabs editor */}
           <div className="mb-3">
@@ -491,10 +375,7 @@ function CategoriesEditor() {
                   label,
                   iconUrl: '🍽️',
                 }));
-                const updated = categories.map(cat =>
-                  cat.id === selectedCategory.id ? { ...cat, tabs: newTabs } : cat
-                );
-                updateConfig({ ...config, categories: updated });
+                updateCategoryField('tabs', newTabs);
               }}
               className="w-full rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
             />
@@ -507,16 +388,13 @@ function CategoriesEditor() {
               value={(selectedCategory.pillFilters || []).join(', ')}
               onChange={e => {
                 const pills = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                const updated = categories.map(cat =>
-                  cat.id === selectedCategory.id ? { ...cat, pillFilters: pills } : cat
-                );
-                updateConfig({ ...config, categories: updated });
+                updateCategoryField('pillFilters', pills);
               }}
               className="w-full rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
             />
           </div>
 
-          {/* Add Existing Product */}
+          {/* Add Existing Product (by ID) */}
           <div className="mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
             <label className="block text-xs font-medium text-gray-700 mb-1">Add Existing Product to "{selectedCategory.title}"</label>
             <div className="relative">
@@ -525,7 +403,7 @@ function CategoriesEditor() {
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Search product by name, brand, category..."
+                placeholder="Search product by name, brand..."
                 className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-gray-300 text-sm"
               />
             </div>
@@ -534,15 +412,15 @@ function CategoriesEditor() {
                 <p className="text-xs text-gray-400">No products found</p>
               )}
               {filteredExisting.map(p => {
-                const alreadyAdded = selectedCategory.products.some(prod => prod.id === p.id);
+                const alreadyAdded = selectedCategory.productIds.includes(p.id);
                 return (
                   <div key={p.id} className="flex items-center justify-between py-1 px-2 hover:bg-gray-100 rounded-lg">
-                    <span className="text-xs">{p.name} <span className="text-gray-400">({p.brand})</span> <span className="text-[10px] text-gray-400">— {p.category}</span></span>
+                    <span className="text-xs">{p.name} <span className="text-gray-400">({p.brand})</span></span>
                     {alreadyAdded ? (
                       <span className="text-xs text-green-600 font-medium">Added</span>
                     ) : (
                       <button
-                        onClick={() => handleAddExistingProduct(p.id)}
+                        onClick={() => handleAddProductId(p.id)}
                         className="text-xs text-blue-600 font-medium hover:underline"
                       >
                         Add
@@ -554,65 +432,23 @@ function CategoriesEditor() {
             </div>
           </div>
 
-          {/* Product list */}
+          {/* List of product IDs in this category */}
           <div className="space-y-2">
             <h4 className="text-sm font-semibold">Products in this category</h4>
-            {selectedCategory.products.length === 0 && (
+            {selectedCategory.productIds.length === 0 && (
               <p className="text-xs text-gray-400">No products assigned yet.</p>
             )}
-            {selectedCategory.products.map(product => (
-              <div key={product.id} className="flex items-center gap-2 border-b border-gray-100 py-1 flex-wrap">
-                <img src={product.imageUrl || 'https://placehold.co/40x40/EEE/999?text=?'} alt="" className="w-10 h-10 rounded object-cover" />
-                <input
-                  value={product.title}
-                  onChange={e => updateProductField(selectedCategory.id, product.id, 'title', e.target.value)}
-                  className="flex-1 min-w-[120px] rounded border border-gray-200 px-2 py-0.5 text-sm"
-                />
-                <input
-                  type="number"
-                  value={product.price}
-                  onChange={e => updateProductField(selectedCategory.id, product.id, 'price', Number(e.target.value))}
-                  className="w-16 rounded border border-gray-200 px-1 py-0.5 text-sm"
-                />
-                <input
-                  type="number"
-                  value={product.originalPrice}
-                  onChange={e => updateProductField(selectedCategory.id, product.id, 'originalPrice', Number(e.target.value))}
-                  className="w-16 rounded border border-gray-200 px-1 py-0.5 text-sm"
-                />
-                <input
-                  value={product.packSize}
-                  onChange={e => updateProductField(selectedCategory.id, product.id, 'packSize', e.target.value)}
-                  placeholder="Pack size"
-                  className="w-20 rounded border border-gray-200 px-1 py-0.5 text-sm"
-                />
-                <button
-                  onClick={() => {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = 'image/*';
-                    input.onchange = async (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0];
-                      if (file) {
-                        try {
-                          const url = await uploadStoreImage(storeId, file, 'products');
-                          updateProductField(selectedCategory.id, product.id, 'imageUrl', url);
-                        } catch (err) {
-                          console.error('Upload failed', err);
-                        }
-                      }
-                    };
-                    input.click();
-                  }}
-                  className="text-blue-500 text-xs"
-                >
-                  Upload
-                </button>
-                <button onClick={() => handleRemoveProduct(selectedCategory.id, product.id)} className="text-red-400">
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
+            {selectedCategory.productIds.map(productId => {
+              const product = allProducts.find(p => p.id === productId);
+              return (
+                <div key={productId} className="flex items-center justify-between py-1 px-2 border-b border-gray-100">
+                  <span className="text-sm">{product?.name || productId}</span>
+                  <button onClick={() => handleRemoveProductId(productId)} className="text-red-400">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -620,19 +456,19 @@ function CategoriesEditor() {
   );
 }
 
-// ----- Reusable ListEditor -----
-function ListEditor<T extends { id: string }>({
+// ----- Updated ListEditor with route dropdown -----
+function ListEditor<T extends { id: string; route?: string }>({
   items,
   setItems,
   fields,
   imageField,
-  storeId,
+  routeOptions,
 }: {
   items: T[];
   setItems: (items: T[]) => void;
   fields: { key: keyof T; label: string }[];
   imageField?: keyof T;
-  storeId: string;
+  routeOptions?: { label: string; value: string }[];
 }) {
   const [localItems, setLocalItems] = useState(items);
 
@@ -662,15 +498,6 @@ function ListEditor<T extends { id: string }>({
     setLocalItems(newItems);
   };
 
-  const handleImageUpload = async (index: number, file: File) => {
-    try {
-      const url = await uploadStoreImage(storeId, file, 'listEditor');
-      updateItem(index, imageField!, url);
-    } catch (e) {
-      console.error('Upload failed', e);
-    }
-  };
-
   return (
     <div className="space-y-3">
       <div className="flex justify-between">
@@ -681,39 +508,57 @@ function ListEditor<T extends { id: string }>({
       </div>
       {localItems.map((item, idx) => (
         <div key={item.id} className="flex items-center gap-2 border-b pb-2 flex-wrap">
-          {fields.map(f => (
-            <div key={String(f.key)} className="flex-1 min-w-[100px]">
-              {f.key === imageField ? (
-                <div className="flex items-center gap-1">
+          {fields.map(f => {
+            const isRoute = f.key === 'route' && routeOptions;
+            return (
+              <div key={String(f.key)} className="flex-1 min-w-[100px]">
+                {isRoute ? (
+                  <select
+                    value={String(item[f.key] || '')}
+                    onChange={e => updateItem(idx, f.key, e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
+                  >
+                    <option value="">Select route</option>
+                    {routeOptions.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                ) : f.key === imageField ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      value={String(item[f.key] || '')}
+                      onChange={e => updateItem(idx, f.key, e.target.value)}
+                      placeholder={f.label}
+                      className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
+                    />
+                    <label className="cursor-pointer bg-gray-100 p-1 rounded hover:bg-gray-200">
+                      <Upload size={14} />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            // In a real app, you'd upload to storage and get URL
+                            // For now, just set a placeholder
+                            updateItem(idx, f.key, URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                ) : (
                   <input
                     value={String(item[f.key] || '')}
                     onChange={e => updateItem(idx, f.key, e.target.value)}
                     placeholder={f.label}
                     className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
                   />
-                  <label className="cursor-pointer bg-gray-100 p-1 rounded hover:bg-gray-200">
-                    <Upload size={14} />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) await handleImageUpload(idx, file);
-                      }}
-                    />
-                  </label>
-                </div>
-              ) : (
-                <input
-                  value={String(item[f.key] || '')}
-                  onChange={e => updateItem(idx, f.key, e.target.value)}
-                  placeholder={f.label}
-                  className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                />
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
           <div className="flex gap-1">
             <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
             <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>

@@ -857,6 +857,16 @@ function App() {
           );
 
         }
+        
+        case 'store': {
+          return (
+            <StoreScreen
+              onProduct={openProduct}
+              onCategory={openCategory}
+              goTo={goTo}
+            />
+          );
+        }
 
 
         case 'addresses':

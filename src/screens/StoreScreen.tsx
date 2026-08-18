@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
-import { ChevronLeft, Search, ShoppingCart, ChevronRight, X, Star, Truck, ShieldCheck, Tag, RotateCcw } from 'lucide-react';
+import { ChevronLeft, Search, ShoppingCart, ChevronRight, X } from 'lucide-react';
 import { useCart } from '@/store';
 import { fetchProductsByIds, fetchStores } from '@/services/catalog';
 import type { Product as AppProduct, Store } from '@/types';
@@ -37,19 +37,21 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const { config, loading } = useStore();
   const navigate = useNavigate();
   const cart = useCart();
+
+  // 🔥 FIX: Provide defaults for all optional fields
   const {
     header,
-    hero,
-    stats,
-    promoStrip,
-    features,
-    iconGrid,
-    dietaryNeeds,
-    promoBanner,
-    categories,
-    packaging,
-    otherStores,
-    theme,
+    hero = { enabled: false, imageUrl: '', overlayColor: '#000000', overlayOpacity: 50, tagline: '', ctaText: '', ctaLink: '' },
+    stats = { enabled: false, productsCount: 0, customersCount: 0, years: 0, deliveriesCount: 0 },
+    promoStrip = { enabled: false, message: '', ctaText: '', ctaLink: '', backgroundColor: '#10b981', textColor: '#ffffff' },
+    features = { enabled: false, items: [] },
+    iconGrid = [],
+    dietaryNeeds = [],
+    promoBanner = { badge: '', title: '', subtitle: '', backgroundTheme: 'bg-gray-100', floatingProductImages: [] },
+    categories = [],
+    packaging = [],
+    otherStores = [],
+    theme = { primaryColor: '#10b981', secondaryColor: '#059669', textColor: '#1f2937', borderColor: '#e5e7eb', buttonStyle: 'brand', cardRadius: 'xl', shadowIntensity: 'md' },
   } = config;
 
   // State

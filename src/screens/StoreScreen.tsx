@@ -2,10 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { ChevronLeft, Search, ShoppingCart, Plus, Minus, ChevronRight, X } from 'lucide-react';
-import { Product } from '@/types/storeConfig';
+import { Product as StoreProduct } from '@/types/storeConfig';
 import { useCart } from '@/store';
 
-// Minimal props: no need for onProduct/onCategory/goTo anymore
 interface StoreScreenProps {
   goTo: (screen: string) => void;
 }
@@ -16,18 +15,17 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const cart = useCart();
   const { header, iconGrid, dietaryNeeds, promoBanner, categories, packaging, otherStores } = config;
 
-  // Local state
+  // State
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedDietary, setSelectedDietary] = useState<string | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<{ type: 'category' | 'dietary'; value: string } | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
 
-  // All products from all categories
-  const allProducts = useMemo(() => {
+  // All products from categories
+  const allProducts: StoreProduct[] = useMemo(() => {
     return categories.flatMap(cat => cat.products);
   }, [categories]);
 
-  // Filter products based on search, category, dietary
+  // Filter logic
   const filteredProducts = useMemo(() => {
     let result = allProducts;
     if (searchQuery.trim()) {
@@ -38,21 +36,20 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         p.subCategory.toLowerCase().includes(q)
       );
     }
-    if (selectedCategory) {
-      result = result.filter(p => p.category === selectedCategory || p.subCategory === selectedCategory);
-    }
-    if (selectedDietary) {
-      // simple mapping: we assume dietary need matches product subCategory or category
-      result = result.filter(p => p.subCategory === selectedDietary || p.category === selectedDietary);
+    if (selectedFilter) {
+      if (selectedFilter.type === 'category') {
+        result = result.filter(p => p.category === selectedFilter.value);
+      } else if (selectedFilter.type === 'dietary') {
+        // For dietary, we also filter by category (or you could use a 'dietary' field if added)
+        result = result.filter(p => p.category === selectedFilter.value || p.subCategory === selectedFilter.value);
+      }
     }
     return result;
-  }, [allProducts, searchQuery, selectedCategory, selectedDietary]);
+  }, [allProducts, searchQuery, selectedFilter]);
 
   // Cart helpers
-  const getQuantity = (productId: string) => cart.getQuantity(productId);
-
-  const addToCart = (product: Product) => {
-    // Convert store product to app product
+  const getQuantity = (id: string) => cart.getQuantity(id);
+  const addToCart = (product: StoreProduct) => {
     const appProduct: any = {
       id: product.id,
       brand: product.category,
@@ -69,17 +66,13 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     };
     cart.addToCart(appProduct);
   };
-
-  const updateQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      cart.removeFromCart(productId);
-    } else {
-      cart.updateQuantity(productId, quantity);
-    }
+  const updateQuantity = (id: string, qty: number) => {
+    if (qty <= 0) cart.removeFromCart(id);
+    else cart.updateQuantity(id, qty);
   };
 
-  // Render product card (with click to open detail modal)
-  const renderProductCard = (product: Product) => {
+  // Render product card
+  const renderProductCard = (product: StoreProduct) => {
     const qty = getQuantity(product.id) || 0;
     const tier = product.tieredPricing[0];
     const tierLabel = tier ? `₹${tier.unitPrice} for ${tier.minQty} ${product.packSize}+` : null;
@@ -87,7 +80,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     return (
       <div key={product.id} className="bg-white rounded-2xl border border-gray-100 p-2 shadow-sm">
         <div onClick={() => setSelectedProduct(product)} className="cursor-pointer">
-          <img src={product.imageUrl} alt={product.title} className="w-full h-32 object-cover rounded-xl" />
+          <img src={product.imageUrl || 'https://placehold.co/400x400/EEE/999?text=Product'} alt={product.title} className="w-full h-32 object-cover rounded-xl" />
         </div>
         <div className="mt-2">
           <h4 className="text-sm font-bold text-gray-800 line-clamp-2">{product.title}</h4>
@@ -107,17 +100,11 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
               </button>
             ) : (
               <div className="flex items-center justify-between bg-red-50 rounded-lg px-2 py-1">
-                <button
-                  onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, qty - 1); }}
-                  className="p-1 rounded-full hover:bg-red-100"
-                >
+                <button onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, qty - 1); }} className="p-1 rounded-full hover:bg-red-100">
                   <Minus size={14} className="text-red-500" />
                 </button>
                 <span className="text-sm font-bold text-red-700">{qty}</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, qty + 1); }}
-                  className="p-1 rounded-full hover:bg-red-100"
-                >
+                <button onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, qty + 1); }} className="p-1 rounded-full hover:bg-red-100">
                   <Plus size={14} className="text-red-500" />
                 </button>
               </div>
@@ -130,24 +117,21 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
   // Handlers
   const handleIconClick = (title: string) => {
-    setSelectedCategory(title);
-    setSelectedDietary(null);
+    setSelectedFilter({ type: 'category', value: title });
     setSearchQuery('');
   };
 
   const handleDietaryClick = (title: string) => {
-    setSelectedDietary(title);
-    setSelectedCategory(null);
+    setSelectedFilter({ type: 'dietary', value: title });
     setSearchQuery('');
   };
 
-  const clearFilters = () => {
-    setSelectedCategory(null);
-    setSelectedDietary(null);
+  const clearFilter = () => {
+    setSelectedFilter(null);
     setSearchQuery('');
   };
 
-  const showFiltered = selectedCategory || selectedDietary || searchQuery.trim();
+  const hasActiveFilter = !!(selectedFilter || searchQuery.trim());
 
   return (
     <div className="min-h-screen bg-white pb-20">
@@ -163,7 +147,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="p-2 rounded-full hover:bg-gray-50" onClick={() => {/* toggle search? */}}>
+          <button className="p-2 rounded-full hover:bg-gray-50">
             <Search size={18} className="text-gray-600" />
           </button>
           <button className="relative p-2 rounded-full hover:bg-gray-50" onClick={() => goTo('cart')}>
@@ -177,7 +161,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         </div>
       </header>
 
-      {/* Search Bar */}
+      {/* Search */}
       <div className="px-4 py-2">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -189,40 +173,27 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             className="w-full h-10 pl-9 pr-4 rounded-xl border border-gray-200 bg-gray-50 text-sm outline-none focus:border-green-500"
           />
           {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-            >
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
               <X size={14} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Filter chips */}
-      {(selectedCategory || selectedDietary) && (
-        <div className="px-4 pb-2 flex gap-2 flex-wrap">
-          {selectedCategory && (
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              {selectedCategory}
-              <button onClick={clearFilters}><X size={12} /></button>
-            </span>
-          )}
-          {selectedDietary && (
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              {selectedDietary}
-              <button onClick={clearFilters}><X size={12} /></button>
-            </span>
-          )}
+      {/* Filter chip */}
+      {selectedFilter && (
+        <div className="px-4 pb-2">
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            {selectedFilter.value}
+            <button onClick={clearFilter}><X size={12} /></button>
+          </span>
         </div>
       )}
 
-      {/* If any filter active, show filtered products */}
-      {showFiltered ? (
+      {/* Results or main content */}
+      {hasActiveFilter ? (
         <section className="px-4 py-3">
-          <p className="text-xs text-gray-500 mb-3">
-            {filteredProducts.length} products found
-          </p>
+          <p className="text-xs text-gray-500 mb-3">{filteredProducts.length} products found</p>
           <div className="grid grid-cols-2 gap-3">
             {filteredProducts.map(renderProductCard)}
           </div>
@@ -298,10 +269,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-bold text-gray-800">{category.title}</h2>
                 {category.products.length > 4 && (
-                  <button
-                    onClick={() => handleIconClick(category.title)}
-                    className="text-xs font-semibold text-green-600 flex items-center"
-                  >
+                  <button onClick={() => handleIconClick(category.title)} className="text-xs font-semibold text-green-600 flex items-center">
                     See all <ChevronRight size={14} />
                   </button>
                 )}
@@ -341,6 +309,16 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             </section>
           ))}
 
+          {/* All Products section (optional) */}
+          {allProducts.length > 0 && (
+            <section className="px-4 py-3 border-t border-gray-100">
+              <h2 className="text-base font-bold text-gray-800 mb-3">All Products</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {allProducts.map(renderProductCard)}
+              </div>
+            </section>
+          )}
+
           {/* Packaging */}
           {packaging.length > 0 && (
             <section className="px-4 py-3 border-t border-gray-100">
@@ -365,13 +343,8 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                   <button
                     key={store.id}
                     onClick={() => {
-                      // For simplicity, we just navigate to the store route if it's a path
-                      if (store.route.startsWith('/')) {
-                        navigate(store.route);
-                      } else {
-                        // Try to treat as screen name
-                        goTo(store.route);
-                      }
+                      if (store.route.startsWith('/')) navigate(store.route);
+                      else goTo(store.route);
                     }}
                     className="shrink-0 w-32 rounded-2xl overflow-hidden border border-gray-100 bg-[#F8FAF4] tap-highlight active:scale-95 transition-transform"
                   >
@@ -385,9 +358,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         </>
       )}
 
-      {/* ================================================================ */}
-      {/* PRODUCT DETAIL MODAL */}
-      {/* ================================================================ */}
+      {/* Product Detail Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={() => setSelectedProduct(null)}>
           <div
@@ -401,7 +372,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
               </button>
             </div>
             <img
-              src={selectedProduct.imageUrl}
+              src={selectedProduct.imageUrl || 'https://placehold.co/400x400/EEE/999?text=Product'}
               alt={selectedProduct.title}
               className="w-full h-56 object-cover rounded-xl mb-4"
             />
@@ -420,18 +391,12 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             )}
             <div className="mt-4 flex gap-2">
               <button
-                onClick={() => {
-                  addToCart(selectedProduct);
-                  setSelectedProduct(null);
-                }}
+                onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}
                 className="flex-1 py-3 rounded-xl bg-green-600 text-white font-bold"
               >
                 Add to Cart
               </button>
-              <button
-                onClick={() => setSelectedProduct(null)}
-                className="px-4 py-3 rounded-xl border border-gray-300 text-gray-700"
-              >
+              <button onClick={() => setSelectedProduct(null)} className="px-4 py-3 rounded-xl border border-gray-300 text-gray-700">
                 Close
               </button>
             </div>
@@ -442,7 +407,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   );
 }
 
-// ===== WRAPPER =====
 export default function StoreScreen(props: StoreScreenProps) {
   const [searchParams] = useSearchParams();
   const storeId = searchParams.get('storeId');
@@ -452,9 +416,7 @@ export default function StoreScreen(props: StoreScreenProps) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-4">
         <p className="text-ink-600">Store ID missing</p>
-        <button onClick={() => navigate(-1)} className="text-brand-600 font-bold">
-          Go back
-        </button>
+        <button onClick={() => navigate(-1)} className="text-brand-600 font-bold">Go back</button>
       </div>
     );
   }

@@ -10,15 +10,10 @@ export default function StoresManager() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Store | null>(null);
-  const [products, setProducts] = useState<{ id: string; brand: string; name: string }[]>([]);
 
   const load = useCallback(async () => {
-    const [storesRes, prodsRes] = await Promise.all([
-      fetchAllStores(),
-      supabase.from('products').select('id, brand, name').order('name'),
-    ]);
+    const storesRes = await fetchAllStores();
     setStores(storesRes);
-    setProducts((prodsRes.data as { id: string; brand: string; name: string }[]) ?? []);
     setLoading(false);
   }, []);
 
@@ -52,7 +47,6 @@ export default function StoresManager() {
       {showForm && (
         <StoreForm
           initial={editing}
-          products={products}
           onClose={() => setShowForm(false)}
           onSaved={() => {
             setShowForm(false);
@@ -83,9 +77,6 @@ export default function StoresManager() {
                 </span>
                 <span className="text-[10px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
                   Order: {store.sort_order}
-                </span>
-                <span className="text-[10px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
-                  {store.product_ids?.length ?? 0} products
                 </span>
               </div>
             </div>
@@ -122,12 +113,10 @@ export default function StoresManager() {
 // ---- StoreForm ----
 function StoreForm({
   initial,
-  products,
   onClose,
   onSaved,
 }: {
   initial: Store | null;
-  products: { id: string; brand: string; name: string }[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -141,7 +130,6 @@ function StoreForm({
     theme_text: initial?.theme_text ?? 'text-emerald-900',
     theme_accent: initial?.theme_accent ?? 'bg-emerald-600',
     button_style: initial?.button_style ?? 'brand',
-    product_ids: initial?.product_ids ?? [],
     sort_order: initial?.sort_order ?? 0,
     is_active: initial?.is_active ?? true,
   });
@@ -247,24 +235,6 @@ function StoreForm({
           <option value="brand">Solid (brand accent)</option>
           <option value="outline">Outline</option>
           <option value="ghost">Ghost</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Products (select multiple)</label>
-        <select
-          multiple
-          value={form.product_ids}
-          onChange={(e) =>
-            setForm({ ...form, product_ids: Array.from(e.target.selectedOptions).map((o) => o.value) })
-          }
-          className="w-full h-32 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          size={4}
-        >
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.brand} {p.name}
-            </option>
-          ))}
         </select>
       </div>
       <div className="grid grid-cols-2 gap-3">

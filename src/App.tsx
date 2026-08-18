@@ -40,7 +40,7 @@ import { DeliveryScreen } from '@/screens/DeliveryScreen';
 import { FilteredProductsScreen } from '@/screens/FilteredProductsScreen';
 import { BusinessRegistrationScreen } from '@/screens/BusinessRegistrationScreen';
 import { AuthScreen } from '@/screens/AuthScreen';
-import { StoreScreen } from '@/screens/StoreScreen'; // <-- NEW
+import  StoreScreen  from '@/screens/StoreScreen'; // <-- NEW
 
 import type {
   Category,

@@ -56,20 +56,20 @@ export default function StoreConfigManager() {
 function StoreConfigEditor() {
   const { config, updateConfig } = useStore();
   const [activeTab, setActiveTab] = useState<'header' | 'iconGrid' | 'dietary' | 'promo' | 'categories' | 'packaging' | 'other'>('header');
-  const [allCategories, setAllCategories] = useState<{ id: string; name: string }[]>([]);
   const [allStores, setAllStores] = useState<{ id: string; name: string; image_url: string }[]>([]);
-  const [loadingMeta, setLoadingMeta] = useState(true);
 
-  // Fetch all categories and stores for dropdowns
+  // Build category options from the store's own categories
+  const categoryOptions = config.categories.map(c => ({ value: c.id, label: c.title }));
+
+  // Fetch all stores for the "Other Stores" dropdown
   useEffect(() => {
     (async () => {
-      const [catsRes, storesRes] = await Promise.all([
-        supabase.from('categories').select('id, name').eq('is_active', true).order('name'),
-        supabase.from('stores').select('id, name, image_url').eq('is_active', true).order('name'),
-      ]);
-      if (!catsRes.error) setAllCategories(catsRes.data || []);
-      if (!storesRes.error) setAllStores(storesRes.data || []);
-      setLoadingMeta(false);
+      const { data, error } = await supabase
+        .from('stores')
+        .select('id, name, image_url')
+        .eq('is_active', true)
+        .order('name');
+      if (!error && data) setAllStores(data);
     })();
   }, []);
 
@@ -98,7 +98,7 @@ function StoreConfigEditor() {
             { key: 'title', label: 'Title' },
             { key: 'iconUrl', label: 'Icon (URL/Emoji)' },
           ]}
-          selectField={{ key: 'categoryId', label: 'Category', options: allCategories.map(c => ({ value: c.id, label: c.name })) }}
+          selectField={{ key: 'categoryId', label: 'Category', options: categoryOptions }}
           imageField="iconUrl"
         />
       )}
@@ -110,7 +110,7 @@ function StoreConfigEditor() {
             { key: 'title', label: 'Title' },
             { key: 'imageUrl', label: 'Image URL' },
           ]}
-          selectField={{ key: 'categoryId', label: 'Category', options: allCategories.map(c => ({ value: c.id, label: c.name })) }}
+          selectField={{ key: 'categoryId', label: 'Category', options: categoryOptions }}
           imageField="imageUrl"
         />
       )}
@@ -234,7 +234,7 @@ function PromoEditor() {
   );
 }
 
-// ----- Categories Editor (unchanged from previous version, using productIds) -----
+// ----- Categories Editor (unchanged) -----
 function CategoriesEditor() {
   const { config, updateConfig } = useStore();
   const { categories, storeId } = config;

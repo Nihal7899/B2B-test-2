@@ -61,6 +61,13 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     });
   }, [otherStores]);
 
+  // Build a map of category ID -> category title
+  const categoryMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    categories.forEach(c => { map[c.id] = c.title; });
+    return map;
+  }, [categories]);
+
   // Filter logic
   const filteredProducts = useMemo(() => {
     let result = products;
@@ -73,7 +80,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       );
     }
     if (selectedFilter) {
-      // Filter by category name (we need to match by category name)
+      // Filter by category name (from the selected category title)
       result = result.filter(p => p.category === selectedFilter.value);
     }
     return result;
@@ -81,18 +88,17 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
   // Handlers
   const handleIconClick = (categoryId: string) => {
-    // Find the category name from the config categories
-    const cat = categories.find(c => c.id === categoryId);
-    if (cat) {
-      setSelectedFilter({ type: 'category', value: cat.title });
+    const categoryTitle = categoryMap[categoryId];
+    if (categoryTitle) {
+      setSelectedFilter({ type: 'category', value: categoryTitle });
       setSearchQuery('');
     }
   };
 
   const handleDietaryClick = (categoryId: string) => {
-    const cat = categories.find(c => c.id === categoryId);
-    if (cat) {
-      setSelectedFilter({ type: 'dietary', value: cat.title });
+    const categoryTitle = categoryMap[categoryId];
+    if (categoryTitle) {
+      setSelectedFilter({ type: 'dietary', value: categoryTitle });
       setSearchQuery('');
     }
   };

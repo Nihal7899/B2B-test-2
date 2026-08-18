@@ -41,7 +41,7 @@ import { FilteredProductsScreen } from '@/screens/FilteredProductsScreen';
 import { BusinessRegistrationScreen } from '@/screens/BusinessRegistrationScreen';
 import { AuthScreen } from '@/screens/AuthScreen';
 import { StoreScreen } from '@/screens/StoreScreen';
-import StoreManager from '@/components/admin/StoreManager'; // <-- NEW
+import StoreManager from '@/components/Admin/StoreManager'; // <-- NEW
 
 import type {
   Category,

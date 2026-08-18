@@ -1,3 +1,62 @@
+export interface FeatureItem {
+  id: string;
+  icon: string;   // emoji or image URL
+  title: string;
+  description: string;
+}
+
+export interface StoreConfig {
+  header: {
+    title: string;
+    subtitle: string;
+    cartBadgeCount: number;
+  };
+  hero: {
+    enabled: boolean;
+    imageUrl: string;
+    overlayColor: string;
+    overlayOpacity: number;   // 0-100
+    tagline: string;
+    ctaText: string;
+    ctaLink: string;
+  };
+  stats: {
+    enabled: boolean;
+    productsCount: number;
+    customersCount: number;
+    years: number;
+    deliveriesCount: number;
+  };
+  promoStrip: {
+    enabled: boolean;
+    message: string;
+    ctaText: string;
+    ctaLink: string;
+    backgroundColor: string;
+    textColor: string;
+  };
+  features: {
+    enabled: boolean;
+    items: FeatureItem[];
+  };
+  iconGrid: IconGridItem[];
+  dietaryNeeds: CategoryCard[];
+  promoBanner: PromoBanner;
+  categories: CategorySection[];
+  packaging: PackagingItem[];
+  otherStores: OtherStoreItem[];
+  theme: {
+    primaryColor: string;
+    secondaryColor: string;
+    textColor: string;
+    borderColor: string;
+    buttonStyle: 'brand' | 'outline' | 'ghost';
+    cardRadius: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+    shadowIntensity: 'none' | 'sm' | 'md' | 'lg';
+  };
+}
+
+// Existing interfaces (unchanged)
 export interface IconGridItem {
   id: string;
   title: string;
@@ -61,18 +120,4 @@ export interface PackagingItem {
 export interface OtherStoreItem {
   id: string;
   storeId: string;
-}
-
-export interface StoreConfig {
-  header: {
-    title: string;
-    subtitle: string;
-    cartBadgeCount: number;
-  };
-  iconGrid: IconGridItem[];
-  dietaryNeeds: CategoryCard[];
-  promoBanner: PromoBanner;
-  categories: CategorySection[];
-  packaging: PackagingItem[];
-  otherStores: OtherStoreItem[];
 }

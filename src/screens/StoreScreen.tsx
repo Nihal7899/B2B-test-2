@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
-import { ChevronLeft, Search, ShoppingCart, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, Search, ShoppingCart, ChevronRight, X, Star, Truck, ShieldCheck, Tag, RotateCcw } from 'lucide-react';
 import { useCart } from '@/store';
 import { fetchProductsByIds, fetchStores } from '@/services/catalog';
 import type { Product as AppProduct, Store } from '@/types';
@@ -15,7 +15,7 @@ interface StoreScreenProps {
 function StoreSkeleton() {
   return (
     <div className="min-h-screen bg-white pb-20">
-      <div className="h-16 bg-gray-100 animate-pulse"></div>
+      <div className="h-64 bg-gray-100 animate-pulse"></div>
       <div className="px-4 py-2">
         <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
       </div>
@@ -26,24 +26,8 @@ function StoreSkeleton() {
           ))}
         </div>
       </div>
-      <div className="px-4 py-2">
-        <div className="h-8 w-32 bg-gray-100 rounded animate-pulse mb-3"></div>
-        <div className="grid grid-cols-2 gap-3">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
-          ))}
-        </div>
-      </div>
       <div className="px-4 py-3">
         <div className="h-40 bg-gray-100 rounded-2xl animate-pulse"></div>
-      </div>
-      <div className="px-4 py-3">
-        <div className="h-8 w-32 bg-gray-100 rounded animate-pulse mb-3"></div>
-        <div className="grid grid-cols-2 gap-3">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -53,16 +37,29 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const { config, loading } = useStore();
   const navigate = useNavigate();
   const cart = useCart();
-  const { header, iconGrid, dietaryNeeds, promoBanner, categories, packaging, otherStores } = config;
+  const {
+    header,
+    hero,
+    stats,
+    promoStrip,
+    features,
+    iconGrid,
+    dietaryNeeds,
+    promoBanner,
+    categories,
+    packaging,
+    otherStores,
+    theme,
+  } = config;
 
-  // ✅ ALL hooks at the top – unconditionally called
+  // State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [otherStoreDetails, setOtherStoreDetails] = useState<Store[]>([]);
 
-  // Memoized values
+  // Memoized
   const allProductIds = useMemo(() => {
     const ids: string[] = [];
     categories.forEach(cat => {
@@ -141,18 +138,132 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
   const hasActiveFilter = !!(selectedCategoryId || searchQuery.trim());
 
-  // ✅ Conditional returns are now at the bottom, after ALL hooks
-  if (loading) {
-    return <StoreSkeleton />;
-  }
+  // Theme classes
+  const radiusMap = {
+    sm: 'rounded',
+    md: 'rounded-md',
+    lg: 'rounded-lg',
+    xl: 'rounded-xl',
+    full: 'rounded-full',
+  };
+  const shadowMap = {
+    none: 'shadow-none',
+    sm: 'shadow-sm',
+    md: 'shadow',
+    lg: 'shadow-lg',
+  };
+  const cardRadius = radiusMap[theme?.cardRadius || 'xl'];
+  const cardShadow = shadowMap[theme?.shadowIntensity || 'md'];
 
-  if (productsLoading) {
-    return <StoreSkeleton />;
-  }
+  if (loading) return <StoreSkeleton />;
+  if (productsLoading) return <StoreSkeleton />;
 
   return (
     <div className="min-h-screen bg-white pb-20">
-      {/* Header */}
+      {/* ===== HERO BANNER ===== */}
+      {hero.enabled && hero.imageUrl && (
+        <div className="relative h-[220px] md:h-[280px] overflow-hidden">
+          <img src={hero.imageUrl} alt={header.title} className="h-full w-full object-cover" />
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundColor: hero.overlayColor || '#000000',
+              opacity: (hero.overlayOpacity || 50) / 100,
+            }}
+          />
+          <div className="absolute inset-0 flex flex-col items-start justify-center px-6 text-white">
+            <h2 className="text-3xl md:text-4xl font-extrabold leading-tight drop-shadow-lg">
+              {header.title}
+            </h2>
+            {hero.tagline && (
+              <p className="text-sm md:text-base opacity-90 mt-1 max-w-md drop-shadow">
+                {hero.tagline}
+              </p>
+            )}
+            {hero.ctaText && hero.ctaLink && (
+              <button
+                onClick={() => navigate(hero.ctaLink)}
+                className="mt-4 px-6 py-2.5 rounded-xl bg-white text-gray-900 font-bold text-sm shadow-lg hover:bg-gray-100 transition"
+              >
+                {hero.ctaText}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== PROMO STRIP ===== */}
+      {promoStrip.enabled && promoStrip.message && (
+        <div
+          className="py-3 px-4 text-center text-sm font-medium flex items-center justify-center gap-3 flex-wrap"
+          style={{ backgroundColor: promoStrip.backgroundColor || '#10b981', color: promoStrip.textColor || '#ffffff' }}
+        >
+          <span>{promoStrip.message}</span>
+          {promoStrip.ctaText && promoStrip.ctaLink && (
+            <button
+              onClick={() => navigate(promoStrip.ctaLink)}
+              className="bg-white/20 backdrop-blur-sm px-4 py-1 rounded-full text-xs font-bold"
+            >
+              {promoStrip.ctaText}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ===== STATS BAR ===== */}
+      {stats.enabled && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-4 py-4 bg-gray-50 border-b">
+          {stats.productsCount > 0 && (
+            <div className="text-center">
+              <p className="text-xl font-extrabold" style={{ color: theme?.primaryColor || '#10b981' }}>
+                {stats.productsCount}+
+              </p>
+              <p className="text-xs text-gray-500">Products</p>
+            </div>
+          )}
+          {stats.customersCount > 0 && (
+            <div className="text-center">
+              <p className="text-xl font-extrabold" style={{ color: theme?.primaryColor || '#10b981' }}>
+                {stats.customersCount}+
+              </p>
+              <p className="text-xs text-gray-500">Happy Customers</p>
+            </div>
+          )}
+          {stats.years > 0 && (
+            <div className="text-center">
+              <p className="text-xl font-extrabold" style={{ color: theme?.primaryColor || '#10b981' }}>
+                {stats.years}
+              </p>
+              <p className="text-xs text-gray-500">Years of Trust</p>
+            </div>
+          )}
+          {stats.deliveriesCount > 0 && (
+            <div className="text-center">
+              <p className="text-xl font-extrabold" style={{ color: theme?.primaryColor || '#10b981' }}>
+                {stats.deliveriesCount}+
+              </p>
+              <p className="text-xs text-gray-500">Deliveries</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== FEATURES ===== */}
+      {features.enabled && features.items.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-4 py-4 border-b">
+          {features.items.map((item) => (
+            <div key={item.id} className="flex flex-col items-center text-center">
+              <div className="text-3xl">{item.icon}</div>
+              <h4 className="text-sm font-semibold mt-1" style={{ color: theme?.textColor || '#1f2937' }}>
+                {item.title}
+              </h4>
+              <p className="text-[10px] text-gray-500 mt-0.5">{item.description}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ===== HEADER WITH BACK & CART ===== */}
       <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-1 rounded-full hover:bg-gray-50">
@@ -221,6 +332,15 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                 onIncrement={() => cart.addToCart(product)}
                 onDecrement={() => cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)}
                 onClick={() => navigate(`/product?id=${product.id}`)}
+                theme={{
+                  primaryColor: theme?.primaryColor || '#10b981',
+                  secondaryColor: theme?.secondaryColor || '#059669',
+                  textColor: theme?.textColor || '#1f2937',
+                  borderColor: theme?.borderColor || '#e5e7eb',
+                  buttonStyle: theme?.buttonStyle || 'brand',
+                  cardRadius: theme?.cardRadius || 'xl',
+                  shadowIntensity: theme?.shadowIntensity || 'md',
+                }}
               />
             ))}
           </div>
@@ -266,7 +386,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             </section>
           )}
 
-          {/* Promo Banner */}
+          {/* Promo Banner (existing) */}
           {promoBanner.title && (
             <section className="px-4 py-3">
               <div className={`rounded-2xl p-4 ${promoBanner.backgroundTheme} relative overflow-hidden min-h-[140px]`}>
@@ -344,6 +464,15 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                       onIncrement={() => cart.addToCart(product)}
                       onDecrement={() => cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)}
                       onClick={() => navigate(`/product?id=${product.id}`)}
+                      theme={{
+                        primaryColor: theme?.primaryColor || '#10b981',
+                        secondaryColor: theme?.secondaryColor || '#059669',
+                        textColor: theme?.textColor || '#1f2937',
+                        borderColor: theme?.borderColor || '#e5e7eb',
+                        buttonStyle: theme?.buttonStyle || 'brand',
+                        cardRadius: theme?.cardRadius || 'xl',
+                        shadowIntensity: theme?.shadowIntensity || 'md',
+                      }}
                     />
                   ))}
                 </div>
@@ -365,6 +494,15 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                     onIncrement={() => cart.addToCart(product)}
                     onDecrement={() => cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)}
                     onClick={() => navigate(`/product?id=${product.id}`)}
+                    theme={{
+                      primaryColor: theme?.primaryColor || '#10b981',
+                      secondaryColor: theme?.secondaryColor || '#059669',
+                      textColor: theme?.textColor || '#1f2937',
+                      borderColor: theme?.borderColor || '#e5e7eb',
+                      buttonStyle: theme?.buttonStyle || 'brand',
+                      cardRadius: theme?.cardRadius || 'xl',
+                      shadowIntensity: theme?.shadowIntensity || 'md',
+                    }}
                   />
                 ))}
               </div>

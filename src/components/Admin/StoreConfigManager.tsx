@@ -560,3 +560,380 @@ function ListEditor<T extends { id: string }>({
     </div>
   );
 }
+
+// Hero Editor
+function HeroEditor() {
+  const { config, updateConfig } = useStore();
+  const { hero } = config;
+
+  const updateHero = (field: string, value: any) => {
+    updateConfig({ ...config, hero: { ...hero, [field]: value } });
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold text-lg">Hero Banner</h3>
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-medium text-gray-700">Enabled</label>
+        <input
+          type="checkbox"
+          checked={hero.enabled}
+          onChange={e => updateHero('enabled', e.target.checked)}
+          className="accent-green-600"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Image URL</label>
+        <input
+          value={hero.imageUrl}
+          onChange={e => updateHero('imageUrl', e.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+        {hero.imageUrl && (
+          <img src={hero.imageUrl} alt="Hero" className="mt-2 h-32 w-full rounded-xl object-cover" />
+        )}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Overlay Color</label>
+        <input
+          type="color"
+          value={hero.overlayColor}
+          onChange={e => updateHero('overlayColor', e.target.value)}
+          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Overlay Opacity (0-100)</label>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={hero.overlayOpacity}
+          onChange={e => updateHero('overlayOpacity', Number(e.target.value))}
+          className="w-full"
+        />
+        <span className="text-xs text-gray-500">{hero.overlayOpacity}%</span>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Tagline</label>
+        <input
+          value={hero.tagline}
+          onChange={e => updateHero('tagline', e.target.value)}
+          placeholder="e.g. Fresh from the farm to your table"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">CTA Text</label>
+        <input
+          value={hero.ctaText}
+          onChange={e => updateHero('ctaText', e.target.value)}
+          placeholder="e.g. Shop Now"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">CTA Link</label>
+        <input
+          value={hero.ctaLink}
+          onChange={e => updateHero('ctaLink', e.target.value)}
+          placeholder="e.g. /categories"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+    </div>
+  );
+}
+
+// Stats Editor
+function StatsEditor() {
+  const { config, updateConfig } = useStore();
+  const { stats } = config;
+
+  const updateStats = (field: string, value: any) => {
+    updateConfig({ ...config, stats: { ...stats, [field]: value } });
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold text-lg">Stats Bar</h3>
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-medium text-gray-700">Enabled</label>
+        <input
+          type="checkbox"
+          checked={stats.enabled}
+          onChange={e => updateStats('enabled', e.target.checked)}
+          className="accent-green-600"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Products Count</label>
+        <input
+          type="number"
+          value={stats.productsCount}
+          onChange={e => updateStats('productsCount', Number(e.target.value))}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Happy Customers</label>
+        <input
+          type="number"
+          value={stats.customersCount}
+          onChange={e => updateStats('customersCount', Number(e.target.value))}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Years of Experience</label>
+        <input
+          type="number"
+          value={stats.years}
+          onChange={e => updateStats('years', Number(e.target.value))}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Deliveries</label>
+        <input
+          type="number"
+          value={stats.deliveriesCount}
+          onChange={e => updateStats('deliveriesCount', Number(e.target.value))}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+    </div>
+  );
+}
+
+// Promo Strip Editor
+function PromoStripEditor() {
+  const { config, updateConfig } = useStore();
+  const { promoStrip } = config;
+
+  const updatePromoStrip = (field: string, value: any) => {
+    updateConfig({ ...config, promoStrip: { ...promoStrip, [field]: value } });
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold text-lg">Promo Strip</h3>
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-medium text-gray-700">Enabled</label>
+        <input
+          type="checkbox"
+          checked={promoStrip.enabled}
+          onChange={e => updatePromoStrip('enabled', e.target.checked)}
+          className="accent-green-600"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Message</label>
+        <input
+          value={promoStrip.message}
+          onChange={e => updatePromoStrip('message', e.target.value)}
+          placeholder="e.g. 🎉 Festival Sale! Up to 40% off"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">CTA Text</label>
+        <input
+          value={promoStrip.ctaText}
+          onChange={e => updatePromoStrip('ctaText', e.target.value)}
+          placeholder="e.g. Grab Deal"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">CTA Link</label>
+        <input
+          value={promoStrip.ctaLink}
+          onChange={e => updatePromoStrip('ctaLink', e.target.value)}
+          placeholder="e.g. /products"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Background Color</label>
+        <input
+          type="color"
+          value={promoStrip.backgroundColor}
+          onChange={e => updatePromoStrip('backgroundColor', e.target.value)}
+          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Text Color</label>
+        <input
+          type="color"
+          value={promoStrip.textColor}
+          onChange={e => updatePromoStrip('textColor', e.target.value)}
+          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+        />
+      </div>
+    </div>
+  );
+}
+
+// Features Editor
+function FeaturesEditor() {
+  const { config, updateConfig } = useStore();
+  const { features } = config;
+
+  const updateFeatures = (newItems: FeatureItem[]) => {
+    updateConfig({ ...config, features: { ...features, items: newItems } });
+  };
+
+  const toggleEnabled = () => {
+    updateConfig({ ...config, features: { ...features, enabled: !features.enabled } });
+  };
+
+  const addItem = () => {
+    const newItem: FeatureItem = {
+      id: Date.now().toString(),
+      icon: '⭐',
+      title: 'New Feature',
+      description: 'Description',
+    };
+    updateFeatures([...features.items, newItem]);
+  };
+
+  const updateItem = (index: number, field: keyof FeatureItem, value: string) => {
+    const updated = [...features.items];
+    updated[index] = { ...updated[index], [field]: value };
+    updateFeatures(updated);
+  };
+
+  const removeItem = (index: number) => {
+    updateFeatures(features.items.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-lg">Features</h3>
+        <button onClick={toggleEnabled} className="text-sm text-green-600 font-medium">
+          {features.enabled ? 'Disable' : 'Enable'}
+        </button>
+      </div>
+      {features.items.map((item, idx) => (
+        <div key={item.id} className="flex items-center gap-2 border-b pb-2">
+          <input
+            value={item.icon}
+            onChange={e => updateItem(idx, 'icon', e.target.value)}
+            placeholder="Icon (emoji or URL)"
+            className="w-20 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={item.title}
+            onChange={e => updateItem(idx, 'title', e.target.value)}
+            placeholder="Title"
+            className="flex-1 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={item.description}
+            onChange={e => updateItem(idx, 'description', e.target.value)}
+            placeholder="Description"
+            className="flex-1 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <button onClick={() => removeItem(idx)} className="text-red-400"><Trash2 size={16} /></button>
+        </div>
+      ))}
+      <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600">
+        <Plus size={16} /> Add Feature
+      </button>
+    </div>
+  );
+}
+
+// Theme Editor
+function ThemeEditor() {
+  const { config, updateConfig } = useStore();
+  const { theme } = config;
+
+  const updateTheme = (field: string, value: any) => {
+    updateConfig({ ...config, theme: { ...theme, [field]: value } });
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold text-lg">Theme Settings</h3>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Primary Color</label>
+        <input
+          type="color"
+          value={theme.primaryColor}
+          onChange={e => updateTheme('primaryColor', e.target.value)}
+          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Secondary Color</label>
+        <input
+          type="color"
+          value={theme.secondaryColor}
+          onChange={e => updateTheme('secondaryColor', e.target.value)}
+          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Text Color</label>
+        <input
+          type="color"
+          value={theme.textColor}
+          onChange={e => updateTheme('textColor', e.target.value)}
+          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Border Color</label>
+        <input
+          type="color"
+          value={theme.borderColor}
+          onChange={e => updateTheme('borderColor', e.target.value)}
+          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Button Style</label>
+        <select
+          value={theme.buttonStyle}
+          onChange={e => updateTheme('buttonStyle', e.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        >
+          <option value="brand">Brand</option>
+          <option value="outline">Outline</option>
+          <option value="ghost">Ghost</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Card Radius</label>
+        <select
+          value={theme.cardRadius}
+          onChange={e => updateTheme('cardRadius', e.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        >
+          <option value="sm">Small</option>
+          <option value="md">Medium</option>
+          <option value="lg">Large</option>
+          <option value="xl">Extra Large</option>
+          <option value="full">Full</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Shadow Intensity</label>
+        <select
+          value={theme.shadowIntensity}
+          onChange={e => updateTheme('shadowIntensity', e.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        >
+          <option value="none">None</option>
+          <option value="sm">Small</option>
+          <option value="md">Medium</option>
+          <option value="lg">Large</option>
+        </select>
+      </div>
+    </div>
+  );
+}

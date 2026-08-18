@@ -1,317 +1,234 @@
-// screens/StoreScreen.tsx
-import { useEffect, useState, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Filter, Grid3x3, List, Search, X, Star, Truck, ShieldCheck, Tag } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import type { Store, Product } from '@/types';
-import { fetchStoreById, fetchProductsByIds } from '@/services/catalog';
-import { useCart } from '@/store';
-import { ProductGrid } from '@/components/ProductGrid';
-import { ProductListView } from '@/components/ProductListView';
-import { FilterDrawer } from '@/components/FilterDrawer';
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { StoreProvider, useStore } from '@/context/StoreContext';
+import { ChevronLeft, Search, ShoppingCart, Plus, Minus, ChevronRight } from 'lucide-react';
+import { Product } from '@/types/storeConfig';
 
-export function StoreScreen() {
-  const [searchParams] = useSearchParams();
-  const storeId = searchParams.get('storeId');
+function StoreScreenContent() {
+  const { config } = useStore();
   const navigate = useNavigate();
-  const cart = useCart();
+  const { header, iconGrid, dietaryNeeds, promoBanner, categories, packaging, otherStores } = config;
 
-  const [store, setStore] = useState<Store | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({
-    categories: [] as string[],
-    minPrice: 0,
-    maxPrice: Infinity,
-    inStock: false,
-  });
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
 
-  // Load store and products
-  useEffect(() => {
-    if (!storeId) {
-      navigate('/');
-      return;
-    }
-    (async () => {
-      try {
-        const storeData = await fetchStoreById(storeId);
-        setStore(storeData);
-        if (storeData && storeData.product_ids?.length) {
-          const productList = await fetchProductsByIds(storeData.product_ids);
-          setProducts(productList);
-        } else {
-          setProducts([]);
-        }
-      } catch (err) {
-        console.error('Failed to load store', err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [storeId, navigate]);
+  const updateQuantity = (productId: string, delta: number) => {
+    setQuantities(prev => ({
+      ...prev,
+      [productId]: Math.max(0, (prev[productId] || 0) + delta),
+    }));
+  };
 
-  // Filter & search logic
-  const filteredProducts = useMemo(() => {
-    let result = products;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(p =>
-        `${p.brand} ${p.name} ${p.category}`.toLowerCase().includes(q)
-      );
-    }
-    if (filters.categories.length) {
-      result = result.filter(p => filters.categories.includes(p.category));
-    }
-    result = result.filter(p => p.price >= filters.minPrice && p.price <= filters.maxPrice);
-    if (filters.inStock) {
-      result = result.filter(p => p.stock > 0);
-    }
-    return result;
-  }, [products, searchQuery, filters]);
+  // Helper to render product cards
+  const renderProductCard = (product: Product) => {
+    const qty = quantities[product.id] || 0;
+    const tier = product.tieredPricing[0];
+    const tierLabel = tier ? `₹${tier.unitPrice} for ${tier.minQty} ${product.packSize}+` : null;
 
-  // Unique categories from store products
-  const storeCategories = useMemo(
-    () => [...new Set(products.map(p => p.category))].filter(Boolean),
-    [products]
-  );
-
-  // Featured products (first 4)
-  const featuredProducts = useMemo(() => products.slice(0, 4), [products]);
-
-  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
+      <div key={product.id} className="bg-white rounded-2xl border border-gray-100 p-2 shadow-sm">
+        <img src={product.imageUrl} alt={product.title} className="w-full h-32 object-cover rounded-xl" />
+        <div className="mt-2">
+          <h4 className="text-sm font-bold text-gray-800 line-clamp-2">{product.title}</h4>
+          <p className="text-xs text-gray-500">{product.packSize}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-base font-extrabold text-gray-900">₹{product.price}</span>
+            <span className="text-xs text-gray-400 line-through">₹{product.originalPrice}</span>
+          </div>
+          {tierLabel && <p className="text-[10px] text-blue-600 font-medium mt-0.5">{tierLabel}</p>}
+          <div className="mt-2">
+            {qty === 0 ? (
+              <button
+                onClick={() => updateQuantity(product.id, 1)}
+                className="w-full py-1.5 rounded-lg border border-red-200 text-red-500 font-bold text-sm hover:bg-red-50 transition"
+              >
+                + ADD
+              </button>
+            ) : (
+              <div className="flex items-center justify-between bg-red-50 rounded-lg px-2 py-1">
+                <button onClick={() => updateQuantity(product.id, -1)} className="p-1 rounded-full hover:bg-red-100">
+                  <Minus size={14} className="text-red-500" />
+                </button>
+                <span className="text-sm font-bold text-red-700">{qty}</span>
+                <button onClick={() => updateQuantity(product.id, 1)} className="p-1 rounded-full hover:bg-red-100">
+                  <Plus size={14} className="text-red-500" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    );
-  }
-
-  if (!store) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <p className="text-ink-600">Store not found</p>
-        <button onClick={() => navigate(-1)} className="text-brand-600 font-bold">
-          Go back
-        </button>
-      </div>
-    );
-  }
-
-  // Theme helpers using hex colors
-  const primary = store.primary_color || '#10b981';
-  const secondary = store.secondary_color || '#059669';
-  const textColor = store.text_color || '#064e3b';
-  const borderColor = store.border_color || '#a7f3d0';
-  const buttonStyle = store.button_style || 'brand';
-
-  const renderButton = (label: string, onClick: () => void, icon?: React.ReactNode) => {
-    const base = 'px-4 py-2 rounded-xl font-bold text-sm transition-all flex items-center gap-2';
-    if (buttonStyle === 'outline') {
-      return (
-        <button
-          onClick={onClick}
-          className={`${base} border-2`}
-          style={{ borderColor: borderColor, color: textColor }}
-        >
-          {icon} {label}
-        </button>
-      );
-    }
-    if (buttonStyle === 'ghost') {
-      return (
-        <button
-          onClick={onClick}
-          className={base}
-          style={{ color: textColor }}
-        >
-          {icon} {label}
-        </button>
-      );
-    }
-    // default: solid
-    return (
-      <button
-        onClick={onClick}
-        className={`${base} text-white shadow-sm`}
-        style={{ backgroundColor: primary }}
-      >
-        {icon} {label}
-      </button>
     );
   };
 
   return (
-    <div className="min-h-screen bg-ink-50">
-      {/* ===== HERO BANNER ===== */}
-      <header className="relative overflow-hidden" style={{ backgroundColor: primary }}>
-        {store.banner_image_url && (
-          <div className="absolute inset-0 opacity-40">
-            <img src={store.banner_image_url} alt="" className="h-full w-full object-cover" />
-          </div>
-        )}
-        <div className="relative z-10 px-4 py-6 max-w-7xl mx-auto text-white">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 rounded-full bg-white/20 backdrop-blur-sm mb-3 inline-flex"
-          >
-            <ArrowLeft size={20} />
+    <div className="min-h-screen bg-white pb-20">
+      {/* Header */}
+      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="p-1 rounded-full hover:bg-gray-50">
+            <ChevronLeft size={20} className="text-gray-700" />
           </button>
-          <div className="flex items-center gap-4">
-            {store.image_url && (
-              <img
-                src={store.image_url}
-                alt={store.name}
-                className="h-20 w-20 rounded-2xl object-cover border-2 border-white shadow-lg"
-              />
-            )}
-            <div>
-              <h1 className="text-3xl font-extrabold">{store.name}</h1>
-              {store.description && (
-                <p className="text-sm opacity-90 mt-1">{store.description}</p>
-              )}
-            </div>
+          <div>
+            <h1 className="text-lg font-bold text-green-800 leading-tight">{header.title}</h1>
+            <p className="text-xs text-gray-500">{header.subtitle}</p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="p-2 rounded-full hover:bg-gray-50">
+            <Search size={18} className="text-gray-600" />
+          </button>
+          <button className="relative p-2 rounded-full hover:bg-gray-50">
+            <ShoppingCart size={18} className="text-gray-600" />
+            {header.cartBadgeCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center">
+                {header.cartBadgeCount}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 
-      {/* ===== STORE STATS / PERKS ===== */}
-      <section className="px-4 py-4 bg-white border-b" style={{ borderColor: borderColor }}>
-        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-          <div className="flex flex-col items-center">
-            <Truck size={20} style={{ color: primary }} />
-            <span className="text-xs font-semibold mt-1" style={{ color: textColor }}>Fast Delivery</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <ShieldCheck size={20} style={{ color: primary }} />
-            <span className="text-xs font-semibold mt-1" style={{ color: textColor }}>Quality Assured</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <Tag size={20} style={{ color: primary }} />
-            <span className="text-xs font-semibold mt-1" style={{ color: textColor }}>Best Prices</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <Star size={20} style={{ color: primary }} />
-            <span className="text-xs font-semibold mt-1" style={{ color: textColor }}>Trusted by 100+</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== CATEGORY PILLS ===== */}
-      {storeCategories.length > 0 && (
-        <section className="px-4 py-3">
-          <div className="max-w-7xl mx-auto flex flex-wrap gap-2">
-            {storeCategories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => {
-                  // Toggle category filter
-                  setFilters(prev => ({
-                    ...prev,
-                    categories: prev.categories.includes(cat)
-                      ? prev.categories.filter(c => c !== cat)
-                      : [...prev.categories, cat]
-                  }));
-                }}
-                className="px-3 py-1.5 rounded-full text-xs font-medium border transition-all"
-                style={{
-                  backgroundColor: filters.categories.includes(cat) ? primary : 'transparent',
-                  color: filters.categories.includes(cat) ? '#fff' : textColor,
-                  borderColor: borderColor,
-                }}
-              >
-                {cat}
-              </button>
+      {/* Icon Grid */}
+      {iconGrid.length > 0 && (
+        <section className="px-4 py-4">
+          <div className="grid grid-cols-4 gap-3">
+            {iconGrid.map(item => (
+              <div key={item.id} className="flex flex-col items-center">
+                <div className="w-14 h-14 rounded-2xl bg-[#F4F9EC] flex items-center justify-center text-3xl">
+                  {item.iconUrl}
+                </div>
+                <span className="text-xs text-center mt-1 font-medium text-gray-700">{item.title}</span>
+              </div>
             ))}
           </div>
         </section>
       )}
 
-      {/* ===== TOOLBAR ===== */}
-      <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b px-4 py-2" style={{ borderColor: borderColor }}>
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[180px] relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search in this store…"
-              className="w-full h-10 pl-9 pr-4 rounded-xl border border-ink-200 bg-ink-50 text-sm outline-none focus:border-brand-500"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400"
-              >
-                <X size={14} />
+      {/* Dietary Needs */}
+      {dietaryNeeds.length > 0 && (
+        <section className="px-4 py-2">
+          <h2 className="text-base font-bold text-gray-800 mb-3">Shop by Dietary Needs</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {dietaryNeeds.map(item => (
+              <div key={item.id} className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                <img src={item.imageUrl} alt={item.title} className="w-full h-28 object-cover" />
+                <div className="p-2 text-center font-semibold text-sm text-gray-700">{item.title}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Promo Banner */}
+      {promoBanner.title && (
+        <section className="px-4 py-3">
+          <div className={`rounded-2xl p-4 ${promoBanner.backgroundTheme} relative overflow-hidden min-h-[140px]`}>
+            <div className="space-y-1 max-w-[60%]">
+              {promoBanner.badge && (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-green-800 bg-white/30 px-2 py-0.5 rounded-full">
+                  {promoBanner.badge}
+                </span>
+              )}
+              <h3 className="text-xl font-extrabold text-green-900 leading-tight">{promoBanner.title}</h3>
+              {promoBanner.subtitle && (
+                <p className="text-sm text-green-800 opacity-80">{promoBanner.subtitle}</p>
+              )}
+            </div>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+              {promoBanner.floatingProductImages.slice(0, 3).map((url, idx) => (
+                <img key={idx} src={url} alt="" className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-md" />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Categories */}
+      {categories.map((category) => (
+        <section key={category.id} className="px-4 py-3 border-t border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-bold text-gray-800">{category.title}</h2>
+            {category.products.length > 4 && (
+              <button className="text-xs font-semibold text-green-600 flex items-center">
+                See all <ChevronRight size={14} />
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            {renderButton('Filter', () => setShowFilters(true), <Filter size={16} />)}
-            <div className="flex border rounded-xl overflow-hidden" style={{ borderColor: borderColor }}>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 ${viewMode === 'grid' ? 'bg-ink-100' : ''}`}
-                style={{ color: viewMode === 'grid' ? textColor : '#9ca3af' }}
-              >
-                <Grid3x3 size={16} />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 ${viewMode === 'list' ? 'bg-ink-100' : ''}`}
-                style={{ color: viewMode === 'list' ? textColor : '#9ca3af' }}
-              >
-                <List size={16} />
-              </button>
+
+          {/* Tabs */}
+          {category.tabs.length > 0 && (
+            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+              {category.tabs.map(tab => (
+                <div key={tab.id} className="flex flex-col items-center shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-[#F4F9EC] flex items-center justify-center text-xl">
+                    {tab.iconUrl}
+                  </div>
+                  <span className="text-[10px] mt-1 text-gray-600 whitespace-nowrap">{tab.label}</span>
+                </div>
+              ))}
             </div>
+          )}
+
+          {/* Pill filters */}
+          {category.pillFilters && category.pillFilters.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {category.pillFilters.map(pill => (
+                <span key={pill} className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                  {pill}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Products */}
+          {category.products.length > 0 && (
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {category.products.slice(0, 4).map(renderProductCard)}
+            </div>
+          )}
+        </section>
+      ))}
+
+      {/* Packaging */}
+      {packaging.length > 0 && (
+        <section className="px-4 py-3 border-t border-gray-100">
+          <h2 className="text-base font-bold text-gray-800 mb-3">Serve Healthy, Better</h2>
+          <div className="grid grid-cols-3 gap-3">
+            {packaging.map(item => (
+              <div key={item.id} className="rounded-2xl overflow-hidden border border-gray-100">
+                <img src={item.imageUrl} alt={item.title} className="w-full h-24 object-cover" />
+                <div className="p-2 text-center text-xs font-medium text-gray-700">{item.title}</div>
+              </div>
+            ))}
           </div>
-        </div>
-      </div>
+        </section>
+      )}
 
-      {/* ===== PRODUCT LISTING ===== */}
-      <div className="px-4 py-4 max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-3">
-          <p className="text-sm text-ink-500">
-            {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
-          </p>
-        </div>
-
-        {viewMode === 'grid' ? (
-          <ProductGrid products={filteredProducts} cart={cart} />
-        ) : (
-          <ProductListView products={filteredProducts} cart={cart} />
-        )}
-      </div>
-
-      {/* ===== FILTER DRAWER ===== */}
-      <FilterDrawer
-        isOpen={showFilters}
-        onClose={() => setShowFilters(false)}
-        categories={storeCategories}
-        selectedCategories={filters.categories}
-        onCategoryToggle={(cat) =>
-          setFilters(prev => ({
-            ...prev,
-            categories: prev.categories.includes(cat)
-              ? prev.categories.filter(c => c !== cat)
-              : [...prev.categories, cat],
-          }))
-        }
-        priceRange={{
-          min: filters.minPrice,
-          max: filters.maxPrice === Infinity ? 100000 : filters.maxPrice,
-        }}
-        onPriceChange={(min, max) =>
-          setFilters(prev => ({ ...prev, minPrice: min, maxPrice: max || Infinity }))
-        }
-        inStock={filters.inStock}
-        onInStockToggle={() => setFilters(prev => ({ ...prev, inStock: !prev.inStock }))}
-        theme={{ primary, secondary, textColor, borderColor, buttonStyle }}
-      />
+      {/* Other Stores */}
+      {otherStores.length > 0 && (
+        <section className="px-4 py-3 border-t border-gray-100">
+          <h2 className="text-base font-bold text-gray-800 mb-3">Other Stores for You</h2>
+          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+            {otherStores.map(store => (
+              <div key={store.id} className="shrink-0 w-32 rounded-2xl overflow-hidden border border-gray-100 bg-[#F8FAF4]">
+                <img src={store.imageUrl} alt={store.title} className="w-full h-20 object-cover" />
+                <div className="p-2 text-center text-xs font-medium text-gray-700">{store.title}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
+  );
+}
+
+// Wrapper that reads storeId from URL
+export default function StoreScreen() {
+  const { storeId } = useParams<{ storeId: string }>();
+  if (!storeId) return <div className="p-4 text-center">Store ID missing</div>;
+  return (
+    <StoreProvider storeId={storeId}>
+      <StoreScreenContent />
+    </StoreProvider>
   );
 }

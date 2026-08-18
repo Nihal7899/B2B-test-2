@@ -17,6 +17,7 @@ import type {
   DeliveryCharge,
   CartItem,
 } from '@/types';
+import { StoreConfig } from '@/types/storeConfig';
 
 export interface DbCategory {
   id: string;
@@ -1132,4 +1133,39 @@ export async function checkPointInDeliveryRange(lat: number, lng: number): Promi
     return false;
   }
   return data ?? false;
+}
+
+export async function fetchStoreConfig(storeId: string): Promise<StoreConfig> {
+  const { data, error } = await supabase
+    .from('stores')
+    .select('config')
+    .eq('id', storeId)
+    .single();
+  if (error) throw error;
+  return data.config as StoreConfig;
+}
+
+export async function updateStoreConfig(storeId: string, config: StoreConfig): Promise<void> {
+  const { error } = await supabase
+    .from('stores')
+    .update({ config })
+    .eq('id', storeId);
+  if (error) throw error;
+}
+
+export async function uploadStoreImage(
+  storeId: string,
+  file: File,
+  folder: string = 'general'
+): Promise<string> {
+  const fileName = `${Date.now()}_${file.name}`;
+  const path = `stores/${storeId}/${folder}/${fileName}`;
+  const { data, error } = await supabase.storage
+    .from('store-images')
+    .upload(path, file);
+  if (error) throw error;
+  const { data: urlData } = supabase.storage
+    .from('store-images')
+    .getPublicUrl(path);
+  return urlData.publicUrl;
 }

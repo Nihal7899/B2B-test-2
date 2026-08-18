@@ -58,6 +58,7 @@ CREATE TABLE public.products (
   subcategory_id uuid,
   hsn_code text,
   gst_percentage numeric DEFAULT 0 CHECK (gst_percentage >= 0::numeric AND gst_percentage <= 100::numeric),
+  product_code text UNIQUE,
   CONSTRAINT products_pkey PRIMARY KEY (id),
   CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
 );
@@ -169,6 +170,7 @@ CREATE TABLE public.order_items (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   hsn_code text,
   gst_percentage numeric DEFAULT 0,
+  product_code text,
   CONSTRAINT order_items_pkey PRIMARY KEY (id),
   CONSTRAINT order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id),
   CONSTRAINT order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
@@ -404,4 +406,36 @@ CREATE TABLE public.delivery_ranges (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT delivery_ranges_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.user_push_subscriptions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  onesignal_player_id text NOT NULL,
+  device_info jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_push_subscriptions_pkey PRIMARY KEY (id),
+  CONSTRAINT user_push_subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.push_notifications (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  body text NOT NULL,
+  data jsonb,
+  sent_at timestamp with time zone DEFAULT now(),
+  sent_by uuid,
+  audience_count integer,
+  status text DEFAULT 'sent'::text,
+  image_url text,
+  small_icon text,
+  large_icon text,
+  big_picture text,
+  deep_link text,
+  action_buttons jsonb,
+  sound text,
+  badge_count integer,
+  schedule_at timestamp with time zone,
+  audience text DEFAULT 'all'::text,
+  CONSTRAINT push_notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT push_notifications_sent_by_fkey FOREIGN KEY (sent_by) REFERENCES auth.users(id)
 );

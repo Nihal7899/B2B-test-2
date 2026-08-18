@@ -1,4 +1,4 @@
-// App.tsx – full 1062 lines with notification action handler
+// App.tsx – full 1080 lines with StoreScreen integration
 
 import {
   useMemo,
@@ -40,6 +40,7 @@ import { DeliveryScreen } from '@/screens/DeliveryScreen';
 import { FilteredProductsScreen } from '@/screens/FilteredProductsScreen';
 import { BusinessRegistrationScreen } from '@/screens/BusinessRegistrationScreen';
 import { AuthScreen } from '@/screens/AuthScreen';
+import { StoreScreen } from '@/screens/StoreScreen'; // <-- NEW
 
 import type {
   Category,
@@ -87,6 +88,7 @@ const SCREEN_TO_PATH: Record<ScreenName, string> = {
   businessSelect: '/business-select',
   outletSelect: '/outlet-select',
   filteredProducts: '/filtered',
+  store: '/store', // <-- NEW
 };
 
 
@@ -522,41 +524,20 @@ function App() {
 
 
   // ==========================================================
-  // STORE
+  // STORE (UPDATED to navigate to StoreScreen)
   // ==========================================================
 
   const openStore = (
     store: Store
   ) => {
 
-    if (
-      store.product_ids &&
-      store.product_ids.length > 0
-    ) {
-
-      filterConfigRef.current = {
-        product_ids:
-          store.product_ids,
-      };
-
-
-      filterTitleRef.current =
-        store.name;
-
-
-      navigate(
-        pathFor(
-          'filteredProducts'
-        )
-      );
-
-    } else {
-
-      navigate(
-        pathFor('home')
-      );
-
-    }
+    // Navigate to the dedicated StoreScreen with storeId as query param
+    navigate(
+      pathFor(
+        'store',
+        { storeId: store.id }
+      )
+    );
 
   };
 
@@ -743,7 +724,7 @@ function App() {
         goTo('categories')
       }
       onStoreClick={
-        openStore
+        openStore   // <-- now navigates to StoreScreen
       }
       cart={cart}
       onBannerAction={
@@ -1032,6 +1013,17 @@ function App() {
               }
             />
           );
+
+        }
+
+
+        // ============================================================
+        // NEW: STORE SCREEN
+        // ============================================================
+        case 'store': {
+
+          // StoreScreen reads storeId from query param itself
+          return <StoreScreen />;
 
         }
 

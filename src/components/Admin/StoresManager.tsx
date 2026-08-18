@@ -134,11 +134,13 @@ function StoreForm({
   const [form, setForm] = useState({
     name: initial?.name ?? '',
     image_url: initial?.image_url ?? '',
+    banner_image_url: initial?.banner_image_url ?? '',
     description: initial?.description ?? '',
     theme_bg: initial?.theme_bg ?? 'bg-emerald-50',
     theme_border: initial?.theme_border ?? 'border-emerald-200',
     theme_text: initial?.theme_text ?? 'text-emerald-900',
     theme_accent: initial?.theme_accent ?? 'bg-emerald-600',
+    button_style: initial?.button_style ?? 'brand',
     product_ids: initial?.product_ids ?? [],
     sort_order: initial?.sort_order ?? 0,
     is_active: initial?.is_active ?? true,
@@ -186,6 +188,18 @@ function StoreForm({
         )}
       </div>
       <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Banner Image URL</label>
+        <input
+          value={form.banner_image_url}
+          onChange={(e) => setForm({ ...form, banner_image_url: e.target.value })}
+          placeholder="https://..."
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        />
+        {form.banner_image_url && (
+          <img src={form.banner_image_url} alt="" className="h-20 w-full rounded-xl object-cover mt-2" />
+        )}
+      </div>
+      <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Description</label>
         <input
           value={form.description}
@@ -222,6 +236,18 @@ function StoreForm({
             className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
         </div>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Button style</label>
+        <select
+          value={form.button_style}
+          onChange={(e) => setForm({ ...form, button_style: e.target.value })}
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        >
+          <option value="brand">Solid (brand accent)</option>
+          <option value="outline">Outline</option>
+          <option value="ghost">Ghost</option>
+        </select>
       </div>
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Products (select multiple)</label>

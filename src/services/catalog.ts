@@ -1106,3 +1106,24 @@ export async function checkPointInDeliveryRange(lat: number, lng: number): Promi
   }
   return data ?? false;
 }
+
+export async function fetchStoreById(id: string): Promise<Store> {
+  const { data, error } = await supabase
+    .from('stores')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchProductsByIds(ids: string[]): Promise<Product[]> {
+  if (!ids.length) return [];
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .in('id', ids)
+    .order('name');
+  if (error) throw error;
+  return data;
+}

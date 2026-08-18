@@ -4,7 +4,6 @@ import { StoreProvider, useStore } from '@/context/StoreContext';
 import { ChevronLeft, Search, ShoppingCart, ChevronRight, X } from 'lucide-react';
 import { useCart } from '@/store';
 import { fetchProductsByIds, fetchStores } from '@/services/catalog';
-import { supabase } from '@/lib/supabase';
 import type { Product as AppProduct, Store } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 
@@ -20,28 +19,10 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<{ type: 'category' | 'dietary'; value: string } | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [otherStoreDetails, setOtherStoreDetails] = useState<Store[]>([]);
-  const [globalCategoryMap, setGlobalCategoryMap] = useState<Record<string, string>>({}); // title -> slug
-
-  // Fetch global categories to map title -> slug
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('name, slug')
-        .eq('is_active', true);
-      if (!error && data) {
-        const map: Record<string, string> = {};
-        data.forEach((c: any) => {
-          map[c.name] = c.slug;
-        });
-        setGlobalCategoryMap(map);
-      }
-    })();
-  }, []);
 
   // Fetch all product IDs from all categories
   const allProductIds = useMemo(() => {
@@ -80,10 +61,10 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     });
   }, [otherStores]);
 
-  // Build a map of category ID -> title
+  // Build a map of category ID -> category object
   const categoryMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    categories.forEach(c => { map[c.id] = c.title; });
+    const map: Record<string, { title: string; productIds: string[] }> = {};
+    categories.forEach(c => { map[c.id] = { title: c.title, productIds: c.productIds }; });
     return map;
   }, [categories]);
 
@@ -98,42 +79,33 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         p.category.toLowerCase().includes(q)
       );
     }
-    if (selectedFilter) {
-      // Convert the selected category title to a slug using the global category map
-      const slug = globalCategoryMap[selectedFilter.value];
-      if (slug) {
-        result = result.filter(p => p.category === slug);
-      } else {
-        // If no match, fallback to filtering by title (for products that might have title stored)
-        result = result.filter(p => p.category === selectedFilter.value);
+    if (selectedCategoryId) {
+      const category = categoryMap[selectedCategoryId];
+      if (category) {
+        // Filter by product IDs that belong to this category
+        result = result.filter(p => category.productIds.includes(p.id));
       }
     }
     return result;
-  }, [products, searchQuery, selectedFilter, globalCategoryMap]);
+  }, [products, searchQuery, selectedCategoryId, categoryMap]);
 
   // Handlers
   const handleIconClick = (categoryId: string) => {
-    const categoryTitle = categoryMap[categoryId];
-    if (categoryTitle) {
-      setSelectedFilter({ type: 'category', value: categoryTitle });
-      setSearchQuery('');
-    }
-  };
-
-  const handleDietaryClick = (categoryId: string) => {
-    const categoryTitle = categoryMap[categoryId];
-    if (categoryTitle) {
-      setSelectedFilter({ type: 'dietary', value: categoryTitle });
-      setSearchQuery('');
-    }
-  };
-
-  const clearFilter = () => {
-    setSelectedFilter(null);
+    setSelectedCategoryId(categoryId);
     setSearchQuery('');
   };
 
-  const hasActiveFilter = !!(selectedFilter || searchQuery.trim());
+  const handleDietaryClick = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+    setSearchQuery('');
+  };
+
+  const clearFilter = () => {
+    setSelectedCategoryId(null);
+    setSearchQuery('');
+  };
+
+  const hasActiveFilter = !!(selectedCategoryId || searchQuery.trim());
 
   if (loading) {
     return (
@@ -191,10 +163,10 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       </div>
 
       {/* Filter chip */}
-      {selectedFilter && (
+      {selectedCategoryId && (
         <div className="px-4 pb-2">
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            {selectedFilter.value}
+            {categoryMap[selectedCategoryId]?.title || 'Category'}
             <button onClick={clearFilter}><X size={12} /></button>
           </span>
         </div>

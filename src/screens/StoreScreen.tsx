@@ -6,22 +6,8 @@ import { useCart } from '@/store';
 import { fetchProductsByIds, fetchStores } from '@/services/catalog';
 import type { Product as AppProduct, Store } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
-import { getStoreIcon } from '@/data/storeIcons'; // create this file (see below)
-import {
-  ChevronLeft,
-  Search,
-  ShoppingCart,
-  ChevronRight,
-  X,
-  ArrowLeft,
-  BadgeCheck,
-  Clock,
-  Package,
-  ShieldCheck,
-  Star,
-  TrendingUp,
-  Truck,
-} from 'lucide-react';
+import { getStoreIcon } from '@/data/storeIcons';
+import { ChevronLeft, Search, ShoppingCart, ChevronRight, X, ArrowLeft, Star, TrendingUp, Package } from 'lucide-react';
 
 interface StoreScreenProps {
   goTo: (screen: string) => void;
@@ -36,19 +22,11 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   if (!config) return <StoreSkeleton />;
 
   const {
-    header = { title: 'Store', subtitle: '', cartBadgeCount: 0 },
-    blurb = '',
-    trustBadge = '',
-    story = '',
+    hero = { enabled: true, image: '', gradientFrom: '#065f46', gradientTo: '#16a34a', title: '', subtitle: '', ctaText: 'Shop Now', ctaLink: '/categories' },
     highlights = [],
-    banners = [],
-    storeTheme = { from: '#10b981', to: '#059669', accent: '#fbbf24' },
     categories = [],
-    packaging = [],
-    otherStores = [],
-    iconGrid = [],
-    dietaryNeeds = [],
-    promoBanner = { badge: '', title: '', subtitle: '', backgroundTheme: 'bg-gray-100', floatingProductImages: [] },
+    bulkDeal = { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package' },
+    trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories' },
   } = config;
 
   // State
@@ -56,26 +34,18 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
-  const [otherStoreDetails, setOtherStoreDetails] = useState<Store[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Fetch product IDs from categories and highlights
+  // Get all product IDs from all categories
   const allProductIds = useMemo(() => {
     const ids: string[] = [];
-    categories.forEach(cat => {
-      cat.productIds.forEach(id => {
-        if (!ids.includes(id)) ids.push(id);
-      });
-    });
-    highlights.forEach(h => {
-      h.productIds.forEach(id => {
+    categories.forEach((cat: any) => {
+      cat.productIds.forEach((id: string) => {
         if (!ids.includes(id)) ids.push(id);
       });
     });
     return ids;
-  }, [categories, highlights]);
+  }, [categories]);
 
   // Fetch product details
   useEffect(() => {
@@ -93,16 +63,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       .finally(() => setProductsLoading(false));
   }, [allProductIds]);
 
-  // Fetch other store details
-  useEffect(() => {
-    if (otherStores.length === 0) return;
-    const storeIds = otherStores.map(s => s.storeId);
-    fetchStores().then(allStores => {
-      const filtered = allStores.filter(s => storeIds.includes(s.id));
-      setOtherStoreDetails(filtered);
-    });
-  }, [otherStores]);
-
   // Filter logic
   const filteredProducts = useMemo(() => {
     let result = products;
@@ -115,7 +75,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       );
     }
     if (selectedCategoryId) {
-      const cat = categories.find(c => c.id === selectedCategoryId);
+      const cat = categories.find((c: any) => c.id === selectedCategoryId);
       if (cat) {
         result = result.filter(p => cat.productIds.includes(p.id));
       }
@@ -123,14 +83,15 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     return result;
   }, [products, searchQuery, selectedCategoryId, categories]);
 
-  // Handlers
-  const handleIconClick = (categoryId: string) => {
-    setSelectedCategoryId(categoryId);
-    setSearchQuery('');
-    setSearchOpen(false);
+  // Get category products
+  const getCategoryProducts = (categoryId: string) => {
+    const cat = categories.find((c: any) => c.id === categoryId);
+    if (!cat) return [];
+    return products.filter(p => cat.productIds.includes(p.id));
   };
 
-  const handleDietaryClick = (categoryId: string) => {
+  // Handlers
+  const handleIconClick = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
     setSearchQuery('');
     setSearchOpen(false);
@@ -151,18 +112,8 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
   const hasActiveFilter = !!(selectedCategoryId || searchQuery.trim());
 
-  const scrollToHighlight = (id: string) => {
-    setActiveHighlight(id);
-    const el = sectionRefs.current[id];
-    if (el) {
-      const y = el.getBoundingClientRect().top + window.scrollY - 70;
-      window.scrollTo({ top: y, behavior: 'smooth' });
-    }
-  };
-
-  const themeFrom = storeTheme?.from || '#10b981';
-  const themeTo = storeTheme?.to || '#059669';
-  const accent = storeTheme?.accent || '#fbbf24';
+  const themeFrom = hero.gradientFrom || '#065f46';
+  const themeTo = hero.gradientTo || '#16a34a';
 
   if (loading) return <StoreSkeleton />;
   if (productsLoading) return <StoreSkeleton />;
@@ -183,10 +134,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             <button onClick={() => navigate(-1)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur transition hover:bg-white/30">
               <ArrowLeft size={18} />
             </button>
-            <span
-              className="rounded-full px-3 py-1 text-[10px] font-bold tracking-wider"
-              style={{ backgroundColor: accent, color: themeFrom }}
-            >
+            <span className="rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold tracking-wider backdrop-blur">
               CURATED STORE
             </span>
             <div className="w-9" />
@@ -194,11 +142,11 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
           <div className="mt-4 flex items-end gap-4">
             <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-2 border-white/40 shadow-lg">
-              <img src={header.image || header.image_url || ''} alt={header.title} className="h-full w-full object-cover" />
+              <img src={hero.image || ''} alt={hero.title} className="h-full w-full object-cover" />
             </div>
             <div className="flex-1 pb-1">
-              <h1 className="text-2xl font-extrabold leading-tight">{header.title}</h1>
-              <p className="text-xs text-white/80">{header.subtitle}</p>
+              <h1 className="text-2xl font-extrabold leading-tight">{hero.title}</h1>
+              <p className="text-xs text-white/80">{hero.subtitle}</p>
               <div className="mt-1.5 flex items-center gap-3 text-[11px]">
                 <span className="flex items-center gap-1">
                   <Star size={11} className="fill-yellow-300 text-yellow-300" /> 4.7
@@ -213,12 +161,17 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             </div>
           </div>
 
-          <div className="mt-4 rounded-xl bg-white/15 p-3 backdrop-blur">
-            <span className="flex items-center gap-1.5 text-xs font-bold" style={{ color: accent }}>
-              <BadgeCheck size={14} /> {trustBadge || 'Verified store'}
-            </span>
-            <p className="mt-1 text-[12px] leading-snug text-white/85">{story || blurb}</p>
-          </div>
+          {hero.ctaText && (
+            <div className="mt-4 rounded-xl bg-white/15 p-3 backdrop-blur">
+              <button
+                onClick={() => navigate(hero.ctaLink || '/categories')}
+                className="flex items-center gap-1.5 text-xs font-bold text-white"
+                style={{ color: '#ffffff' }}
+              >
+                {hero.ctaText}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -228,23 +181,17 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
           <div className="-mt-3 mb-0 overflow-hidden rounded-2xl bg-white p-3 shadow-lg">
             <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">What's in this store</p>
             <div className="grid grid-cols-4 gap-2">
-              {highlights.map((h) => {
+              {highlights.map((h: any) => {
                 const Icon = getStoreIcon(h.icon);
-                const active = activeHighlight === h.id;
                 return (
                   <button
                     key={h.id}
-                    onClick={() => scrollToHighlight(h.id)}
+                    onClick={() => handleIconClick(h.categoryId)}
                     className="flex flex-col items-center gap-1 rounded-xl p-1.5 transition hover:bg-gray-50"
                   >
                     <div
                       className="flex h-12 w-12 items-center justify-center rounded-xl transition"
-                      style={{
-                        background: active
-                          ? `linear-gradient(135deg, ${themeFrom}, ${themeTo})`
-                          : `${themeFrom}15`,
-                        color: active ? '#fff' : themeFrom,
-                      }}
+                      style={{ background: `${themeFrom}15`, color: themeFrom }}
                     >
                       <Icon size={22} />
                     </div>
@@ -287,24 +234,20 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       </div>
 
       <div className="mx-auto max-w-md px-4">
-        {/* Banners */}
-        {banners.length > 0 && banners.map((banner, idx) => {
-          const Icon = getStoreIcon(banner.icon);
-          return (
-            <div key={banner.id} className="mt-3">
-              <StoreBanner
-                themeFrom={themeFrom}
-                themeTo={themeTo}
-                accent={accent}
-                tag={banner.tag}
-                title={banner.title}
-                sub={banner.sub}
-                cta={banner.cta}
-                Icon={Icon}
-              />
-            </div>
-          );
-        })}
+        {/* Bulk Deal Banner */}
+        {bulkDeal.enabled && (
+          <div className="mt-3">
+            <BulkDealBanner
+              themeFrom={themeFrom}
+              themeTo={themeTo}
+              tag={bulkDeal.tag}
+              title={bulkDeal.title}
+              subtitle={bulkDeal.subtitle}
+              cta={bulkDeal.cta}
+              icon={bulkDeal.icon}
+            />
+          </div>
+        )}
 
         {/* Search results or categories */}
         {hasActiveFilter ? (
@@ -334,19 +277,24 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         ) : (
           <div className="mt-4 space-y-6">
             {/* Categories */}
-            {categories.map((category) => {
+            {categories.map((category: any) => {
               const categoryProducts = products.filter(p => category.productIds.includes(p.id));
               if (categoryProducts.length === 0) return null;
+              const Icon = getStoreIcon(category.icon);
               return (
                 <div key={category.id}>
-                  <div className="mb-2.5 flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-gray-800">{category.title}</h3>
-                    <button
-                      onClick={() => handleIconClick(category.id)}
-                      className="text-xs font-semibold text-emerald-600 flex items-center"
+                  <div className="mb-2.5 flex items-center gap-2">
+                    <div
+                      className="flex h-7 w-7 items-center justify-center rounded-lg"
+                      style={{ background: `${themeFrom}15`, color: themeFrom }}
                     >
-                      See all <ChevronRight size={14} />
-                    </button>
+                      <Icon size={15} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-bold text-gray-800">{category.title}</h3>
+                      <p className="text-[10px] text-gray-400">{category.description}</p>
+                    </div>
+                    <span className="text-[10px] text-gray-400">{categoryProducts.length}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {categoryProducts.slice(0, 4).map((p) => (
@@ -365,47 +313,18 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
               );
             })}
 
-            {/* Highlights sections */}
-            {highlights.map((h, idx) => {
-              const sectionProducts = products.filter(p => h.productIds.includes(p.id));
-              if (sectionProducts.length === 0) return null;
-              const Icon = getStoreIcon(h.icon);
-              return (
-                <div
-                  key={h.id}
-                  ref={(el) => {
-                    sectionRefs.current[h.id] = el;
-                  }}
-                >
-                  <div className="mb-2.5 flex items-center gap-2">
-                    <div
-                      className="flex h-7 w-7 items-center justify-center rounded-lg"
-                      style={{ background: `${themeFrom}15`, color: themeFrom }}
-                    >
-                      <Icon size={15} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-bold text-gray-800">{h.label}</h3>
-                      <p className="text-[10px] text-gray-400">{h.desc}</p>
-                    </div>
-                    <span className="text-[10px] text-gray-400">{sectionProducts.length}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {sectionProducts.map((p) => (
-                      <ProductCard
-                        key={p.id}
-                        product={p}
-                        quantity={cart.getQuantity(p.id)}
-                        onAdd={() => cart.addToCart(p)}
-                        onIncrement={() => cart.addToCart(p)}
-                        onDecrement={() => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
-                        onClick={() => navigate(`/product?id=${p.id}`)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+            {/* Trending Banner (middle) */}
+            {trending.enabled && (
+              <TrendingBanner
+                themeFrom={themeFrom}
+                themeTo={themeTo}
+                title={trending.title}
+                subtitle={trending.subtitle}
+                iconButtons={trending.iconButtons}
+                ctaText={trending.ctaText}
+                onIconClick={handleIconClick}
+              />
+            )}
           </div>
         )}
 
@@ -422,7 +341,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   );
 }
 
-// ---- helpers ----
+// ---- Helpers ----
 function StoreSkeleton() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -444,25 +363,24 @@ function StoreSkeleton() {
   );
 }
 
-function StoreBanner({
+function BulkDealBanner({
   themeFrom,
   themeTo,
-  accent,
   tag,
   title,
-  sub,
+  subtitle,
   cta,
-  Icon,
+  icon,
 }: {
   themeFrom: string;
   themeTo: string;
-  accent: string;
   tag: string;
   title: string;
-  sub: string;
+  subtitle: string;
   cta: string;
-  Icon: any;
+  icon: string;
 }) {
+  const Icon = getStoreIcon(icon);
   return (
     <div
       className="relative overflow-hidden rounded-2xl p-4 shadow-lg"
@@ -473,28 +391,90 @@ function StoreBanner({
 
       <div className="relative flex items-center gap-3">
         <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-inner"
-          style={{ backgroundColor: accent, color: themeFrom }}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-inner bg-white/20 text-white"
         >
           <Icon size={24} />
         </div>
         <div className="flex-1 text-white">
-          <span
-            className="inline-block rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wider"
-            style={{ backgroundColor: accent, color: themeFrom }}
-          >
+          <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">
             {tag}
           </span>
           <h4 className="mt-1 text-base font-extrabold leading-tight">{title}</h4>
-          <p className="text-[11px] text-white/80">{sub}</p>
+          <p className="text-[11px] text-white/80">{subtitle}</p>
         </div>
       </div>
-      <button
-        className="mt-3 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
-        style={{ backgroundColor: accent, color: themeFrom }}
-      >
+      <button className="mt-3 flex items-center gap-1 rounded-xl bg-white/20 backdrop-blur px-4 py-2 text-sm font-bold text-white shadow transition hover:scale-105">
         {cta} <ChevronRight size={14} />
       </button>
+    </div>
+  );
+}
+
+function TrendingBanner({
+  themeFrom,
+  themeTo,
+  title,
+  subtitle,
+  iconButtons,
+  ctaText,
+  onIconClick,
+}: {
+  themeFrom: string;
+  themeTo: string;
+  title: string;
+  subtitle: string;
+  iconButtons: any[];
+  ctaText: string;
+  onIconClick: (id: string) => void;
+}) {
+  return (
+    <div className="my-6">
+      <div
+        className="relative overflow-hidden rounded-3xl p-5 text-white shadow-xl"
+        style={{ background: `linear-gradient(135deg, ${themeFrom}, ${themeTo})` }}
+      >
+        <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
+        <div className="pointer-events-none absolute -bottom-12 -left-6 h-36 w-36 rounded-full bg-black/10 blur-xl" />
+        <div className="pointer-events-none absolute right-6 bottom-4 h-16 w-16 rounded-full border-4 border-white/10" />
+
+        <div className="relative">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+              <TrendingUp size={18} />
+            </div>
+            <div>
+              <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">
+                TRENDING IN STORE
+              </span>
+              <h4 className="mt-0.5 text-lg font-extrabold leading-tight">{title}</h4>
+            </div>
+          </div>
+
+          <p className="mt-2 text-[12px] text-white/80">{subtitle}</p>
+
+          <div className="mt-4 grid grid-cols-4 gap-2.5">
+            {iconButtons.map((btn: any) => {
+              const Icon = getStoreIcon(btn.icon);
+              return (
+                <button
+                  key={btn.id}
+                  onClick={() => onIconClick(btn.categoryId)}
+                  className="group flex flex-col items-center gap-1.5 rounded-2xl bg-white/15 p-2.5 backdrop-blur transition hover:bg-white/25"
+                >
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 transition group-hover:scale-110">
+                    <Icon size={20} />
+                  </div>
+                  <span className="text-center text-[9px] font-semibold leading-tight text-white">{btn.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button className="mt-4 flex items-center gap-1 rounded-xl bg-white/20 backdrop-blur px-4 py-2 text-sm font-bold text-white shadow transition hover:scale-105">
+            {ctaText} <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -508,6 +488,9 @@ function TrustItem({ icon: Icon, label, sub }: { icon: any; label: string; sub: 
     </div>
   );
 }
+
+// Add missing imports
+import { ShieldCheck, Truck, Clock } from 'lucide-react';
 
 export default function StoreScreen(props: StoreScreenProps) {
   const [searchParams] = useSearchParams();

@@ -1,144 +1,59 @@
 // types/storeConfig.ts
 
-export interface IconGridItem {
+export interface CategoryItem {
   id: string;
   title: string;
-  iconUrl: string;
-  categoryId: string;      // reference to category ID from config.categories
-}
-
-export interface CategoryCard {
-  id: string;
-  title: string;
-  imageUrl: string;
-  categoryId: string;      // reference to category ID from config.categories
-}
-
-export interface PromoBanner {
-  badge: string;
-  title: string;
-  subtitle: string;
-  backgroundTheme: string;
-  floatingProductImages: string[];
-}
-
-export interface ProductTier {
-  minQty: number;
-  unitPrice: number;
-}
-
-export interface Product {
-  id: string;
-  title: string;
-  category: string;
-  subCategory: string;
-  imageUrl: string;
-  packSize: string;
-  price: number;
-  originalPrice: number;
-  tieredPricing: ProductTier[];
-  inStock: boolean;
-}
-
-export interface SubCategoryTab {
-  id: string;
-  label: string;
-  iconUrl: string;
-}
-
-export interface CategorySection {
-  id: string;
-  title: string;
-  tabs: SubCategoryTab[];
+  icon: string;      // Lucide icon name (e.g., "Apple", "Wheat")
+  description: string;
   productIds: string[];
-  pillFilters?: string[];
-}
-
-export interface PackagingItem {
-  id: string;
-  title: string;
-  imageUrl: string;
-}
-
-export interface OtherStoreItem {
-  id: string;
-  storeId: string;
 }
 
 export interface HighlightItem {
   id: string;
   label: string;
   icon: string;      // Lucide icon name
-  desc: string;
-  productIds: string[];
+  categoryId: string; // Links to a category ID
 }
 
-export interface BannerItem {
-  id: string;
+export interface BulkDeal {
+  enabled: boolean;
   tag: string;
   title: string;
-  sub: string;
+  subtitle: string;
   cta: string;
   icon: string;      // Lucide icon name
 }
 
-export interface FeatureItem {
+export interface TrendingIconButton {
   id: string;
-  icon: string;      // emoji or image URL
-  title: string;
-  description: string;
+  label: string;
+  icon: string;      // Lucide icon name
+  categoryId: string; // Links to a category ID
 }
 
-export interface StoreTheme {
-  from: string;      // hex color
-  to: string;        // hex color
-  accent: string;    // hex color
+export interface TrendingBanner {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  iconButtons: TrendingIconButton[];
+  ctaText: string;
+}
+
+export interface HeroBanner {
+  enabled: boolean;
+  image: string;
+  gradientFrom: string;
+  gradientTo: string;
+  title: string;
+  subtitle: string;
+  ctaText: string;
+  ctaLink: string;
 }
 
 export interface StoreConfig {
-  header: {
-    title: string;
-    subtitle: string;
-    cartBadgeCount: number;
-  };
-  hero: {
-    enabled: boolean;
-    imageUrl: string;
-    overlayColor: string;
-    overlayOpacity: number;
-    tagline: string;
-    ctaText: string;
-    ctaLink: string;
-  };
-  stats: {
-    enabled: boolean;
-    productsCount: number;
-    customersCount: number;
-    years: number;
-    deliveriesCount: number;
-  };
-  promoStrip: {
-    enabled: boolean;
-    message: string;
-    ctaText: string;
-    ctaLink: string;
-    backgroundColor: string;
-    textColor: string;
-  };
-  features: {
-    enabled: boolean;
-    items: FeatureItem[];
-  };
-  iconGrid: IconGridItem[];
-  dietaryNeeds: CategoryCard[];
-  promoBanner: PromoBanner;
-  categories: CategorySection[];
-  packaging: PackagingItem[];
-  otherStores: OtherStoreItem[];
+  hero: HeroBanner;
   highlights: HighlightItem[];
-  banners: BannerItem[];
-  storeTheme: StoreTheme;
-  blurb: string;
-  trustBadge: string;
-  story: string;
+  categories: CategoryItem[];
+  bulkDeal: BulkDeal;
+  trending: TrendingBanner;
 }

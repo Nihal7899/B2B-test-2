@@ -110,7 +110,7 @@ export default function StoresManager() {
   );
 }
 
-// ---- StoreForm (metadata only) ----
+// ---- StoreForm (Store Card Editor) ----
 function StoreForm({
   initial,
   onClose,
@@ -125,6 +125,11 @@ function StoreForm({
     image_url: initial?.image_url ?? '',
     banner_image_url: initial?.banner_image_url ?? '',
     description: initial?.description ?? '',
+    tint_color: initial?.primary_color ?? '#10b981',
+    tint_opacity: 50,
+    text_color: initial?.text_color ?? '#ffffff',
+    badge_text: 'STORE',
+    badge_color: '#fbbf24',
     sort_order: initial?.sort_order ?? 0,
     is_active: initial?.is_active ?? true,
   });
@@ -132,10 +137,20 @@ function StoreForm({
 
   const handleSave = async () => {
     setSaving(true);
+    const data = {
+      name: form.name,
+      image_url: form.image_url,
+      banner_image_url: form.banner_image_url,
+      description: form.description,
+      primary_color: form.tint_color,
+      text_color: form.text_color,
+      sort_order: form.sort_order,
+      is_active: form.is_active,
+    };
     if (initial) {
-      await updateStore(initial.id, form);
+      await updateStore(initial.id, data);
     } else {
-      await createStore(form);
+      await createStore(data);
     }
     setSaving(false);
     onSaved();
@@ -171,7 +186,7 @@ function StoreForm({
         )}
       </div>
       <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Banner Image URL</label>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Cover/Banner Image URL</label>
         <input
           value={form.banner_image_url}
           onChange={(e) => setForm({ ...form, banner_image_url: e.target.value })}
@@ -190,6 +205,58 @@ function StoreForm({
           placeholder="e.g. Farm-fresh staples"
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Tint Color</label>
+          <input
+            type="color"
+            value={form.tint_color}
+            onChange={(e) => setForm({ ...form, tint_color: e.target.value })}
+            className="w-full h-10 rounded-xl border border-ink-200 p-1"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Tint Opacity (%)</label>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={form.tint_opacity}
+            onChange={(e) => setForm({ ...form, tint_opacity: Number(e.target.value) })}
+            className="w-full"
+          />
+          <span className="text-xs text-ink-500">{form.tint_opacity}%</span>
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Text Color</label>
+        <input
+          type="color"
+          value={form.text_color}
+          onChange={(e) => setForm({ ...form, text_color: e.target.value })}
+          className="w-full h-10 rounded-xl border border-ink-200 p-1"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Badge Text</label>
+          <input
+            value={form.badge_text}
+            onChange={(e) => setForm({ ...form, badge_text: e.target.value })}
+            placeholder="STORE"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Badge Color</label>
+          <input
+            type="color"
+            value={form.badge_color}
+            onChange={(e) => setForm({ ...form, badge_color: e.target.value })}
+            className="w-full h-10 rounded-xl border border-ink-200 p-1"
+          />
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>

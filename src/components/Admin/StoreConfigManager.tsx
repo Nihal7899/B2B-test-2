@@ -3,19 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Store } from '@/types';
 import { StoreProvider, useStore } from '@/context/StoreContext';
-import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, Search, X } from 'lucide-react';
-import { uploadStoreImage } from '@/services/catalog';
+import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, X } from 'lucide-react';
+import { getStoreIcon } from '@/data/storeIcons';
 import {
   StoreConfig,
-  IconGridItem,
-  CategoryCard,
-  PromoBanner,
-  PackagingItem,
-  CategorySection,
-  OtherStoreItem,
-  FeatureItem,
+  CategoryItem,
   HighlightItem,
-  BannerItem,
+  BulkDeal,
+  TrendingBanner,
+  TrendingIconButton,
 } from '@/types/storeConfig';
 
 // ----- Main component -----
@@ -70,56 +66,19 @@ function StoreConfigEditor() {
 
   // Safe defaults
   const safeConfig = {
-    header: config?.header || { title: 'Store', subtitle: '', cartBadgeCount: 0 },
-    hero: config?.hero || { enabled: false, imageUrl: '', overlayColor: '#000000', overlayOpacity: 50, tagline: '', ctaText: '', ctaLink: '' },
-    stats: config?.stats || { enabled: false, productsCount: 0, customersCount: 0, years: 0, deliveriesCount: 0 },
-    promoStrip: config?.promoStrip || { enabled: false, message: '', ctaText: '', ctaLink: '', backgroundColor: '#10b981', textColor: '#ffffff' },
-    features: config?.features || { enabled: false, items: [] },
-    iconGrid: config?.iconGrid || [],
-    dietaryNeeds: config?.dietaryNeeds || [],
-    promoBanner: config?.promoBanner || { badge: '', title: '', subtitle: '', backgroundTheme: 'bg-gray-100', floatingProductImages: [] },
-    categories: config?.categories || [],
-    packaging: config?.packaging || [],
-    otherStores: config?.otherStores || [],
+    hero: config?.hero || { enabled: true, image: '', gradientFrom: '#065f46', gradientTo: '#16a34a', title: '', subtitle: '', ctaText: 'Shop Now', ctaLink: '/categories' },
     highlights: config?.highlights || [],
-    banners: config?.banners || [],
-    storeTheme: config?.storeTheme || { from: '#10b981', to: '#059669', accent: '#fbbf24' },
-    blurb: config?.blurb || '',
-    trustBadge: config?.trustBadge || '',
-    story: config?.story || '',
+    categories: config?.categories || [],
+    bulkDeal: config?.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package' },
+    trending: config?.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories' },
   };
 
-  const [activeTab, setActiveTab] = useState<
-    'header' | 'hero' | 'stats' | 'promoStrip' | 'features' |
-    'iconGrid' | 'dietary' | 'promo' | 'categories' | 'packaging' | 'other' |
-    'highlights' | 'banners' | 'theme'
-  >('header');
-
-  const [allStores, setAllStores] = useState<{ id: string; name: string; image_url: string }[]>([]);
-
-  // Build category options from the store's own categories
-  const categoryOptions = safeConfig.categories.map(c => ({ value: c.id, label: c.title }));
-
-  // Fetch all stores for "Other Stores" dropdown
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from('stores')
-        .select('id, name, image_url')
-        .eq('is_active', true)
-        .order('name');
-      if (!error && data) setAllStores(data);
-    })();
-  }, []);
+  const [activeTab, setActiveTab] = useState<'hero' | 'highlights' | 'categories' | 'bulkDeal' | 'trending'>('hero');
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
       <div className="flex gap-2 border-b pb-2 mb-4 overflow-x-auto">
-        {[
-          'header', 'hero', 'stats', 'promoStrip', 'features',
-          'iconGrid', 'dietary', 'promo', 'categories', 'packaging', 'other',
-          'highlights', 'banners', 'theme'
-        ].map(tab => (
+        {['hero', 'highlights', 'categories', 'bulkDeal', 'trending'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab as any)}
@@ -127,145 +86,25 @@ function StoreConfigEditor() {
               activeTab === tab ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            {tab === 'promoStrip' ? 'Promo Strip' :
-             tab === 'iconGrid' ? 'Icon Grid' :
-             tab === 'dietary' ? 'Dietary Needs' :
-             tab === 'promo' ? 'Promo Banner' :
-             tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === 'hero' ? 'Hero Banner' :
+             tab === 'highlights' ? 'What\'s in Store' :
+             tab === 'categories' ? 'Categories' :
+             tab === 'bulkDeal' ? 'Bulk Deal Banner' :
+             'Trending Banner'}
           </button>
         ))}
       </div>
 
-      {activeTab === 'header' && <HeaderEditor config={safeConfig} updateConfig={updateConfig} />}
       {activeTab === 'hero' && <HeroEditor config={safeConfig} updateConfig={updateConfig} />}
-      {activeTab === 'stats' && <StatsEditor config={safeConfig} updateConfig={updateConfig} />}
-      {activeTab === 'promoStrip' && <PromoStripEditor config={safeConfig} updateConfig={updateConfig} />}
-      {activeTab === 'features' && <FeaturesEditor config={safeConfig} updateConfig={updateConfig} />}
-      {activeTab === 'iconGrid' && (
-        <ListEditor<IconGridItem>
-          items={safeConfig.iconGrid}
-          setItems={(items) => updateConfig({ ...safeConfig, iconGrid: items })}
-          fields={[
-            { key: 'title', label: 'Title' },
-            { key: 'iconUrl', label: 'Icon (URL/Emoji)' },
-          ]}
-          selectField={{ key: 'categoryId', label: 'Category', options: categoryOptions }}
-          imageField="iconUrl"
-        />
-      )}
-      {activeTab === 'dietary' && (
-        <ListEditor<CategoryCard>
-          items={safeConfig.dietaryNeeds}
-          setItems={(items) => updateConfig({ ...safeConfig, dietaryNeeds: items })}
-          fields={[
-            { key: 'title', label: 'Title' },
-            { key: 'imageUrl', label: 'Image URL' },
-          ]}
-          selectField={{ key: 'categoryId', label: 'Category', options: categoryOptions }}
-          imageField="imageUrl"
-        />
-      )}
-      {activeTab === 'promo' && <PromoEditor config={safeConfig} updateConfig={updateConfig} />}
-      {activeTab === 'categories' && <CategoriesEditor config={safeConfig} updateConfig={updateConfig} />}
-      {activeTab === 'packaging' && (
-        <ListEditor<PackagingItem>
-          items={safeConfig.packaging}
-          setItems={(items) => updateConfig({ ...safeConfig, packaging: items })}
-          fields={[
-            { key: 'title', label: 'Title' },
-            { key: 'imageUrl', label: 'Image URL' },
-          ]}
-          imageField="imageUrl"
-        />
-      )}
-      {activeTab === 'other' && (
-        <ListEditor<OtherStoreItem>
-          items={safeConfig.otherStores || []}
-          setItems={(items) => updateConfig({ ...safeConfig, otherStores: items })}
-          fields={[]}
-          selectField={{ key: 'storeId', label: 'Store', options: allStores.map(s => ({ value: s.id, label: s.name })) }}
-        />
-      )}
       {activeTab === 'highlights' && <HighlightsEditor config={safeConfig} updateConfig={updateConfig} />}
-      {activeTab === 'banners' && <BannersEditor config={safeConfig} updateConfig={updateConfig} />}
-      {activeTab === 'theme' && <StoreThemeEditor config={safeConfig} updateConfig={updateConfig} />}
+      {activeTab === 'categories' && <CategoriesEditor config={safeConfig} updateConfig={updateConfig} />}
+      {activeTab === 'bulkDeal' && <BulkDealEditor config={safeConfig} updateConfig={updateConfig} />}
+      {activeTab === 'trending' && <TrendingEditor config={safeConfig} updateConfig={updateConfig} />}
     </div>
   );
 }
 
-// ----- All Editor components -----
-
-function HeaderEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { header } = config;
-
-  const updateHeader = (field: string, value: any) => {
-    updateConfig({ ...config, header: { ...header, [field]: value } });
-  };
-
-  return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Header & Branding</h3>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Store Title</label>
-        <input
-          type="text"
-          value={header.title}
-          onChange={e => updateHeader('title', e.target.value)}
-          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
-        <input
-          type="text"
-          value={header.subtitle}
-          onChange={e => updateHeader('subtitle', e.target.value)}
-          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Cart Badge Count (demo)</label>
-        <input
-          type="number"
-          value={header.cartBadgeCount}
-          onChange={e => updateHeader('cartBadgeCount', Number(e.target.value))}
-          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Blurb</label>
-        <input
-          type="text"
-          value={config.blurb || ''}
-          onChange={e => updateConfig({ ...config, blurb: e.target.value })}
-          placeholder="Short description for store card"
-          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Trust Badge</label>
-        <input
-          type="text"
-          value={config.trustBadge || ''}
-          onChange={e => updateConfig({ ...config, trustBadge: e.target.value })}
-          placeholder="e.g. 100% farm fresh"
-          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Story</label>
-        <textarea
-          value={config.story || ''}
-          onChange={e => updateConfig({ ...config, story: e.target.value })}
-          placeholder="About the store..."
-          rows={3}
-          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-    </div>
-  );
-}
-
+// ----- Hero Banner Editor -----
 function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { hero } = config;
 
@@ -288,41 +127,47 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
       <div>
         <label className="block text-sm font-medium text-gray-700">Image URL</label>
         <input
-          value={hero.imageUrl}
-          onChange={e => updateHero('imageUrl', e.target.value)}
+          value={hero.image}
+          onChange={e => updateHero('image', e.target.value)}
           className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
-        {hero.imageUrl && (
-          <img src={hero.imageUrl} alt="Hero" className="mt-2 h-32 w-full rounded-xl object-cover" />
+        {hero.image && (
+          <img src={hero.image} alt="Hero" className="mt-2 h-32 w-full rounded-xl object-cover" />
         )}
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Gradient From</label>
+          <input
+            type="color"
+            value={hero.gradientFrom}
+            onChange={e => updateHero('gradientFrom', e.target.value)}
+            className="w-full h-10 rounded-xl border border-gray-300 p-1"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Gradient To</label>
+          <input
+            type="color"
+            value={hero.gradientTo}
+            onChange={e => updateHero('gradientTo', e.target.value)}
+            className="w-full h-10 rounded-xl border border-gray-300 p-1"
+          />
+        </div>
+      </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Overlay Color</label>
+        <label className="block text-sm font-medium text-gray-700">Title</label>
         <input
-          type="color"
-          value={hero.overlayColor}
-          onChange={e => updateHero('overlayColor', e.target.value)}
-          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+          value={hero.title}
+          onChange={e => updateHero('title', e.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Overlay Opacity (0-100)</label>
+        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
         <input
-          type="range"
-          min="0"
-          max="100"
-          value={hero.overlayOpacity}
-          onChange={e => updateHero('overlayOpacity', Number(e.target.value))}
-          className="w-full"
-        />
-        <span className="text-xs text-gray-500">{hero.overlayOpacity}%</span>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Tagline</label>
-        <input
-          value={hero.tagline}
-          onChange={e => updateHero('tagline', e.target.value)}
-          placeholder="e.g. Fresh from the farm to your table"
+          value={hero.subtitle}
+          onChange={e => updateHero('subtitle', e.target.value)}
           className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
@@ -331,7 +176,6 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
         <input
           value={hero.ctaText}
           onChange={e => updateHero('ctaText', e.target.value)}
-          placeholder="e.g. Shop Now"
           className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
@@ -340,7 +184,6 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
         <input
           value={hero.ctaLink}
           onChange={e => updateHero('ctaLink', e.target.value)}
-          placeholder="e.g. /categories"
           className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
@@ -348,481 +191,22 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
   );
 }
 
-function StatsEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { stats } = config;
-
-  const updateStats = (field: string, value: any) => {
-    updateConfig({ ...config, stats: { ...stats, [field]: value } });
-  };
-
-  return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Stats Bar</h3>
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Enabled</label>
-        <input
-          type="checkbox"
-          checked={stats.enabled}
-          onChange={e => updateStats('enabled', e.target.checked)}
-          className="accent-green-600"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Products Count</label>
-        <input
-          type="number"
-          value={stats.productsCount}
-          onChange={e => updateStats('productsCount', Number(e.target.value))}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Happy Customers</label>
-        <input
-          type="number"
-          value={stats.customersCount}
-          onChange={e => updateStats('customersCount', Number(e.target.value))}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Years of Experience</label>
-        <input
-          type="number"
-          value={stats.years}
-          onChange={e => updateStats('years', Number(e.target.value))}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Deliveries</label>
-        <input
-          type="number"
-          value={stats.deliveriesCount}
-          onChange={e => updateStats('deliveriesCount', Number(e.target.value))}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-    </div>
-  );
-}
-
-function PromoStripEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { promoStrip } = config;
-
-  const updatePromoStrip = (field: string, value: any) => {
-    updateConfig({ ...config, promoStrip: { ...promoStrip, [field]: value } });
-  };
-
-  return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Promo Strip</h3>
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Enabled</label>
-        <input
-          type="checkbox"
-          checked={promoStrip.enabled}
-          onChange={e => updatePromoStrip('enabled', e.target.checked)}
-          className="accent-green-600"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Message</label>
-        <input
-          value={promoStrip.message}
-          onChange={e => updatePromoStrip('message', e.target.value)}
-          placeholder="e.g. 🎉 Festival Sale! Up to 40% off"
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">CTA Text</label>
-        <input
-          value={promoStrip.ctaText}
-          onChange={e => updatePromoStrip('ctaText', e.target.value)}
-          placeholder="e.g. Grab Deal"
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">CTA Link</label>
-        <input
-          value={promoStrip.ctaLink}
-          onChange={e => updatePromoStrip('ctaLink', e.target.value)}
-          placeholder="e.g. /products"
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Background Color</label>
-        <input
-          type="color"
-          value={promoStrip.backgroundColor}
-          onChange={e => updatePromoStrip('backgroundColor', e.target.value)}
-          className="w-full h-10 rounded-xl border border-gray-300 p-1"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Text Color</label>
-        <input
-          type="color"
-          value={promoStrip.textColor}
-          onChange={e => updatePromoStrip('textColor', e.target.value)}
-          className="w-full h-10 rounded-xl border border-gray-300 p-1"
-        />
-      </div>
-    </div>
-  );
-}
-
-function FeaturesEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { features } = config;
-
-  const updateFeatures = (newItems: FeatureItem[]) => {
-    updateConfig({ ...config, features: { ...features, items: newItems } });
-  };
-
-  const toggleEnabled = () => {
-    updateConfig({ ...config, features: { ...features, enabled: !features.enabled } });
-  };
-
-  const addItem = () => {
-    const newItem: FeatureItem = {
-      id: Date.now().toString(),
-      icon: '⭐',
-      title: 'New Feature',
-      description: 'Description',
-    };
-    updateFeatures([...features.items, newItem]);
-  };
-
-  const updateItem = (index: number, field: keyof FeatureItem, value: string) => {
-    const updated = [...features.items];
-    updated[index] = { ...updated[index], [field]: value };
-    updateFeatures(updated);
-  };
-
-  const removeItem = (index: number) => {
-    updateFeatures(features.items.filter((_, i) => i !== index));
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-lg">Features</h3>
-        <button onClick={toggleEnabled} className="text-sm text-green-600 font-medium">
-          {features.enabled ? 'Disable' : 'Enable'}
-        </button>
-      </div>
-      {features.items.map((item, idx) => (
-        <div key={item.id} className="flex items-center gap-2 border-b pb-2">
-          <input
-            value={item.icon}
-            onChange={e => updateItem(idx, 'icon', e.target.value)}
-            placeholder="Icon (emoji or URL)"
-            className="w-20 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
-          <input
-            value={item.title}
-            onChange={e => updateItem(idx, 'title', e.target.value)}
-            placeholder="Title"
-            className="flex-1 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
-          <input
-            value={item.description}
-            onChange={e => updateItem(idx, 'description', e.target.value)}
-            placeholder="Description"
-            className="flex-1 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
-          <button onClick={() => removeItem(idx)} className="text-red-400"><Trash2 size={16} /></button>
-        </div>
-      ))}
-      <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600">
-        <Plus size={16} /> Add Feature
-      </button>
-    </div>
-  );
-}
-
-// ----- Promo Banner Editor -----
-function PromoEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { promoBanner } = config;
-
-  const handleChange = (field: keyof PromoBanner, value: string | string[]) => {
-    updateConfig({ ...config, promoBanner: { ...promoBanner, [field]: value } });
-  };
-
-  return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Promo Banner</h3>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Badge</label>
-        <input
-          value={promoBanner.badge}
-          onChange={e => handleChange('badge', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Title</label>
-        <input
-          value={promoBanner.title}
-          onChange={e => handleChange('title', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
-        <input
-          value={promoBanner.subtitle}
-          onChange={e => handleChange('subtitle', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Background Theme (Tailwind class)</label>
-        <input
-          value={promoBanner.backgroundTheme}
-          onChange={e => handleChange('backgroundTheme', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Floating Images (URLs, comma separated)</label>
-        <input
-          value={promoBanner.floatingProductImages.join(', ')}
-          onChange={e => handleChange('floatingProductImages', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-    </div>
-  );
-}
-
-// ----- Categories Editor -----
-function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { categories, storeId } = config;
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [allProducts, setAllProducts] = useState<{ id: string; brand: string; name: string }[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showAddCategory, setShowAddCategory] = useState(false);
-  const [newCategoryTitle, setNewCategoryTitle] = useState('');
-
-  const selectedCategory = categories.find(c => c.id === selectedCategoryId);
-
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, brand, name')
-        .eq('is_active', true)
-        .order('name');
-      if (!error && data) {
-        setAllProducts(data);
-      }
-    })();
-  }, []);
-
-  const handleAddCategory = () => {
-    if (!newCategoryTitle.trim()) return;
-    const newCat: CategorySection = {
-      id: Date.now().toString(),
-      title: newCategoryTitle.trim(),
-      tabs: [],
-      productIds: [],
-      pillFilters: [],
-    };
-    updateConfig({ ...config, categories: [...categories, newCat] });
-    setSelectedCategoryId(newCat.id);
-    setNewCategoryTitle('');
-    setShowAddCategory(false);
-  };
-
-  const handleAddProductId = (productId: string) => {
-    if (!selectedCategory) return;
-    if (selectedCategory.productIds.includes(productId)) return;
-    const updatedCategories = categories.map(cat =>
-      cat.id === selectedCategory.id
-        ? { ...cat, productIds: [...cat.productIds, productId] }
-        : cat
-    );
-    updateConfig({ ...config, categories: updatedCategories });
-  };
-
-  const handleRemoveProductId = (productId: string) => {
-    if (!selectedCategory) return;
-    const updatedCategories = categories.map(cat =>
-      cat.id === selectedCategory.id
-        ? { ...cat, productIds: cat.productIds.filter(id => id !== productId) }
-        : cat
-    );
-    updateConfig({ ...config, categories: updatedCategories });
-  };
-
-  const updateCategoryField = (field: keyof CategorySection, value: any) => {
-    if (!selectedCategory) return;
-    const updatedCategories = categories.map(cat =>
-      cat.id === selectedCategory.id ? { ...cat, [field]: value } : cat
-    );
-    updateConfig({ ...config, categories: updatedCategories });
-  };
-
-  const filteredExisting = allProducts.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.brand.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Categories & Products</h3>
-      <div className="flex flex-wrap gap-2">
-        {categories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setSelectedCategoryId(cat.id)}
-            className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${
-              selectedCategoryId === cat.id ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700'
-            }`}
-          >
-            {cat.title}
-          </button>
-        ))}
-        <button
-          onClick={() => setShowAddCategory(true)}
-          className="px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-600 border border-green-200"
-        >
-          + Add Category
-        </button>
-      </div>
-
-      {showAddCategory && (
-        <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex gap-2 items-center">
-          <input
-            type="text"
-            value={newCategoryTitle}
-            onChange={e => setNewCategoryTitle(e.target.value)}
-            placeholder="Category name..."
-            className="flex-1 rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
-          />
-          <button onClick={handleAddCategory} className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-sm font-medium">Add</button>
-          <button onClick={() => setShowAddCategory(false)} className="p-1.5 rounded-full hover:bg-gray-200"><X size={16} /></button>
-        </div>
-      )}
-
-      {selectedCategory && (
-        <div className="border-t pt-3">
-          <div className="flex items-center gap-2 mb-3">
-            <input
-              value={selectedCategory.title}
-              onChange={e => updateCategoryField('title', e.target.value)}
-              className="flex-1 rounded-xl border border-gray-300 px-3 py-1.5 text-sm font-semibold"
-            />
-          </div>
-
-          <div className="mb-3">
-            <label className="text-xs text-gray-500">Tabs (comma separated labels)</label>
-            <input
-              value={selectedCategory.tabs.map(t => t.label).join(', ')}
-              onChange={e => {
-                const labels = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                const newTabs = labels.map((label, i) => ({
-                  id: `tab-${i}`,
-                  label,
-                  iconUrl: '🍽️',
-                }));
-                updateCategoryField('tabs', newTabs);
-              }}
-              className="w-full rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
-            />
-          </div>
-
-          <div className="mb-3">
-            <label className="text-xs text-gray-500">Pill Filters (comma separated)</label>
-            <input
-              value={(selectedCategory.pillFilters || []).join(', ')}
-              onChange={e => {
-                const pills = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                updateCategoryField('pillFilters', pills);
-              }}
-              className="w-full rounded-xl border border-gray-300 px-3 py-1.5 text-sm"
-            />
-          </div>
-
-          <div className="mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
-            <label className="block text-xs font-medium text-gray-700 mb-1">Add Existing Product to "{selectedCategory.title}"</label>
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Search product by name, brand..."
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-gray-300 text-sm"
-              />
-            </div>
-            <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
-              {filteredExisting.length === 0 && (
-                <p className="text-xs text-gray-400">No products found</p>
-              )}
-              {filteredExisting.map(p => {
-                const alreadyAdded = selectedCategory.productIds.includes(p.id);
-                return (
-                  <div key={p.id} className="flex items-center justify-between py-1 px-2 hover:bg-gray-100 rounded-lg">
-                    <span className="text-xs">{p.name} <span className="text-gray-400">({p.brand})</span></span>
-                    {alreadyAdded ? (
-                      <span className="text-xs text-green-600 font-medium">Added</span>
-                    ) : (
-                      <button
-                        onClick={() => handleAddProductId(p.id)}
-                        className="text-xs text-blue-600 font-medium hover:underline"
-                      >
-                        Add
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold">Products in this category</h4>
-            {selectedCategory.productIds.length === 0 && (
-              <p className="text-xs text-gray-400">No products assigned yet.</p>
-            )}
-            {selectedCategory.productIds.map(productId => {
-              const product = allProducts.find(p => p.id === productId);
-              return (
-                <div key={productId} className="flex items-center justify-between py-1 px-2 border-b border-gray-100">
-                  <span className="text-sm">{product?.name || productId}</span>
-                  <button onClick={() => handleRemoveProductId(productId)} className="text-red-400">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ----- Highlights Editor -----
+// ----- Highlights Editor (What's in Store) -----
 function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { highlights = [] } = config;
+  const { highlights = [], categories = [] } = config;
 
   const updateHighlights = (newItems: HighlightItem[]) => {
     updateConfig({ ...config, highlights: newItems });
   };
+
+  const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
   const addItem = () => {
     const newItem: HighlightItem = {
       id: Date.now().toString(),
       label: 'New Highlight',
       icon: 'Package',
-      desc: 'Description',
-      productIds: [],
+      categoryId: categoryOptions.length > 0 ? categoryOptions[0].value : '',
     };
     updateHighlights([...highlights, newItem]);
   };
@@ -847,33 +231,34 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
 
   return (
     <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Store Highlights</h3>
-      {highlights.map((h, idx) => (
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-lg">What's in the Store</h3>
+        <span className="text-xs text-gray-400">These icons appear below the hero banner</span>
+      </div>
+      {highlights.map((h: HighlightItem, idx: number) => (
         <div key={h.id} className="flex flex-wrap items-center gap-2 border-b pb-2">
           <input
             value={h.label}
             onChange={e => updateItem(idx, 'label', e.target.value)}
-            placeholder="Label"
-            className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
+            placeholder="Label (e.g. Fresh Fruits)"
+            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
           />
           <input
             value={h.icon}
             onChange={e => updateItem(idx, 'icon', e.target.value)}
-            placeholder="Icon name (e.g. Apple, Wheat)"
+            placeholder="Icon (e.g. Apple)"
             className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-sm"
           />
-          <input
-            value={h.desc}
-            onChange={e => updateItem(idx, 'desc', e.target.value)}
-            placeholder="Description"
-            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
-          <input
-            value={h.productIds.join(', ')}
-            onChange={e => updateItem(idx, 'productIds', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-            placeholder="Product IDs (comma)"
-            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
+          <select
+            value={h.categoryId || ''}
+            onChange={e => updateItem(idx, 'categoryId', e.target.value)}
+            className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          >
+            <option value="">Select Category</option>
+            {categoryOptions.map((opt: any) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
           <div className="flex gap-1">
             <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
             <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>
@@ -888,78 +273,74 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
   );
 }
 
-// ----- Banners Editor -----
-function BannersEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { banners = [] } = config;
+// ----- Categories Editor -----
+function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
+  const { categories = [] } = config;
 
-  const updateBanners = (newItems: BannerItem[]) => {
-    updateConfig({ ...config, banners: newItems });
+  const updateCategories = (newItems: CategoryItem[]) => {
+    updateConfig({ ...config, categories: newItems });
   };
 
   const addItem = () => {
-    const newItem: BannerItem = {
+    const newItem: CategoryItem = {
       id: Date.now().toString(),
-      tag: 'NEW',
-      title: 'Banner Title',
-      sub: 'Subtitle',
-      cta: 'Shop now',
+      title: 'New Category',
       icon: 'Package',
+      description: 'Category description',
+      productIds: [],
     };
-    updateBanners([...banners, newItem]);
+    updateCategories([...categories, newItem]);
   };
 
-  const updateItem = (index: number, field: keyof BannerItem, value: any) => {
-    const updated = [...banners];
+  const updateItem = (index: number, field: keyof CategoryItem, value: any) => {
+    const updated = [...categories];
     updated[index] = { ...updated[index], [field]: value };
-    updateBanners(updated);
+    updateCategories(updated);
   };
 
   const removeItem = (index: number) => {
-    updateBanners(banners.filter((_, i) => i !== index));
+    updateCategories(categories.filter((_, i) => i !== index));
   };
 
   const moveItem = (index: number, dir: 'up' | 'down') => {
-    const newItems = [...banners];
+    const newItems = [...categories];
     const swap = dir === 'up' ? index - 1 : index + 1;
-    if (swap < 0 || swap >= banners.length) return;
+    if (swap < 0 || swap >= categories.length) return;
     [newItems[index], newItems[swap]] = [newItems[swap], newItems[index]];
-    updateBanners(newItems);
+    updateCategories(newItems);
   };
 
   return (
     <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Store Banners</h3>
-      {banners.map((b, idx) => (
-        <div key={b.id} className="flex flex-wrap items-center gap-2 border-b pb-2">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-lg">Categories</h3>
+        <span className="text-xs text-gray-400">Each category has an icon and description</span>
+      </div>
+      {categories.map((c: CategoryItem, idx: number) => (
+        <div key={c.id} className="flex flex-wrap items-center gap-2 border-b pb-2">
           <input
-            value={b.tag}
-            onChange={e => updateItem(idx, 'tag', e.target.value)}
-            placeholder="Tag"
-            className="w-24 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
-          <input
-            value={b.title}
+            value={c.title}
             onChange={e => updateItem(idx, 'title', e.target.value)}
-            placeholder="Title"
-            className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
+            placeholder="Category title"
+            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
           />
           <input
-            value={b.sub}
-            onChange={e => updateItem(idx, 'sub', e.target.value)}
-            placeholder="Subtitle"
-            className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
-          <input
-            value={b.cta}
-            onChange={e => updateItem(idx, 'cta', e.target.value)}
-            placeholder="CTA"
-            className="w-24 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
-          <input
-            value={b.icon}
+            value={c.icon}
             onChange={e => updateItem(idx, 'icon', e.target.value)}
-            placeholder="Icon name (e.g. Sun, Package)"
-            className="w-24 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+            placeholder="Icon (e.g. Apple)"
+            className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={c.description}
+            onChange={e => updateItem(idx, 'description', e.target.value)}
+            placeholder="Description"
+            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={c.productIds.join(', ')}
+            onChange={e => updateItem(idx, 'productIds', e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean))}
+            placeholder="Product IDs (comma)"
+            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
           />
           <div className="flex gap-1">
             <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
@@ -969,167 +350,197 @@ function BannersEditor({ config, updateConfig }: { config: any; updateConfig: (n
         </div>
       ))}
       <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600">
-        <Plus size={16} /> Add Banner
+        <Plus size={16} /> Add Category
       </button>
     </div>
   );
 }
 
-// ----- Store Theme Editor -----
-function StoreThemeEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { storeTheme = { from: '#10b981', to: '#059669', accent: '#fbbf24' } } = config;
+// ----- Bulk Deal Banner Editor -----
+function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
+  const { bulkDeal } = config;
 
-  const updateTheme = (field: string, value: string) => {
-    updateConfig({ ...config, storeTheme: { ...storeTheme, [field]: value } });
+  const updateBulkDeal = (field: string, value: any) => {
+    updateConfig({ ...config, bulkDeal: { ...bulkDeal, [field]: value } });
   };
 
   return (
     <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Store Theme (Gradient)</h3>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">From Color</label>
+      <h3 className="font-semibold text-lg">Bulk Deal Banner</h3>
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-medium text-gray-700">Enabled</label>
         <input
-          type="color"
-          value={storeTheme.from}
-          onChange={e => updateTheme('from', e.target.value)}
-          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+          type="checkbox"
+          checked={bulkDeal.enabled}
+          onChange={e => updateBulkDeal('enabled', e.target.checked)}
+          className="accent-green-600"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">To Color</label>
+        <label className="block text-sm font-medium text-gray-700">Tag</label>
         <input
-          type="color"
-          value={storeTheme.to}
-          onChange={e => updateTheme('to', e.target.value)}
-          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+          value={bulkDeal.tag}
+          onChange={e => updateBulkDeal('tag', e.target.value)}
+          placeholder="e.g. FARM DIRECT"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Accent Color</label>
+        <label className="block text-sm font-medium text-gray-700">Title</label>
         <input
-          type="color"
-          value={storeTheme.accent}
-          onChange={e => updateTheme('accent', e.target.value)}
-          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+          value={bulkDeal.title}
+          onChange={e => updateBulkDeal('title', e.target.value)}
+          placeholder="e.g. Morning harvest sale"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
+        <input
+          value={bulkDeal.subtitle}
+          onChange={e => updateBulkDeal('subtitle', e.target.value)}
+          placeholder="e.g. Book before 8 AM · 15% off"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">CTA Text</label>
+        <input
+          value={bulkDeal.cta}
+          onChange={e => updateBulkDeal('cta', e.target.value)}
+          placeholder="e.g. Shop fresh"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Icon Name</label>
+        <input
+          value={bulkDeal.icon}
+          onChange={e => updateBulkDeal('icon', e.target.value)}
+          placeholder="e.g. Sun, Package, Wheat"
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
     </div>
   );
 }
 
-// ----- Reusable ListEditor -----
-function ListEditor<T extends { id: string }>({
-  items,
-  setItems,
-  fields,
-  selectField,
-  imageField,
-}: {
-  items: T[];
-  setItems: (items: T[]) => void;
-  fields: { key: keyof T; label: string }[];
-  selectField?: { key: keyof T; label: string; options: { value: string; label: string }[] };
-  imageField?: keyof T;
-}) {
-  const [localItems, setLocalItems] = useState(items);
+// ----- Trending Banner Editor -----
+function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
+  const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories' }, categories = [] } = config;
 
-  const handleSave = () => setItems(localItems);
-
-  const addItem = () => {
-    const newItem: any = { id: Date.now().toString() };
-    fields.forEach(f => (newItem[f.key] = ''));
-    if (selectField) newItem[selectField.key] = '';
-    setLocalItems([...localItems, newItem]);
+  const updateTrending = (field: string, value: any) => {
+    updateConfig({ ...config, trending: { ...trending, [field]: value } });
   };
 
-  const updateItem = (index: number, key: keyof T, value: string) => {
-    const updated = [...localItems];
-    updated[index] = { ...updated[index], [key]: value as any };
-    setLocalItems(updated);
+  const updateIconButtons = (newItems: TrendingIconButton[]) => {
+    updateConfig({ ...config, trending: { ...trending, iconButtons: newItems } });
   };
 
-  const deleteItem = (index: number) => {
-    setLocalItems(localItems.filter((_, i) => i !== index));
+  const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
+
+  const addIconButton = () => {
+    const newItem: TrendingIconButton = {
+      id: Date.now().toString(),
+      label: 'New Category',
+      icon: 'Package',
+      categoryId: categoryOptions.length > 0 ? categoryOptions[0].value : '',
+    };
+    updateIconButtons([...trending.iconButtons, newItem]);
   };
 
-  const moveItem = (index: number, direction: 'up' | 'down') => {
-    const newItems = [...localItems];
-    const swap = direction === 'up' ? index - 1 : index + 1;
-    if (swap < 0 || swap >= localItems.length) return;
+  const updateIconButton = (index: number, field: keyof TrendingIconButton, value: any) => {
+    const updated = [...trending.iconButtons];
+    updated[index] = { ...updated[index], [field]: value };
+    updateIconButtons(updated);
+  };
+
+  const removeIconButton = (index: number) => {
+    updateIconButtons(trending.iconButtons.filter((_: any, i: number) => i !== index));
+  };
+
+  const moveIconButton = (index: number, dir: 'up' | 'down') => {
+    const newItems = [...trending.iconButtons];
+    const swap = dir === 'up' ? index - 1 : index + 1;
+    if (swap < 0 || swap >= trending.iconButtons.length) return;
     [newItems[index], newItems[swap]] = [newItems[swap], newItems[index]];
-    setLocalItems(newItems);
+    updateIconButtons(newItems);
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex justify-between">
-        <h3 className="font-semibold">Items</h3>
-        <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600">
-          <Plus size={16} /> Add
+    <div className="space-y-4">
+      <h3 className="font-semibold text-lg">Trending Banner (Middle Banner)</h3>
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-medium text-gray-700">Enabled</label>
+        <input
+          type="checkbox"
+          checked={trending.enabled}
+          onChange={e => updateTrending('enabled', e.target.checked)}
+          className="accent-green-600"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Title</label>
+        <input
+          value={trending.title}
+          onChange={e => updateTrending('title', e.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
+        <input
+          value={trending.subtitle}
+          onChange={e => updateTrending('subtitle', e.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">CTA Text</label>
+        <input
+          value={trending.ctaText}
+          onChange={e => updateTrending('ctaText', e.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div className="mt-4">
+        <h4 className="font-medium text-sm text-gray-700">Icon Buttons</h4>
+        {trending.iconButtons.map((btn: TrendingIconButton, idx: number) => (
+          <div key={btn.id} className="flex flex-wrap items-center gap-2 border-b pb-2 mt-2">
+            <input
+              value={btn.label}
+              onChange={e => updateIconButton(idx, 'label', e.target.value)}
+              placeholder="Label"
+              className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
+            />
+            <input
+              value={btn.icon}
+              onChange={e => updateIconButton(idx, 'icon', e.target.value)}
+              placeholder="Icon (e.g. Apple)"
+              className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+            />
+            <select
+              value={btn.categoryId || ''}
+              onChange={e => updateIconButton(idx, 'categoryId', e.target.value)}
+              className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
+            >
+              <option value="">Select Category</option>
+              {categoryOptions.map((opt: any) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <div className="flex gap-1">
+              <button onClick={() => moveIconButton(idx, 'up')}><ChevronUp size={16} /></button>
+              <button onClick={() => moveIconButton(idx, 'down')}><ChevronDown size={16} /></button>
+              <button onClick={() => removeIconButton(idx)} className="text-red-400"><Trash2 size={16} /></button>
+            </div>
+          </div>
+        ))}
+        <button onClick={addIconButton} className="flex items-center gap-1 text-sm text-green-600 mt-2">
+          <Plus size={16} /> Add Icon Button
         </button>
       </div>
-      {localItems.map((item, idx) => (
-        <div key={item.id} className="flex items-center gap-2 border-b pb-2 flex-wrap">
-          {fields.map(f => (
-            <div key={String(f.key)} className="flex-1 min-w-[100px]">
-              {f.key === imageField ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    value={String(item[f.key] || '')}
-                    onChange={e => updateItem(idx, f.key, e.target.value)}
-                    placeholder={f.label}
-                    className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                  />
-                  <label className="cursor-pointer bg-gray-100 p-1 rounded hover:bg-gray-200">
-                    <Upload size={14} />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          // In real app, upload to storage
-                          updateItem(idx, f.key, URL.createObjectURL(file));
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-              ) : (
-                <input
-                  value={String(item[f.key] || '')}
-                  onChange={e => updateItem(idx, f.key, e.target.value)}
-                  placeholder={f.label}
-                  className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                />
-              )}
-            </div>
-          ))}
-          {selectField && (
-            <div className="flex-1 min-w-[150px]">
-              <select
-                value={String(item[selectField.key] || '')}
-                onChange={e => updateItem(idx, selectField.key, e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
-              >
-                <option value="">Select {selectField.label}</option>
-                {selectField.options.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div className="flex gap-1">
-            <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
-            <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>
-            <button onClick={() => deleteItem(idx)} className="text-red-400"><Trash2 size={16} /></button>
-          </div>
-        </div>
-      ))}
-      <button onClick={handleSave} className="w-full py-2 rounded-xl bg-green-600 text-white font-bold flex items-center justify-center gap-2">
-        <Save size={16} /> Save Changes
-      </button>
     </div>
   );
 }

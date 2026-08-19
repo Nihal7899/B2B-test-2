@@ -1,3 +1,5 @@
+// types/storeConfig.ts
+
 export interface FeatureItem {
   id: string;
   icon: string;   // emoji or image URL
@@ -15,7 +17,7 @@ export interface StoreConfig {
     enabled: boolean;
     imageUrl: string;
     overlayColor: string;
-    overlayOpacity: number;   // 0-100
+    overlayOpacity: number;
     tagline: string;
     ctaText: string;
     ctaLink: string;

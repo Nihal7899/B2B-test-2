@@ -1,17 +1,9 @@
-import { Heart, Star, ShoppingCart } from 'lucide-react';
+// components/ProductCard.tsx
+import { Heart, Star, ShoppingCart, Minus, Plus } from 'lucide-react';
 import type { Product } from '@/types';
 import { OfferBadge } from './OfferBadge';
 import { QuantitySelector } from './QuantitySelector';
-
-interface ProductCardTheme {
-  primaryColor?: string;
-  secondaryColor?: string;
-  textColor?: string;
-  borderColor?: string;
-  buttonStyle?: 'brand' | 'outline' | 'ghost';
-  cardRadius?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
-  shadowIntensity?: 'none' | 'sm' | 'md' | 'lg';
-}
+import { useState } from 'react';
 
 interface ProductCardProps {
   product: Product;
@@ -21,7 +13,6 @@ interface ProductCardProps {
   onDecrement: () => void;
   onClick: () => void;
   horizontal?: boolean;
-  theme?: ProductCardTheme;
 }
 
 export function ProductCard({
@@ -32,83 +23,73 @@ export function ProductCard({
   onDecrement,
   onClick,
   horizontal = false,
-  theme = {},
 }: ProductCardProps) {
-  const {
-    primaryColor = '#10b981',
-    secondaryColor = '#059669',
-    textColor = '#1f2937',
-    borderColor = '#e5e7eb',
-    buttonStyle = 'brand',
-    cardRadius = 'xl',
-    shadowIntensity = 'md',
-  } = theme;
-
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
+  const [added, setAdded] = useState(false);
 
-  const radiusMap = {
-    sm: 'rounded',
-    md: 'rounded-md',
-    lg: 'rounded-lg',
-    xl: 'rounded-xl',
-    full: 'rounded-full',
+  const handleAdd = () => {
+    onAdd();
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1200);
   };
-  const shadowMap = {
-    none: 'shadow-none',
-    sm: 'shadow-sm',
-    md: 'shadow',
-    lg: 'shadow-lg',
-  };
-
-  const cardClasses = `bg-white border ${radiusMap[cardRadius]} ${shadowMap[shadowIntensity]} transition-shadow hover:shadow-lg cursor-pointer overflow-hidden ${
-    horizontal ? 'w-[158px] shrink-0' : ''
-  }`;
-  const buttonBase = 'h-8 px-2.5 flex items-center gap-1 rounded-lg text-white text-[11px] font-bold shadow-sm tap-highlight active:scale-95 transition-transform';
 
   return (
-    <article onClick={onClick} className={cardClasses} style={{ borderColor }}>
-      <div className="relative bg-ink-50 h-[132px] flex items-center justify-center overflow-hidden">
-        <img src={product.image} alt={product.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
-        <div className="absolute top-2 left-2"><OfferBadge discountPercent={discount} /></div>
-        <button onClick={(e) => e.stopPropagation()} className="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/90 flex items-center justify-center text-ink-500 shadow-sm tap-highlight active:scale-90 transition-transform" aria-label="Add to wishlist">
-          <Heart size={14} strokeWidth={2} />
+    <article
+      onClick={onClick}
+      className={`group flex flex-col rounded-2xl border border-gray-100 bg-white p-2.5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lg ${horizontal ? 'w-[158px] shrink-0' : ''}`}
+    >
+      <div className="relative mb-2 overflow-hidden rounded-xl bg-gray-50">
+        <img
+          src={product.image}
+          alt={product.name}
+          loading="lazy"
+          className="h-28 w-full object-cover transition-transform duration-500 group-hover:scale-110"
+        />
+        {discount > 0 && (
+          <div className="absolute left-1.5 top-1.5">
+            <OfferBadge discountPercent={discount} />
+          </div>
+        )}
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white"
+        >
+          <Heart size={14} className="text-gray-600" />
         </button>
       </div>
-      <div className="p-2.5">
-        <p className="text-[10px] font-bold uppercase tracking-wide truncate" style={{ color: primaryColor }}>
-          {product.brand}
+
+      <div className="flex flex-1 flex-col">
+        <p className="text-[11px] font-medium text-gray-400">{product.brand}</p>
+        <h4 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-800">{product.name}</h4>
+        <p className="mt-0.5 text-[11px] text-gray-500">
+          MOQ {product.moq} · per {product.packSize}
         </p>
-        <h3 className="text-[12px] font-bold leading-tight mt-0.5 line-clamp-2 min-h-[30px]" style={{ color: textColor }}>
-          {product.name}
-        </h3>
-        <p className="text-[10px] text-ink-400 mt-1">{product.packSize} <span className="text-ink-300 mx-0.5">·</span> MOQ {product.moq}</p>
-        <div className="flex items-center gap-1 mt-1.5">
-          <Star size={11} className="text-amber-400 fill-amber-400" />
-          <span className="text-[10px] text-ink-500 font-medium">{product.rating}</span>
-        </div>
-        <div className="flex items-end justify-between gap-1 mt-2">
-          <div className="min-w-0">
-            <p className="text-[10px] text-ink-400 line-through">MRP ₹{product.mrp}</p>
-            <p className="text-[15px] font-extrabold leading-tight" style={{ color: primaryColor }}>
+        <div className="mt-auto flex items-center justify-between pt-2">
+          <div>
+            <p className="text-sm font-bold text-gray-900">
               ₹{product.price}
+              <span className="text-[11px] font-normal text-gray-400">/{product.packSize}</span>
             </p>
+            {discount > 0 && (
+              <p className="text-[10px] text-gray-400 line-through">₹{product.mrp}</p>
+            )}
           </div>
           {quantity > 0 ? (
-            <QuantitySelector quantity={quantity} onIncrement={onIncrement} onDecrement={onDecrement} />
+            <QuantitySelector
+              quantity={quantity}
+              onIncrement={onIncrement}
+              onDecrement={onDecrement}
+            />
+          ) : added ? (
+            <span className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">
+              ✓ Added
+            </span>
           ) : (
             <button
-              onClick={(e) => { e.stopPropagation(); onAdd(); }}
-              className={buttonBase}
-              style={
-                buttonStyle === 'outline'
-                  ? { backgroundColor: 'transparent', border: `1px solid ${primaryColor}`, color: primaryColor }
-                  : buttonStyle === 'ghost'
-                  ? { backgroundColor: 'transparent', color: primaryColor }
-                  : { backgroundColor: primaryColor }
-              }
+              onClick={(e) => { e.stopPropagation(); handleAdd(); }}
+              className="rounded-lg border border-emerald-600 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-600 hover:text-white"
             >
-              <ShoppingCart size={13} strokeWidth={2.5} /> Add
+              + Add
             </button>
           )}
         </div>
@@ -117,20 +98,8 @@ export function ProductCard({
   );
 }
 
-// ... ProductCarousel stays the same, but you can pass theme down
-
-interface ProductCarouselProps {
-  title: string;
-  products: Product[];
-  getQuantity: (id: string) => number;
-  onAdd: (product: Product) => void;
-  onIncrement: (product: Product) => void;
-  onDecrement: (product: Product) => void;
-  onProductClick: (product: Product) => void;
-  onViewAll: () => void;
-}
-
-export function ProductCarousel({ title, products, getQuantity, onAdd, onIncrement, onDecrement, onProductClick, onViewAll }: ProductCarouselProps) {
+// Keep existing ProductCarousel with same props
+export function ProductCarousel({ title, products, getQuantity, onAdd, onIncrement, onDecrement, onProductClick, onViewAll }: any) {
   return (
     <section>
       <div className="flex items-center justify-between px-4 mb-3">
@@ -138,7 +107,18 @@ export function ProductCarousel({ title, products, getQuantity, onAdd, onIncreme
         <button onClick={onViewAll} className="text-xs font-semibold text-brand-600 tap-highlight">View All</button>
       </div>
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
-        {products.map((product) => <ProductCard key={product.id} product={product} quantity={getQuantity(product.id)} onAdd={() => onAdd(product)} onIncrement={() => onIncrement(product)} onDecrement={() => onDecrement(product)} onClick={() => onProductClick(product)} horizontal />)}
+        {products.map((product: any) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            quantity={getQuantity(product.id)}
+            onAdd={() => onAdd(product)}
+            onIncrement={() => onIncrement(product)}
+            onDecrement={() => onDecrement(product)}
+            onClick={() => onProductClick(product)}
+            horizontal
+          />
+        ))}
       </div>
     </section>
   );

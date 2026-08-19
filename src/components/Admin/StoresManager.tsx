@@ -110,7 +110,7 @@ export default function StoresManager() {
   );
 }
 
-// ---- StoreForm ----
+// ---- StoreForm (metadata only) ----
 function StoreForm({
   initial,
   onClose,
@@ -125,11 +125,6 @@ function StoreForm({
     image_url: initial?.image_url ?? '',
     banner_image_url: initial?.banner_image_url ?? '',
     description: initial?.description ?? '',
-    theme_bg: initial?.theme_bg ?? 'bg-emerald-50',
-    theme_border: initial?.theme_border ?? 'border-emerald-200',
-    theme_text: initial?.theme_text ?? 'text-emerald-900',
-    theme_accent: initial?.theme_accent ?? 'bg-emerald-600',
-    button_style: initial?.button_style ?? 'brand',
     sort_order: initial?.sort_order ?? 0,
     is_active: initial?.is_active ?? true,
   });
@@ -195,47 +190,6 @@ function StoreForm({
           placeholder="e.g. Farm-fresh staples"
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
-      </div>
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Theme colors</label>
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            value={form.theme_bg}
-            onChange={(e) => setForm({ ...form, theme_bg: e.target.value })}
-            placeholder="bg-*"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-          <input
-            value={form.theme_border}
-            onChange={(e) => setForm({ ...form, theme_border: e.target.value })}
-            placeholder="border-*"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-          <input
-            value={form.theme_text}
-            onChange={(e) => setForm({ ...form, theme_text: e.target.value })}
-            placeholder="text-*"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-          <input
-            value={form.theme_accent}
-            onChange={(e) => setForm({ ...form, theme_accent: e.target.value })}
-            placeholder="bg-* (accent)"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-        </div>
-      </div>
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Button style</label>
-        <select
-          value={form.button_style}
-          onChange={(e) => setForm({ ...form, button_style: e.target.value })}
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        >
-          <option value="brand">Solid (brand accent)</option>
-          <option value="outline">Outline</option>
-          <option value="ghost">Ghost</option>
-        </select>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>

@@ -1,3 +1,4 @@
+// src/components/admin/StoreConfigManager.tsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Store } from '@/types';
@@ -13,9 +14,11 @@ import {
   CategorySection,
   OtherStoreItem,
   FeatureItem,
+  HighlightItem,
+  BannerItem,
 } from '@/types/storeConfig';
 
-// ----- Main component (unchanged) -----
+// ----- Main component -----
 export default function StoreConfigManager() {
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
@@ -61,11 +64,11 @@ export default function StoreConfigManager() {
   );
 }
 
-// ----- Editor with tabs (with safe defaults) -----
+// ----- Editor with tabs -----
 function StoreConfigEditor() {
   const { config, updateConfig } = useStore();
 
-  // 🔥 SAFE: Provide defaults for all config sections
+  // Safe defaults
   const safeConfig = {
     header: config?.header || { title: 'Store', subtitle: '', cartBadgeCount: 0 },
     hero: config?.hero || { enabled: false, imageUrl: '', overlayColor: '#000000', overlayOpacity: 50, tagline: '', ctaText: '', ctaLink: '' },
@@ -78,11 +81,18 @@ function StoreConfigEditor() {
     categories: config?.categories || [],
     packaging: config?.packaging || [],
     otherStores: config?.otherStores || [],
-    theme: config?.theme || { primaryColor: '#10b981', secondaryColor: '#059669', textColor: '#1f2937', borderColor: '#e5e7eb', buttonStyle: 'brand', cardRadius: 'xl', shadowIntensity: 'md' },
+    highlights: config?.highlights || [],
+    banners: config?.banners || [],
+    storeTheme: config?.storeTheme || { from: '#10b981', to: '#059669', accent: '#fbbf24' },
+    blurb: config?.blurb || '',
+    trustBadge: config?.trustBadge || '',
+    story: config?.story || '',
   };
 
   const [activeTab, setActiveTab] = useState<
-    'header' | 'hero' | 'stats' | 'promoStrip' | 'features' | 'iconGrid' | 'dietary' | 'promo' | 'categories' | 'packaging' | 'other' | 'theme'
+    'header' | 'hero' | 'stats' | 'promoStrip' | 'features' |
+    'iconGrid' | 'dietary' | 'promo' | 'categories' | 'packaging' | 'other' |
+    'highlights' | 'banners' | 'theme'
   >('header');
 
   const [allStores, setAllStores] = useState<{ id: string; name: string; image_url: string }[]>([]);
@@ -90,7 +100,7 @@ function StoreConfigEditor() {
   // Build category options from the store's own categories
   const categoryOptions = safeConfig.categories.map(c => ({ value: c.id, label: c.title }));
 
-  // Fetch all stores for the "Other Stores" dropdown
+  // Fetch all stores for "Other Stores" dropdown
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
@@ -107,7 +117,8 @@ function StoreConfigEditor() {
       <div className="flex gap-2 border-b pb-2 mb-4 overflow-x-auto">
         {[
           'header', 'hero', 'stats', 'promoStrip', 'features',
-          'iconGrid', 'dietary', 'promo', 'categories', 'packaging', 'other', 'theme'
+          'iconGrid', 'dietary', 'promo', 'categories', 'packaging', 'other',
+          'highlights', 'banners', 'theme'
         ].map(tab => (
           <button
             key={tab}
@@ -175,12 +186,14 @@ function StoreConfigEditor() {
           selectField={{ key: 'storeId', label: 'Store', options: allStores.map(s => ({ value: s.id, label: s.name })) }}
         />
       )}
-      {activeTab === 'theme' && <ThemeEditor config={safeConfig} updateConfig={updateConfig} />}
+      {activeTab === 'highlights' && <HighlightsEditor config={safeConfig} updateConfig={updateConfig} />}
+      {activeTab === 'banners' && <BannersEditor config={safeConfig} updateConfig={updateConfig} />}
+      {activeTab === 'theme' && <StoreThemeEditor config={safeConfig} updateConfig={updateConfig} />}
     </div>
   );
 }
 
-// ----- All Editor components now accept `config` and `updateConfig` props -----
+// ----- All Editor components -----
 
 function HeaderEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { header } = config;
@@ -216,6 +229,36 @@ function HeaderEditor({ config, updateConfig }: { config: any; updateConfig: (ne
           type="number"
           value={header.cartBadgeCount}
           onChange={e => updateHeader('cartBadgeCount', Number(e.target.value))}
+          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Blurb</label>
+        <input
+          type="text"
+          value={config.blurb || ''}
+          onChange={e => updateConfig({ ...config, blurb: e.target.value })}
+          placeholder="Short description for store card"
+          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Trust Badge</label>
+        <input
+          type="text"
+          value={config.trustBadge || ''}
+          onChange={e => updateConfig({ ...config, trustBadge: e.target.value })}
+          placeholder="e.g. 100% farm fresh"
+          className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Story</label>
+        <textarea
+          value={config.story || ''}
+          onChange={e => updateConfig({ ...config, story: e.target.value })}
+          placeholder="About the store..."
+          rows={3}
           className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
@@ -501,96 +544,7 @@ function FeaturesEditor({ config, updateConfig }: { config: any; updateConfig: (
   );
 }
 
-function ThemeEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { theme } = config;
-
-  const updateTheme = (field: string, value: any) => {
-    updateConfig({ ...config, theme: { ...theme, [field]: value } });
-  };
-
-  return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Theme Settings</h3>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Primary Color</label>
-        <input
-          type="color"
-          value={theme.primaryColor}
-          onChange={e => updateTheme('primaryColor', e.target.value)}
-          className="w-full h-10 rounded-xl border border-gray-300 p-1"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Secondary Color</label>
-        <input
-          type="color"
-          value={theme.secondaryColor}
-          onChange={e => updateTheme('secondaryColor', e.target.value)}
-          className="w-full h-10 rounded-xl border border-gray-300 p-1"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Text Color</label>
-        <input
-          type="color"
-          value={theme.textColor}
-          onChange={e => updateTheme('textColor', e.target.value)}
-          className="w-full h-10 rounded-xl border border-gray-300 p-1"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Border Color</label>
-        <input
-          type="color"
-          value={theme.borderColor}
-          onChange={e => updateTheme('borderColor', e.target.value)}
-          className="w-full h-10 rounded-xl border border-gray-300 p-1"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Button Style</label>
-        <select
-          value={theme.buttonStyle}
-          onChange={e => updateTheme('buttonStyle', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="brand">Brand</option>
-          <option value="outline">Outline</option>
-          <option value="ghost">Ghost</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Card Radius</label>
-        <select
-          value={theme.cardRadius}
-          onChange={e => updateTheme('cardRadius', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="sm">Small</option>
-          <option value="md">Medium</option>
-          <option value="lg">Large</option>
-          <option value="xl">Extra Large</option>
-          <option value="full">Full</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Shadow Intensity</label>
-        <select
-          value={theme.shadowIntensity}
-          onChange={e => updateTheme('shadowIntensity', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="none">None</option>
-          <option value="sm">Small</option>
-          <option value="md">Medium</option>
-          <option value="lg">Large</option>
-        </select>
-      </div>
-    </div>
-  );
-}
-
-// ----- Promo Banner Editor (unchanged) -----
+// ----- Promo Banner Editor -----
 function PromoEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { promoBanner } = config;
 
@@ -854,7 +808,216 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
   );
 }
 
-// ----- Reusable ListEditor (unchanged) -----
+// ----- Highlights Editor -----
+function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
+  const { highlights = [] } = config;
+
+  const updateHighlights = (newItems: HighlightItem[]) => {
+    updateConfig({ ...config, highlights: newItems });
+  };
+
+  const addItem = () => {
+    const newItem: HighlightItem = {
+      id: Date.now().toString(),
+      label: 'New Highlight',
+      icon: 'Package',
+      desc: 'Description',
+      productIds: [],
+    };
+    updateHighlights([...highlights, newItem]);
+  };
+
+  const updateItem = (index: number, field: keyof HighlightItem, value: any) => {
+    const updated = [...highlights];
+    updated[index] = { ...updated[index], [field]: value };
+    updateHighlights(updated);
+  };
+
+  const removeItem = (index: number) => {
+    updateHighlights(highlights.filter((_, i) => i !== index));
+  };
+
+  const moveItem = (index: number, dir: 'up' | 'down') => {
+    const newItems = [...highlights];
+    const swap = dir === 'up' ? index - 1 : index + 1;
+    if (swap < 0 || swap >= highlights.length) return;
+    [newItems[index], newItems[swap]] = [newItems[swap], newItems[index]];
+    updateHighlights(newItems);
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold text-lg">Store Highlights</h3>
+      {highlights.map((h, idx) => (
+        <div key={h.id} className="flex flex-wrap items-center gap-2 border-b pb-2">
+          <input
+            value={h.label}
+            onChange={e => updateItem(idx, 'label', e.target.value)}
+            placeholder="Label"
+            className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={h.icon}
+            onChange={e => updateItem(idx, 'icon', e.target.value)}
+            placeholder="Icon name (e.g. Apple, Wheat)"
+            className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={h.desc}
+            onChange={e => updateItem(idx, 'desc', e.target.value)}
+            placeholder="Description"
+            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={h.productIds.join(', ')}
+            onChange={e => updateItem(idx, 'productIds', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+            placeholder="Product IDs (comma)"
+            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <div className="flex gap-1">
+            <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
+            <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>
+            <button onClick={() => removeItem(idx)} className="text-red-400"><Trash2 size={16} /></button>
+          </div>
+        </div>
+      ))}
+      <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600">
+        <Plus size={16} /> Add Highlight
+      </button>
+    </div>
+  );
+}
+
+// ----- Banners Editor -----
+function BannersEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
+  const { banners = [] } = config;
+
+  const updateBanners = (newItems: BannerItem[]) => {
+    updateConfig({ ...config, banners: newItems });
+  };
+
+  const addItem = () => {
+    const newItem: BannerItem = {
+      id: Date.now().toString(),
+      tag: 'NEW',
+      title: 'Banner Title',
+      sub: 'Subtitle',
+      cta: 'Shop now',
+      icon: 'Package',
+    };
+    updateBanners([...banners, newItem]);
+  };
+
+  const updateItem = (index: number, field: keyof BannerItem, value: any) => {
+    const updated = [...banners];
+    updated[index] = { ...updated[index], [field]: value };
+    updateBanners(updated);
+  };
+
+  const removeItem = (index: number) => {
+    updateBanners(banners.filter((_, i) => i !== index));
+  };
+
+  const moveItem = (index: number, dir: 'up' | 'down') => {
+    const newItems = [...banners];
+    const swap = dir === 'up' ? index - 1 : index + 1;
+    if (swap < 0 || swap >= banners.length) return;
+    [newItems[index], newItems[swap]] = [newItems[swap], newItems[index]];
+    updateBanners(newItems);
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold text-lg">Store Banners</h3>
+      {banners.map((b, idx) => (
+        <div key={b.id} className="flex flex-wrap items-center gap-2 border-b pb-2">
+          <input
+            value={b.tag}
+            onChange={e => updateItem(idx, 'tag', e.target.value)}
+            placeholder="Tag"
+            className="w-24 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={b.title}
+            onChange={e => updateItem(idx, 'title', e.target.value)}
+            placeholder="Title"
+            className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={b.sub}
+            onChange={e => updateItem(idx, 'sub', e.target.value)}
+            placeholder="Subtitle"
+            className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={b.cta}
+            onChange={e => updateItem(idx, 'cta', e.target.value)}
+            placeholder="CTA"
+            className="w-24 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <input
+            value={b.icon}
+            onChange={e => updateItem(idx, 'icon', e.target.value)}
+            placeholder="Icon name (e.g. Sun, Package)"
+            className="w-24 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          />
+          <div className="flex gap-1">
+            <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
+            <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>
+            <button onClick={() => removeItem(idx)} className="text-red-400"><Trash2 size={16} /></button>
+          </div>
+        </div>
+      ))}
+      <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600">
+        <Plus size={16} /> Add Banner
+      </button>
+    </div>
+  );
+}
+
+// ----- Store Theme Editor -----
+function StoreThemeEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
+  const { storeTheme = { from: '#10b981', to: '#059669', accent: '#fbbf24' } } = config;
+
+  const updateTheme = (field: string, value: string) => {
+    updateConfig({ ...config, storeTheme: { ...storeTheme, [field]: value } });
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold text-lg">Store Theme (Gradient)</h3>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">From Color</label>
+        <input
+          type="color"
+          value={storeTheme.from}
+          onChange={e => updateTheme('from', e.target.value)}
+          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">To Color</label>
+        <input
+          type="color"
+          value={storeTheme.to}
+          onChange={e => updateTheme('to', e.target.value)}
+          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Accent Color</label>
+        <input
+          type="color"
+          value={storeTheme.accent}
+          onChange={e => updateTheme('accent', e.target.value)}
+          className="w-full h-10 rounded-xl border border-gray-300 p-1"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ----- Reusable ListEditor -----
 function ListEditor<T extends { id: string }>({
   items,
   setItems,

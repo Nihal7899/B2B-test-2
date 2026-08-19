@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
-import { ChevronLeft, Search, ShoppingCart, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, Search, ShoppingCart, ChevronRight, X, MapPin, Bell } from 'lucide-react';
 import { useCart } from '@/store';
 import { fetchProductsByIds, fetchStores } from '@/services/catalog';
 import type { Product as AppProduct, Store } from '@/types';
@@ -15,6 +15,7 @@ interface StoreScreenProps {
 function StoreSkeleton() {
   return (
     <div className="min-h-screen bg-white pb-20">
+      <div className="h-16 bg-gray-100 animate-pulse"></div>
       <div className="h-64 bg-gray-100 animate-pulse"></div>
       <div className="px-4 py-2">
         <div className="h-10 bg-gray-100 rounded-xl animate-pulse"></div>
@@ -37,11 +38,11 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const { config, loading } = useStore();
   const navigate = useNavigate();
   const cart = useCart();
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // 🔥 Guard: if config is missing, show skeleton
+  // 🔥 Safe destructuring with defaults
   if (!config) return <StoreSkeleton />;
 
-  // 🔥 Safe destructuring with defaults for all fields
   const {
     header = { title: 'Store', subtitle: '', cartBadgeCount: 0 },
     hero = { enabled: false, imageUrl: '', overlayColor: '#000000', overlayOpacity: 50, tagline: '', ctaText: '', ctaLink: '' },
@@ -63,6 +64,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [otherStoreDetails, setOtherStoreDetails] = useState<Store[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Memoized
   const allProductIds = useMemo(() => {
@@ -129,16 +131,26 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const handleIconClick = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
     setSearchQuery('');
+    setSearchOpen(false);
   };
 
   const handleDietaryClick = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
     setSearchQuery('');
+    setSearchOpen(false);
   };
 
   const clearFilter = () => {
     setSelectedCategoryId(null);
     setSearchQuery('');
+    setSearchOpen(false);
+  };
+
+  const toggleSearch = () => {
+    setSearchOpen(!searchOpen);
+    if (!searchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 300);
+    }
   };
 
   const hasActiveFilter = !!(selectedCategoryId || searchQuery.trim());
@@ -165,6 +177,93 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
   return (
     <div className="min-h-screen bg-white pb-20">
+      {/* ===== STORE HEADER ===== */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 safe-top">
+        <div className="flex items-center justify-between px-4 h-14">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button onClick={() => navigate(-1)} className="p-1 rounded-full hover:bg-gray-50">
+              <ChevronLeft size={20} className="text-gray-700" />
+            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center shadow-sm">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7l9-4 9 4-9 4-9-4z" /><path d="M3 12l9 4 9-4" /><path d="M3 17l9 4 9-4" />
+                </svg>
+              </div>
+              <div className="flex flex-col leading-none">
+                <span className="text-[15px] font-extrabold text-gray-900 tracking-tight">{header.title}</span>
+                <span className="text-[9px] font-semibold text-green-600 tracking-wider uppercase">Organic Store</span>
+              </div>
+            </div>
+            <div className="hidden xs:flex items-center gap-1 ml-1 pl-2 border-l border-gray-200 min-w-0">
+              <MapPin size={13} className="text-green-600 shrink-0" strokeWidth={2.5} />
+              <div className="flex flex-col leading-tight min-w-0">
+                <span className="text-[9px] text-gray-400 font-medium uppercase tracking-wide">Deliver to</span>
+                <span className="text-[11px] font-semibold text-gray-700 truncate">Koramangala, BLR</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={toggleSearch}
+              className="relative h-9 w-9 flex items-center justify-center rounded-lg text-gray-600 tap-highlight active:scale-90 transition-transform"
+              aria-label="Search"
+            >
+              <Search size={20} strokeWidth={2} />
+            </button>
+            <button className="relative h-9 w-9 flex items-center justify-center rounded-lg text-gray-600 tap-highlight active:scale-90 transition-transform" aria-label="Notifications">
+              <Bell size={20} strokeWidth={2} />
+              <span className="absolute top-1.5 right-2 h-2 w-2 rounded-full bg-red-500 border border-white" />
+            </button>
+            <button
+              onClick={() => goTo('cart')}
+              className="relative h-9 w-9 flex items-center justify-center rounded-lg text-gray-700 tap-highlight active:scale-90 transition-transform"
+              aria-label="Cart"
+            >
+              <ShoppingCart size={20} strokeWidth={2} />
+              {cart.totalItems > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-green-600 text-white text-[10px] font-bold tabular-nums border border-white">
+                  {cart.totalItems}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Slide-down search bar */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            searchOpen ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div className="px-4 py-2 border-t border-gray-100 bg-white">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  // Clear category filter when searching
+                  if (selectedCategoryId) setSelectedCategoryId(null);
+                }}
+                placeholder="Search within this store…"
+                className="w-full h-10 pl-9 pr-4 rounded-xl border border-gray-200 bg-gray-50 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
       {/* ===== HERO BANNER ===== */}
       {hero.enabled && hero.imageUrl && (
         <div className="relative h-[220px] md:h-[280px] overflow-hidden">
@@ -268,54 +367,9 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         </div>
       )}
 
-      {/* ===== HEADER WITH BACK & CART ===== */}
-      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-1 rounded-full hover:bg-gray-50">
-            <ChevronLeft size={20} className="text-gray-700" />
-          </button>
-          <div>
-            <h1 className="text-lg font-bold text-green-800 leading-tight">{header.title}</h1>
-            <p className="text-xs text-gray-500">{header.subtitle}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="p-2 rounded-full hover:bg-gray-50">
-            <Search size={18} className="text-gray-600" />
-          </button>
-          <button className="relative p-2 rounded-full hover:bg-gray-50" onClick={() => goTo('cart')}>
-            <ShoppingCart size={18} className="text-gray-600" />
-            {header.cartBadgeCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center">
-                {header.cartBadgeCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </header>
-
-      {/* Search */}
-      <div className="px-4 py-2">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search within this store…"
-            className="w-full h-10 pl-9 pr-4 rounded-xl border border-gray-200 bg-gray-50 text-sm outline-none focus:border-green-500"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Filter chip */}
+      {/* ===== FILTER CHIP ===== */}
       {selectedCategoryId && (
-        <div className="px-4 pb-2">
+        <div className="px-4 pb-2 pt-2">
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
             {categoryMap[selectedCategoryId]?.title || 'Category'}
             <button onClick={clearFilter}><X size={12} /></button>
@@ -323,7 +377,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         </div>
       )}
 
-      {/* Results or main content */}
+      {/* ===== RESULTS OR MAIN CONTENT ===== */}
       {hasActiveFilter ? (
         <section className="px-4 py-3">
           <p className="text-xs text-gray-500 mb-3">{filteredProducts.length} products found</p>

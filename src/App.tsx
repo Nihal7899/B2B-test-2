@@ -1,4 +1,4 @@
-// App.tsx – full 1080 lines with StoreScreen integration
+// App.tsx – full with conditional header on store screen
 
 import {
   useMemo,
@@ -40,7 +40,7 @@ import { DeliveryScreen } from '@/screens/DeliveryScreen';
 import { FilteredProductsScreen } from '@/screens/FilteredProductsScreen';
 import { BusinessRegistrationScreen } from '@/screens/BusinessRegistrationScreen';
 import { AuthScreen } from '@/screens/AuthScreen';
-import  StoreScreen  from '@/screens/StoreScreen'; // <-- NEW
+import StoreScreen from '@/screens/StoreScreen';
 
 import type {
   Category,
@@ -88,7 +88,7 @@ const SCREEN_TO_PATH: Record<ScreenName, string> = {
   businessSelect: '/business-select',
   outletSelect: '/outlet-select',
   filteredProducts: '/filtered',
-  store: '/store', // <-- NEW
+  store: '/store',
 };
 
 
@@ -857,7 +857,6 @@ function App() {
           );
 
         }
-        
 
 
         case 'addresses':
@@ -1019,7 +1018,7 @@ function App() {
 
 
         // ============================================================
-        // NEW: STORE SCREEN
+        // STORE SCREEN
         // ============================================================
         case 'store': {
           return <StoreScreen goTo={goTo} />;
@@ -1067,14 +1066,13 @@ function App() {
 
       <div className="mx-auto min-h-screen max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50">
 
-        <Header
-          cartCount={
-            cart.totalItems
-          }
-          onCartClick={() =>
-            goTo('cart')
-          }
-        />
+        {/* 🔥 HIDE HEADER ON STORE SCREEN – store has its own header */}
+        {screen !== 'store' && (
+          <Header
+            cartCount={cart.totalItems}
+            onCartClick={() => goTo('cart')}
+          />
+        )}
 
 
         <main className="py-4 pb-24 animate-fade-up">
@@ -1093,9 +1091,7 @@ function App() {
 
         <BottomNavigation
           active={screen}
-          cartCount={
-            cart.totalItems
-          }
+          cartCount={cart.totalItems}
           onNavigate={
             goTo
           }

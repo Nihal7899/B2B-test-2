@@ -38,9 +38,12 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const navigate = useNavigate();
   const cart = useCart();
 
-  // 🔥 FIX: Provide defaults for all optional fields
+  // 🔥 Guard: if config is missing, show skeleton
+  if (!config) return <StoreSkeleton />;
+
+  // 🔥 Safe destructuring with defaults for all fields
   const {
-    header,
+    header = { title: 'Store', subtitle: '', cartBadgeCount: 0 },
     hero = { enabled: false, imageUrl: '', overlayColor: '#000000', overlayOpacity: 50, tagline: '', ctaText: '', ctaLink: '' },
     stats = { enabled: false, productsCount: 0, customersCount: 0, years: 0, deliveriesCount: 0 },
     promoStrip = { enabled: false, message: '', ctaText: '', ctaLink: '', backgroundColor: '#10b981', textColor: '#ffffff' },

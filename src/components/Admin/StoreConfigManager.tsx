@@ -15,7 +15,7 @@ import {
   FeatureItem,
 } from '@/types/storeConfig';
 
-// ----- Main component -----
+// ----- Main component (unchanged) -----
 export default function StoreConfigManager() {
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
@@ -61,9 +61,26 @@ export default function StoreConfigManager() {
   );
 }
 
-// ----- Editor with tabs -----
+// ----- Editor with tabs (with safe defaults) -----
 function StoreConfigEditor() {
   const { config, updateConfig } = useStore();
+
+  // 🔥 SAFE: Provide defaults for all config sections
+  const safeConfig = {
+    header: config?.header || { title: 'Store', subtitle: '', cartBadgeCount: 0 },
+    hero: config?.hero || { enabled: false, imageUrl: '', overlayColor: '#000000', overlayOpacity: 50, tagline: '', ctaText: '', ctaLink: '' },
+    stats: config?.stats || { enabled: false, productsCount: 0, customersCount: 0, years: 0, deliveriesCount: 0 },
+    promoStrip: config?.promoStrip || { enabled: false, message: '', ctaText: '', ctaLink: '', backgroundColor: '#10b981', textColor: '#ffffff' },
+    features: config?.features || { enabled: false, items: [] },
+    iconGrid: config?.iconGrid || [],
+    dietaryNeeds: config?.dietaryNeeds || [],
+    promoBanner: config?.promoBanner || { badge: '', title: '', subtitle: '', backgroundTheme: 'bg-gray-100', floatingProductImages: [] },
+    categories: config?.categories || [],
+    packaging: config?.packaging || [],
+    otherStores: config?.otherStores || [],
+    theme: config?.theme || { primaryColor: '#10b981', secondaryColor: '#059669', textColor: '#1f2937', borderColor: '#e5e7eb', buttonStyle: 'brand', cardRadius: 'xl', shadowIntensity: 'md' },
+  };
+
   const [activeTab, setActiveTab] = useState<
     'header' | 'hero' | 'stats' | 'promoStrip' | 'features' | 'iconGrid' | 'dietary' | 'promo' | 'categories' | 'packaging' | 'other' | 'theme'
   >('header');
@@ -71,7 +88,7 @@ function StoreConfigEditor() {
   const [allStores, setAllStores] = useState<{ id: string; name: string; image_url: string }[]>([]);
 
   // Build category options from the store's own categories
-  const categoryOptions = config.categories.map(c => ({ value: c.id, label: c.title }));
+  const categoryOptions = safeConfig.categories.map(c => ({ value: c.id, label: c.title }));
 
   // Fetch all stores for the "Other Stores" dropdown
   useEffect(() => {
@@ -108,15 +125,15 @@ function StoreConfigEditor() {
         ))}
       </div>
 
-      {activeTab === 'header' && <HeaderEditor />}
-      {activeTab === 'hero' && <HeroEditor />}
-      {activeTab === 'stats' && <StatsEditor />}
-      {activeTab === 'promoStrip' && <PromoStripEditor />}
-      {activeTab === 'features' && <FeaturesEditor />}
+      {activeTab === 'header' && <HeaderEditor config={safeConfig} updateConfig={updateConfig} />}
+      {activeTab === 'hero' && <HeroEditor config={safeConfig} updateConfig={updateConfig} />}
+      {activeTab === 'stats' && <StatsEditor config={safeConfig} updateConfig={updateConfig} />}
+      {activeTab === 'promoStrip' && <PromoStripEditor config={safeConfig} updateConfig={updateConfig} />}
+      {activeTab === 'features' && <FeaturesEditor config={safeConfig} updateConfig={updateConfig} />}
       {activeTab === 'iconGrid' && (
         <ListEditor<IconGridItem>
-          items={config.iconGrid}
-          setItems={(items) => updateConfig({ ...config, iconGrid: items })}
+          items={safeConfig.iconGrid}
+          setItems={(items) => updateConfig({ ...safeConfig, iconGrid: items })}
           fields={[
             { key: 'title', label: 'Title' },
             { key: 'iconUrl', label: 'Icon (URL/Emoji)' },
@@ -127,8 +144,8 @@ function StoreConfigEditor() {
       )}
       {activeTab === 'dietary' && (
         <ListEditor<CategoryCard>
-          items={config.dietaryNeeds}
-          setItems={(items) => updateConfig({ ...config, dietaryNeeds: items })}
+          items={safeConfig.dietaryNeeds}
+          setItems={(items) => updateConfig({ ...safeConfig, dietaryNeeds: items })}
           fields={[
             { key: 'title', label: 'Title' },
             { key: 'imageUrl', label: 'Image URL' },
@@ -137,12 +154,12 @@ function StoreConfigEditor() {
           imageField="imageUrl"
         />
       )}
-      {activeTab === 'promo' && <PromoEditor />}
-      {activeTab === 'categories' && <CategoriesEditor />}
+      {activeTab === 'promo' && <PromoEditor config={safeConfig} updateConfig={updateConfig} />}
+      {activeTab === 'categories' && <CategoriesEditor config={safeConfig} updateConfig={updateConfig} />}
       {activeTab === 'packaging' && (
         <ListEditor<PackagingItem>
-          items={config.packaging}
-          setItems={(items) => updateConfig({ ...config, packaging: items })}
+          items={safeConfig.packaging}
+          setItems={(items) => updateConfig({ ...safeConfig, packaging: items })}
           fields={[
             { key: 'title', label: 'Title' },
             { key: 'imageUrl', label: 'Image URL' },
@@ -152,21 +169,25 @@ function StoreConfigEditor() {
       )}
       {activeTab === 'other' && (
         <ListEditor<OtherStoreItem>
-          items={config.otherStores || []}
-          setItems={(items) => updateConfig({ ...config, otherStores: items })}
+          items={safeConfig.otherStores || []}
+          setItems={(items) => updateConfig({ ...safeConfig, otherStores: items })}
           fields={[]}
           selectField={{ key: 'storeId', label: 'Store', options: allStores.map(s => ({ value: s.id, label: s.name })) }}
         />
       )}
-      {activeTab === 'theme' && <ThemeEditor />}
+      {activeTab === 'theme' && <ThemeEditor config={safeConfig} updateConfig={updateConfig} />}
     </div>
   );
 }
 
-// ----- Header Editor (unchanged) -----
-function HeaderEditor() {
-  const { config, updateHeader } = useStore();
+// ----- All Editor components now accept `config` and `updateConfig` props -----
+
+function HeaderEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { header } = config;
+
+  const updateHeader = (field: string, value: any) => {
+    updateConfig({ ...config, header: { ...header, [field]: value } });
+  };
 
   return (
     <div className="space-y-4">
@@ -176,7 +197,7 @@ function HeaderEditor() {
         <input
           type="text"
           value={header.title}
-          onChange={e => updateHeader({ title: e.target.value })}
+          onChange={e => updateHeader('title', e.target.value)}
           className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
@@ -185,7 +206,7 @@ function HeaderEditor() {
         <input
           type="text"
           value={header.subtitle}
-          onChange={e => updateHeader({ subtitle: e.target.value })}
+          onChange={e => updateHeader('subtitle', e.target.value)}
           className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
@@ -194,7 +215,7 @@ function HeaderEditor() {
         <input
           type="number"
           value={header.cartBadgeCount}
-          onChange={e => updateHeader({ cartBadgeCount: Number(e.target.value) })}
+          onChange={e => updateHeader('cartBadgeCount', Number(e.target.value))}
           className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
@@ -202,9 +223,7 @@ function HeaderEditor() {
   );
 }
 
-// ----- Hero Editor -----
-function HeroEditor() {
-  const { config, updateConfig } = useStore();
+function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { hero } = config;
 
   const updateHero = (field: string, value: any) => {
@@ -286,9 +305,7 @@ function HeroEditor() {
   );
 }
 
-// ----- Stats Editor -----
-function StatsEditor() {
-  const { config, updateConfig } = useStore();
+function StatsEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { stats } = config;
 
   const updateStats = (field: string, value: any) => {
@@ -347,9 +364,7 @@ function StatsEditor() {
   );
 }
 
-// ----- Promo Strip Editor -----
-function PromoStripEditor() {
-  const { config, updateConfig } = useStore();
+function PromoStripEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { promoStrip } = config;
 
   const updatePromoStrip = (field: string, value: any) => {
@@ -417,9 +432,7 @@ function PromoStripEditor() {
   );
 }
 
-// ----- Features Editor -----
-function FeaturesEditor() {
-  const { config, updateConfig } = useStore();
+function FeaturesEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { features } = config;
 
   const updateFeatures = (newItems: FeatureItem[]) => {
@@ -488,9 +501,7 @@ function FeaturesEditor() {
   );
 }
 
-// ----- Theme Editor -----
-function ThemeEditor() {
-  const { config, updateConfig } = useStore();
+function ThemeEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { theme } = config;
 
   const updateTheme = (field: string, value: any) => {
@@ -580,12 +591,11 @@ function ThemeEditor() {
 }
 
 // ----- Promo Banner Editor (unchanged) -----
-function PromoEditor() {
-  const { config, updatePromoBanner } = useStore();
+function PromoEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { promoBanner } = config;
 
   const handleChange = (field: keyof PromoBanner, value: string | string[]) => {
-    updatePromoBanner({ ...promoBanner, [field]: value });
+    updateConfig({ ...config, promoBanner: { ...promoBanner, [field]: value } });
   };
 
   return (
@@ -635,9 +645,8 @@ function PromoEditor() {
   );
 }
 
-// ----- Categories Editor (unchanged) -----
-function CategoriesEditor() {
-  const { config, updateConfig } = useStore();
+// ----- Categories Editor -----
+function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { categories, storeId } = config;
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [allProducts, setAllProducts] = useState<{ id: string; brand: string; name: string }[]>([]);
@@ -845,7 +854,7 @@ function CategoriesEditor() {
   );
 }
 
-// ----- Reusable ListEditor with select dropdown support -----
+// ----- Reusable ListEditor (unchanged) -----
 function ListEditor<T extends { id: string }>({
   items,
   setItems,

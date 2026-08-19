@@ -120,34 +120,53 @@ function StoreForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const config = initial?.config || {};
-  
+  // 🔥 FIX: Properly read tint opacity from config
+  const initialConfig = initial?.config || {};
   const [form, setForm] = useState({
     name: initial?.name ?? '',
     image_url: initial?.image_url ?? '',
     banner_image_url: initial?.banner_image_url ?? '',
     description: initial?.description ?? '',
     tint_color: initial?.primary_color ?? '#10b981',
-    tint_opacity: config?.tintOpacity ?? 50,
+    tint_opacity: initialConfig?.tintOpacity ?? 50,
     text_color: initial?.text_color ?? '#ffffff',
-    badge_text: config?.badgeText ?? 'STORE',
-    badge_color: config?.badgeColor ?? '#fbbf24',
+    badge_text: initialConfig?.badgeText ?? 'STORE',
+    badge_color: initialConfig?.badgeColor ?? '#fbbf24',
     sort_order: initial?.sort_order ?? 0,
     is_active: initial?.is_active ?? true,
   });
   const [saving, setSaving] = useState(false);
 
+  // 🔥 FIX: Reset form when initial changes
+  useEffect(() => {
+    const config = initial?.config || {};
+    setForm({
+      name: initial?.name ?? '',
+      image_url: initial?.image_url ?? '',
+      banner_image_url: initial?.banner_image_url ?? '',
+      description: initial?.description ?? '',
+      tint_color: initial?.primary_color ?? '#10b981',
+      tint_opacity: config?.tintOpacity ?? 50,
+      text_color: initial?.text_color ?? '#ffffff',
+      badge_text: config?.badgeText ?? 'STORE',
+      badge_color: config?.badgeColor ?? '#fbbf24',
+      sort_order: initial?.sort_order ?? 0,
+      is_active: initial?.is_active ?? true,
+    });
+  }, [initial]);
+
   const handleSave = async () => {
     setSaving(true);
-    
-    // Build config object
+
+    // 🔥 FIX: Preserve existing config and update only changed fields
+    const existingConfig = initial?.config || {};
     const configData = {
-      ...(initial?.config || {}),
+      ...existingConfig,
       tintOpacity: form.tint_opacity,
       badgeText: form.badge_text,
       badgeColor: form.badge_color,
     };
-    
+
     const data = {
       name: form.name,
       image_url: form.image_url,
@@ -159,7 +178,7 @@ function StoreForm({
       is_active: form.is_active,
       config: configData,
     };
-    
+
     if (initial) {
       await updateStore(initial.id, data);
     } else {
@@ -177,7 +196,7 @@ function StoreForm({
           <X size={16} className="text-ink-400" />
         </button>
       </div>
-      
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Store name *</label>
         <input
@@ -187,7 +206,7 @@ function StoreForm({
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
       </div>
-      
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Image URL *</label>
         <input
@@ -200,7 +219,7 @@ function StoreForm({
           <img src={form.image_url} alt="" className="h-16 w-full rounded-xl object-cover mt-2" />
         )}
       </div>
-      
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Cover/Banner Image URL</label>
         <input
@@ -213,7 +232,7 @@ function StoreForm({
           <img src={form.banner_image_url} alt="" className="h-20 w-full rounded-xl object-cover mt-2" />
         )}
       </div>
-      
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Description</label>
         <input
@@ -223,16 +242,25 @@ function StoreForm({
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
       </div>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Tint Color</label>
-          <input
-            type="color"
-            value={form.tint_color}
-            onChange={(e) => setForm({ ...form, tint_color: e.target.value })}
-            className="w-full h-10 rounded-xl border border-ink-200 p-1"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={form.tint_color}
+              onChange={(e) => setForm({ ...form, tint_color: e.target.value })}
+              className="h-10 w-16 rounded-xl border border-ink-200 p-1"
+            />
+            <input
+              type="text"
+              value={form.tint_color}
+              onChange={(e) => setForm({ ...form, tint_color: e.target.value })}
+              className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm font-mono outline-none focus:border-brand-500"
+              placeholder="#000000"
+            />
+          </div>
         </div>
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Tint Opacity: {form.tint_opacity}%</label>
@@ -246,17 +274,26 @@ function StoreForm({
           />
         </div>
       </div>
-      
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Text Color</label>
-        <input
-          type="color"
-          value={form.text_color}
-          onChange={(e) => setForm({ ...form, text_color: e.target.value })}
-          className="w-full h-10 rounded-xl border border-ink-200 p-1"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={form.text_color}
+            onChange={(e) => setForm({ ...form, text_color: e.target.value })}
+            className="h-10 w-16 rounded-xl border border-ink-200 p-1"
+          />
+          <input
+            type="text"
+            value={form.text_color}
+            onChange={(e) => setForm({ ...form, text_color: e.target.value })}
+            className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm font-mono outline-none focus:border-brand-500"
+            placeholder="#ffffff"
+          />
+        </div>
       </div>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Badge Text</label>
@@ -269,15 +306,24 @@ function StoreForm({
         </div>
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Badge Color</label>
-          <input
-            type="color"
-            value={form.badge_color}
-            onChange={(e) => setForm({ ...form, badge_color: e.target.value })}
-            className="w-full h-10 rounded-xl border border-ink-200 p-1"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={form.badge_color}
+              onChange={(e) => setForm({ ...form, badge_color: e.target.value })}
+              className="h-10 w-16 rounded-xl border border-ink-200 p-1"
+            />
+            <input
+              type="text"
+              value={form.badge_color}
+              onChange={(e) => setForm({ ...form, badge_color: e.target.value })}
+              className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm font-mono outline-none focus:border-brand-500"
+              placeholder="#fbbf24"
+            />
+          </div>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Sort order</label>
@@ -300,7 +346,7 @@ function StoreForm({
           </label>
         </div>
       </div>
-      
+
       <button
         onClick={handleSave}
         disabled={saving}

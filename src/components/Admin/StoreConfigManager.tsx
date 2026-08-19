@@ -15,6 +15,30 @@ const ICON_OPTIONS = [
   'Utensils', 'Beef'
 ];
 
+// ---- HEX COLOR INPUT COMPONENT ----
+function ColorInput({ value, onChange, label }: { value: string; onChange: (val: string) => void; label: string }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-16 rounded-xl border border-gray-300 p-1"
+        />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 h-10 rounded-xl border border-gray-300 px-3 text-sm font-mono outline-none focus:border-green-500"
+          placeholder="#000000"
+        />
+      </div>
+    </div>
+  );
+}
+
 // ----- Main component -----
 export default function StoreConfigManager() {
   const [stores, setStores] = useState<Store[]>([]);
@@ -104,7 +128,7 @@ function StoreConfigEditor() {
 }
 
 // ============================================================
-// HERO EDITOR – with color pickers
+// HERO EDITOR – with hex color pickers
 // ============================================================
 function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { hero } = config;
@@ -153,14 +177,8 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Gradient From</label>
-          <input type="color" value={hero.gradientFrom} onChange={e => updateHero('gradientFrom', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Gradient To</label>
-          <input type="color" value={hero.gradientTo} onChange={e => updateHero('gradientTo', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" />
-        </div>
+        <ColorInput value={hero.gradientFrom} onChange={(val) => updateHero('gradientFrom', val)} label="Gradient From" />
+        <ColorInput value={hero.gradientTo} onChange={(val) => updateHero('gradientTo', val)} label="Gradient To" />
       </div>
 
       <div>
@@ -184,14 +202,8 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">CTA Background</label>
-          <input type="color" value={hero.ctaBgColor || '#ffffff'} onChange={e => updateHero('ctaBgColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">CTA Text Color</label>
-          <input type="color" value={hero.ctaTextColor || '#065f46'} onChange={e => updateHero('ctaTextColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" />
-        </div>
+        <ColorInput value={hero.ctaBgColor || '#ffffff'} onChange={(val) => updateHero('ctaBgColor', val)} label="CTA Background" />
+        <ColorInput value={hero.ctaTextColor || '#065f46'} onChange={(val) => updateHero('ctaTextColor', val)} label="CTA Text Color" />
       </div>
     </div>
   );
@@ -241,16 +253,13 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
       {highlights.map((h: any, idx: number) => (
         <div key={h.id} className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 mb-2">
           <input value={h.label} onChange={e => updateItem(idx, 'label', e.target.value)} placeholder="Label" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
-          
           <select value={h.icon || 'Package'} onChange={e => updateItem(idx, 'icon', e.target.value)} className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm">
             {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
           </select>
-          
           <select value={h.categoryId || ''} onChange={e => updateItem(idx, 'categoryId', e.target.value)} className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2 py-1 text-sm">
             <option value="">Select Category</option>
             {categoryOptions.map((opt: any) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
-          
           <div className="flex gap-1">
             <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
             <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>
@@ -258,7 +267,6 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
           </div>
         </div>
       ))}
-      
       <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600"><Plus size={16} /> Add Highlight</button>
     </div>
   );
@@ -328,16 +336,14 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
       {categories.map((c: any, idx: number) => (
         <div key={c.id} className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 mb-2">
           <input value={c.title} onChange={e => updateItem(idx, 'title', e.target.value)} placeholder="Title" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
-          
           <select value={c.icon || 'Package'} onChange={e => updateItem(idx, 'icon', e.target.value)} className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm">
             {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
           </select>
-          
           <input value={c.description} onChange={e => updateItem(idx, 'description', e.target.value)} placeholder="Description" className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
           
-          <div className="flex gap-1">
-            <input type="color" value={c.color || '#10b981'} onChange={e => updateItem(idx, 'color', e.target.value)} className="w-8 h-8 rounded border border-gray-200 p-0.5" title="Category Color" />
-            <input type="color" value={c.textColor || '#ffffff'} onChange={e => updateItem(idx, 'textColor', e.target.value)} className="w-8 h-8 rounded border border-gray-200 p-0.5" title="Text Color" />
+          <div className="flex items-center gap-1">
+            <ColorInput value={c.color || '#10b981'} onChange={(val) => updateItem(idx, 'color', val)} label="" />
+            <ColorInput value={c.textColor || '#ffffff'} onChange={(val) => updateItem(idx, 'textColor', val)} label="" />
           </div>
           
           <button
@@ -357,7 +363,7 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
       
       <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600"><Plus size={16} /> Add Category</button>
 
-      {/* Product Picker Modal - Mobile Friendly */}
+      {/* Product Picker Modal */}
       {showProductPicker && editingCategoryIndex !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col shadow-xl">
@@ -396,7 +402,7 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
 }
 
 // ============================================================
-// BULK DEAL EDITOR – with color pickers
+// BULK DEAL EDITOR – with hex color pickers
 // ============================================================
 function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { bulkDeal } = config;
@@ -443,21 +449,15 @@ function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">CTA Background</label>
-          <input type="color" value={bulkDeal.ctaBgColor || '#ffffff'} onChange={e => updateBulkDeal('ctaBgColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">CTA Text Color</label>
-          <input type="color" value={bulkDeal.ctaTextColor || '#065f46'} onChange={e => updateBulkDeal('ctaTextColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" />
-        </div>
+        <ColorInput value={bulkDeal.ctaBgColor || '#ffffff'} onChange={(val) => updateBulkDeal('ctaBgColor', val)} label="CTA Background" />
+        <ColorInput value={bulkDeal.ctaTextColor || '#065f46'} onChange={(val) => updateBulkDeal('ctaTextColor', val)} label="CTA Text Color" />
       </div>
     </div>
   );
 }
 
 // ============================================================
-// TRENDING EDITOR – with color pickers
+// TRENDING EDITOR – with hex color pickers
 // ============================================================
 function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [] } = config;
@@ -521,14 +521,8 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">CTA Background</label>
-          <input type="color" value={trending.ctaBgColor || '#ffffff'} onChange={e => updateTrending('ctaBgColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">CTA Text Color</label>
-          <input type="color" value={trending.ctaTextColor || '#065f46'} onChange={e => updateTrending('ctaTextColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" />
-        </div>
+        <ColorInput value={trending.ctaBgColor || '#ffffff'} onChange={(val) => updateTrending('ctaBgColor', val)} label="CTA Background" />
+        <ColorInput value={trending.ctaTextColor || '#065f46'} onChange={(val) => updateTrending('ctaTextColor', val)} label="CTA Text Color" />
       </div>
 
       <div className="mt-4">
@@ -536,16 +530,13 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
         {trending.iconButtons.map((btn: any, idx: number) => (
           <div key={btn.id} className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 mt-2">
             <input value={btn.label} onChange={e => updateIconButton(idx, 'label', e.target.value)} placeholder="Label" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
-            
             <select value={btn.icon || 'Package'} onChange={e => updateIconButton(idx, 'icon', e.target.value)} className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm">
               {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
             </select>
-            
             <select value={btn.categoryId || ''} onChange={e => updateIconButton(idx, 'categoryId', e.target.value)} className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2 py-1 text-sm">
               <option value="">Select Category</option>
               {categoryOptions.map((opt: any) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
-            
             <div className="flex gap-1">
               <button onClick={() => moveIconButton(idx, 'up')}><ChevronUp size={16} /></button>
               <button onClick={() => moveIconButton(idx, 'down')}><ChevronDown size={16} /></button>

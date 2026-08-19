@@ -7,7 +7,7 @@ import { fetchProductsByIds, fetchStores } from '@/services/catalog';
 import type { Product as AppProduct, Store } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { getStoreIcon } from '@/data/storeIcons';
-import { ChevronLeft, Search, ShoppingCart, ChevronRight, X, ArrowLeft, Star, TrendingUp, Package } from 'lucide-react';
+import { ChevronLeft, Search, ShoppingCart, ChevronRight, X, ArrowLeft, Star, TrendingUp, Package, ShieldCheck, Truck, Clock } from 'lucide-react';
 
 interface StoreScreenProps {
   goTo: (screen: string) => void;
@@ -18,6 +18,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const navigate = useNavigate();
   const cart = useCart();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   if (!config) return <StoreSkeleton />;
 
@@ -63,7 +64,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       .finally(() => setProductsLoading(false));
   }, [allProductIds]);
 
-  // Filter logic
+  // Filter logic (only for search)
   const filteredProducts = useMemo(() => {
     let result = products;
     if (searchQuery.trim()) {
@@ -90,11 +91,19 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     return products.filter(p => cat.productIds.includes(p.id));
   };
 
-  // Handlers
+  // Handlers – scroll to category
+  const scrollToCategory = (categoryId: string) => {
+    const el = categoryRefs.current[categoryId];
+    if (el) {
+      const y = el.getBoundingClientRect().top + window.scrollY - 80; // offset for sticky header
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+  };
+
   const handleIconClick = (categoryId: string) => {
-    setSelectedCategoryId(categoryId);
-    setSearchQuery('');
-    setSearchOpen(false);
+    if (categoryId) {
+      scrollToCategory(categoryId);
+    }
   };
 
   const clearFilter = () => {
@@ -117,6 +126,11 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
   if (loading) return <StoreSkeleton />;
   if (productsLoading) return <StoreSkeleton />;
+
+  // Filter categories that have at least one product
+  const activeCategories = categories.filter((cat: any) => 
+    products.some(p => cat.productIds.includes(p.id))
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -166,7 +180,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
               <button
                 onClick={() => navigate(hero.ctaLink || '/categories')}
                 className="flex items-center gap-1.5 text-xs font-bold text-white"
-                style={{ color: '#ffffff' }}
               >
                 {hero.ctaText}
               </button>
@@ -175,10 +188,10 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         </div>
       </div>
 
-      {/* Highlights icon strip */}
+      {/* Highlights icon strip - moved down with mt-4 */}
       {highlights.length > 0 && (
-        <div className="mx-auto max-w-md px-4">
-          <div className="-mt-3 mb-0 overflow-hidden rounded-2xl bg-white p-3 shadow-lg">
+        <div className="mx-auto max-w-md px-4 mt-4">
+          <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-lg">
             <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">What's in this store</p>
             <div className="grid grid-cols-4 gap-2">
               {highlights.map((h: any) => {
@@ -276,13 +289,18 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
           </div>
         ) : (
           <div className="mt-4 space-y-6">
-            {/* Categories */}
-            {categories.map((category: any) => {
+            {/* Categories - with trending banner after 3rd category */}
+            {activeCategories.map((category: any, index: number) => {
               const categoryProducts = products.filter(p => category.productIds.includes(p.id));
               if (categoryProducts.length === 0) return null;
               const Icon = getStoreIcon(category.icon);
-              return (
-                <div key={category.id}>
+
+              // Render category
+              const categoryElement = (
+                <div
+                  key={category.id}
+                  ref={(el) => { categoryRefs.current[category.id] = el; }}
+                >
                   <div className="mb-2.5 flex items-center gap-2">
                     <div
                       className="flex h-7 w-7 items-center justify-center rounded-lg"
@@ -311,20 +329,27 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                   </div>
                 </div>
               );
-            })}
 
-            {/* Trending Banner (middle) */}
-            {trending.enabled && (
-              <TrendingBanner
-                themeFrom={themeFrom}
-                themeTo={themeTo}
-                title={trending.title}
-                subtitle={trending.subtitle}
-                iconButtons={trending.iconButtons}
-                ctaText={trending.ctaText}
-                onIconClick={handleIconClick}
-              />
-            )}
+              // Insert Trending Banner after 3rd category (index === 2)
+              if (index === 2 && trending.enabled) {
+                return (
+                  <React.Fragment key={`group-${category.id}`}>
+                    {categoryElement}
+                    <TrendingBanner
+                      themeFrom={themeFrom}
+                      themeTo={themeTo}
+                      title={trending.title}
+                      subtitle={trending.subtitle}
+                      iconButtons={trending.iconButtons}
+                      ctaText={trending.ctaText}
+                      onIconClick={handleIconClick}
+                    />
+                  </React.Fragment>
+                );
+              }
+
+              return categoryElement;
+            })}
           </div>
         )}
 
@@ -488,9 +513,6 @@ function TrustItem({ icon: Icon, label, sub }: { icon: any; label: string; sub: 
     </div>
   );
 }
-
-// Add missing imports
-import { ShieldCheck, Truck, Clock } from 'lucide-react';
 
 export default function StoreScreen(props: StoreScreenProps) {
   const [searchParams] = useSearchParams();

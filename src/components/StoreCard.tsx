@@ -22,15 +22,14 @@ export function StoreCard({ store, onClick, onMouseEnter }: StoreCardProps) {
       onMouseEnter={onMouseEnter}
       className="relative h-44 w-60 shrink-0 overflow-hidden rounded-3xl text-left shadow-lg transition hover:shadow-xl active:scale-[0.98]"
     >
-      {/* Background image */}
       <img
         src={store.banner_image_url || store.image_url}
         alt={store.name}
         className="absolute inset-0 h-full w-full object-cover"
         loading="lazy"
       />
-
-      {/* Tint overlay – solid color with opacity */}
+      
+      {/* Tint overlay */}
       <div
         className="absolute inset-0"
         style={{
@@ -38,11 +37,9 @@ export function StoreCard({ store, onClick, onMouseEnter }: StoreCardProps) {
           opacity: tintOpacity / 100,
         }}
       />
-
-      {/* Dark gradient overlay for readability */}
+      
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-
-      {/* Content – fully opaque */}
+      
       <div className="absolute inset-0 flex flex-col justify-end p-4">
         <span
           className="mb-1 w-fit rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wider"

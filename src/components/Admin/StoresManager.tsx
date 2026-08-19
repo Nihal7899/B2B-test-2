@@ -110,7 +110,7 @@ export default function StoresManager() {
   );
 }
 
-// ---- StoreForm (Store Card Editor) ----
+// ---- StoreForm ----
 function StoreForm({
   initial,
   onClose,
@@ -120,13 +120,14 @@ function StoreForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const config = initial?.config || {};
   const [form, setForm] = useState({
     name: initial?.name ?? '',
     image_url: initial?.image_url ?? '',
     banner_image_url: initial?.banner_image_url ?? '',
     description: initial?.description ?? '',
     tint_color: initial?.primary_color ?? '#10b981',
-    tint_opacity: 50,
+    tint_opacity: config?.tintOpacity ?? 50,
     text_color: initial?.text_color ?? '#ffffff',
     badge_text: 'STORE',
     badge_color: '#fbbf24',
@@ -146,6 +147,10 @@ function StoreForm({
       text_color: form.text_color,
       sort_order: form.sort_order,
       is_active: form.is_active,
+      config: {
+        ...(initial?.config || {}),
+        tintOpacity: form.tint_opacity,
+      },
     };
     if (initial) {
       await updateStore(initial.id, data);

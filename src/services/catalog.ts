@@ -1186,3 +1186,18 @@ export async function uploadStoreImage(
     .getPublicUrl(path);
   return urlData.publicUrl;
 }
+
+// Delete image from Supabase Storage
+export async function deleteStoreImage(
+  storeId: string,
+  imageUrl: string
+): Promise<void> {
+  if (!imageUrl) return;
+  // Extract the path from the URL
+  const url = new URL(imageUrl);
+  const path = url.pathname.split('/').slice(2).join('/'); // Remove bucket name
+  const { error } = await supabase.storage
+    .from('store-images')
+    .remove([path]);
+  if (error) console.error('Failed to delete image:', error);
+}

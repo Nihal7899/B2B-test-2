@@ -250,14 +250,14 @@ export interface SmartCollection {
   updated_at: string;
 }
 
+// types.ts – add this to the Store interface
 export interface Store {
   id: string;
   name: string;
   image_url: string;
   banner_image_url?: string;
   description: string;
-  // New hex colors
-  primary_color: string;    // #hex
+  primary_color: string;
   secondary_color: string;
   text_color: string;
   border_color: string;
@@ -267,6 +267,7 @@ export interface Store {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  config?: any; // <-- add this
 }
 
 export interface TrustedBrand {

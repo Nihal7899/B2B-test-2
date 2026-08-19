@@ -10,17 +10,21 @@ interface StoreCardProps {
 
 export function StoreCard({ store, onClick, onMouseEnter }: StoreCardProps) {
   const config = store.config || {};
-  const themeFrom = config.storeTheme?.from || store.primary_color || '#10b981';
-  const themeTo = config.storeTheme?.to || store.secondary_color || '#059669';
-  const accent = config.storeTheme?.accent || '#fbbf24';
-  const blurb = config.blurb || store.description || '';
+  const tintColor = store.primary_color || '#10b981';
+  const tintOpacity = config.tintOpacity ?? 50;
+  const textColor = store.text_color || '#ffffff';
+  const badgeText = config.badgeText || 'STORE';
+  const badgeColor = config.badgeColor || '#fbbf24';
 
   return (
     <button
       onClick={() => onClick(store)}
       onMouseEnter={onMouseEnter}
       className="relative h-44 w-60 shrink-0 overflow-hidden rounded-3xl text-left shadow-lg transition hover:shadow-xl active:scale-[0.98]"
-      style={{ background: `linear-gradient(135deg, ${themeFrom}, ${themeTo})` }}
+      style={{
+        backgroundColor: tintColor,
+        opacity: tintOpacity / 100,
+      }}
     >
       <img
         src={store.banner_image_url || store.image_url}
@@ -32,13 +36,15 @@ export function StoreCard({ store, onClick, onMouseEnter }: StoreCardProps) {
       <div className="absolute inset-0 flex flex-col justify-end p-4 text-white">
         <span
           className="mb-1 w-fit rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wider"
-          style={{ backgroundColor: accent, color: themeFrom }}
+          style={{ backgroundColor: badgeColor, color: tintColor }}
         >
-          STORE
+          {badgeText}
         </span>
-        <h4 className="text-lg font-extrabold leading-tight">{store.name}</h4>
-        <p className="text-[11px] text-white/80">{blurb}</p>
-        <span className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold" style={{ color: accent }}>
+        <h4 className="text-lg font-extrabold leading-tight" style={{ color: textColor }}>
+          {store.name}
+        </h4>
+        <p className="text-[11px] text-white/80">{store.description}</p>
+        <span className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold" style={{ color: badgeColor }}>
           Shop now <ChevronRight size={12} />
         </span>
       </div>

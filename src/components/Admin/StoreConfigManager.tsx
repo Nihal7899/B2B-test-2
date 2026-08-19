@@ -1,18 +1,21 @@
 // src/components/admin/StoreConfigManager.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Store } from '@/types';
 import { StoreProvider, useStore } from '@/context/StoreContext';
-import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, X } from 'lucide-react';
+import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, X, Search } from 'lucide-react';
+import { uploadStoreImage, deleteStoreImage } from '@/services/catalog';
 import { getStoreIcon } from '@/data/storeIcons';
-import {
-  StoreConfig,
-  CategoryItem,
-  HighlightItem,
-  BulkDeal,
-  TrendingBanner,
-  TrendingIconButton,
-} from '@/types/storeConfig';
+
+// Icon options from storeIcons.ts
+const ICON_OPTIONS = [
+  'Apple', 'Wheat', 'Flame', 'Coffee', 'Cookie', 'Milk', 'Croissant',
+  'Fish', 'SprayCan', 'ChefHat', 'Package', 'TrendingUp', 'ShieldCheck',
+  'Truck', 'Star', 'Leaf', 'Salad', 'Sun', 'Soup', 'Bean', 'Carrot',
+  'Cherry', 'CookingPot', 'Drumstick', 'Droplet', 'Egg', 'Gift',
+  'GlassWater', 'IceCreamCone', 'Plane', 'Popcorn', 'Shell', 'Sprout',
+  'Utensils', 'Beef'
+];
 
 // ----- Main component -----
 export default function StoreConfigManager() {
@@ -63,6 +66,7 @@ export default function StoreConfigManager() {
 // ----- Editor with tabs -----
 function StoreConfigEditor() {
   const { config, updateConfig } = useStore();
+  const [activeTab, setActiveTab] = useState<'hero' | 'highlights' | 'categories' | 'bulkDeal' | 'trending'>('hero');
 
   // Safe defaults
   const safeConfig = {
@@ -72,8 +76,6 @@ function StoreConfigEditor() {
     bulkDeal: config?.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package' },
     trending: config?.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories' },
   };
-
-  const [activeTab, setActiveTab] = useState<'hero' | 'highlights' | 'categories' | 'bulkDeal' | 'trending'>('hero');
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
@@ -107,30 +109,78 @@ function StoreConfigEditor() {
 // ----- Hero Banner Editor -----
 function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { hero } = config;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const updateHero = (field: string, value: any) => {
     updateConfig({ ...config, hero: { ...hero, [field]: value } });
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      // Delete old image if exists
+      if (hero.image) {
+        await deleteStoreImage(config.storeId, hero.image);
+      }
+      const url = await uploadStoreImage(config.storeId, file, 'hero');
+      updateHero('image', url);
+    } catch (err) {
+      console.error('Upload failed', err);
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    if (hero.image) {
+      await deleteStoreImage(config.storeId, hero.image);
+      updateHero('image', '');
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Hero Banner</h3>
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Enabled</label>
-        <input
-          type="checkbox"
-          checked={hero.enabled}
-          onChange={e => updateHero('enabled', e.target.checked)}
-          className="accent-green-600"
-        />
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-lg">Hero Banner</h3>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">Enabled</label>
+          <input
+            type="checkbox"
+            checked={hero.enabled}
+            onChange={e => updateHero('enabled', e.target.checked)}
+            className="accent-green-600"
+          />
+        </div>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Image URL</label>
-        <input
-          value={hero.image}
-          onChange={e => updateHero('image', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
+        <label className="block text-sm font-medium text-gray-700">Image</label>
+        <div className="flex gap-2">
+          <input
+            value={hero.image}
+            onChange={e => updateHero('image', e.target.value)}
+            className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium"
+          >
+            Upload
+          </button>
+          {hero.image && (
+            <button
+              onClick={handleRemoveImage}
+              className="px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium"
+            >
+              Remove
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageUpload}
+          />
+        </div>
         {hero.image && (
           <img src={hero.image} alt="Hero" className="mt-2 h-32 w-full rounded-xl object-cover" />
         )}
@@ -191,18 +241,18 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
   );
 }
 
-// ----- Highlights Editor (What's in Store) -----
+// ----- Highlights Editor -----
 function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { highlights = [], categories = [] } = config;
 
-  const updateHighlights = (newItems: HighlightItem[]) => {
+  const updateHighlights = (newItems: any[]) => {
     updateConfig({ ...config, highlights: newItems });
   };
 
   const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
   const addItem = () => {
-    const newItem: HighlightItem = {
+    const newItem = {
       id: Date.now().toString(),
       label: 'New Highlight',
       icon: 'Package',
@@ -211,7 +261,7 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
     updateHighlights([...highlights, newItem]);
   };
 
-  const updateItem = (index: number, field: keyof HighlightItem, value: any) => {
+  const updateItem = (index: number, field: string, value: any) => {
     const updated = [...highlights];
     updated[index] = { ...updated[index], [field]: value };
     updateHighlights(updated);
@@ -233,9 +283,17 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-lg">What's in the Store</h3>
-        <span className="text-xs text-gray-400">These icons appear below the hero banner</span>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">Enabled</label>
+          <input
+            type="checkbox"
+            checked={highlights.enabled !== false}
+            onChange={e => updateHighlights({ ...highlights, enabled: e.target.checked })}
+            className="accent-green-600"
+          />
+        </div>
       </div>
-      {highlights.map((h: HighlightItem, idx: number) => (
+      {highlights.map((h: any, idx: number) => (
         <div key={h.id} className="flex flex-wrap items-center gap-2 border-b pb-2">
           <input
             value={h.label}
@@ -243,12 +301,15 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
             placeholder="Label (e.g. Fresh Fruits)"
             className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
           />
-          <input
-            value={h.icon}
+          <select
+            value={h.icon || 'Package'}
             onChange={e => updateItem(idx, 'icon', e.target.value)}
-            placeholder="Icon (e.g. Apple)"
-            className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
+            className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          >
+            {ICON_OPTIONS.map(icon => (
+              <option key={icon} value={icon}>{icon}</option>
+            ))}
+          </select>
           <select
             value={h.categoryId || ''}
             onChange={e => updateItem(idx, 'categoryId', e.target.value)}
@@ -276,13 +337,26 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
 // ----- Categories Editor -----
 function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { categories = [] } = config;
+  const [allProducts, setAllProducts] = useState<{ id: string; name: string; brand: string }[]>([]);
+  const [productSearch, setProductSearch] = useState('');
 
-  const updateCategories = (newItems: CategoryItem[]) => {
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, brand')
+        .eq('is_active', true)
+        .order('name');
+      if (!error && data) setAllProducts(data);
+    })();
+  }, []);
+
+  const updateCategories = (newItems: any[]) => {
     updateConfig({ ...config, categories: newItems });
   };
 
   const addItem = () => {
-    const newItem: CategoryItem = {
+    const newItem = {
       id: Date.now().toString(),
       title: 'New Category',
       icon: 'Package',
@@ -292,7 +366,7 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
     updateCategories([...categories, newItem]);
   };
 
-  const updateItem = (index: number, field: keyof CategoryItem, value: any) => {
+  const updateItem = (index: number, field: string, value: any) => {
     const updated = [...categories];
     updated[index] = { ...updated[index], [field]: value };
     updateCategories(updated);
@@ -310,13 +384,26 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
     updateCategories(newItems);
   };
 
+  const filteredProducts = allProducts.filter(p =>
+    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+    p.brand.toLowerCase().includes(productSearch.toLowerCase())
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-lg">Categories</h3>
-        <span className="text-xs text-gray-400">Each category has an icon and description</span>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">Enabled</label>
+          <input
+            type="checkbox"
+            checked={categories.enabled !== false}
+            onChange={e => updateCategories({ ...categories, enabled: e.target.checked })}
+            className="accent-green-600"
+          />
+        </div>
       </div>
-      {categories.map((c: CategoryItem, idx: number) => (
+      {categories.map((c: any, idx: number) => (
         <div key={c.id} className="flex flex-wrap items-center gap-2 border-b pb-2">
           <input
             value={c.title}
@@ -324,24 +411,40 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
             placeholder="Category title"
             className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
           />
-          <input
-            value={c.icon}
+          <select
+            value={c.icon || 'Package'}
             onChange={e => updateItem(idx, 'icon', e.target.value)}
-            placeholder="Icon (e.g. Apple)"
-            className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
+            className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          >
+            {ICON_OPTIONS.map(icon => (
+              <option key={icon} value={icon}>{icon}</option>
+            ))}
+          </select>
           <input
             value={c.description}
             onChange={e => updateItem(idx, 'description', e.target.value)}
             placeholder="Description"
             className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
           />
-          <input
-            value={c.productIds.join(', ')}
-            onChange={e => updateItem(idx, 'productIds', e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean))}
-            placeholder="Product IDs (comma)"
-            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
+          <div className="relative flex-1 min-w-[150px]">
+            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+            <select
+              multiple
+              value={c.productIds || []}
+              onChange={e => {
+                const selected = Array.from(e.target.selectedOptions).map(opt => opt.value);
+                updateItem(idx, 'productIds', selected);
+              }}
+              className="w-full pl-8 pr-2 py-1 rounded-lg border border-gray-200 text-sm h-20"
+            >
+              {filteredProducts.map(p => (
+                <option key={p.id} value={p.id}>{p.name} ({p.brand})</option>
+              ))}
+            </select>
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-end pr-2">
+              <span className="text-xs text-gray-400">{c.productIds?.length || 0} selected</span>
+            </div>
+          </div>
           <div className="flex gap-1">
             <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
             <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>
@@ -366,15 +469,17 @@ function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (
 
   return (
     <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Bulk Deal Banner</h3>
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Enabled</label>
-        <input
-          type="checkbox"
-          checked={bulkDeal.enabled}
-          onChange={e => updateBulkDeal('enabled', e.target.checked)}
-          className="accent-green-600"
-        />
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-lg">Bulk Deal Banner</h3>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">Enabled</label>
+          <input
+            type="checkbox"
+            checked={bulkDeal.enabled}
+            onChange={e => updateBulkDeal('enabled', e.target.checked)}
+            className="accent-green-600"
+          />
+        </div>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700">Tag</label>
@@ -413,13 +518,16 @@ function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Icon Name</label>
-        <input
-          value={bulkDeal.icon}
+        <label className="block text-sm font-medium text-gray-700">Icon</label>
+        <select
+          value={bulkDeal.icon || 'Package'}
           onChange={e => updateBulkDeal('icon', e.target.value)}
-          placeholder="e.g. Sun, Package, Wheat"
           className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
+        >
+          {ICON_OPTIONS.map(icon => (
+            <option key={icon} value={icon}>{icon}</option>
+          ))}
+        </select>
       </div>
     </div>
   );
@@ -433,14 +541,14 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
     updateConfig({ ...config, trending: { ...trending, [field]: value } });
   };
 
-  const updateIconButtons = (newItems: TrendingIconButton[]) => {
+  const updateIconButtons = (newItems: any[]) => {
     updateConfig({ ...config, trending: { ...trending, iconButtons: newItems } });
   };
 
   const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
   const addIconButton = () => {
-    const newItem: TrendingIconButton = {
+    const newItem = {
       id: Date.now().toString(),
       label: 'New Category',
       icon: 'Package',
@@ -449,7 +557,7 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
     updateIconButtons([...trending.iconButtons, newItem]);
   };
 
-  const updateIconButton = (index: number, field: keyof TrendingIconButton, value: any) => {
+  const updateIconButton = (index: number, field: string, value: any) => {
     const updated = [...trending.iconButtons];
     updated[index] = { ...updated[index], [field]: value };
     updateIconButtons(updated);
@@ -469,15 +577,17 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
 
   return (
     <div className="space-y-4">
-      <h3 className="font-semibold text-lg">Trending Banner (Middle Banner)</h3>
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Enabled</label>
-        <input
-          type="checkbox"
-          checked={trending.enabled}
-          onChange={e => updateTrending('enabled', e.target.checked)}
-          className="accent-green-600"
-        />
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-lg">Trending Banner (Middle Banner)</h3>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">Enabled</label>
+          <input
+            type="checkbox"
+            checked={trending.enabled}
+            onChange={e => updateTrending('enabled', e.target.checked)}
+            className="accent-green-600"
+          />
+        </div>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700">Title</label>
@@ -503,10 +613,9 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
           className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
-
       <div className="mt-4">
         <h4 className="font-medium text-sm text-gray-700">Icon Buttons</h4>
-        {trending.iconButtons.map((btn: TrendingIconButton, idx: number) => (
+        {trending.iconButtons.map((btn: any, idx: number) => (
           <div key={btn.id} className="flex flex-wrap items-center gap-2 border-b pb-2 mt-2">
             <input
               value={btn.label}
@@ -514,12 +623,15 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
               placeholder="Label"
               className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
             />
-            <input
-              value={btn.icon}
+            <select
+              value={btn.icon || 'Package'}
               onChange={e => updateIconButton(idx, 'icon', e.target.value)}
-              placeholder="Icon (e.g. Apple)"
-              className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-            />
+              className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+            >
+              {ICON_OPTIONS.map(icon => (
+                <option key={icon} value={icon}>{icon}</option>
+              ))}
+            </select>
             <select
               value={btn.categoryId || ''}
               onChange={e => updateIconButton(idx, 'categoryId', e.target.value)}

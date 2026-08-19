@@ -251,6 +251,7 @@ export interface SmartCollection {
 }
 
 // types.ts – add this to the Store interface
+// types.ts
 export interface Store {
   id: string;
   name: string;

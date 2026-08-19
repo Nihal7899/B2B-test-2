@@ -129,12 +129,30 @@ function StoreForm({
     tint_color: initial?.primary_color ?? '#10b981',
     tint_opacity: config?.tintOpacity ?? 50,
     text_color: initial?.text_color ?? '#ffffff',
-    badge_text: 'STORE',
-    badge_color: '#fbbf24',
+    badge_text: config?.badgeText ?? 'STORE',
+    badge_color: config?.badgeColor ?? '#fbbf24',
     sort_order: initial?.sort_order ?? 0,
     is_active: initial?.is_active ?? true,
   });
   const [saving, setSaving] = useState(false);
+
+  // Reset form when initial changes (e.g., editing different store)
+  useEffect(() => {
+    const config = initial?.config || {};
+    setForm({
+      name: initial?.name ?? '',
+      image_url: initial?.image_url ?? '',
+      banner_image_url: initial?.banner_image_url ?? '',
+      description: initial?.description ?? '',
+      tint_color: initial?.primary_color ?? '#10b981',
+      tint_opacity: config?.tintOpacity ?? 50,
+      text_color: initial?.text_color ?? '#ffffff',
+      badge_text: config?.badgeText ?? 'STORE',
+      badge_color: config?.badgeColor ?? '#fbbf24',
+      sort_order: initial?.sort_order ?? 0,
+      is_active: initial?.is_active ?? true,
+    });
+  }, [initial]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -150,6 +168,8 @@ function StoreForm({
       config: {
         ...(initial?.config || {}),
         tintOpacity: form.tint_opacity,
+        badgeText: form.badge_text,
+        badgeColor: form.badge_color,
       },
     };
     if (initial) {

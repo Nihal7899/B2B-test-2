@@ -7,7 +7,6 @@ import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, X, Search } from 'l
 import { uploadStoreImage, deleteStoreImage } from '@/services/catalog';
 import { getStoreIcon } from '@/data/storeIcons';
 
-// Icon options from storeIcons.ts
 const ICON_OPTIONS = [
   'Apple', 'Wheat', 'Flame', 'Coffee', 'Cookie', 'Milk', 'Croissant',
   'Fish', 'SprayCan', 'ChefHat', 'Package', 'TrendingUp', 'ShieldCheck',
@@ -68,13 +67,12 @@ function StoreConfigEditor() {
   const { config, updateConfig } = useStore();
   const [activeTab, setActiveTab] = useState<'hero' | 'highlights' | 'categories' | 'bulkDeal' | 'trending'>('hero');
 
-  // Safe defaults
   const safeConfig = {
-    hero: config?.hero || { enabled: true, image: '', gradientFrom: '#065f46', gradientTo: '#16a34a', title: '', subtitle: '', ctaText: 'Shop Now', ctaLink: '/categories' },
+    hero: config?.hero || { enabled: true, image: '', gradientFrom: '#065f46', gradientTo: '#16a34a', title: '', subtitle: '', ctaText: 'Shop Now', ctaLink: '/categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
     highlights: config?.highlights || [],
     categories: config?.categories || [],
-    bulkDeal: config?.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package' },
-    trending: config?.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories' },
+    bulkDeal: config?.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
+    trending: config?.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
   };
 
   return (
@@ -106,7 +104,7 @@ function StoreConfigEditor() {
   );
 }
 
-// ----- Hero Banner Editor -----
+// ----- Hero Editor -----
 function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { hero } = config;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -119,15 +117,10 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      // Delete old image if exists
-      if (hero.image) {
-        await deleteStoreImage(config.storeId, hero.image);
-      }
+      if (hero.image) await deleteStoreImage(config.storeId, hero.image);
       const url = await uploadStoreImage(config.storeId, file, 'hero');
       updateHero('image', url);
-    } catch (err) {
-      console.error('Upload failed', err);
-    }
+    } catch (err) { console.error('Upload failed', err); }
   };
 
   const handleRemoveImage = async () => {
@@ -143,99 +136,30 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
         <h3 className="font-semibold text-lg">Hero Banner</h3>
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-gray-700">Enabled</label>
-          <input
-            type="checkbox"
-            checked={hero.enabled}
-            onChange={e => updateHero('enabled', e.target.checked)}
-            className="accent-green-600"
-          />
+          <input type="checkbox" checked={hero.enabled} onChange={e => updateHero('enabled', e.target.checked)} className="accent-green-600" />
         </div>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700">Image</label>
-        <div className="flex gap-2">
-          <input
-            value={hero.image}
-            onChange={e => updateHero('image', e.target.value)}
-            className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium"
-          >
-            Upload
-          </button>
-          {hero.image && (
-            <button
-              onClick={handleRemoveImage}
-              className="px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium"
-            >
-              Remove
-            </button>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleImageUpload}
-          />
+        <div className="flex flex-wrap gap-2">
+          <input value={hero.image} onChange={e => updateHero('image', e.target.value)} className="flex-1 min-w-[150px] rounded-xl border border-gray-300 px-3 py-2 text-sm" />
+          <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium">Upload</button>
+          {hero.image && <button onClick={handleRemoveImage} className="px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium">Remove</button>}
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
         </div>
-        {hero.image && (
-          <img src={hero.image} alt="Hero" className="mt-2 h-32 w-full rounded-xl object-cover" />
-        )}
+        {hero.image && <img src={hero.image} alt="Hero" className="mt-2 h-32 w-full rounded-xl object-cover" />}
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Gradient From</label>
-          <input
-            type="color"
-            value={hero.gradientFrom}
-            onChange={e => updateHero('gradientFrom', e.target.value)}
-            className="w-full h-10 rounded-xl border border-gray-300 p-1"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Gradient To</label>
-          <input
-            type="color"
-            value={hero.gradientTo}
-            onChange={e => updateHero('gradientTo', e.target.value)}
-            className="w-full h-10 rounded-xl border border-gray-300 p-1"
-          />
-        </div>
+        <div><label className="block text-sm font-medium text-gray-700">Gradient From</label><input type="color" value={hero.gradientFrom} onChange={e => updateHero('gradientFrom', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" /></div>
+        <div><label className="block text-sm font-medium text-gray-700">Gradient To</label><input type="color" value={hero.gradientTo} onChange={e => updateHero('gradientTo', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" /></div>
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Title</label>
-        <input
-          value={hero.title}
-          onChange={e => updateHero('title', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
-        <input
-          value={hero.subtitle}
-          onChange={e => updateHero('subtitle', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">CTA Text</label>
-        <input
-          value={hero.ctaText}
-          onChange={e => updateHero('ctaText', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">CTA Link</label>
-        <input
-          value={hero.ctaLink}
-          onChange={e => updateHero('ctaLink', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
+      <div><label className="block text-sm font-medium text-gray-700">Title</label><input value={hero.title} onChange={e => updateHero('title', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">Subtitle</label><input value={hero.subtitle} onChange={e => updateHero('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">CTA Text</label><input value={hero.ctaText} onChange={e => updateHero('ctaText', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">CTA Link</label><input value={hero.ctaLink} onChange={e => updateHero('ctaLink', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="block text-sm font-medium text-gray-700">CTA Background</label><input type="color" value={hero.ctaBgColor || '#ffffff'} onChange={e => updateHero('ctaBgColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" /></div>
+        <div><label className="block text-sm font-medium text-gray-700">CTA Text Color</label><input type="color" value={hero.ctaTextColor || '#065f46'} onChange={e => updateHero('ctaTextColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" /></div>
       </div>
     </div>
   );
@@ -244,20 +168,14 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
 // ----- Highlights Editor -----
 function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { highlights = [], categories = [] } = config;
+  const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
   const updateHighlights = (newItems: any[]) => {
     updateConfig({ ...config, highlights: newItems });
   };
 
-  const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
-
   const addItem = () => {
-    const newItem = {
-      id: Date.now().toString(),
-      label: 'New Highlight',
-      icon: 'Package',
-      categoryId: categoryOptions.length > 0 ? categoryOptions[0].value : '',
-    };
+    const newItem = { id: Date.now().toString(), label: 'New Highlight', icon: 'Package', categoryId: categoryOptions.length > 0 ? categoryOptions[0].value : '' };
     updateHighlights([...highlights, newItem]);
   };
 
@@ -267,10 +185,7 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
     updateHighlights(updated);
   };
 
-  const removeItem = (index: number) => {
-    updateHighlights(highlights.filter((_, i) => i !== index));
-  };
-
+  const removeItem = (index: number) => updateHighlights(highlights.filter((_, i) => i !== index));
   const moveItem = (index: number, dir: 'up' | 'down') => {
     const newItems = [...highlights];
     const swap = dir === 'up' ? index - 1 : index + 1;
@@ -285,40 +200,16 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
         <h3 className="font-semibold text-lg">What's in the Store</h3>
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-gray-700">Enabled</label>
-          <input
-            type="checkbox"
-            checked={highlights.enabled !== false}
-            onChange={e => updateHighlights({ ...highlights, enabled: e.target.checked })}
-            className="accent-green-600"
-          />
+          <input type="checkbox" checked={highlights.enabled !== false} onChange={e => updateHighlights({ ...highlights, enabled: e.target.checked })} className="accent-green-600" />
         </div>
       </div>
       {highlights.map((h: any, idx: number) => (
         <div key={h.id} className="flex flex-wrap items-center gap-2 border-b pb-2">
-          <input
-            value={h.label}
-            onChange={e => updateItem(idx, 'label', e.target.value)}
-            placeholder="Label (e.g. Fresh Fruits)"
-            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
-          <select
-            value={h.icon || 'Package'}
-            onChange={e => updateItem(idx, 'icon', e.target.value)}
-            className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          >
-            {ICON_OPTIONS.map(icon => (
-              <option key={icon} value={icon}>{icon}</option>
-            ))}
-          </select>
-          <select
-            value={h.categoryId || ''}
-            onChange={e => updateItem(idx, 'categoryId', e.target.value)}
-            className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          >
+          <input value={h.label} onChange={e => updateItem(idx, 'label', e.target.value)} placeholder="Label" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
+          <select value={h.icon || 'Package'} onChange={e => updateItem(idx, 'icon', e.target.value)} className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm">{ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}</select>
+          <select value={h.categoryId || ''} onChange={e => updateItem(idx, 'categoryId', e.target.value)} className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2 py-1 text-sm">
             <option value="">Select Category</option>
-            {categoryOptions.map((opt: any) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
+            {categoryOptions.map((opt: any) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
           <div className="flex gap-1">
             <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
@@ -327,42 +218,30 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
           </div>
         </div>
       ))}
-      <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600">
-        <Plus size={16} /> Add Highlight
-      </button>
+      <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600"><Plus size={16} /> Add Highlight</button>
     </div>
   );
 }
 
-// ----- Categories Editor -----
+// ----- Categories Editor (mobile-friendly product picker) -----
 function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { categories = [] } = config;
   const [allProducts, setAllProducts] = useState<{ id: string; name: string; brand: string }[]>([]);
   const [productSearch, setProductSearch] = useState('');
+  const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
+  const [showProductPicker, setShowProductPicker] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, name, brand')
-        .eq('is_active', true)
-        .order('name');
+      const { data, error } = await supabase.from('products').select('id, name, brand').eq('is_active', true).order('name');
       if (!error && data) setAllProducts(data);
     })();
   }, []);
 
-  const updateCategories = (newItems: any[]) => {
-    updateConfig({ ...config, categories: newItems });
-  };
+  const updateCategories = (newItems: any[]) => updateConfig({ ...config, categories: newItems });
 
   const addItem = () => {
-    const newItem = {
-      id: Date.now().toString(),
-      title: 'New Category',
-      icon: 'Package',
-      description: 'Category description',
-      productIds: [],
-    };
+    const newItem = { id: Date.now().toString(), title: 'New Category', icon: 'Package', description: 'Category description', productIds: [] };
     updateCategories([...categories, newItem]);
   };
 
@@ -372,16 +251,20 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
     updateCategories(updated);
   };
 
-  const removeItem = (index: number) => {
-    updateCategories(categories.filter((_, i) => i !== index));
-  };
-
+  const removeItem = (index: number) => updateCategories(categories.filter((_, i) => i !== index));
   const moveItem = (index: number, dir: 'up' | 'down') => {
     const newItems = [...categories];
     const swap = dir === 'up' ? index - 1 : index + 1;
     if (swap < 0 || swap >= categories.length) return;
     [newItems[index], newItems[swap]] = [newItems[swap], newItems[index]];
     updateCategories(newItems);
+  };
+
+  const toggleProductSelection = (productId: string, categoryIndex: number) => {
+    const cat = categories[categoryIndex];
+    const current = cat.productIds || [];
+    const updated = current.includes(productId) ? current.filter((id: string) => id !== productId) : [...current, productId];
+    updateItem(categoryIndex, 'productIds', updated);
   };
 
   const filteredProducts = allProducts.filter(p =>
@@ -395,56 +278,20 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
         <h3 className="font-semibold text-lg">Categories</h3>
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-gray-700">Enabled</label>
-          <input
-            type="checkbox"
-            checked={categories.enabled !== false}
-            onChange={e => updateCategories({ ...categories, enabled: e.target.checked })}
-            className="accent-green-600"
-          />
+          <input type="checkbox" checked={categories.enabled !== false} onChange={e => updateCategories({ ...categories, enabled: e.target.checked })} className="accent-green-600" />
         </div>
       </div>
       {categories.map((c: any, idx: number) => (
         <div key={c.id} className="flex flex-wrap items-center gap-2 border-b pb-2">
-          <input
-            value={c.title}
-            onChange={e => updateItem(idx, 'title', e.target.value)}
-            placeholder="Category title"
-            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
-          <select
-            value={c.icon || 'Package'}
-            onChange={e => updateItem(idx, 'icon', e.target.value)}
-            className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm"
+          <input value={c.title} onChange={e => updateItem(idx, 'title', e.target.value)} placeholder="Title" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
+          <select value={c.icon || 'Package'} onChange={e => updateItem(idx, 'icon', e.target.value)} className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm">{ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}</select>
+          <input value={c.description} onChange={e => updateItem(idx, 'description', e.target.value)} placeholder="Description" className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
+          <button
+            onClick={() => { setEditingCategoryIndex(idx); setShowProductPicker(true); }}
+            className="px-3 py-1 rounded-lg bg-gray-100 text-xs font-medium text-gray-700 border border-gray-200"
           >
-            {ICON_OPTIONS.map(icon => (
-              <option key={icon} value={icon}>{icon}</option>
-            ))}
-          </select>
-          <input
-            value={c.description}
-            onChange={e => updateItem(idx, 'description', e.target.value)}
-            placeholder="Description"
-            className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
-          />
-          <div className="relative flex-1 min-w-[150px]">
-            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
-            <select
-              multiple
-              value={c.productIds || []}
-              onChange={e => {
-                const selected = Array.from(e.target.selectedOptions).map(opt => opt.value);
-                updateItem(idx, 'productIds', selected);
-              }}
-              className="w-full pl-8 pr-2 py-1 rounded-lg border border-gray-200 text-sm h-20"
-            >
-              {filteredProducts.map(p => (
-                <option key={p.id} value={p.id}>{p.name} ({p.brand})</option>
-              ))}
-            </select>
-            <div className="absolute inset-0 pointer-events-none flex items-center justify-end pr-2">
-              <span className="text-xs text-gray-400">{c.productIds?.length || 0} selected</span>
-            </div>
-          </div>
+            {c.productIds?.length || 0} products selected
+          </button>
           <div className="flex gap-1">
             <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
             <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>
@@ -452,14 +299,44 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
           </div>
         </div>
       ))}
-      <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600">
-        <Plus size={16} /> Add Category
-      </button>
+      <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600"><Plus size={16} /> Add Category</button>
+
+      {/* Product Picker Modal */}
+      {showProductPicker && editingCategoryIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[80vh] flex flex-col shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h4 className="font-semibold">Select Products for "{categories[editingCategoryIndex]?.title}"</h4>
+              <button onClick={() => setShowProductPicker(false)} className="p-1 hover:bg-gray-100 rounded"><X size={20} /></button>
+            </div>
+            <div className="p-4">
+              <div className="relative mb-3">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="Search products..." className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-sm" />
+              </div>
+              <div className="max-h-60 overflow-y-auto space-y-1">
+                {filteredProducts.map(p => {
+                  const isSelected = categories[editingCategoryIndex]?.productIds?.includes(p.id) || false;
+                  return (
+                    <label key={p.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleProductSelection(p.id, editingCategoryIndex)} className="accent-green-600" />
+                      <span className="text-sm">{p.name} <span className="text-gray-400 text-xs">({p.brand})</span></span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end">
+              <button onClick={() => setShowProductPicker(false)} className="px-4 py-2 rounded-xl bg-green-600 text-white text-sm font-medium">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ----- Bulk Deal Banner Editor -----
+// ----- Bulk Deal Editor -----
 function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { bulkDeal } = config;
 
@@ -473,69 +350,25 @@ function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (
         <h3 className="font-semibold text-lg">Bulk Deal Banner</h3>
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-gray-700">Enabled</label>
-          <input
-            type="checkbox"
-            checked={bulkDeal.enabled}
-            onChange={e => updateBulkDeal('enabled', e.target.checked)}
-            className="accent-green-600"
-          />
+          <input type="checkbox" checked={bulkDeal.enabled} onChange={e => updateBulkDeal('enabled', e.target.checked)} className="accent-green-600" />
         </div>
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Tag</label>
-        <input
-          value={bulkDeal.tag}
-          onChange={e => updateBulkDeal('tag', e.target.value)}
-          placeholder="e.g. FARM DIRECT"
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Title</label>
-        <input
-          value={bulkDeal.title}
-          onChange={e => updateBulkDeal('title', e.target.value)}
-          placeholder="e.g. Morning harvest sale"
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
-        <input
-          value={bulkDeal.subtitle}
-          onChange={e => updateBulkDeal('subtitle', e.target.value)}
-          placeholder="e.g. Book before 8 AM · 15% off"
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">CTA Text</label>
-        <input
-          value={bulkDeal.cta}
-          onChange={e => updateBulkDeal('cta', e.target.value)}
-          placeholder="e.g. Shop fresh"
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Icon</label>
-        <select
-          value={bulkDeal.icon || 'Package'}
-          onChange={e => updateBulkDeal('icon', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        >
-          {ICON_OPTIONS.map(icon => (
-            <option key={icon} value={icon}>{icon}</option>
-          ))}
-        </select>
+      <div><label className="block text-sm font-medium text-gray-700">Tag</label><input value={bulkDeal.tag} onChange={e => updateBulkDeal('tag', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">Title</label><input value={bulkDeal.title} onChange={e => updateBulkDeal('title', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">Subtitle</label><input value={bulkDeal.subtitle} onChange={e => updateBulkDeal('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">CTA Text</label><input value={bulkDeal.cta} onChange={e => updateBulkDeal('cta', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">Icon</label><select value={bulkDeal.icon || 'Package'} onChange={e => updateBulkDeal('icon', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm">{ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}</select></div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="block text-sm font-medium text-gray-700">CTA Background</label><input type="color" value={bulkDeal.ctaBgColor || '#ffffff'} onChange={e => updateBulkDeal('ctaBgColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" /></div>
+        <div><label className="block text-sm font-medium text-gray-700">CTA Text Color</label><input type="color" value={bulkDeal.ctaTextColor || '#065f46'} onChange={e => updateBulkDeal('ctaTextColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" /></div>
       </div>
     </div>
   );
 }
 
-// ----- Trending Banner Editor -----
+// ----- Trending Editor -----
 function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories' }, categories = [] } = config;
+  const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [] } = config;
 
   const updateTrending = (field: string, value: any) => {
     updateConfig({ ...config, trending: { ...trending, [field]: value } });
@@ -548,12 +381,7 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
   const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
   const addIconButton = () => {
-    const newItem = {
-      id: Date.now().toString(),
-      label: 'New Category',
-      icon: 'Package',
-      categoryId: categoryOptions.length > 0 ? categoryOptions[0].value : '',
-    };
+    const newItem = { id: Date.now().toString(), label: 'New Category', icon: 'Package', categoryId: categoryOptions.length > 0 ? categoryOptions[0].value : '' };
     updateIconButtons([...trending.iconButtons, newItem]);
   };
 
@@ -564,7 +392,7 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
   };
 
   const removeIconButton = (index: number) => {
-    updateIconButtons(trending.iconButtons.filter((_: any, i: number) => i !== index));
+    updateIconButtons(trending.iconButtons.filter((_, i) => i !== index));
   };
 
   const moveIconButton = (index: number, dir: 'up' | 'down') => {
@@ -578,69 +406,29 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-lg">Trending Banner (Middle Banner)</h3>
+        <h3 className="font-semibold text-lg">Trending Banner (Middle)</h3>
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-gray-700">Enabled</label>
-          <input
-            type="checkbox"
-            checked={trending.enabled}
-            onChange={e => updateTrending('enabled', e.target.checked)}
-            className="accent-green-600"
-          />
+          <input type="checkbox" checked={trending.enabled} onChange={e => updateTrending('enabled', e.target.checked)} className="accent-green-600" />
         </div>
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Title</label>
-        <input
-          value={trending.title}
-          onChange={e => updateTrending('title', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
+      <div><label className="block text-sm font-medium text-gray-700">Title</label><input value={trending.title} onChange={e => updateTrending('title', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">Subtitle</label><input value={trending.subtitle} onChange={e => updateTrending('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">CTA Text</label><input value={trending.ctaText} onChange={e => updateTrending('ctaText', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="block text-sm font-medium text-gray-700">CTA Background</label><input type="color" value={trending.ctaBgColor || '#ffffff'} onChange={e => updateTrending('ctaBgColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" /></div>
+        <div><label className="block text-sm font-medium text-gray-700">CTA Text Color</label><input type="color" value={trending.ctaTextColor || '#065f46'} onChange={e => updateTrending('ctaTextColor', e.target.value)} className="w-full h-10 rounded-xl border border-gray-300 p-1" /></div>
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
-        <input
-          value={trending.subtitle}
-          onChange={e => updateTrending('subtitle', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">CTA Text</label>
-        <input
-          value={trending.ctaText}
-          onChange={e => updateTrending('ctaText', e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm"
-        />
-      </div>
+
       <div className="mt-4">
         <h4 className="font-medium text-sm text-gray-700">Icon Buttons</h4>
         {trending.iconButtons.map((btn: any, idx: number) => (
           <div key={btn.id} className="flex flex-wrap items-center gap-2 border-b pb-2 mt-2">
-            <input
-              value={btn.label}
-              onChange={e => updateIconButton(idx, 'label', e.target.value)}
-              placeholder="Label"
-              className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
-            />
-            <select
-              value={btn.icon || 'Package'}
-              onChange={e => updateIconButton(idx, 'icon', e.target.value)}
-              className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-            >
-              {ICON_OPTIONS.map(icon => (
-                <option key={icon} value={icon}>{icon}</option>
-              ))}
-            </select>
-            <select
-              value={btn.categoryId || ''}
-              onChange={e => updateIconButton(idx, 'categoryId', e.target.value)}
-              className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2 py-1 text-sm"
-            >
+            <input value={btn.label} onChange={e => updateIconButton(idx, 'label', e.target.value)} placeholder="Label" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
+            <select value={btn.icon || 'Package'} onChange={e => updateIconButton(idx, 'icon', e.target.value)} className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm">{ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}</select>
+            <select value={btn.categoryId || ''} onChange={e => updateIconButton(idx, 'categoryId', e.target.value)} className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2 py-1 text-sm">
               <option value="">Select Category</option>
-              {categoryOptions.map((opt: any) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
+              {categoryOptions.map((opt: any) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
             <div className="flex gap-1">
               <button onClick={() => moveIconButton(idx, 'up')}><ChevronUp size={16} /></button>
@@ -649,9 +437,7 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
             </div>
           </div>
         ))}
-        <button onClick={addIconButton} className="flex items-center gap-1 text-sm text-green-600 mt-2">
-          <Plus size={16} /> Add Icon Button
-        </button>
+        <button onClick={addIconButton} className="flex items-center gap-1 text-sm text-green-600 mt-2"><Plus size={16} /> Add Icon Button</button>
       </div>
     </div>
   );

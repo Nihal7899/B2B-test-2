@@ -23,11 +23,11 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   if (!config) return <StoreSkeleton />;
 
   const {
-    hero = { enabled: true, image: '', gradientFrom: '#065f46', gradientTo: '#16a34a', title: '', subtitle: '', ctaText: 'Shop Now', ctaLink: '/categories' },
+    hero = { enabled: true, image: '', gradientFrom: '#065f46', gradientTo: '#16a34a', title: '', subtitle: '', ctaText: 'Shop Now', ctaLink: '/categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
     highlights = [],
     categories = [],
-    bulkDeal = { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package' },
-    trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories' },
+    bulkDeal = { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
+    trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
   } = config;
 
   // State
@@ -95,7 +95,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const scrollToCategory = (categoryId: string) => {
     const el = categoryRefs.current[categoryId];
     if (el) {
-      const y = el.getBoundingClientRect().top + window.scrollY - 80; // offset for sticky header
+      const y = el.getBoundingClientRect().top + window.scrollY - 80;
       window.scrollTo({ top: y, behavior: 'smooth' });
     }
   };
@@ -123,6 +123,8 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
   const themeFrom = hero.gradientFrom || '#065f46';
   const themeTo = hero.gradientTo || '#16a34a';
+  const heroCtaBg = hero.ctaBgColor || '#ffffff';
+  const heroCtaText = hero.ctaTextColor || '#065f46';
 
   if (loading) return <StoreSkeleton />;
   if (productsLoading) return <StoreSkeleton />;
@@ -179,7 +181,8 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             <div className="mt-4 rounded-xl bg-white/15 p-3 backdrop-blur">
               <button
                 onClick={() => navigate(hero.ctaLink || '/categories')}
-                className="flex items-center gap-1.5 text-xs font-bold text-white"
+                className="flex items-center gap-1.5 text-xs font-bold"
+                style={{ backgroundColor: heroCtaBg, color: heroCtaText, padding: '6px 16px', borderRadius: '8px' }}
               >
                 {hero.ctaText}
               </button>
@@ -188,7 +191,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         </div>
       </div>
 
-      {/* Highlights icon strip - moved down with mt-4 */}
+      {/* Highlights icon strip */}
       {highlights.length > 0 && (
         <div className="mx-auto max-w-md px-4 mt-4">
           <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-lg">
@@ -258,6 +261,8 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
               subtitle={bulkDeal.subtitle}
               cta={bulkDeal.cta}
               icon={bulkDeal.icon}
+              ctaBgColor={bulkDeal.ctaBgColor || '#ffffff'}
+              ctaTextColor={bulkDeal.ctaTextColor || '#065f46'}
             />
           </div>
         )}
@@ -295,7 +300,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
               if (categoryProducts.length === 0) return null;
               const Icon = getStoreIcon(category.icon);
 
-              // Render category
               const categoryElement = (
                 <div
                   key={category.id}
@@ -342,6 +346,8 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                       subtitle={trending.subtitle}
                       iconButtons={trending.iconButtons}
                       ctaText={trending.ctaText}
+                      ctaBgColor={trending.ctaBgColor || '#ffffff'}
+                      ctaTextColor={trending.ctaTextColor || '#065f46'}
                       onIconClick={handleIconClick}
                     />
                   </React.Fragment>
@@ -396,6 +402,8 @@ function BulkDealBanner({
   subtitle,
   cta,
   icon,
+  ctaBgColor,
+  ctaTextColor,
 }: {
   themeFrom: string;
   themeTo: string;
@@ -404,6 +412,8 @@ function BulkDealBanner({
   subtitle: string;
   cta: string;
   icon: string;
+  ctaBgColor: string;
+  ctaTextColor: string;
 }) {
   const Icon = getStoreIcon(icon);
   return (
@@ -428,7 +438,10 @@ function BulkDealBanner({
           <p className="text-[11px] text-white/80">{subtitle}</p>
         </div>
       </div>
-      <button className="mt-3 flex items-center gap-1 rounded-xl bg-white/20 backdrop-blur px-4 py-2 text-sm font-bold text-white shadow transition hover:scale-105">
+      <button
+        className="mt-3 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
+        style={{ backgroundColor: ctaBgColor, color: ctaTextColor }}
+      >
         {cta} <ChevronRight size={14} />
       </button>
     </div>
@@ -442,6 +455,8 @@ function TrendingBanner({
   subtitle,
   iconButtons,
   ctaText,
+  ctaBgColor,
+  ctaTextColor,
   onIconClick,
 }: {
   themeFrom: string;
@@ -450,6 +465,8 @@ function TrendingBanner({
   subtitle: string;
   iconButtons: any[];
   ctaText: string;
+  ctaBgColor: string;
+  ctaTextColor: string;
   onIconClick: (id: string) => void;
 }) {
   return (
@@ -495,7 +512,10 @@ function TrendingBanner({
             })}
           </div>
 
-          <button className="mt-4 flex items-center gap-1 rounded-xl bg-white/20 backdrop-blur px-4 py-2 text-sm font-bold text-white shadow transition hover:scale-105">
+          <button
+            className="mt-4 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
+            style={{ backgroundColor: ctaBgColor, color: ctaTextColor }}
+          >
             {ctaText} <ChevronRight size={14} />
           </button>
         </div>

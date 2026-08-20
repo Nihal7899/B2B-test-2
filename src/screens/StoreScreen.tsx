@@ -43,9 +43,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [wishlist, setWishlist] = useState<string[]>([]);
 
-  // 🔥 Ref to prevent re‑fetch when restored from cache
-  const dataFetchedRef = useRef<Record<string, boolean>>({});
-
   if (!config) return <StoreSkeleton />;
 
   const {
@@ -74,35 +71,28 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     return ids;
   }, [categories]);
 
-  // 🔥 Fetch product details – skip if already fetched for this store
+  // 🔥 Fetch products whenever allProductIds changes (no guard)
   useEffect(() => {
-    if (dataFetchedRef.current[storeId]) {
-      // Already fetched, just set loading to false if needed
-      if (productsLoading) setProductsLoading(false);
-      return;
-    }
     if (allProductIds.length === 0) {
       setProducts([]);
       setProductsLoading(false);
-      dataFetchedRef.current[storeId] = true;
       return;
     }
     setProductsLoading(true);
     fetchProductsByIds(allProductIds)
       .then(data => {
         setProducts(data);
-        dataFetchedRef.current[storeId] = true;
       })
       .catch(console.error)
       .finally(() => setProductsLoading(false));
-  }, [allProductIds, storeId]);
+  }, [allProductIds]);
 
   // Fetch wishlist
   useEffect(() => {
     fetchWishlist().then(setWishlist).catch(() => {});
   }, []);
 
-  // Filter logic (only for search)
+  // Filter logic
   const filteredProducts = useMemo(() => {
     let result = products;
     if (searchQuery.trim()) {
@@ -122,7 +112,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     return result;
   }, [products, searchQuery, selectedCategoryId, categories]);
 
-  // Handlers – scroll to category
+  // Scroll to category
   const scrollToCategory = (categoryId: string) => {
     const el = categoryRefs.current[categoryId];
     if (el) {
@@ -170,7 +160,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     gradientTo: themeTo,
   };
 
-  // Wishlist toggle handler
   const handleWishlistToggle = async (productId: string) => {
     const isWishlisted = wishlist.includes(productId);
     await toggleWishlist(productId, isWishlisted);
@@ -593,10 +582,8 @@ function TrustItem({ icon: Icon, label, sub }: { icon: any; label: string; sub: 
   );
 }
 
-// 🔥 Memoize the whole component to prevent re‑mount on navigation
-const MemoizedStoreScreen = React.memo(StoreScreenContent);
-
-export default function StoreScreen(props: StoreScreenProps) {
+// 🔥 Memoize the entire component to prevent re‑mount on navigation
+export default React.memo(function StoreScreen(props: StoreScreenProps) {
   const [searchParams] = useSearchParams();
   const storeId = searchParams.get('storeId');
   const navigate = useNavigate();
@@ -612,7 +599,7 @@ export default function StoreScreen(props: StoreScreenProps) {
 
   return (
     <StoreProvider storeId={storeId}>
-      <MemoizedStoreScreen {...props} />
+      <StoreScreenContent {...props} />
     </StoreProvider>
   );
-}
+});

@@ -1031,6 +1031,7 @@ function App() {
         // STORE SCREEN
         // ============================================================
         case 'store': {
+          // 🔥 StoreScreen is already memoized with React.memo
           return <StoreScreen goTo={goTo} />;
         }
 

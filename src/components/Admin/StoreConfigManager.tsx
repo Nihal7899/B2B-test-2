@@ -7,39 +7,15 @@ import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, X, Search } from 'l
 import { uploadStoreImage, deleteStoreImage, uploadIconImage } from '@/services/catalog';
 import { getStoreIcon } from '@/data/storeIcons';
 
-// ============================================================
-// 100+ ICON OPTIONS
-// ============================================================
 const ICON_OPTIONS = [
-  // Fruits
-  'Apple', 'Banana', 'Cherry', 'Grape', 'Lemon', 'Orange', 'Strawberry', 'Tomato',
-  // Vegetables
-   'Carrot', 'Corn', 'Onion', 'Pepper', 'Potato', 'Salad',
-  // Meat & Seafood
-  'Beef', 'Chicken', 'Crab', 'Fish', 'Drumstick', 'Bone',
-  // Dairy
-  'Cheese', 'Egg', 'Milk',
-  // Bakery & Snacks
-  'Cake', 'Candy', 'Chips', 'Cookie', 'Popcorn', 'Pasta', 'Pizza',
-  // Beverages
-  'Beer', 'Coffee', 'CupSoda', 'Juice', 'Wine', 'IceCream',
-  // Staples & Grains
-  'Nut', 'Olive', 'Rice', 'Wheat', 'Soup', 'Sprout',
-  // Spices & Cooking
-  'Flame', 'Droplet',
-  // Household & Cleaning
-  'Trash2',
-  // Other
-  'Gift', 'Package', 'Sun', 'Star', 'TrendingUp', 'Truck',
-  // Extra – remove any that don't exist
-  'Avocado', 'Coconut', 'Garlic', 'Ginger', 'Mango', 'Papaya', 'Pineapple', 'Watermelon',
-  'Cabbage', 'Cauliflower', 'Celery', 'Cucumber', 'Eggplant', 'Lettuce', 'Mushroom', 'Pumpkin',
-  'Butter', 'Cream', 'Yogurt',
+  'Apple', 'Wheat', 'Flame', 'Coffee', 'Cookie', 'Milk', 'Croissant',
+  'Fish', 'SprayCan', 'ChefHat', 'Package', 'TrendingUp', 'ShieldCheck',
+  'Truck', 'Star', 'Leaf', 'Salad', 'Sun', 'Soup', 'Bean', 'Carrot',
+  'Cherry', 'CookingPot', 'Drumstick', 'Droplet', 'Egg', 'Gift',
+  'GlassWater', 'IceCreamCone', 'Plane', 'Popcorn', 'Shell', 'Sprout',
+  'Utensils', 'Beef'
 ];
 
-// ============================================================
-// COLOR INPUT HELPER (color picker + hex text)
-// ============================================================
 function ColorInput({ value, onChange, label }: { value: string; onChange: (val: string) => void; label: string }) {
   return (
     <div>
@@ -287,7 +263,7 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
               onClick={() => {
                 const input = document.createElement('input');
                 input.type = 'file';
-                input.accept = 'image/*';
+                input.accept = 'image/*, .svg';
                 input.onchange = async (e) => {
                   const file = (e.target as HTMLInputElement).files?.[0];
                   if (file) handleIconUpload(idx, file);
@@ -321,7 +297,7 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
 }
 
 // ============================================================
-// CATEGORIES EDITOR (with icon upload + color pickers + product picker modal)
+// CATEGORIES EDITOR (with icon upload)
 // ============================================================
 function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { categories = [], storeId } = config;
@@ -405,7 +381,7 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
               onClick={() => {
                 const input = document.createElement('input');
                 input.type = 'file';
-                input.accept = 'image/*';
+                input.accept = 'image/*, .svg';
                 input.onchange = async (e) => {
                   const file = (e.target as HTMLInputElement).files?.[0];
                   if (file) handleIconUpload(idx, file);
@@ -484,7 +460,7 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
 }
 
 // ============================================================
-// BULK DEAL EDITOR (with color pickers)
+// BULK DEAL EDITOR
 // ============================================================
 function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { bulkDeal } = config;
@@ -518,7 +494,7 @@ function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (
 }
 
 // ============================================================
-// TRENDING EDITOR (with icon upload + color pickers)
+// TRENDING EDITOR (with icon upload)
 // ============================================================
 function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [], storeId } = config;
@@ -601,7 +577,7 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
                 onClick={() => {
                   const input = document.createElement('input');
                   input.type = 'file';
-                  input.accept = 'image/*';
+                  input.accept = 'image/*, .svg';
                   input.onchange = async (e) => {
                     const file = (e.target as HTMLInputElement).files?.[0];
                     if (file) handleIconUpload(idx, file);

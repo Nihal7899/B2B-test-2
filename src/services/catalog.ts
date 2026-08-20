@@ -1203,6 +1203,7 @@ export async function deleteStoreImage(
   if (error) console.error('Failed to delete image:', error);
 }
 
+// services/catalog.ts – add this function (if not already present)
 export async function uploadIconImage(
   storeId: string,
   file: File,

@@ -575,43 +575,57 @@ function App() {
   // MAIN UI
   // ==========================================================
 
+  // 🔥 1. Define which screens use custom full-bleed headers
+  const isFullBleed = screen === 'store' || screen === 'categories' || screen === 'category';
+
   return (
     <div className="min-h-screen bg-ink-100">
-      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+
+      {showSplash && (
+        <SplashScreen
+          onFinish={() =>
+            setShowSplash(false)
+          }
+        />
+      )}
 
       <div className="mx-auto min-h-screen max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50">
-        {/* 🔥 HIDE HEADER ON STORE AND CATEGORY DETAIL SCREENS */}
-        {screen !== 'store' && screen !== 'categoryDetail' && (
+
+        {/* 🔥 2. HIDE default header on full-bleed screens */}
+        {!isFullBleed && (
           <Header
             cartCount={cart.totalItems}
             onCartClick={() => goTo('cart')}
           />
         )}
 
-        {/* 🔥 Update main to remove top padding exclusively on the store screen */}
-        <main className={`pb-24 animate-fade-up ${screen === 'store' ? 'pt-0' : 'py-4'}`}>
-        
+        {/* 🔥 3. Remove top padding (pt-0) on full-bleed screens */}
+        <main className={`pb-24 animate-fade-up ${isFullBleed ? 'pt-0' : 'py-4'}`}>
+
           <BackButtonHandler />
-        
+
           <KeepAliveRenderer
             currentKey={key}
             render={
               renderScreen
             }
           />
-        
-        </main>
 
+        </main>
 
         <BottomNavigation
           active={screen}
           cartCount={cart.totalItems}
-          onNavigate={goTo}
+          onNavigate={
+            goTo
+          }
         />
+
       </div>
+
     </div>
   );
-}
+
 
 // ============================================================
 // ROOT WITH PROVIDERS

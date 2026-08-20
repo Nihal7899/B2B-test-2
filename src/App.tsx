@@ -1,4 +1,4 @@
-// App.tsx – full with conditional header on store screen and KeepAliveRenderer fixes
+// App.tsx – full with stable key for store screen
 
 import {
   useMemo,
@@ -321,10 +321,14 @@ function App() {
   );
 
 
-  const key =
-    location.pathname +
-    '|' +
-    location.key;
+  // 🔥 FIX: Stable key for store screen
+  const key = useMemo(() => {
+    if (screen === 'store') {
+      // Use pathname + search (storeId) to keep the same key when navigating back
+      return location.pathname + '|' + location.search;
+    }
+    return location.pathname + '|' + location.key;
+  }, [screen, location.pathname, location.search, location.key]);
 
 
   const initPushRef =

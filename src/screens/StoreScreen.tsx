@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { useCart } from '@/store';
-import { fetchProductsByIds, fetchStores } from '@/services/catalog';
+import { fetchProductsByIds, fetchStores, toggleWishlist, fetchWishlist } from '@/services/catalog';
 import type { Product as AppProduct, Store } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { getStoreIcon } from '@/data/storeIcons';
@@ -36,11 +36,12 @@ function renderIcon(iconName: string, className: string = "h-6 w-6", color?: str
 }
 
 function StoreScreenContent({ goTo }: StoreScreenProps) {
-  const { config, loading } = useStore();
+  const { config, loading, theme } = useStore();
   const navigate = useNavigate();
   const cart = useCart();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [wishlist, setWishlist] = useState<string[]>([]);
 
   if (!config) return <StoreSkeleton />;
 
@@ -85,6 +86,11 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       .catch(console.error)
       .finally(() => setProductsLoading(false));
   }, [allProductIds]);
+
+  // Fetch wishlist
+  useEffect(() => {
+    fetchWishlist().then(setWishlist).catch(() => {});
+  }, []);
 
   // Filter logic (only for search)
   const filteredProducts = useMemo(() => {
@@ -141,17 +147,28 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const heroCtaBg = hero.ctaBgColor || '#ffffff';
   const heroCtaText = hero.ctaTextColor || '#065f46';
 
-  // 🔥 THEME FOR PRODUCT CARDS
+  // Theme for product cards
   const productCardTheme = {
     primaryColor: themeFrom,
     secondaryColor: themeTo,
-    textColor: '#1f2937', // or you can make this configurable later
+    textColor: '#1f2937',
     borderColor: '#e5e7eb',
     buttonStyle: 'brand',
     cardRadius: 'xl',
     shadowIntensity: 'md',
     gradientFrom: themeFrom,
     gradientTo: themeTo,
+  };
+
+  // Wishlist toggle handler
+  const handleWishlistToggle = async (productId: string) => {
+    const isWishlisted = wishlist.includes(productId);
+    await toggleWishlist(productId, isWishlisted);
+    if (isWishlisted) {
+      setWishlist(wishlist.filter(id => id !== productId));
+    } else {
+      setWishlist([...wishlist, productId]);
+    }
   };
 
   if (loading) return <StoreSkeleton />;
@@ -314,6 +331,8 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                     onDecrement={() => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
                     onClick={() => navigate(`/product?id=${p.id}`)}
                     theme={productCardTheme}
+                    isWishlisted={wishlist.includes(p.id)}
+                    onWishlistToggle={handleWishlistToggle}
                   />
                 ))}
               </div>
@@ -355,6 +374,8 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                         onDecrement={() => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
                         onClick={() => navigate(`/product?id=${p.id}`)}
                         theme={productCardTheme}
+                        isWishlisted={wishlist.includes(p.id)}
+                        onWishlistToggle={handleWishlistToggle}
                       />
                     ))}
                   </div>

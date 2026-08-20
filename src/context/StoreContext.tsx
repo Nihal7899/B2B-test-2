@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { StoreConfig } from '@/types/storeConfig';
 import { fetchStoreConfig, updateStoreConfig } from '@/services/catalog';
 
@@ -6,10 +6,21 @@ import { fetchStoreConfig, updateStoreConfig } from '@/services/catalog';
 const configCache = new Map<string, { data: StoreConfig; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+interface ThemeProps {
+  primaryColor: string;
+  secondaryColor: string;
+  textColor: string;
+  borderColor: string;
+  buttonStyle: 'brand' | 'outline' | 'ghost';
+  gradientFrom: string;
+  gradientTo: string;
+}
+
 interface StoreContextType {
   config: StoreConfig;
   storeId: string;
   loading: boolean;
+  theme: ThemeProps;
   updateConfig: (newConfig: StoreConfig) => void;
   updateHeader: (header: Partial<StoreConfig['header']>) => void;
   updateIconGrid: (items: StoreConfig['iconGrid']) => void;
@@ -28,15 +39,38 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> = ({ storeId, children }) => {
   const [config, setConfig] = useState<StoreConfig>({
     header: { title: 'Store', subtitle: '', cartBadgeCount: 0 },
+    hero: { enabled: true, image: '', gradientFrom: '#065f46', gradientTo: '#16a34a', title: '', subtitle: '', ctaText: 'Shop Now', ctaLink: '/categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
+    stats: { enabled: false, productsCount: 0, customersCount: 0, years: 0, deliveriesCount: 0 },
+    promoStrip: { enabled: false, message: '', ctaText: '', ctaLink: '', backgroundColor: '#10b981', textColor: '#ffffff' },
+    features: { enabled: false, items: [] },
     iconGrid: [],
     dietaryNeeds: [],
     promoBanner: { badge: '', title: '', subtitle: '', backgroundTheme: 'bg-gray-100', floatingProductImages: [] },
     categories: [],
     packaging: [],
     otherStores: [],
+    highlights: [],
+    banners: [],
+    storeTheme: { from: '#10b981', to: '#059669', accent: '#fbbf24' },
+    blurb: '',
+    trustBadge: '',
+    story: '',
+    bulkDeal: { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
+    trending: { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
   });
   const [loading, setLoading] = useState(true);
   const isMounted = React.useRef(true);
+
+  // Compute theme from config
+  const theme = useMemo(() => ({
+    primaryColor: config?.hero?.gradientFrom || '#10b981',
+    secondaryColor: config?.hero?.gradientTo || '#059669',
+    textColor: '#1f2937',
+    borderColor: '#e5e7eb',
+    buttonStyle: 'brand' as 'brand' | 'outline' | 'ghost',
+    gradientFrom: config?.hero?.gradientFrom || '#065f46',
+    gradientTo: config?.hero?.gradientTo || '#16a34a',
+  }), [config]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -148,6 +182,7 @@ export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> =
         config,
         storeId,
         loading,
+        theme,
         updateConfig,
         updateHeader,
         updateIconGrid,

@@ -1,5 +1,4 @@
-// components/ProductCard.tsx
-import { Heart, Star, ShoppingCart, Minus, Plus } from 'lucide-react';
+import { Heart, Star, ShoppingCart, Plus, Minus } from 'lucide-react';
 import type { Product } from '@/types';
 import { OfferBadge } from './OfferBadge';
 import { QuantitySelector } from './QuantitySelector';
@@ -26,6 +25,8 @@ interface ProductCardProps {
   onClick: () => void;
   horizontal?: boolean;
   theme?: ThemeProps;
+  isWishlisted?: boolean;
+  onWishlistToggle?: (productId: string) => void;
 }
 
 export function ProductCard({
@@ -37,6 +38,8 @@ export function ProductCard({
   onClick,
   horizontal = false,
   theme = {},
+  isWishlisted = false,
+  onWishlistToggle,
 }: ProductCardProps) {
   const {
     primaryColor = '#10b981',
@@ -86,6 +89,13 @@ export function ProductCard({
     setTimeout(() => setAdded(false), 1200);
   };
 
+  const handleWishlistClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onWishlistToggle) {
+      onWishlistToggle(product.id);
+    }
+  };
+
   return (
     <article onClick={onClick} className={cardClasses} style={{ borderColor }}>
       {/* Image with gradient overlay from store theme */}
@@ -103,14 +113,18 @@ export function ProductCard({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
         <div className="absolute top-2 left-2">
-          <OfferBadge discountPercent={discount} />
+          <OfferBadge discountPercent={discount} color={primaryColor} />
         </div>
         <button
-          onClick={(e) => e.stopPropagation()}
+          onClick={handleWishlistClick}
           className="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/90 flex items-center justify-center text-ink-500 shadow-sm tap-highlight active:scale-90 transition-transform"
-          aria-label="Add to wishlist"
+          aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
         >
-          <Heart size={14} strokeWidth={2} />
+          <Heart
+            size={14}
+            strokeWidth={2}
+            className={isWishlisted ? 'fill-red-500 text-red-500' : ''}
+          />
         </button>
       </div>
 
@@ -172,36 +186,38 @@ interface QuantitySelectorProps {
   quantity: number;
   onIncrement: () => void;
   onDecrement: () => void;
+  size?: 'sm' | 'md';
   theme?: { primaryColor?: string; secondaryColor?: string };
 }
 
-export function QuantitySelector({ quantity, onIncrement, onDecrement, theme = {} }: QuantitySelectorProps) {
+export function QuantitySelector({ quantity, onIncrement, onDecrement, size = 'sm', theme = {} }: QuantitySelectorProps) {
   const { primaryColor = '#10b981', secondaryColor = '#059669' } = theme;
+  const sizeClasses = size === 'md' ? 'h-8 w-8 text-sm' : 'h-7 w-7 text-xs';
 
   return (
-    <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 p-0.5" style={{ backgroundColor: `${primaryColor}15` }}>
+    <div className="flex items-center gap-1.5 rounded-lg p-0.5" style={{ backgroundColor: `${primaryColor}15` }}>
       <button
         onClick={(e) => { e.stopPropagation(); onDecrement(); }}
-        className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-emerald-700 shadow-sm transition hover:bg-emerald-100"
+        className={`flex items-center justify-center rounded-md bg-white shadow-sm transition hover:bg-emerald-100 ${sizeClasses}`}
         style={{ color: primaryColor }}
       >
-        <Minus size={14} />
+        <Minus size={size === 'md' ? 16 : 14} />
       </button>
-      <span className="min-w-[20px] text-center text-sm font-bold text-emerald-700" style={{ color: primaryColor }}>
+      <span className={`min-w-[20px] text-center font-bold ${size === 'md' ? 'text-base' : 'text-sm'}`} style={{ color: primaryColor }}>
         {quantity}
       </span>
       <button
         onClick={(e) => { e.stopPropagation(); onIncrement(); }}
-        className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-emerald-700 shadow-sm transition hover:bg-emerald-100"
+        className={`flex items-center justify-center rounded-md bg-white shadow-sm transition hover:bg-emerald-100 ${sizeClasses}`}
         style={{ color: primaryColor }}
       >
-        <Plus size={14} />
+        <Plus size={size === 'md' ? 16 : 14} />
       </button>
     </div>
   );
 }
 
-// ---- ProductCarousel (unchanged) ----
+// ---- ProductCarousel ----
 interface ProductCarouselProps {
   title: string;
   products: Product[];
@@ -212,6 +228,8 @@ interface ProductCarouselProps {
   onProductClick: (product: Product) => void;
   onViewAll: () => void;
   theme?: ThemeProps;
+  wishlist?: string[];
+  onWishlistToggle?: (id: string) => void;
 }
 
 export function ProductCarousel({
@@ -224,6 +242,8 @@ export function ProductCarousel({
   onProductClick,
   onViewAll,
   theme = {},
+  wishlist = [],
+  onWishlistToggle,
 }: ProductCarouselProps) {
   return (
     <section>
@@ -243,6 +263,8 @@ export function ProductCarousel({
             onClick={() => onProductClick(product)}
             horizontal
             theme={theme}
+            isWishlisted={wishlist.includes(product.id)}
+            onWishlistToggle={onWishlistToggle}
           />
         ))}
       </div>

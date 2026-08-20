@@ -8,6 +8,7 @@ import { QuantitySelector } from '@/components/QuantitySelector';
 import { ProductCard } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { fetchProductById, fetchWishlist, toggleWishlist, fetchVolumePricing } from '@/services/catalog';
+import { useStore } from '@/context/StoreContext';
 
 interface ProductDetailScreenProps {
   productId: string;
@@ -17,12 +18,23 @@ interface ProductDetailScreenProps {
 }
 
 export function ProductDetailScreen({ productId, cart, onBack, onProduct }: ProductDetailScreenProps) {
+  const { theme } = useStore();
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
   const [volumeTiers, setVolumeTiers] = useState<VolumePricingTier[]>([]);
+
+  const {
+    primaryColor = '#10b981',
+    secondaryColor = '#059669',
+    textColor = '#1f2937',
+    borderColor = '#e5e7eb',
+    buttonStyle = 'brand',
+    gradientFrom = '#065f46',
+    gradientTo = '#16a34a',
+  } = theme;
 
   useEffect(() => {
     void (async () => {
@@ -33,7 +45,6 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
         setRelated(result.related);
         const wl = await fetchWishlist();
         setWishlisted(wl.includes(productId));
-        // Load volume pricing
         const tiers = await fetchVolumePricing(productId);
         setVolumeTiers(tiers);
       }
@@ -46,7 +57,6 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
 
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const quantity = cart.getQuantity(product.id);
-  // Determine if volume pricing applies for current quantity
   const effectivePrice = (() => {
     if (quantity === 0) return product.price;
     const applicable = volumeTiers
@@ -67,8 +77,13 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
 
   return (
     <div className="pb-6 space-y-5">
+      {/* Image header with theme gradient overlay */}
       <div className="relative h-[270px] bg-ink-50 overflow-hidden">
         <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+        <div
+          className="absolute inset-0 bg-gradient-to-t opacity-30 pointer-events-none"
+          style={{ background: `linear-gradient(to top, ${gradientFrom}, ${gradientTo})` }}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
         <button onClick={onBack} className="absolute top-4 left-4 h-9 w-9 rounded-xl bg-white/90 text-ink-700 flex items-center justify-center shadow-soft">
           <ArrowLeft size={18} />
@@ -90,8 +105,10 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
       <div className="px-4 space-y-4">
         <div>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-bold text-brand-600 uppercase tracking-wider">{product.brand}</p>
-            <OfferBadge discountPercent={discount} size="md" />
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: primaryColor }}>
+              {product.brand}
+            </p>
+            <OfferBadge discountPercent={discount} size="md" color={primaryColor} />
           </div>
           <h1 className="text-2xl font-extrabold text-ink-900 tracking-tight mt-1">{product.name}</h1>
           <p className="text-sm text-ink-500 mt-1">{product.packSize} <span className="mx-1 text-ink-300">·</span> Minimum order: {product.moq} units</p>
@@ -117,28 +134,36 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
         </div>
 
         {/* Pricing */}
-        <div className="rounded-2xl bg-brand-50 border border-brand-100 p-4">
+        <div className="rounded-2xl p-4" style={{ backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}30` }}>
           <div className="flex items-end gap-2">
-            <span className="text-2xl font-extrabold text-brand-700">₹{product.price}</span>
+            <span className="text-2xl font-extrabold" style={{ color: primaryColor }}>
+              ₹{product.price}
+            </span>
             <span className="text-sm text-ink-400 line-through mb-1">MRP ₹{product.mrp}</span>
-            <OfferBadge discountPercent={discount} />
+            <OfferBadge discountPercent={discount} color={primaryColor} />
           </div>
-          <p className="text-[11px] text-brand-700 mt-1">Your wholesale price · Inclusive of all taxes</p>
+          <p className="text-[11px] mt-1" style={{ color: primaryColor }}>
+            Your wholesale price · Inclusive of all taxes
+          </p>
           {volumeTiers.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-brand-200/50">
-              <p className="text-[10px] font-bold text-brand-700 uppercase tracking-wider">Volume Pricing</p>
+            <div className="mt-3 pt-3 border-t" style={{ borderColor: `${primaryColor}30` }}>
+              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: primaryColor }}>
+                Volume Pricing
+              </p>
               <div className="mt-1 space-y-1">
                 {volumeTiers.map((tier) => (
                   <div key={tier.id} className="flex items-center justify-between text-xs">
                     <span className="text-ink-600">
                       {tier.min_quantity} – {tier.max_quantity ?? '∞'} units
                     </span>
-                    <span className="font-bold text-brand-700">₹{tier.unit_price}/unit</span>
+                    <span className="font-bold" style={{ color: primaryColor }}>
+                      ₹{tier.unit_price}/unit
+                    </span>
                   </div>
                 ))}
               </div>
               {quantity > 0 && effectivePrice < product.price && (
-                <p className="text-[11px] text-brand-600 mt-2">
+                <p className="text-[11px] mt-2" style={{ color: primaryColor }}>
                   You are getting volume pricing: ₹{effectivePrice}/unit · ₹{volumeSavings.toLocaleString('en-IN')} saved on this order
                 </p>
               )}
@@ -147,7 +172,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
         </div>
 
         <div className="flex items-center gap-2">
-          <Truck size={17} className="text-brand-600" />
+          <Truck size={17} className="text-brand-600" style={{ color: primaryColor }} />
           <div>
             <p className="text-xs font-bold text-ink-700">Delivery by tomorrow</p>
             <p className="text-[10px] text-ink-400 mt-0.5">Free delivery on orders above ₹2,000</p>
@@ -160,12 +185,12 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl bg-ink-50 p-3 flex items-center gap-2">
-            <ShieldCheck size={17} className="text-brand-600" />
+          <div className="rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: `${primaryColor}10` }}>
+            <ShieldCheck size={17} style={{ color: primaryColor }} />
             <div><p className="text-[10px] font-bold text-ink-700">Quality checked</p><p className="text-[9px] text-ink-400">Verified product</p></div>
           </div>
-          <div className="rounded-xl bg-ink-50 p-3 flex items-center gap-2">
-            <Truck size={17} className="text-brand-600" />
+          <div className="rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: `${primaryColor}10` }}>
+            <Truck size={17} style={{ color: primaryColor }} />
             <div><p className="text-[10px] font-bold text-ink-700">Fast delivery</p><p className="text-[9px] text-ink-400">Reliable supply</p></div>
           </div>
         </div>
@@ -173,17 +198,19 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
         <div className="flex gap-2">
           <div className="flex-1">
             {quantity > 0
-              ? <div className="h-12 flex items-center justify-center rounded-xl border border-brand-200 bg-brand-50">
+              ? <div className="h-12 flex items-center justify-center rounded-xl border" style={{ borderColor: `${primaryColor}30`, backgroundColor: `${primaryColor}10` }}>
                   <QuantitySelector
                     quantity={quantity}
                     onIncrement={() => cart.addToCart(product)}
                     onDecrement={() => cart.updateQuantity(product.id, quantity - 1)}
                     size="md"
+                    theme={{ primaryColor, secondaryColor }}
                   />
                 </div>
               : <button
                   onClick={() => cart.addToCart(product)}
-                  className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold"
+                  className="w-full h-12 rounded-xl text-white text-sm font-bold"
+                  style={{ backgroundColor: primaryColor }}
                 >
                   Add to cart
                 </button>
@@ -213,6 +240,9 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
                 onDecrement={() => cart.updateQuantity(item.id, cart.getQuantity(item.id) - 1)}
                 onClick={() => onProduct(item)}
                 horizontal
+                theme={theme}
+                isWishlisted={wishlist.includes(item.id)}
+                onWishlistToggle={toggleWishlist}
               />
             ))}
           </div>

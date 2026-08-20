@@ -2,12 +2,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2, Save } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { DbCategory, DbProduct } from '@/types';
+import { fetchSubcategories } from '@/services/catalog';
+import type { DbCategory, DbProduct, Subcategory } from '@/types';
 
 export default function ProductsManager() {
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [categories, setCategories] = useState<DbCategory[]>([]);
-  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<DbProduct | null>(null);
@@ -25,11 +25,6 @@ export default function ProductsManager() {
   useEffect(() => {
     void load();
   }, [load]);
-  
-  useEffect(() => {
-    if (!form.category_id) return;
-    fetchSubcategories(form.category_id).then(setSubcategories);
-  }, [form.category_id]);
 
   const handleDelete = async (id: string) => {
     await supabase.from('products').delete().eq('id', id);
@@ -41,10 +36,7 @@ export default function ProductsManager() {
   return (
     <div className="space-y-3">
       <button
-        onClick={() => {
-          setEditing(null);
-          setShowForm(true);
-        }}
+        onClick={() => { setEditing(null); setShowForm(true); }}
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
       >
         <Plus size={16} /> Add product
@@ -54,10 +46,7 @@ export default function ProductsManager() {
           initial={editing}
           categories={categories}
           onClose={() => setShowForm(false)}
-          onSaved={() => {
-            setShowForm(false);
-            void load();
-          }}
+          onSaved={() => { setShowForm(false); void load(); }}
         />
       )}
       {products.map((prod) => (
@@ -71,10 +60,7 @@ export default function ProductsManager() {
             )}
           </div>
           <button
-            onClick={() => {
-              setEditing(prod);
-              setShowForm(true);
-            }}
+            onClick={() => { setEditing(prod); setShowForm(true); }}
             className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
           >
             <Pencil size={14} />
@@ -88,7 +74,7 @@ export default function ProductsManager() {
   );
 }
 
-// ---- ProductForm ----
+// ---- ProductForm (fully defined) ----
 function ProductForm({
   initial,
   categories,
@@ -100,8 +86,10 @@ function ProductForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [form, setForm] = useState({
     category_id: initial?.category_id ?? categories[0]?.id ?? '',
+    subcategory_id: initial?.subcategory_id ?? '',
     brand: initial?.brand ?? '',
     name: initial?.name ?? '',
     slug: initial?.slug ?? '',
@@ -119,6 +107,25 @@ function ProductForm({
   });
   const [saving, setSaving] = useState(false);
 
+  // Fetch subcategories when category changes
+  useEffect(() => {
+    if (!form.category_id) {
+      setSubcategories([]);
+      return;
+    }
+    fetchSubcategories(form.category_id).then(setSubcategories);
+  }, [form.category_id]);
+
+  // Auto-generate slug from name
+  useEffect(() => {
+    if (!form.slug && form.name) {
+      setForm(prev => ({
+        ...prev,
+        slug: form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      }));
+    }
+  }, [form.name]);
+
   const handleSave = async () => {
     setSaving(true);
     if (initial) {
@@ -134,29 +141,27 @@ function ProductForm({
     <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-4 shadow-card">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink-900">{initial ? 'Edit' : 'New'} product</h3>
-        <button onClick={onClose}>
-          <X size={16} className="text-ink-400" />
-        </button>
+        <button onClick={onClose}><X size={16} className="text-ink-400" /></button>
       </div>
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Category *</label>
         <select
           value={form.category_id}
-          onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+          onChange={(e) => setForm({ ...form, category_id: e.target.value, subcategory_id: '' })}
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         >
           {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
+            <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
       </div>
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Subcategory</label>
         <select
-          value={form.subcategory_id || ''}
-          onChange={(e) => setForm({ ...form, subcategory_id: e.target.value || null })}
+          value={form.subcategory_id}
+          onChange={(e) => setForm({ ...form, subcategory_id: e.target.value })}
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         >
           <option value="">None</option>
@@ -164,7 +169,8 @@ function ProductForm({
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
-      </div>      
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Brand *</label>
@@ -185,6 +191,7 @@ function ProductForm({
           />
         </div>
       </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Slug *</label>
@@ -205,6 +212,7 @@ function ProductForm({
           />
         </div>
       </div>
+
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">MRP</label>
@@ -234,6 +242,7 @@ function ProductForm({
           />
         </div>
       </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Stock quantity</label>
@@ -255,7 +264,7 @@ function ProductForm({
           />
         </div>
       </div>
-      {/* GST and HSN fields */}
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">HSN Code</label>
@@ -281,6 +290,7 @@ function ProductForm({
           </select>
         </div>
       </div>
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Image URL</label>
         <input
@@ -290,6 +300,7 @@ function ProductForm({
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
       </div>
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Description</label>
         <textarea
@@ -300,15 +311,16 @@ function ProductForm({
           className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brand-500 resize-none"
         />
       </div>
+
       <label className="flex items-center gap-2 text-sm text-ink-700">
         <input
           type="checkbox"
           checked={form.is_active}
           onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
           className="accent-brand-600"
-        />{' '}
-        Active
+        /> Active
       </label>
+
       <button
         onClick={handleSave}
         disabled={saving}

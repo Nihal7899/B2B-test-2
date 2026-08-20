@@ -1,4 +1,4 @@
-// App.tsx – full with conditional header on store screen and storeId passing
+// App.tsx – full with conditional header on store screen and KeepAliveRenderer fixes
 
 import {
   useMemo,
@@ -949,25 +949,11 @@ function App() {
 
 
         case 'product': {
-          const productId = new URLSearchParams(location.search).get('id');
-          if (!productId) {
-            return <Navigate to="/" replace />;
-          }
-          
-          // Use a unique key that includes productId so KeepAliveRenderer treats different products separately
-          const productKey = `product-${productId}`;
-          
-          return (
-            <KeepAliveRenderer key={productKey} currentKey={key} render={() => (
-              <ProductDetailScreen
-                productId={productId}
-                cart={cart}
-                onBack={() => goTo('home')}
-                onProduct={openProduct}
-              />
-            )} />
-          );
-        }
+
+          const productId =
+            new URLSearchParams(
+              location.search
+            ).get('id');
 
 
           if (!productId) {

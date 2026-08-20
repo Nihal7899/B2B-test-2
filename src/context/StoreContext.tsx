@@ -1,3 +1,4 @@
+// context/StoreContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { StoreConfig } from '@/types/storeConfig';
 import { fetchStoreConfig, updateStoreConfig } from '@/services/catalog';
@@ -5,6 +6,9 @@ import { fetchStoreConfig, updateStoreConfig } from '@/services/catalog';
 // Cache for store configs
 const configCache = new Map<string, { data: StoreConfig; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Global store for current store theme (persists across navigation)
+let globalStoreTheme: ThemeProps | null = null;
 
 interface ThemeProps {
   primaryColor: string;
@@ -61,16 +65,21 @@ export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> =
   const [loading, setLoading] = useState(true);
   const isMounted = React.useRef(true);
 
-  // Compute theme from config
-  const theme = useMemo(() => ({
-    primaryColor: config?.hero?.gradientFrom || '#10b981',
-    secondaryColor: config?.hero?.gradientTo || '#059669',
-    textColor: '#1f2937',
-    borderColor: '#e5e7eb',
-    buttonStyle: 'brand' as 'brand' | 'outline' | 'ghost',
-    gradientFrom: config?.hero?.gradientFrom || '#065f46',
-    gradientTo: config?.hero?.gradientTo || '#16a34a',
-  }), [config]);
+  // Compute theme from config and update global
+  const theme = useMemo(() => {
+    const t = {
+      primaryColor: config?.hero?.gradientFrom || '#10b981',
+      secondaryColor: config?.hero?.gradientTo || '#059669',
+      textColor: '#1f2937',
+      borderColor: '#e5e7eb',
+      buttonStyle: 'brand' as 'brand' | 'outline' | 'ghost',
+      gradientFrom: config?.hero?.gradientFrom || '#065f46',
+      gradientTo: config?.hero?.gradientTo || '#16a34a',
+    };
+    // Update global theme
+    globalStoreTheme = t;
+    return t;
+  }, [config]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -81,7 +90,6 @@ export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> =
     if (!storeId) return;
 
     const loadConfig = async () => {
-      // Check cache
       const cached = configCache.get(storeId);
       const now = Date.now();
       if (cached && (now - cached.timestamp) < CACHE_TTL) {
@@ -89,7 +97,6 @@ export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> =
           setConfig(cached.data);
           setLoading(false);
         }
-        // Refresh in background
         try {
           const fresh = await fetchStoreConfig(storeId);
           if (isMounted.current) {
@@ -200,6 +207,29 @@ export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> =
     </StoreContext.Provider>
   );
 };
+
+// Export a hook to get the current store theme from global state (even outside StoreProvider)
+export function useStoreTheme(): ThemeProps {
+  // Try to get from context first
+  const context = useContext(StoreContext);
+  if (context) {
+    return context.theme;
+  }
+  // Fallback to global theme
+  if (globalStoreTheme) {
+    return globalStoreTheme;
+  }
+  // Default fallback
+  return {
+    primaryColor: '#10b981',
+    secondaryColor: '#059669',
+    textColor: '#1f2937',
+    borderColor: '#e5e7eb',
+    buttonStyle: 'brand',
+    gradientFrom: '#065f46',
+    gradientTo: '#16a34a',
+  };
+}
 
 export const useStore = () => {
   const context = useContext(StoreContext);

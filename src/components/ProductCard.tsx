@@ -1,9 +1,21 @@
 // components/ProductCard.tsx
-import { Heart, Star, ShoppingCart, Minus, Plus } from 'lucide-react';
+import { Heart, Star, ShoppingCart } from 'lucide-react';
 import type { Product } from '@/types';
 import { OfferBadge } from './OfferBadge';
 import { QuantitySelector } from './QuantitySelector';
 import { useState } from 'react';
+
+interface ThemeProps {
+  primaryColor?: string;
+  secondaryColor?: string;
+  textColor?: string;
+  borderColor?: string;
+  buttonStyle?: 'brand' | 'outline' | 'ghost';
+  cardRadius?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  shadowIntensity?: 'none' | 'sm' | 'md' | 'lg';
+  gradientFrom?: string;
+  gradientTo?: string;
+}
 
 interface ProductCardProps {
   product: Product;
@@ -13,6 +25,7 @@ interface ProductCardProps {
   onDecrement: () => void;
   onClick: () => void;
   horizontal?: boolean;
+  theme?: ThemeProps;
 }
 
 export function ProductCard({
@@ -23,9 +36,49 @@ export function ProductCard({
   onDecrement,
   onClick,
   horizontal = false,
+  theme = {},
 }: ProductCardProps) {
+  const {
+    primaryColor = '#10b981',
+    secondaryColor = '#059669',
+    textColor = '#1f2937',
+    borderColor = '#e5e7eb',
+    buttonStyle = 'brand',
+    cardRadius = 'xl',
+    shadowIntensity = 'md',
+    gradientFrom = '#065f46',
+    gradientTo = '#16a34a',
+  } = theme;
+
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const [added, setAdded] = useState(false);
+
+  const radiusMap = {
+    sm: 'rounded',
+    md: 'rounded-md',
+    lg: 'rounded-lg',
+    xl: 'rounded-xl',
+    full: 'rounded-full',
+  };
+  const shadowMap = {
+    none: 'shadow-none',
+    sm: 'shadow-sm',
+    md: 'shadow',
+    lg: 'shadow-lg',
+  };
+
+  const cardClasses = `
+    group flex flex-col bg-white border 
+    ${radiusMap[cardRadius]} ${shadowMap[shadowIntensity]} 
+    transition-all duration-300 hover:-translate-y-1 hover:shadow-xl 
+    cursor-pointer overflow-hidden
+    ${horizontal ? 'w-[158px] shrink-0' : ''}
+  `;
+
+  const buttonBase = `
+    h-8 px-2.5 flex items-center gap-1 rounded-lg text-white text-[11px] font-bold 
+    shadow-sm tap-highlight active:scale-95 transition-transform
+  `;
 
   const handleAdd = () => {
     onAdd();
@@ -34,62 +87,78 @@ export function ProductCard({
   };
 
   return (
-    <article
-      onClick={onClick}
-      className={`group flex flex-col rounded-2xl border border-gray-100 bg-white p-2.5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lg ${horizontal ? 'w-[158px] shrink-0' : ''}`}
-    >
-      <div className="relative mb-2 overflow-hidden rounded-xl bg-gray-50">
+    <article onClick={onClick} className={cardClasses} style={{ borderColor }}>
+      {/* Image with gradient overlay from store theme */}
+      <div className="relative bg-ink-50 h-[132px] flex items-center justify-center overflow-hidden">
         <img
           src={product.image}
           alt={product.name}
+          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
-          className="h-28 w-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
-        {discount > 0 && (
-          <div className="absolute left-1.5 top-1.5">
-            <OfferBadge discountPercent={discount} />
-          </div>
-        )}
+        {/* Gradient overlay using store theme */}
+        <div
+          className="absolute inset-0 bg-gradient-to-t opacity-20 pointer-events-none"
+          style={{ background: `linear-gradient(to top, ${gradientFrom}, ${gradientTo})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
+        <div className="absolute top-2 left-2">
+          <OfferBadge discountPercent={discount} />
+        </div>
         <button
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:bg-white"
+          className="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/90 flex items-center justify-center text-ink-500 shadow-sm tap-highlight active:scale-90 transition-transform"
+          aria-label="Add to wishlist"
         >
-          <Heart size={14} className="text-gray-600" />
+          <Heart size={14} strokeWidth={2} />
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col">
-        <p className="text-[11px] font-medium text-gray-400">{product.brand}</p>
-        <h4 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-800">{product.name}</h4>
-        <p className="mt-0.5 text-[11px] text-gray-500">
-          MOQ {product.moq} · per {product.packSize}
+      <div className="p-2.5">
+        <p className="text-[10px] font-bold uppercase tracking-wide truncate" style={{ color: primaryColor }}>
+          {product.brand}
         </p>
-        <div className="mt-auto flex items-center justify-between pt-2">
-          <div>
-            <p className="text-sm font-bold text-gray-900">
+        <h3 className="text-[12px] font-bold leading-tight mt-0.5 line-clamp-2 min-h-[30px]" style={{ color: textColor }}>
+          {product.name}
+        </h3>
+        <p className="text-[10px] text-ink-400 mt-1">
+          {product.packSize} <span className="text-ink-300 mx-0.5">·</span> MOQ {product.moq}
+        </p>
+        <div className="flex items-center gap-1 mt-1.5">
+          <Star size={11} className="text-amber-400 fill-amber-400" />
+          <span className="text-[10px] text-ink-500 font-medium">{product.rating}</span>
+        </div>
+        <div className="flex items-end justify-between gap-1 mt-2">
+          <div className="min-w-0">
+            <p className="text-[10px] text-ink-400 line-through">MRP ₹{product.mrp}</p>
+            <p className="text-[15px] font-extrabold leading-tight" style={{ color: primaryColor }}>
               ₹{product.price}
-              <span className="text-[11px] font-normal text-gray-400">/{product.packSize}</span>
             </p>
-            {discount > 0 && (
-              <p className="text-[10px] text-gray-400 line-through">₹{product.mrp}</p>
-            )}
           </div>
           {quantity > 0 ? (
             <QuantitySelector
               quantity={quantity}
               onIncrement={onIncrement}
               onDecrement={onDecrement}
+              theme={{ primaryColor, secondaryColor }}
             />
           ) : added ? (
-            <span className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">
+            <span className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-white" style={{ backgroundColor: primaryColor }}>
               ✓ Added
             </span>
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); handleAdd(); }}
-              className="rounded-lg border border-emerald-600 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-600 hover:text-white"
+              className={buttonBase}
+              style={
+                buttonStyle === 'outline'
+                  ? { backgroundColor: 'transparent', border: `1px solid ${primaryColor}`, color: primaryColor }
+                  : buttonStyle === 'ghost'
+                  ? { backgroundColor: 'transparent', color: primaryColor }
+                  : { backgroundColor: primaryColor }
+              }
             >
-              + Add
+              <ShoppingCart size={13} strokeWidth={2.5} /> Add
             </button>
           )}
         </div>
@@ -98,8 +167,64 @@ export function ProductCard({
   );
 }
 
-// Keep existing ProductCarousel with same props
-export function ProductCarousel({ title, products, getQuantity, onAdd, onIncrement, onDecrement, onProductClick, onViewAll }: any) {
+// ---- QuantitySelector with theme support ----
+interface QuantitySelectorProps {
+  quantity: number;
+  onIncrement: () => void;
+  onDecrement: () => void;
+  theme?: { primaryColor?: string; secondaryColor?: string };
+}
+
+export function QuantitySelector({ quantity, onIncrement, onDecrement, theme = {} }: QuantitySelectorProps) {
+  const { primaryColor = '#10b981', secondaryColor = '#059669' } = theme;
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 p-0.5" style={{ backgroundColor: `${primaryColor}15` }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); onDecrement(); }}
+        className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-emerald-700 shadow-sm transition hover:bg-emerald-100"
+        style={{ color: primaryColor }}
+      >
+        <Minus size={14} />
+      </button>
+      <span className="min-w-[20px] text-center text-sm font-bold text-emerald-700" style={{ color: primaryColor }}>
+        {quantity}
+      </span>
+      <button
+        onClick={(e) => { e.stopPropagation(); onIncrement(); }}
+        className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-emerald-700 shadow-sm transition hover:bg-emerald-100"
+        style={{ color: primaryColor }}
+      >
+        <Plus size={14} />
+      </button>
+    </div>
+  );
+}
+
+// ---- ProductCarousel (unchanged) ----
+interface ProductCarouselProps {
+  title: string;
+  products: Product[];
+  getQuantity: (id: string) => number;
+  onAdd: (product: Product) => void;
+  onIncrement: (product: Product) => void;
+  onDecrement: (product: Product) => void;
+  onProductClick: (product: Product) => void;
+  onViewAll: () => void;
+  theme?: ThemeProps;
+}
+
+export function ProductCarousel({
+  title,
+  products,
+  getQuantity,
+  onAdd,
+  onIncrement,
+  onDecrement,
+  onProductClick,
+  onViewAll,
+  theme = {},
+}: ProductCarouselProps) {
   return (
     <section>
       <div className="flex items-center justify-between px-4 mb-3">
@@ -107,7 +232,7 @@ export function ProductCarousel({ title, products, getQuantity, onAdd, onIncreme
         <button onClick={onViewAll} className="text-xs font-semibold text-brand-600 tap-highlight">View All</button>
       </div>
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
-        {products.map((product: any) => (
+        {products.map((product) => (
           <ProductCard
             key={product.id}
             product={product}
@@ -117,6 +242,7 @@ export function ProductCarousel({ title, products, getQuantity, onAdd, onIncreme
             onDecrement={() => onDecrement(product)}
             onClick={() => onProductClick(product)}
             horizontal
+            theme={theme}
           />
         ))}
       </div>

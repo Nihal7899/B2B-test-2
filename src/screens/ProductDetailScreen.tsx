@@ -1,11 +1,10 @@
 // screens/ProductDetailScreen.tsx
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Heart, Share2, Star, Truck, ShieldCheck, Percent, Hash } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, Star, Truck, ShieldCheck, Percent, Hash, Plus, Minus } from 'lucide-react';
 import type { Product, VolumePricingTier } from '@/types';
 import type { useCart } from '@/store';
 import { OfferBadge } from '@/components/OfferBadge';
-import { QuantitySelector } from '@/components/QuantitySelector';
 import { ProductCard } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { fetchProductById, fetchWishlist, toggleWishlist, fetchVolumePricing, fetchStoreConfig } from '@/services/catalog';
@@ -242,24 +241,38 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
 
         <div className="flex gap-2">
           <div className="flex-1">
-            {quantity > 0
-              ? <div className="h-12 flex items-center justify-center rounded-xl border" style={{ borderColor: `${primaryColor}30`, backgroundColor: `${primaryColor}10` }}>
-                  <QuantitySelector
-                    quantity={quantity}
-                    onIncrement={() => cart.addToCart(product)}
-                    onDecrement={() => cart.updateQuantity(product.id, quantity - 1)}
-                    size="md"
-                    theme={{ primaryColor, secondaryColor }}
-                  />
-                </div>
-              : <button
-                  onClick={() => cart.addToCart(product)}
-                  className="w-full h-12 rounded-xl text-white text-sm font-bold"
+            {quantity > 0 ? (
+              <div 
+                className="h-12 flex items-center justify-between px-3 rounded-xl border shadow-sm"
+                style={{ borderColor: `${primaryColor}40`, backgroundColor: `${primaryColor}10` }}
+              >
+                <button
+                  onClick={() => cart.updateQuantity(product.id, quantity - 1)}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform active:scale-95"
                   style={{ backgroundColor: primaryColor }}
                 >
-                  Add to cart
+                  <Minus size={16} />
                 </button>
-            }
+                <span className="text-sm font-extrabold" style={{ color: primaryColor }}>
+                  {quantity} in cart
+                </span>
+                <button
+                  onClick={() => cart.addToCart(product)}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform active:scale-95"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => cart.addToCart(product)}
+                className="w-full h-12 rounded-xl text-white text-sm font-bold shadow-md transition-transform active:scale-[0.98]"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Add to cart
+              </button>
+            )}
           </div>
           <button
             onClick={handleWishlist}

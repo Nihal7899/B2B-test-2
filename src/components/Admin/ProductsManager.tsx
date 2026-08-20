@@ -7,6 +7,7 @@ import type { DbCategory, DbProduct } from '@/types';
 export default function ProductsManager() {
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [categories, setCategories] = useState<DbCategory[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<DbProduct | null>(null);
@@ -24,6 +25,11 @@ export default function ProductsManager() {
   useEffect(() => {
     void load();
   }, [load]);
+  
+  useEffect(() => {
+    if (!form.category_id) return;
+    fetchSubcategories(form.category_id).then(setSubcategories);
+  }, [form.category_id]);
 
   const handleDelete = async (id: string) => {
     await supabase.from('products').delete().eq('id', id);
@@ -146,6 +152,19 @@ function ProductForm({
           ))}
         </select>
       </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Subcategory</label>
+        <select
+          value={form.subcategory_id || ''}
+          onChange={(e) => setForm({ ...form, subcategory_id: e.target.value || null })}
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        >
+          <option value="">None</option>
+          {subcategories.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      </div>      
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Brand *</label>

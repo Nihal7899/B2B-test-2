@@ -14,6 +14,8 @@ export interface Product {
   inStock: boolean;
   hsn_code?: string;
   gst_percentage?: number;
+  subcategory_id?: string;
+  subcategory?: Subcategory; // optional
 }
 
 export interface VolumePricingTier {
@@ -67,7 +69,22 @@ export interface Category {
   name: string;
   image: string;
   count: number;
-  color: string;
+  color: string;        // kept for compatibility
+  gradient?: string;    // new: Tailwind gradient e.g. 'from-emerald-500 to-green-600'
+  subcategories?: Subcategory[];
+}
+
+export interface Subcategory {
+  id: string;
+  category_id: string;
+  name: string;
+  slug: string;
+  image_url: string;
+  description: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // types.ts (add this field inside PromoBanner)
@@ -116,6 +133,7 @@ export interface Order {
 export type ScreenName =
   | 'home'
   | 'categories'
+  | 'categoryDetail'   // new
   | 'orders'
   | 'cart'
   | 'account'

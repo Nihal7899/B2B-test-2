@@ -37,6 +37,7 @@ import SmartCollectionsManager from '@/components/Admin/SmartCollectionsManager'
 import RolesManager from '@/components/Admin/RolesManager';
 import DeliveryRangesManager from '@/components/Admin/DeliveryRangesManager';
 import Reports from '@/components/Admin/Reports';
+import SubcategoriesManager from '@/components/Admin/SubcategoriesManager';
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -71,6 +72,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'storeContent', label: 'Store Content', icon: PenTool },
     { id: 'brands', label: 'Brands', icon: Award },
     { id: 'categories', label: 'Categories', icon: LayoutGrid },
+    { id: 'subcategories', label: 'Subcategories', icon: LayoutGrid },
     { id: 'products', label: 'Products', icon: Package },
     { id: 'volumepricing', label: 'Volume Pricing', icon: Percent },
     { id: 'promocodes', label: 'Promo Codes', icon: Gift },
@@ -125,6 +127,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'storeContent' && <StoreConfigManager />}
         {tab === 'brands' && <BrandsManager />}
         {tab === 'categories' && <CategoriesManager />}
+        {tab === 'subcategories' && <SubcategoriesManager />}
         {tab === 'products' && <ProductsManager />}
         {tab === 'volumepricing' && <VolumePricingManager />}
         {tab === 'promocodes' && <PromoCodesManager />}

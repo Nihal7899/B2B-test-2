@@ -1,28 +1,41 @@
 // src/components/admin/CategoriesManager.tsx
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Save } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Save, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { DbCategory } from '@/types';
+import type { DbCategory, Subcategory } from '@/types';
 
 export default function CategoriesManager() {
   const [categories, setCategories] = useState<DbCategory[]>([]);
+  const [subcategories, setSubcategories] = useState<Record<string, Subcategory[]>>({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<DbCategory | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('categories').select('*').order('sort_order');
-    setCategories((data as DbCategory[]) ?? []);
+    const [{ data: catData }, { data: subData }] = await Promise.all([
+      supabase.from('categories').select('*').order('sort_order'),
+      supabase.from('subcategories').select('*').order('sort_order'),
+    ]);
+    setCategories((catData as DbCategory[]) ?? []);
+    const subMap: Record<string, Subcategory[]> = {};
+    (subData as Subcategory[] || []).forEach(s => {
+      if (!subMap[s.category_id]) subMap[s.category_id] = [];
+      subMap[s.category_id].push(s);
+    });
+    setSubcategories(subMap);
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const handleDelete = async (id: string) => {
     await supabase.from('categories').delete().eq('id', id);
-    void load();
+    await load();
+  };
+
+  const toggleExpand = (id: string) => {
+    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
@@ -30,10 +43,7 @@ export default function CategoriesManager() {
   return (
     <div className="space-y-3">
       <button
-        onClick={() => {
-          setEditing(null);
-          setShowForm(true);
-        }}
+        onClick={() => { setEditing(null); setShowForm(true); }}
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
       >
         <Plus size={16} /> Add category
@@ -42,38 +52,71 @@ export default function CategoriesManager() {
         <CategoryForm
           initial={editing}
           onClose={() => setShowForm(false)}
-          onSaved={() => {
-            setShowForm(false);
-            void load();
-          }}
+          onSaved={() => { setShowForm(false); load(); }}
         />
       )}
       {categories.map((cat) => (
-        <div key={cat.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card flex items-center gap-3">
-          {cat.image_url && <img src={cat.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-ink-800 truncate">{cat.name}</p>
-            <p className="text-xs text-ink-500">/{cat.slug} · Order {cat.sort_order}</p>
+        <div key={cat.id} className="bg-white border border-ink-100 rounded-2xl overflow-hidden shadow-card">
+          <div className="flex items-center gap-3 p-4">
+            {cat.image_url && <img src={cat.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-ink-800 truncate">{cat.name}</p>
+              <p className="text-xs text-ink-500">/{cat.slug} · Order {cat.sort_order}</p>
+              <p className="text-xs text-brand-500 truncate">Gradient: {cat.gradient || 'not set'}</p>
+            </div>
+            <button
+              onClick={() => toggleExpand(cat.id)}
+              className="h-8 w-8 rounded-lg bg-gray-50 text-gray-500 flex items-center justify-center"
+            >
+              {expanded[cat.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+            <button
+              onClick={() => { setEditing(cat); setShowForm(true); }}
+              className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
+            >
+              <Pencil size={14} />
+            </button>
+            <button onClick={() => handleDelete(cat.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
+              <Trash2 size={14} />
+            </button>
           </div>
-          <button
-            onClick={() => {
-              setEditing(cat);
-              setShowForm(true);
-            }}
-            className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
-          >
-            <Pencil size={14} />
-          </button>
-          <button onClick={() => void handleDelete(cat.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
-            <Trash2 size={14} />
-          </button>
+          {expanded[cat.id] && (
+            <div className="border-t border-ink-100 p-4 bg-ink-50">
+              <h4 className="text-xs font-bold text-ink-600 mb-2">Subcategories</h4>
+              {subcategories[cat.id]?.length ? (
+                <div className="space-y-1">
+                  {subcategories[cat.id].map(s => (
+                    <div key={s.id} className="flex items-center gap-2 text-xs">
+                      <span className="text-ink-700">{s.name}</span>
+                      <span className="text-ink-400">/ {s.slug}</span>
+                      <span className={`ml-auto ${s.is_active ? 'text-green-500' : 'text-red-400'}`}>
+                        {s.is_active ? 'active' : 'inactive'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-ink-400">No subcategories yet.</p>
+              )}
+              <button
+                onClick={() => {
+                  // navigate to subcategory manager or open a sub-form
+                  // For simplicity, we just alert – you can open a modal or navigate to another tab.
+                  alert('Open subcategory manager (you can add a link to the Subcategories tab)');
+                }}
+                className="mt-2 text-xs font-semibold text-brand-600"
+              >
+                + Manage subcategories
+              </button>
+            </div>
+          )}
         </div>
       ))}
     </div>
   );
 }
 
-// ---- CategoryForm ----
+// ---- CategoryForm (update) ----
 function CategoryForm({
   initial,
   onClose,
@@ -90,6 +133,7 @@ function CategoryForm({
     description: initial?.description ?? '',
     sort_order: initial?.sort_order ?? 0,
     is_active: initial?.is_active ?? true,
+    gradient: initial?.gradient ?? 'from-brand-500 to-brand-700',
   });
   const [saving, setSaving] = useState(false);
 
@@ -108,16 +152,14 @@ function CategoryForm({
     <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-4 shadow-card">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink-900">{initial ? 'Edit' : 'New'} category</h3>
-        <button onClick={onClose}>
-          <X size={16} className="text-ink-400" />
-        </button>
+        <button onClick={onClose}><X size={16} className="text-ink-400" /></button>
       </div>
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Category name *</label>
         <input
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
-          placeholder="e.g. Rice"
+          placeholder="e.g. Vegetables & Fruits"
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
       </div>
@@ -126,9 +168,19 @@ function CategoryForm({
         <input
           value={form.slug}
           onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-          placeholder="e.g. rice"
+          placeholder="e.g. vegetables-fruits"
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
+      </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Gradient (Tailwind classes)</label>
+        <input
+          value={form.gradient}
+          onChange={(e) => setForm({ ...form, gradient: e.target.value })}
+          placeholder="e.g. from-emerald-500 to-green-600"
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        />
+        <p className="text-[10px] text-ink-400 mt-1">Example: from-emerald-500 to-green-600</p>
       </div>
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Image URL</label>

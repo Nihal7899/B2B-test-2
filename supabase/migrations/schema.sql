@@ -289,6 +289,13 @@ CREATE TABLE public.stores (
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  banner_image_url text,
+  button_style text DEFAULT 'brand'::text,
+  primary_color text DEFAULT '#10b981'::text,
+  secondary_color text DEFAULT '#059669'::text,
+  text_color text DEFAULT '#064e3b'::text,
+  border_color text DEFAULT '#a7f3d0'::text,
+  config jsonb DEFAULT '{"hero": {"image": "", "title": "", "ctaLink": "/categories", "ctaText": "Shop Now", "enabled": true, "subtitle": "", "ctaBgColor": "#ffffff", "gradientTo": "#16a34a", "ctaTextColor": "#065f46", "gradientFrom": "#065f46"}, "bulkDeal": {"cta": "", "tag": "", "icon": "Package", "title": "", "enabled": false, "subtitle": "", "ctaBgColor": "#ffffff", "ctaTextColor": "#065f46"}, "trending": {"title": "Top categories", "ctaText": "Browse all categories", "enabled": false, "subtitle": "Jump straight to what customers are buying most", "ctaBgColor": "#ffffff", "iconButtons": [], "ctaTextColor": "#065f46"}, "badgeText": "STORE", "badgeColor": "#fbbf24", "categories": [], "highlights": [], "tintOpacity": 50}'::jsonb,
   CONSTRAINT stores_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.trusted_brands (

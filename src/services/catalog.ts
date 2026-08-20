@@ -16,8 +16,10 @@ import type {
   DeliveryZone,
   DeliveryCharge,
   CartItem,
+  Subcategory,
 } from '@/types';
 import { StoreConfig } from '@/types/storeConfig';
+
 
 export interface DbCategory {
   id: string;
@@ -177,16 +179,37 @@ export function mapOrder(db: DbOrder, items: DbOrderItem[]): Order {
 
 // ----- FETCH CATEGORIES -----
 export async function fetchCategories(): Promise<{ categories: Category[]; slugMap: Record<string, string> }> {
-  const { data, error } = await supabase
+  // Fetch categories
+  const { data: catData, error: catError } = await supabase
     .from('categories')
     .select('*')
     .eq('is_active', true)
     .order('sort_order');
-  if (error) throw error;
+  if (catError) throw catError;
+
+  // Fetch all subcategories
+  const { data: subData, error: subError } = await supabase
+    .from('subcategories')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order');
+  if (subError) throw subError;
+
+  const subcategories = (subData as Subcategory[]) ?? [];
+  const subMap: Record<string, Subcategory[]> = {};
+  subcategories.forEach(s => {
+    if (!subMap[s.category_id]) subMap[s.category_id] = [];
+    subMap[s.category_id].push(s);
+  });
+
   const slugMap: Record<string, string> = {};
-  const categories = (data as DbCategory[]).map((c, i) => {
+  const categories = (catData as DbCategory[]).map((c, i) => {
     slugMap[c.id] = c.slug;
-    return mapCategory(c, i);
+    return {
+      ...mapCategory(c, i),
+      gradient: c.gradient || 'from-brand-500 to-brand-700', // fallback
+      subcategories: subMap[c.id] || [],
+    };
   });
   return { categories, slugMap };
 }
@@ -1219,4 +1242,73 @@ export async function uploadIconImage(
     .from('store-images')
     .getPublicUrl(path);
   return urlData.publicUrl;
+}
+
+// ---- Fetch subcategories ----
+export async function fetchSubcategories(categoryId?: string): Promise<Subcategory[]> {
+  let query = supabase
+    .from('subcategories')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order');
+  if (categoryId) {
+    query = query.eq('category_id', categoryId);
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  return data as Subcategory[];
+}
+
+// ---- Fetch products by subcategory ----
+export async function fetchProductsBySubcategory(subcategoryId: string): Promise<Product[]> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('subcategory_id', subcategoryId)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+
+  // Build category map
+  const { data: catData } = await supabase.from('categories').select('id, slug');
+  const categoryMap: Record<string, string> = {};
+  (catData || []).forEach((c: any) => categoryMap[c.id] = c.slug);
+
+  return (data as DbProduct[]).map(p => mapProduct(p, categoryMap[p.category_id] || ''));
+  
+// ---- Also fetch subcategory details for a product (optional) ----
+export async function fetchSubcategoryById(id: string): Promise<Subcategory | null> {
+  const { data, error } = await supabase
+    .from('subcategories')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) return null;
+  return data as Subcategory | null;
+}
+
+// ---- Update mapProduct to accept subcategory (optional) ----
+export function mapProduct(
+  db: DbProduct,
+  categoryId: string,
+  subcategory?: Subcategory
+): Product {
+  return {
+    id: db.id,
+    brand: db.brand,
+    name: db.name,
+    packSize: db.pack_size,
+    mrp: Number(db.mrp),
+    price: Number(db.wholesale_price),
+    image: db.image_url?.trim() ? db.image_url : PLACEHOLDER_PRODUCT,
+    category: categoryId,
+    moq: db.moq,
+    rating: Number(db.rating),
+    description: db.description,
+    inStock: db.stock_quantity > 0,
+    hsn_code: db.hsn_code || '',
+    gst_percentage: db.gst_percentage || 0,
+    subcategory_id: db.subcategory_id,
+    subcategory,
+  };
 }

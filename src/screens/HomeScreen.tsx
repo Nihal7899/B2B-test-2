@@ -1,5 +1,6 @@
 // screens/HomeScreen.tsx
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Truck, ShieldCheck, Tag, RotateCcw, ChevronRight } from 'lucide-react';
 import type { Category, Product, PromoBanner, Store, TrustedBrand } from '@/types';
 import type { useCart } from '@/store';
@@ -17,13 +18,12 @@ import {
   fetchHomeBanners,
   fetchStores,
   fetchTrustedBrands,
-  fetchStoreConfig, // <-- added for prefetch
+  fetchStoreConfig,
 } from '@/services/catalog';
 
 interface HomeScreenProps {
   search: string;
   onSearchChange: (value: string) => void;
-  onCategory: (category: Category) => void;
   onProduct: (product: Product) => void;
   onViewAll: () => void;
   onStoreClick: (store: Store) => void;
@@ -34,13 +34,14 @@ interface HomeScreenProps {
 export function HomeScreen({
   search,
   onSearchChange,
-  onCategory,
   onProduct,
   onViewAll,
   onStoreClick,
   cart,
   onBannerAction,
 }: HomeScreenProps) {
+  const navigate = useNavigate();
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
@@ -60,6 +61,11 @@ export function HomeScreen({
       // silently ignore – prefetch is optional
     }
   }, []);
+
+  // Navigate to category detail (with gradient header)
+  const openCategoryDetail = useCallback((category: Category) => {
+    navigate(`/category?id=${category.id}`);
+  }, [navigate]);
 
   useEffect(() => {
     void (async () => {
@@ -277,7 +283,7 @@ export function HomeScreen({
         </div>
       ) : (
         <>
-          {/* ★ UPDATED CATEGORY GRID – shows up to 20 categories (5 rows of 4) */}
+          {/* Category Grid – now navigates to category detail */}
           <section className="px-4">
             <div className="mb-3 flex items-center justify-between">
               <div>
@@ -297,11 +303,11 @@ export function HomeScreen({
               {categories.slice(0, 20).map((category) => (
                 <button
                   key={category.id}
-                  onClick={() => onCategory(category)}
+                  onClick={() => openCategoryDetail(category)}
                   className="flex flex-col items-center gap-1.5 tap-highlight active:scale-95 transition-transform"
                 >
                   <div
-                    className={`relative h-16 w-16 overflow-hidden rounded-2xl ${category.color} p-0.5 shadow-sm ring-1 ring-ink-100`}
+                    className={`relative h-16 w-16 overflow-hidden rounded-2xl ${category.gradient ? `bg-gradient-to-br ${category.gradient}` : 'bg-gray-200'} p-0.5 shadow-sm ring-1 ring-ink-100`}
                   >
                     <img
                       src={category.image}

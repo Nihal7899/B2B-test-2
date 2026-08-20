@@ -26,6 +26,7 @@ import { KeepAliveRenderer } from '@/components/KeepAliveRenderer';
 
 import { HomeScreen } from '@/screens/HomeScreen';
 import { CategoriesScreen } from '@/screens/CategoriesScreen';
+import { CategoryScreen } from '@/screens/CategoryScreen';
 import { OrdersScreen } from '@/screens/OrdersScreen';
 import { CartScreen } from '@/screens/CartScreen';
 import { AccountScreen } from '@/screens/AccountScreen';
@@ -89,6 +90,7 @@ const SCREEN_TO_PATH: Record<ScreenName, string> = {
   outletSelect: '/outlet-select',
   filteredProducts: '/filtered',
   store: '/store',
+  categoryDetail: '/category',
 };
 
 
@@ -771,6 +773,15 @@ function App() {
               onCategory={
                 openCategory
               }
+            />
+          );
+          
+        case 'categoryDetail':
+          return (
+            <CategoryScreen
+              onBack={() => goTo('home')}
+              onProduct={openProduct}
+              cart={cart}
             />
           );
 

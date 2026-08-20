@@ -676,6 +676,7 @@ export async function createStore(
       product_ids: input.product_ids,
       sort_order: input.sort_order,
       is_active: input.is_active,
+      config: input.config, // <-- ADDED
     })
     .select()
     .single();
@@ -683,7 +684,6 @@ export async function createStore(
   return data as Store;
 }
 
-// UPDATED: include all new fields
 export async function updateStore(id: string, updates: Partial<Store>): Promise<void> {
   const { error } = await supabase
     .from('stores')
@@ -700,6 +700,7 @@ export async function updateStore(id: string, updates: Partial<Store>): Promise<
       product_ids: updates.product_ids,
       sort_order: updates.sort_order,
       is_active: updates.is_active,
+      config: updates.config, // <-- ADDED
     })
     .eq('id', id);
   if (error) throw error;

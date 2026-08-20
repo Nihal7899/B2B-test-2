@@ -120,7 +120,6 @@ function StoreForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  // 🔥 FIX: Properly read tint opacity from config
   const initialConfig = initial?.config || {};
   const [form, setForm] = useState({
     name: initial?.name ?? '',
@@ -137,7 +136,6 @@ function StoreForm({
   });
   const [saving, setSaving] = useState(false);
 
-  // 🔥 FIX: Reset form when initial changes
   useEffect(() => {
     const config = initial?.config || {};
     setForm({
@@ -158,7 +156,6 @@ function StoreForm({
   const handleSave = async () => {
     setSaving(true);
 
-    // 🔥 FIX: Preserve existing config and update only changed fields
     const existingConfig = initial?.config || {};
     const configData = {
       ...existingConfig,

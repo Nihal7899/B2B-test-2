@@ -14,7 +14,7 @@ const ICON_OPTIONS = [
   // Fruits
   'Apple', 'Banana', 'Cherry', 'Grape', 'Lemon', 'Orange', 'Strawberry', 'Tomato',
   // Vegetables
-  'Broccoli', 'Carrot', 'Corn', 'Onion', 'Pepper', 'Potato', 'Salad',
+   'Carrot', 'Corn', 'Onion', 'Pepper', 'Potato', 'Salad',
   // Meat & Seafood
   'Beef', 'Chicken', 'Crab', 'Fish', 'Drumstick', 'Bone',
   // Dairy

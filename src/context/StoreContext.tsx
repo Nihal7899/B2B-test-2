@@ -7,17 +7,15 @@ import { fetchStoreConfig, updateStoreConfig } from '@/services/catalog';
 const configCache = new Map<string, { data: StoreConfig; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// 🔥 GLOBAL STORE THEME – persists across navigation
-let globalStoreTheme: ThemeProps | null = null;
+// 🔥 GLOBAL THEME MAP – keyed by storeId
+const globalThemeMap = new Map<string, ThemeProps>();
 
-// 🔥 Get current store theme from global
-export function getGlobalStoreTheme(): ThemeProps | null {
-  return globalStoreTheme;
+export function getStoreTheme(storeId: string): ThemeProps | null {
+  return globalThemeMap.get(storeId) || null;
 }
 
-// 🔥 Set global store theme
-export function setGlobalStoreTheme(theme: ThemeProps) {
-  globalStoreTheme = theme;
+export function setStoreTheme(storeId: string, theme: ThemeProps) {
+  globalThemeMap.set(storeId, theme);
 }
 
 interface ThemeProps {
@@ -75,7 +73,7 @@ export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> =
   const [loading, setLoading] = useState(true);
   const isMounted = React.useRef(true);
 
-  // Compute theme from config and update global
+  // Compute theme from config and store in global map
   const theme = useMemo(() => {
     const t = {
       primaryColor: config?.hero?.gradientFrom || '#10b981',
@@ -86,10 +84,11 @@ export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> =
       gradientFrom: config?.hero?.gradientFrom || '#065f46',
       gradientTo: config?.hero?.gradientTo || '#16a34a',
     };
-    // 🔥 Update global theme
-    setGlobalStoreTheme(t);
+    if (storeId) {
+      setStoreTheme(storeId, t);
+    }
     return t;
-  }, [config]);
+  }, [config, storeId]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -223,24 +222,3 @@ export const useStore = () => {
   if (!context) throw new Error('useStore must be used within StoreProvider');
   return context;
 };
-
-// 🔥 Hook to get theme (works even without StoreProvider)
-export function useStoreTheme(): ThemeProps {
-  const context = useContext(StoreContext);
-  if (context) {
-    return context.theme;
-  }
-  const global = getGlobalStoreTheme();
-  if (global) {
-    return global;
-  }
-  return {
-    primaryColor: '#10b981',
-    secondaryColor: '#059669',
-    textColor: '#1f2937',
-    borderColor: '#e5e7eb',
-    buttonStyle: 'brand',
-    gradientFrom: '#065f46',
-    gradientTo: '#16a34a',
-  };
-}

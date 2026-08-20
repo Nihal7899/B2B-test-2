@@ -9,7 +9,7 @@ import { QuantitySelector } from '@/components/QuantitySelector';
 import { ProductCard } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { fetchProductById, fetchWishlist, toggleWishlist, fetchVolumePricing } from '@/services/catalog';
-import { useStoreTheme } from '@/context/StoreContext';
+import { getStoreTheme } from '@/context/StoreContext';
 
 interface ProductDetailScreenProps {
   productId: string;
@@ -18,9 +18,23 @@ interface ProductDetailScreenProps {
   onProduct: (product: Product) => void;
 }
 
+const defaultTheme = {
+  primaryColor: '#10b981',
+  secondaryColor: '#059669',
+  textColor: '#1f2937',
+  borderColor: '#e5e7eb',
+  buttonStyle: 'brand' as 'brand' | 'outline' | 'ghost',
+  gradientFrom: '#065f46',
+  gradientTo: '#16a34a',
+};
+
 export function ProductDetailScreen({ productId, cart, onBack, onProduct }: ProductDetailScreenProps) {
-  // 🔥 Use the global theme (works even without StoreProvider)
-  const theme = useStoreTheme();
+  const [searchParams] = useSearchParams();
+  const storeId = searchParams.get('storeId');
+
+  // 🔥 Get theme from global map – if no storeId, use default
+  const theme = storeId ? (getStoreTheme(storeId) || defaultTheme) : defaultTheme;
+
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,7 +93,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     setWishlistBusy(false);
   };
 
-  // (JSX stays the same – uses theme colors)
+  // Full JSX with theme colors
   return (
     <div className="pb-6 space-y-5">
       {/* Image header with theme gradient overlay */}

@@ -3,11 +3,10 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useMe
 import { StoreConfig } from '@/types/storeConfig';
 import { fetchStoreConfig, updateStoreConfig } from '@/services/catalog';
 
-// Cache for store configs
 const configCache = new Map<string, { data: StoreConfig; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 5 * 60 * 1000;
 
-// 🔥 GLOBAL THEME MAP – keyed by storeId
+// 🔥 Global theme map – persists across navigation
 const globalThemeMap = new Map<string, ThemeProps>();
 
 export function getStoreTheme(storeId: string): ThemeProps | null {

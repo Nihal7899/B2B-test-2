@@ -43,6 +43,9 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [wishlist, setWishlist] = useState<string[]>([]);
 
+  // 🔥 Ref to prevent re-fetch when restored from cache
+  const dataFetchedRef = useRef(false);
+
   if (!config) return <StoreSkeleton />;
 
   const {
@@ -71,24 +74,28 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     return ids;
   }, [categories]);
 
-  // Fetch product details
+  // Fetch product details only once
   useEffect(() => {
+    if (dataFetchedRef.current) return; // skip if already fetched
     if (allProductIds.length === 0) {
       setProducts([]);
       setProductsLoading(false);
+      dataFetchedRef.current = true;
       return;
     }
     setProductsLoading(true);
     fetchProductsByIds(allProductIds)
       .then(data => {
         setProducts(data);
+        dataFetchedRef.current = true;
       })
       .catch(console.error)
       .finally(() => setProductsLoading(false));
   }, [allProductIds]);
 
-  // Fetch wishlist
+  // Fetch wishlist only once
   useEffect(() => {
+    if (dataFetchedRef.current) return;
     fetchWishlist().then(setWishlist).catch(() => {});
   }, []);
 
@@ -153,9 +160,9 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     secondaryColor: themeTo,
     textColor: '#1f2937',
     borderColor: '#e5e7eb',
-    buttonStyle: 'brand',
-    cardRadius: 'xl',
-    shadowIntensity: 'md',
+    buttonStyle: 'brand' as const,
+    cardRadius: 'xl' as const,
+    shadowIntensity: 'md' as const,
     gradientFrom: themeFrom,
     gradientTo: themeTo,
   };

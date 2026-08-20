@@ -23,7 +23,7 @@ const defaultTheme = {
   secondaryColor: '#059669',
   textColor: '#1f2937',
   borderColor: '#e5e7eb',
-  buttonStyle: 'brand' as 'brand' | 'outline' | 'ghost',
+  buttonStyle: 'brand' as const,
   gradientFrom: '#065f46',
   gradientTo: '#16a34a',
 };

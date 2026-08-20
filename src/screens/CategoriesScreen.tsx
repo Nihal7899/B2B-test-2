@@ -1,3 +1,4 @@
+// screens/CategoriesScreen.tsx
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
@@ -14,24 +15,14 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
       try {
         const { categories } = await fetchCategories();
         setCategories(categories);
-      } catch (err) {
-        console.error(err);
-      }
+      } catch (err) { console.error(err); }
       setLoading(false);
     })();
   }, []);
 
-  const openCategory = (categoryId: string) => {
-    navigate(`/category?id=${categoryId}`);
-  };
+  const openCategory = (categoryId: string) => navigate(`/category?id=${categoryId}`);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <div className="flex items-center justify-center min-h-[50vh]"><div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" /></div>;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -50,7 +41,10 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
             onClick={() => openCategory(c.id)}
             className="flex w-full items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 text-left shadow-sm transition hover:border-emerald-200 hover:shadow"
           >
-            <div className={`h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br ${c.gradient || 'from-gray-300 to-gray-400'} p-0.5`}>
+            <div
+              className="h-14 w-14 shrink-0 overflow-hidden rounded-xl p-0.5"
+              style={{ background: c.gradient || '#10b981' }}
+            >
               <img src={c.image} alt={c.name} className="h-full w-full rounded-xl object-cover" loading="lazy" />
             </div>
             <div className="flex-1">

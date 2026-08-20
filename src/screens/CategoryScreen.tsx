@@ -1,14 +1,15 @@
+// screens/CategoryScreen.tsx
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Search, SlidersHorizontal } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
-import { fetchCategories, fetchProductsBySubcategory, fetchSubcategories } from '@/services/catalog';
+import { fetchCategories, fetchProductsBySubcategory } from '@/services/catalog';
 import type { Category, Subcategory, Product } from '@/types';
 
 interface CategoryScreenProps {
   onBack: () => void;
   onProduct: (product: Product) => void;
-  cart: any; // pass your cart store/hook
+  cart: any; // your cart store/hook
 }
 
 export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps) {
@@ -22,7 +23,6 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
 
-  // 1. Load category and its subcategories
   useEffect(() => {
     if (!categoryId) return;
     (async () => {
@@ -35,15 +35,11 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
           setSubcategories(subs);
           if (subs.length) setActiveSubId(subs[0].id);
         }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { console.error(err); }
+      setLoading(false);
     })();
   }, [categoryId]);
 
-  // 2. Fetch products when active subcategory changes
   useEffect(() => {
     if (!activeSubId) return;
     (async () => {
@@ -58,19 +54,16 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
   }, [products, query]);
 
   if (loading || !category) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-[50vh]"><div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" /></div>;
   }
-
-  const gradientClass = category.gradient || 'from-brand-500 to-brand-700';
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header with gradient */}
-      <div className={`sticky top-0 z-40 bg-gradient-to-r ${gradientClass} px-4 pb-3 pt-4 text-white shadow-lg`}>
+      {/* Category-specific header (hides main app header) */}
+      <div
+        className="sticky top-0 z-40 px-4 pb-3 pt-4 text-white shadow-lg"
+        style={{ background: category.gradient || '#10b981' }}
+      >
         <div className="mx-auto max-w-md">
           <div className="flex items-center gap-3">
             <button onClick={onBack} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
@@ -119,16 +112,10 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
                     alt={sc.name}
                     className="h-full w-full object-cover"
                     loading="lazy"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://placehold.co/200x200/EEE/999?text=Sub';
-                    }}
+                    onError={(e) => (e.currentTarget.src = 'https://placehold.co/200x200/EEE/999?text=Sub')}
                   />
                 </div>
-                <span
-                  className={`text-center text-[10px] font-medium leading-tight ${
-                    active ? 'text-emerald-700' : 'text-gray-500'
-                  }`}
-                >
+                <span className={`text-center text-[10px] font-medium leading-tight ${active ? 'text-emerald-700' : 'text-gray-500'}`}>
                   {sc.name}
                 </span>
                 {active && <span className="absolute left-0 h-10 w-1 rounded-r-full bg-emerald-500" />}
@@ -145,7 +132,6 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
             </h3>
             <span className="text-xs text-gray-400">{filteredProducts.length} items</span>
           </div>
-
           {filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-300">
@@ -166,7 +152,6 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
                     onDecrement={() => cart.updateQuantity?.(p.id, (cart.getQuantity?.(p.id) || 0) - 1)}
                     onClick={() => onProduct(p)}
                     horizontal={false}
-                    // other props as needed
                   />
                 </div>
               ))}

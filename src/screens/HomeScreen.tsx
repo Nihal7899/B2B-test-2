@@ -283,7 +283,7 @@ export function HomeScreen({
         </div>
       ) : (
         <>
-          {/* Category Grid – now navigates to category detail */}
+          {/* Category Grid – now navigates to category detail with inline gradient style */}
           <section className="px-4">
             <div className="mb-3 flex items-center justify-between">
               <div>
@@ -307,7 +307,8 @@ export function HomeScreen({
                   className="flex flex-col items-center gap-1.5 tap-highlight active:scale-95 transition-transform"
                 >
                   <div
-                    className={`relative h-16 w-16 overflow-hidden rounded-2xl ${category.gradient ? `bg-gradient-to-br ${category.gradient}` : 'bg-gray-200'} p-0.5 shadow-sm ring-1 ring-ink-100`}
+                    className="relative h-16 w-16 overflow-hidden rounded-2xl p-0.5 shadow-sm ring-1 ring-ink-100"
+                    style={{ background: category.gradient || '#10b981' }}
                   >
                     <img
                       src={category.image}

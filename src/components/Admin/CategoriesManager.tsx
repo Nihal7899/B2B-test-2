@@ -62,7 +62,14 @@ export default function CategoriesManager() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-ink-800 truncate">{cat.name}</p>
               <p className="text-xs text-ink-500">/{cat.slug} · Order {cat.sort_order}</p>
-              <p className="text-xs text-brand-500 truncate">Gradient: {cat.gradient || 'not set'}</p>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="text-xs text-ink-500">Background:</span>
+                <div
+                  className="h-4 w-8 rounded border border-ink-200"
+                  style={{ background: cat.gradient || '#10b981' }}
+                />
+                <span className="text-[10px] text-ink-400 truncate max-w-[120px]">{cat.gradient?.slice(0, 30)}</span>
+              </div>
             </div>
             <button
               onClick={() => toggleExpand(cat.id)}
@@ -100,8 +107,6 @@ export default function CategoriesManager() {
               )}
               <button
                 onClick={() => {
-                  // navigate to subcategory manager or open a sub-form
-                  // For simplicity, we just alert – you can open a modal or navigate to another tab.
                   alert('Open subcategory manager (you can add a link to the Subcategories tab)');
                 }}
                 className="mt-2 text-xs font-semibold text-brand-600"
@@ -116,7 +121,7 @@ export default function CategoriesManager() {
   );
 }
 
-// ---- CategoryForm (update) ----
+// ---- CategoryForm with Color Picker ----
 function CategoryForm({
   initial,
   onClose,
@@ -126,6 +131,26 @@ function CategoryForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  // Parse existing gradient to determine type and colors
+  const parseGradient = (g: string | undefined) => {
+    if (!g) return { type: 'solid', solid: '#10b981', from: '#10b981', to: '#059669' };
+    if (g.startsWith('linear-gradient')) {
+      const matches = g.match(/#[0-9a-f]{6}/gi);
+      if (matches && matches.length >= 2) {
+        return { type: 'gradient', solid: '#10b981', from: matches[0], to: matches[1] };
+      }
+      return { type: 'solid', solid: '#10b981', from: '#10b981', to: '#059669' };
+    }
+    return { type: 'solid', solid: g, from: g, to: '#059669' };
+  };
+
+  const parsed = parseGradient(initial?.gradient);
+
+  const [bgType, setBgType] = useState<'solid' | 'gradient'>(parsed.type);
+  const [solidColor, setSolidColor] = useState(parsed.solid);
+  const [gradientFrom, setGradientFrom] = useState(parsed.from);
+  const [gradientTo, setGradientTo] = useState(parsed.to);
+
   const [form, setForm] = useState({
     name: initial?.name ?? '',
     slug: initial?.slug ?? '',
@@ -133,16 +158,22 @@ function CategoryForm({
     description: initial?.description ?? '',
     sort_order: initial?.sort_order ?? 0,
     is_active: initial?.is_active ?? true,
-    gradient: initial?.gradient ?? 'from-brand-500 to-brand-700',
   });
   const [saving, setSaving] = useState(false);
 
+  // Generate the CSS background string for preview
+  const previewStyle = bgType === 'solid'
+    ? { backgroundColor: solidColor }
+    : { background: `linear-gradient(to right, ${gradientFrom}, ${gradientTo})` };
+
   const handleSave = async () => {
     setSaving(true);
+    const gradientValue = bgType === 'solid' ? solidColor : `linear-gradient(to right, ${gradientFrom}, ${gradientTo})`;
+    const payload = { ...form, gradient: gradientValue };
     if (initial) {
-      await supabase.from('categories').update(form).eq('id', initial.id);
+      await supabase.from('categories').update(payload).eq('id', initial.id);
     } else {
-      await supabase.from('categories').insert(form);
+      await supabase.from('categories').insert(payload);
     }
     setSaving(false);
     onSaved();
@@ -154,6 +185,7 @@ function CategoryForm({
         <h3 className="text-sm font-bold text-ink-900">{initial ? 'Edit' : 'New'} category</h3>
         <button onClick={onClose}><X size={16} className="text-ink-400" /></button>
       </div>
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Category name *</label>
         <input
@@ -172,16 +204,96 @@ function CategoryForm({
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
       </div>
+
+      {/* Background Type Toggle */}
       <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Gradient (Tailwind classes)</label>
-        <input
-          value={form.gradient}
-          onChange={(e) => setForm({ ...form, gradient: e.target.value })}
-          placeholder="e.g. from-emerald-500 to-green-600"
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        />
-        <p className="text-[10px] text-ink-400 mt-1">Example: from-emerald-500 to-green-600</p>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Background</label>
+        <div className="flex gap-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              checked={bgType === 'solid'}
+              onChange={() => setBgType('solid')}
+              className="accent-brand-600"
+            /> Solid
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="radio"
+              checked={bgType === 'gradient'}
+              onChange={() => setBgType('gradient')}
+              className="accent-brand-600"
+            /> Gradient
+          </label>
+        </div>
       </div>
+
+      {bgType === 'solid' ? (
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Solid Color</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={solidColor}
+              onChange={(e) => setSolidColor(e.target.value)}
+              className="h-10 w-12 rounded border border-ink-200 p-1 cursor-pointer"
+            />
+            <input
+              type="text"
+              value={solidColor}
+              onChange={(e) => setSolidColor(e.target.value)}
+              className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+              placeholder="#10b981"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-ink-600 mb-1">From</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={gradientFrom}
+                onChange={(e) => setGradientFrom(e.target.value)}
+                className="h-10 w-12 rounded border border-ink-200 p-1 cursor-pointer"
+              />
+              <input
+                type="text"
+                value={gradientFrom}
+                onChange={(e) => setGradientFrom(e.target.value)}
+                className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+                placeholder="#10b981"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-ink-600 mb-1">To</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={gradientTo}
+                onChange={(e) => setGradientTo(e.target.value)}
+                className="h-10 w-12 rounded border border-ink-200 p-1 cursor-pointer"
+              />
+              <input
+                type="text"
+                value={gradientTo}
+                onChange={(e) => setGradientTo(e.target.value)}
+                className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+                placeholder="#059669"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Preview */}
+      <div className="rounded-xl p-4" style={previewStyle}>
+        <p className="text-white text-sm font-bold">Preview</p>
+        <p className="text-white/80 text-xs">{bgType === 'solid' ? solidColor : `${gradientFrom} → ${gradientTo}`}</p>
+      </div>
+
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Image URL</label>
         <input
@@ -217,11 +329,11 @@ function CategoryForm({
               checked={form.is_active}
               onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
               className="accent-brand-600"
-            />{' '}
-            Active
+            /> Active
           </label>
         </div>
       </div>
+
       <button
         onClick={handleSave}
         disabled={saving}

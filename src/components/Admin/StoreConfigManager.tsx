@@ -14,31 +14,27 @@ const ICON_OPTIONS = [
   // Fruits
   'Apple', 'Banana', 'Cherry', 'Grape', 'Lemon', 'Orange', 'Strawberry', 'Tomato',
   // Vegetables
-  'Broccoli', 'Carrot', 'Corn', 'Onion', 'Pepper', 'Potato', 'Salad', 'Leaf',
+  'Broccoli', 'Carrot', 'Corn', 'Onion', 'Pepper', 'Potato', 'Salad',
   // Meat & Seafood
-  'Beef', 'Chicken', 'Crab', 'Fish', 'Prawn', 'Shrimp', 'Drumstick', 'Bone',
+  'Beef', 'Chicken', 'Crab', 'Fish', 'Drumstick', 'Bone',
   // Dairy
   'Cheese', 'Egg', 'Milk',
   // Bakery & Snacks
-  'Bread', 'Cake', 'Croissant', 'Dessert', 'Hamburger', 'Pizza', 'Cookie', 'Candy',
-  'Chips', 'Popcorn', 'Sandwich', 'Sausage', 'Noodle', 'Pasta',
+  'Cake', 'Candy', 'Chips', 'Cookie', 'Popcorn', 'Pasta', 'Pizza',
   // Beverages
-  'Beer', 'Coffee', 'CupSoda', 'GlassWater', 'Juice', 'Wine', 'IceCream', 'IceCreamCone',
+  'Beer', 'Coffee', 'CupSoda', 'Juice', 'Wine', 'IceCream',
   // Staples & Grains
-  'Bean', 'Nut', 'Olive', 'Rice', 'Wheat', 'Salt', 'Soup', 'Sprout',
+  'Nut', 'Olive', 'Rice', 'Wheat', 'Soup', 'Sprout',
   // Spices & Cooking
-  'Flame', 'CookingPot', 'Utensils', 'ForkKnife', 'Droplet',
+  'Flame', 'Droplet',
   // Household & Cleaning
-  'Broom', 'Mop', 'SprayCan', 'Trash2', 'WashingMachine',
+  'Trash2',
   // Other
-  'Gift', 'Package', 'Sun', 'Star', 'TrendingUp', 'Truck', 'ShieldCheck',
-  // Extra
+  'Gift', 'Package', 'Sun', 'Star', 'TrendingUp', 'Truck',
+  // Extra – remove any that don't exist
   'Avocado', 'Coconut', 'Garlic', 'Ginger', 'Mango', 'Papaya', 'Pineapple', 'Watermelon',
   'Cabbage', 'Cauliflower', 'Celery', 'Cucumber', 'Eggplant', 'Lettuce', 'Mushroom', 'Pumpkin',
-  'Lamb', 'Pork', 'Turkey', 'Duck', 'CannedFood', 'FrozenFood', 'Tofu', 'Yogurt',
-  'Butter', 'Cream', 'SourCream', 'CreamCheese', 'SoyMilk', 'OatMilk', 'AlmondMilk',
-  'Biscuit', 'Breadcrumbs', 'Donut', 'Muffin', 'Pancake', 'Waffle', 'Bagel', 'Baguette',
-  'Soda', 'EnergyDrink', 'SportsDrink', 'Tea', 'Matcha', 'Kombucha',
+  'Butter', 'Cream', 'Yogurt',
 ];
 
 // ============================================================

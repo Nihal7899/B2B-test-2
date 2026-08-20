@@ -1,5 +1,5 @@
 // components/ProductCard.tsx
-import { Heart, Star, ShoppingCart } from 'lucide-react';
+import { Heart, Star, ShoppingCart, Minus } from 'lucide-react';
 import type { Product } from '@/types';
 import { OfferBadge } from './OfferBadge';
 import { QuantitySelector } from './QuantitySelector';

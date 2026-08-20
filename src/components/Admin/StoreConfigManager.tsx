@@ -4,18 +4,46 @@ import { supabase } from '@/lib/supabase';
 import { Store } from '@/types';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, X, Search } from 'lucide-react';
-import { uploadStoreImage, deleteStoreImage } from '@/services/catalog';
+import { uploadStoreImage, deleteStoreImage, uploadIconImage } from '@/services/catalog';
+import { getStoreIcon } from '@/data/storeIcons';
 
+// ============================================================
+// 100+ ICON OPTIONS
+// ============================================================
 const ICON_OPTIONS = [
-  'Apple', 'Wheat', 'Flame', 'Coffee', 'Cookie', 'Milk', 'Croissant',
-  'Fish', 'SprayCan', 'ChefHat', 'Package', 'TrendingUp', 'ShieldCheck',
-  'Truck', 'Star', 'Leaf', 'Salad', 'Sun', 'Soup', 'Bean', 'Carrot',
-  'Cherry', 'CookingPot', 'Drumstick', 'Droplet', 'Egg', 'Gift',
-  'GlassWater', 'IceCreamCone', 'Plane', 'Popcorn', 'Shell', 'Sprout',
-  'Utensils', 'Beef'
+  // Fruits
+  'Apple', 'Banana', 'Cherry', 'Grape', 'Lemon', 'Orange', 'Strawberry', 'Tomato',
+  // Vegetables
+  'Broccoli', 'Carrot', 'Corn', 'Onion', 'Pepper', 'Potato', 'Salad', 'Leaf',
+  // Meat & Seafood
+  'Beef', 'Chicken', 'Crab', 'Fish', 'Prawn', 'Shrimp', 'Drumstick', 'Bone',
+  // Dairy
+  'Cheese', 'Egg', 'Milk',
+  // Bakery & Snacks
+  'Bread', 'Cake', 'Croissant', 'Dessert', 'Hamburger', 'Pizza', 'Cookie', 'Candy',
+  'Chips', 'Popcorn', 'Sandwich', 'Sausage', 'Noodle', 'Pasta',
+  // Beverages
+  'Beer', 'Coffee', 'CupSoda', 'GlassWater', 'Juice', 'Wine', 'IceCream', 'IceCreamCone',
+  // Staples & Grains
+  'Bean', 'Nut', 'Olive', 'Rice', 'Wheat', 'Salt', 'Soup', 'Sprout',
+  // Spices & Cooking
+  'Flame', 'CookingPot', 'Utensils', 'ForkKnife', 'Droplet',
+  // Household & Cleaning
+  'Broom', 'Cleaning', 'Mop', 'SprayCan', 'Trash2', 'WashingMachine',
+  // Other
+  'Gift', 'Package', 'Sun', 'Star', 'TrendingUp', 'Truck', 'ShieldCheck',
+  // Extra grocery
+  'Avocado', 'Coconut', 'Garlic', 'Ginger', 'Mango', 'Papaya', 'Pineapple', 'Watermelon',
+  'Cabbage', 'Cauliflower', 'Celery', 'Cucumber', 'Eggplant', 'Lettuce', 'Mushroom', 'Pumpkin',
+  'Lamb', 'Pork', 'Turkey', 'Duck', 'CannedFood', 'FrozenFood', 'Tofu', 'Yogurt',
+  'Butter', 'Cream', 'SourCream', 'CreamCheese', 'SoyMilk', 'OatMilk', 'AlmondMilk',
+  'Biscuit', 'Breadcrumbs', 'Donut', 'Muffin', 'Pancake', 'Waffle', 'Bagel', 'Baguette',
+  'Soda', 'EnergyDrink', 'SportsDrink', 'Tea', 'Matcha', 'Kombucha',
 ];
 
-// ---- HEX COLOR INPUT COMPONENT ----
+// ============================================================
+// COLOR INPUT HELPER (color picker + hex text)
+// ============================================================
 function ColorInput({ value, onChange, label }: { value: string; onChange: (val: string) => void; label: string }) {
   return (
     <div>
@@ -39,7 +67,9 @@ function ColorInput({ value, onChange, label }: { value: string; onChange: (val:
   );
 }
 
-// ----- Main component -----
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 export default function StoreConfigManager() {
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
@@ -85,7 +115,9 @@ export default function StoreConfigManager() {
   );
 }
 
-// ----- Editor with tabs -----
+// ============================================================
+// EDITOR WITH TABS
+// ============================================================
 function StoreConfigEditor() {
   const { config, updateConfig } = useStore();
   const [activeTab, setActiveTab] = useState<'hero' | 'highlights' | 'categories' | 'bulkDeal' | 'trending'>('hero');
@@ -128,7 +160,7 @@ function StoreConfigEditor() {
 }
 
 // ============================================================
-// HERO EDITOR – with hex color pickers
+// HERO EDITOR
 // ============================================================
 function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { hero } = config;
@@ -181,25 +213,10 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
         <ColorInput value={hero.gradientTo} onChange={(val) => updateHero('gradientTo', val)} label="Gradient To" />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Title</label>
-        <input value={hero.title} onChange={e => updateHero('title', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
-        <input value={hero.subtitle} onChange={e => updateHero('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">CTA Text</label>
-        <input value={hero.ctaText} onChange={e => updateHero('ctaText', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">CTA Link</label>
-        <input value={hero.ctaLink} onChange={e => updateHero('ctaLink', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-      </div>
+      <div><label className="block text-sm font-medium text-gray-700">Title</label><input value={hero.title} onChange={e => updateHero('title', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">Subtitle</label><input value={hero.subtitle} onChange={e => updateHero('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">CTA Text</label><input value={hero.ctaText} onChange={e => updateHero('ctaText', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">CTA Link</label><input value={hero.ctaLink} onChange={e => updateHero('ctaLink', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <ColorInput value={hero.ctaBgColor || '#ffffff'} onChange={(val) => updateHero('ctaBgColor', val)} label="CTA Background" />
@@ -210,10 +227,10 @@ function HeroEditor({ config, updateConfig }: { config: any; updateConfig: (newC
 }
 
 // ============================================================
-// HIGHLIGHTS EDITOR
+// HIGHLIGHTS EDITOR (with icon upload)
 // ============================================================
 function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { highlights = [], categories = [] } = config;
+  const { highlights = [], categories = [], storeId } = config;
   const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
   const updateHighlights = (newItems: any[]) => {
@@ -240,6 +257,17 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
     updateHighlights(newItems);
   };
 
+  const handleIconUpload = async (index: number, file: File) => {
+    try {
+      const url = await uploadIconImage(storeId, file, 'highlights');
+      const updated = [...highlights];
+      updated[index] = { ...updated[index], icon: url };
+      updateHighlights(updated);
+    } catch (err) {
+      console.error('Icon upload failed', err);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -253,13 +281,37 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
       {highlights.map((h: any, idx: number) => (
         <div key={h.id} className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 mb-2">
           <input value={h.label} onChange={e => updateItem(idx, 'label', e.target.value)} placeholder="Label" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
-          <select value={h.icon || 'Package'} onChange={e => updateItem(idx, 'icon', e.target.value)} className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm">
-            {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
-          </select>
+
+          <div className="flex items-center gap-1">
+            <select value={h.icon || 'Package'} onChange={e => updateItem(idx, 'icon', e.target.value)} className="w-36 rounded-lg border border-gray-200 px-2 py-1 text-sm">
+              {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
+              <option value="__custom">Custom (upload)</option>
+            </select>
+            <button
+              onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = async (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (file) handleIconUpload(idx, file);
+                };
+                input.click();
+              }}
+              className="px-2 py-1 rounded-lg bg-blue-500 text-white text-xs hover:bg-blue-600"
+            >
+              Upload
+            </button>
+            {h.icon?.startsWith('http') && (
+              <img src={h.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
+            )}
+          </div>
+
           <select value={h.categoryId || ''} onChange={e => updateItem(idx, 'categoryId', e.target.value)} className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2 py-1 text-sm">
             <option value="">Select Category</option>
             {categoryOptions.map((opt: any) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
+
           <div className="flex gap-1">
             <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
             <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>
@@ -273,10 +325,10 @@ function HighlightsEditor({ config, updateConfig }: { config: any; updateConfig:
 }
 
 // ============================================================
-// CATEGORIES EDITOR – with color pickers + mobile modal
+// CATEGORIES EDITOR (with icon upload + color pickers + product picker modal)
 // ============================================================
 function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { categories = [] } = config;
+  const { categories = [], storeId } = config;
   const [allProducts, setAllProducts] = useState<{ id: string; name: string; brand: string }[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
@@ -323,6 +375,17 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
     p.brand.toLowerCase().includes(productSearch.toLowerCase())
   );
 
+  const handleIconUpload = async (index: number, file: File) => {
+    try {
+      const url = await uploadIconImage(storeId, file, 'categories');
+      const updated = [...categories];
+      updated[index] = { ...updated[index], icon: url };
+      updateCategories(updated);
+    } catch (err) {
+      console.error('Icon upload failed', err);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -336,23 +399,46 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
       {categories.map((c: any, idx: number) => (
         <div key={c.id} className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 mb-2">
           <input value={c.title} onChange={e => updateItem(idx, 'title', e.target.value)} placeholder="Title" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
-          <select value={c.icon || 'Package'} onChange={e => updateItem(idx, 'icon', e.target.value)} className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm">
-            {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
-          </select>
+
+          <div className="flex items-center gap-1">
+            <select value={c.icon || 'Package'} onChange={e => updateItem(idx, 'icon', e.target.value)} className="w-36 rounded-lg border border-gray-200 px-2 py-1 text-sm">
+              {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
+              <option value="__custom">Custom (upload)</option>
+            </select>
+            <button
+              onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = async (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (file) handleIconUpload(idx, file);
+                };
+                input.click();
+              }}
+              className="px-2 py-1 rounded-lg bg-blue-500 text-white text-xs hover:bg-blue-600"
+            >
+              Upload
+            </button>
+            {c.icon?.startsWith('http') && (
+              <img src={c.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
+            )}
+          </div>
+
           <input value={c.description} onChange={e => updateItem(idx, 'description', e.target.value)} placeholder="Description" className="flex-1 min-w-[120px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
-          
+
           <div className="flex items-center gap-1">
             <ColorInput value={c.color || '#10b981'} onChange={(val) => updateItem(idx, 'color', val)} label="" />
             <ColorInput value={c.textColor || '#ffffff'} onChange={(val) => updateItem(idx, 'textColor', val)} label="" />
           </div>
-          
+
           <button
             onClick={() => { setEditingCategoryIndex(idx); setShowProductPicker(true); }}
             className="px-3 py-1 rounded-lg bg-gray-100 text-xs font-medium text-gray-700 border border-gray-200 whitespace-nowrap"
           >
             {c.productIds?.length || 0} products
           </button>
-          
+
           <div className="flex gap-1">
             <button onClick={() => moveItem(idx, 'up')}><ChevronUp size={16} /></button>
             <button onClick={() => moveItem(idx, 'down')}><ChevronDown size={16} /></button>
@@ -360,7 +446,7 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
           </div>
         </div>
       ))}
-      
+
       <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600"><Plus size={16} /> Add Category</button>
 
       {/* Product Picker Modal */}
@@ -402,7 +488,7 @@ function CategoriesEditor({ config, updateConfig }: { config: any; updateConfig:
 }
 
 // ============================================================
-// BULK DEAL EDITOR – with hex color pickers
+// BULK DEAL EDITOR (with color pickers)
 // ============================================================
 function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
   const { bulkDeal } = config;
@@ -421,32 +507,11 @@ function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Tag</label>
-        <input value={bulkDeal.tag} onChange={e => updateBulkDeal('tag', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Title</label>
-        <input value={bulkDeal.title} onChange={e => updateBulkDeal('title', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
-        <input value={bulkDeal.subtitle} onChange={e => updateBulkDeal('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">CTA Text</label>
-        <input value={bulkDeal.cta} onChange={e => updateBulkDeal('cta', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Icon</label>
-        <select value={bulkDeal.icon || 'Package'} onChange={e => updateBulkDeal('icon', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm">
-          {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
-        </select>
-      </div>
+      <div><label className="block text-sm font-medium text-gray-700">Tag</label><input value={bulkDeal.tag} onChange={e => updateBulkDeal('tag', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">Title</label><input value={bulkDeal.title} onChange={e => updateBulkDeal('title', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">Subtitle</label><input value={bulkDeal.subtitle} onChange={e => updateBulkDeal('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">CTA Text</label><input value={bulkDeal.cta} onChange={e => updateBulkDeal('cta', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">Icon</label><select value={bulkDeal.icon || 'Package'} onChange={e => updateBulkDeal('icon', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm">{ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}</select></div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <ColorInput value={bulkDeal.ctaBgColor || '#ffffff'} onChange={(val) => updateBulkDeal('ctaBgColor', val)} label="CTA Background" />
@@ -457,10 +522,10 @@ function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (
 }
 
 // ============================================================
-// TRENDING EDITOR – with hex color pickers
+// TRENDING EDITOR (with icon upload + color pickers)
 // ============================================================
 function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [] } = config;
+  const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [], storeId } = config;
 
   const updateTrending = (field: string, value: any) => {
     updateConfig({ ...config, trending: { ...trending, [field]: value } });
@@ -495,6 +560,17 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
     updateIconButtons(newItems);
   };
 
+  const handleIconUpload = async (index: number, file: File) => {
+    try {
+      const url = await uploadIconImage(storeId, file, 'trending');
+      const updated = [...trending.iconButtons];
+      updated[index] = { ...updated[index], icon: url };
+      updateIconButtons(updated);
+    } catch (err) {
+      console.error('Icon upload failed', err);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -505,20 +581,9 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Title</label>
-        <input value={trending.title} onChange={e => updateTrending('title', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Subtitle</label>
-        <input value={trending.subtitle} onChange={e => updateTrending('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">CTA Text</label>
-        <input value={trending.ctaText} onChange={e => updateTrending('ctaText', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" />
-      </div>
+      <div><label className="block text-sm font-medium text-gray-700">Title</label><input value={trending.title} onChange={e => updateTrending('title', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">Subtitle</label><input value={trending.subtitle} onChange={e => updateTrending('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+      <div><label className="block text-sm font-medium text-gray-700">CTA Text</label><input value={trending.ctaText} onChange={e => updateTrending('ctaText', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <ColorInput value={trending.ctaBgColor || '#ffffff'} onChange={(val) => updateTrending('ctaBgColor', val)} label="CTA Background" />
@@ -530,13 +595,37 @@ function TrendingEditor({ config, updateConfig }: { config: any; updateConfig: (
         {trending.iconButtons.map((btn: any, idx: number) => (
           <div key={btn.id} className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 mt-2">
             <input value={btn.label} onChange={e => updateIconButton(idx, 'label', e.target.value)} placeholder="Label" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
-            <select value={btn.icon || 'Package'} onChange={e => updateIconButton(idx, 'icon', e.target.value)} className="w-32 rounded-lg border border-gray-200 px-2 py-1 text-sm">
-              {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
-            </select>
+
+            <div className="flex items-center gap-1">
+              <select value={btn.icon || 'Package'} onChange={e => updateIconButton(idx, 'icon', e.target.value)} className="w-36 rounded-lg border border-gray-200 px-2 py-1 text-sm">
+                {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
+                <option value="__custom">Custom (upload)</option>
+              </select>
+              <button
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*';
+                  input.onchange = async (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) handleIconUpload(idx, file);
+                  };
+                  input.click();
+                }}
+                className="px-2 py-1 rounded-lg bg-blue-500 text-white text-xs hover:bg-blue-600"
+              >
+                Upload
+              </button>
+              {btn.icon?.startsWith('http') && (
+                <img src={btn.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
+              )}
+            </div>
+
             <select value={btn.categoryId || ''} onChange={e => updateIconButton(idx, 'categoryId', e.target.value)} className="flex-1 min-w-[140px] rounded-lg border border-gray-200 px-2 py-1 text-sm">
               <option value="">Select Category</option>
               {categoryOptions.map((opt: any) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
+
             <div className="flex gap-1">
               <button onClick={() => moveIconButton(idx, 'up')}><ChevronUp size={16} /></button>
               <button onClick={() => moveIconButton(idx, 'down')}><ChevronDown size={16} /></button>

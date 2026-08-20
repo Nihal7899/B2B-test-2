@@ -1202,3 +1202,20 @@ export async function deleteStoreImage(
     .remove([path]);
   if (error) console.error('Failed to delete image:', error);
 }
+
+export async function uploadIconImage(
+  storeId: string,
+  file: File,
+  folder: string = 'icons'
+): Promise<string> {
+  const fileName = `${Date.now()}_${file.name}`;
+  const path = `stores/${storeId}/${folder}/${fileName}`;
+  const { data, error } = await supabase.storage
+    .from('store-images')
+    .upload(path, file);
+  if (error) throw error;
+  const { data: urlData } = supabase.storage
+    .from('store-images')
+    .getPublicUrl(path);
+  return urlData.publicUrl;
+}

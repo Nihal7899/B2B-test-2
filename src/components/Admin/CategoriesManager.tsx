@@ -57,35 +57,37 @@ export default function CategoriesManager() {
       )}
       {categories.map((cat) => (
         <div key={cat.id} className="bg-white border border-ink-100 rounded-2xl overflow-hidden shadow-card">
-          <div className="flex items-center gap-3 p-4">
-            {cat.image_url && <img src={cat.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />}
+          <div className="flex flex-wrap items-center gap-3 p-4">
+            {cat.image_url && <img src={cat.image_url} alt="" className="h-12 w-12 rounded-xl object-cover flex-shrink-0" />}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-ink-800 truncate">{cat.name}</p>
               <p className="text-xs text-ink-500">/{cat.slug} · Order {cat.sort_order}</p>
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-1 flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-ink-500">Background:</span>
                 <div
-                  className="h-4 w-8 rounded border border-ink-200"
+                  className="h-5 w-12 rounded border border-ink-200 flex-shrink-0"
                   style={{ background: cat.gradient || '#10b981' }}
                 />
-                <span className="text-[10px] text-ink-400 truncate max-w-[120px]">{cat.gradient?.slice(0, 30)}</span>
+                <span className="text-[10px] text-ink-400 truncate max-w-[120px]">{cat.gradient?.slice(0, 40)}</span>
               </div>
             </div>
-            <button
-              onClick={() => toggleExpand(cat.id)}
-              className="h-8 w-8 rounded-lg bg-gray-50 text-gray-500 flex items-center justify-center"
-            >
-              {expanded[cat.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-            <button
-              onClick={() => { setEditing(cat); setShowForm(true); }}
-              className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
-            >
-              <Pencil size={14} />
-            </button>
-            <button onClick={() => handleDelete(cat.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
-              <Trash2 size={14} />
-            </button>
+            <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+              <button
+                onClick={() => toggleExpand(cat.id)}
+                className="h-8 w-8 rounded-lg bg-gray-50 text-gray-500 flex items-center justify-center"
+              >
+                {expanded[cat.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
+              <button
+                onClick={() => { setEditing(cat); setShowForm(true); }}
+                className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
+              >
+                <Pencil size={14} />
+              </button>
+              <button onClick={() => handleDelete(cat.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
           {expanded[cat.id] && (
             <div className="border-t border-ink-100 p-4 bg-ink-50">
@@ -93,7 +95,7 @@ export default function CategoriesManager() {
               {subcategories[cat.id]?.length ? (
                 <div className="space-y-1">
                   {subcategories[cat.id].map(s => (
-                    <div key={s.id} className="flex items-center gap-2 text-xs">
+                    <div key={s.id} className="flex items-center gap-2 text-xs flex-wrap">
                       <span className="text-ink-700">{s.name}</span>
                       <span className="text-ink-400">/ {s.slug}</span>
                       <span className={`ml-auto ${s.is_active ? 'text-green-500' : 'text-red-400'}`}>
@@ -121,7 +123,7 @@ export default function CategoriesManager() {
   );
 }
 
-// ---- CategoryForm with Color Picker ----
+// ---- CategoryForm with mobile-friendly layout and color preview ----
 function CategoryForm({
   initial,
   onClose,
@@ -186,6 +188,7 @@ function CategoryForm({
         <button onClick={onClose}><X size={16} className="text-ink-400" /></button>
       </div>
 
+      {/* Basic fields */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Category name *</label>
         <input
@@ -205,95 +208,103 @@ function CategoryForm({
         />
       </div>
 
-      {/* Background Type Toggle */}
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Background</label>
-        <div className="flex gap-3">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              checked={bgType === 'solid'}
-              onChange={() => setBgType('solid')}
-              className="accent-brand-600"
-            /> Solid
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              checked={bgType === 'gradient'}
-              onChange={() => setBgType('gradient')}
-              className="accent-brand-600"
-            /> Gradient
-          </label>
-        </div>
-      </div>
-
-      {bgType === 'solid' ? (
-        <div>
-          <label className="block text-xs font-bold text-ink-600 mb-1">Solid Color</label>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={solidColor}
-              onChange={(e) => setSolidColor(e.target.value)}
-              className="h-10 w-12 rounded border border-ink-200 p-1 cursor-pointer"
-            />
-            <input
-              type="text"
-              value={solidColor}
-              onChange={(e) => setSolidColor(e.target.value)}
-              className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-              placeholder="#10b981"
-            />
+      {/* Color section with preview */}
+      <div className="space-y-3 bg-ink-50 p-3 rounded-xl border border-ink-100">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-ink-600">Background</span>
+          <div className="flex gap-3">
+            <label className="flex items-center gap-1 text-sm">
+              <input
+                type="radio"
+                checked={bgType === 'solid'}
+                onChange={() => setBgType('solid')}
+                className="accent-brand-600"
+              /> Solid
+            </label>
+            <label className="flex items-center gap-1 text-sm">
+              <input
+                type="radio"
+                checked={bgType === 'gradient'}
+                onChange={() => setBgType('gradient')}
+                className="accent-brand-600"
+              /> Gradient
+            </label>
           </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold text-ink-600 mb-1">From</label>
-            <div className="flex items-center gap-2">
+
+        {/* Live preview (large and visible) */}
+        <div
+          className="rounded-xl h-16 w-full flex items-center justify-center border border-ink-200 transition-all duration-200"
+          style={previewStyle}
+        >
+          <span className="text-white text-sm font-bold drop-shadow-md">
+            {bgType === 'solid' ? solidColor : `${gradientFrom} → ${gradientTo}`}
+          </span>
+        </div>
+
+        {/* Color inputs */}
+        {bgType === 'solid' ? (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+            <label className="text-xs font-bold text-ink-600 min-w-[70px]">Color</label>
+            <div className="flex items-center gap-2 w-full">
               <input
                 type="color"
-                value={gradientFrom}
-                onChange={(e) => setGradientFrom(e.target.value)}
-                className="h-10 w-12 rounded border border-ink-200 p-1 cursor-pointer"
+                value={solidColor}
+                onChange={(e) => setSolidColor(e.target.value)}
+                className="h-10 w-12 rounded border border-ink-200 p-1 cursor-pointer flex-shrink-0"
               />
               <input
                 type="text"
-                value={gradientFrom}
-                onChange={(e) => setGradientFrom(e.target.value)}
+                value={solidColor}
+                onChange={(e) => setSolidColor(e.target.value)}
                 className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
                 placeholder="#10b981"
               />
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-ink-600 mb-1">To</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={gradientTo}
-                onChange={(e) => setGradientTo(e.target.value)}
-                className="h-10 w-12 rounded border border-ink-200 p-1 cursor-pointer"
-              />
-              <input
-                type="text"
-                value={gradientTo}
-                onChange={(e) => setGradientTo(e.target.value)}
-                className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-                placeholder="#059669"
-              />
+        ) : (
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+              <label className="text-xs font-bold text-ink-600 min-w-[70px]">From</label>
+              <div className="flex items-center gap-2 w-full">
+                <input
+                  type="color"
+                  value={gradientFrom}
+                  onChange={(e) => setGradientFrom(e.target.value)}
+                  className="h-10 w-12 rounded border border-ink-200 p-1 cursor-pointer flex-shrink-0"
+                />
+                <input
+                  type="text"
+                  value={gradientFrom}
+                  onChange={(e) => setGradientFrom(e.target.value)}
+                  className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+                  placeholder="#10b981"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+              <label className="text-xs font-bold text-ink-600 min-w-[70px]">To</label>
+              <div className="flex items-center gap-2 w-full">
+                <input
+                  type="color"
+                  value={gradientTo}
+                  onChange={(e) => setGradientTo(e.target.value)}
+                  className="h-10 w-12 rounded border border-ink-200 p-1 cursor-pointer flex-shrink-0"
+                />
+                <input
+                  type="text"
+                  value={gradientTo}
+                  onChange={(e) => setGradientTo(e.target.value)}
+                  className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+                  placeholder="#059669"
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Live Preview */}
-      <div className="rounded-xl p-4" style={previewStyle}>
-        <p className="text-white text-sm font-bold">Preview</p>
-        <p className="text-white/80 text-xs">{bgType === 'solid' ? solidColor : `${gradientFrom} → ${gradientTo}`}</p>
+        )}
       </div>
 
+      {/* Other fields */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Image URL</label>
         <input
@@ -312,7 +323,7 @@ function CategoryForm({
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Sort order</label>
           <input

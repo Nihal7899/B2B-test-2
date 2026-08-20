@@ -588,10 +588,20 @@ function App() {
           />
         )}
 
-        <main className="py-4 pb-24 animate-fade-up">
+        {/* 🔥 Update main to remove top padding exclusively on the store screen */}
+        <main className={`pb-24 animate-fade-up ${screen === 'store' ? 'pt-0' : 'py-4'}`}>
+        
           <BackButtonHandler />
-          <KeepAliveRenderer currentKey={key} render={renderScreen} />
+        
+          <KeepAliveRenderer
+            currentKey={key}
+            render={
+              renderScreen
+            }
+          />
+        
         </main>
+
 
         <BottomNavigation
           active={screen}

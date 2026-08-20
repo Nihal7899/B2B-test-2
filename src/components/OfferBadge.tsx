@@ -1,12 +1,27 @@
+// components/OfferBadge.tsx
 interface OfferBadgeProps {
   discountPercent: number;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
+  color?: string; // optional theme color (hex)
 }
 
-export function OfferBadge({ discountPercent, size = 'sm' }: OfferBadgeProps) {
-  const padding = size === 'sm' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-xs';
+export function OfferBadge({ discountPercent, size = 'sm', color = '#10b981' }: OfferBadgeProps) {
+  const sizeClasses = {
+    sm: 'px-1.5 py-0.5 text-[9px]',
+    md: 'px-2 py-1 text-[10px]',
+    lg: 'px-2.5 py-1 text-xs',
+  };
+
+  if (discountPercent <= 0) return null;
+
   return (
-    <span className={`inline-flex items-center font-bold rounded-md bg-brand-50 text-brand-700 ${padding} leading-none tracking-tight`}>
+    <span
+      className={`inline-flex items-center rounded-full font-bold ${sizeClasses[size]}`}
+      style={{
+        backgroundColor: color,
+        color: '#ffffff',
+      }}
+    >
       {discountPercent}% OFF
     </span>
   );
@@ -18,7 +33,7 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const styles: Record<string, string> = {
-    Delivered: 'bg-brand-50 text-brand-700',
+    Delivered: 'bg-emerald-50 text-emerald-700',
     Processing: 'bg-amber-50 text-amber-700',
     'Out for Delivery': 'bg-sky-50 text-sky-700',
     Cancelled: 'bg-red-50 text-red-600',

@@ -1,4 +1,4 @@
-// App.tsx – full with conditional header on store screen
+// App.tsx – full with conditional header on store screen and storeId passing
 
 import {
   useMemo,
@@ -462,7 +462,7 @@ function App() {
 
 
   // ==========================================================
-  // PRODUCT
+  // PRODUCT (UPDATED: passes storeId if on store screen)
   // ==========================================================
 
   const openProduct = (
@@ -482,13 +482,19 @@ function App() {
       return;
     }
 
+    // Check if we're on the store screen and get storeId
+    const searchParams = new URLSearchParams(location.search);
+    const storeId = searchParams.get('storeId');
+
+    const params: Record<string, string> = { id: productId };
+    if (storeId) {
+      params.storeId = storeId;
+    }
 
     navigate(
       pathFor(
         'product',
-        {
-          id: productId,
-        }
+        params
       )
     );
 
@@ -718,13 +724,13 @@ function App() {
         openCategory
       }
       onProduct={
-        openProduct
+        openProduct   // <-- updated to pass storeId
       }
       onViewAll={() =>
         goTo('categories')
       }
       onStoreClick={
-        openStore   // <-- now navigates to StoreScreen
+        openStore
       }
       cart={cart}
       onBannerAction={
@@ -964,16 +970,10 @@ function App() {
 
           return (
             <ProductDetailScreen
-              productId={
-                productId
-              }
+              productId={productId}
               cart={cart}
-              onBack={() =>
-                goTo('home')
-              }
-              onProduct={
-                openProduct
-              }
+              onBack={() => goTo('home')}
+              onProduct={openProduct}
             />
           );
 

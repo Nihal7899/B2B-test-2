@@ -1,5 +1,6 @@
 // screens/ProductDetailScreen.tsx
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { ArrowLeft, Heart, Share2, Star, Truck, ShieldCheck, Percent, Hash } from 'lucide-react';
 import type { Product, VolumePricingTier } from '@/types';
 import type { useCart } from '@/store';
@@ -8,7 +9,7 @@ import { QuantitySelector } from '@/components/QuantitySelector';
 import { ProductCard } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { fetchProductById, fetchWishlist, toggleWishlist, fetchVolumePricing } from '@/services/catalog';
-import { useStore } from '@/context/StoreContext';
+import { StoreProvider, useStore } from '@/context/StoreContext';
 
 interface ProductDetailScreenProps {
   productId: string;
@@ -17,7 +18,7 @@ interface ProductDetailScreenProps {
   onProduct: (product: Product) => void;
 }
 
-export function ProductDetailScreen({ productId, cart, onBack, onProduct }: ProductDetailScreenProps) {
+function ProductDetailContent({ productId, cart, onBack, onProduct }: ProductDetailScreenProps) {
   const { theme } = useStore();
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
@@ -250,4 +251,22 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
       )}
     </div>
   );
+}
+
+// ---- Wrapper that reads storeId from query param ----
+export function ProductDetailScreen(props: ProductDetailScreenProps) {
+  const [searchParams] = useSearchParams();
+  const storeId = searchParams.get('storeId');
+
+  // If storeId is present in query params, wrap with StoreProvider
+  if (storeId) {
+    return (
+      <StoreProvider storeId={storeId}>
+        <ProductDetailContent {...props} />
+      </StoreProvider>
+    );
+  }
+
+  // If no storeId, render without StoreProvider (fallback)
+  return <ProductDetailContent {...props} />;
 }

@@ -26,69 +26,10 @@ interface StoreScreenProps {
   goTo: (screen: string) => void;
 }
 
-// Cache for SVG content
-const svgCache = new Map<string, string>();
-
-// Inline SVG component with fetching
-function InlineSvg({ url, className, color }: { url: string; className: string; color?: string }) {
-  const [svgContent, setSvgContent] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Check cache
-    if (svgCache.has(url)) {
-      setSvgContent(svgCache.get(url)!);
-      setLoading(false);
-      return;
-    }
-
-    fetch(url)
-      .then(res => res.text())
-      .then(text => {
-        svgCache.set(url, text);
-        setSvgContent(text);
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
-  }, [url]);
-
-  if (loading) {
-    return <div className={className} />;
-  }
-
-  if (!svgContent) {
-    const FallbackIcon = getStoreIcon('Package');
-    return <FallbackIcon className={className} />;
-  }
-
-  // Inject the SVG with proper color – remove existing fill/stroke and apply currentColor
-  const styledSvg = svgContent
-    .replace(/fill="[^"]*"/g, '')
-    .replace(/fill='[^']*'/g, '')
-    .replace(/stroke="[^"]*"/g, '')
-    .replace(/stroke='[^']*'/g, '')
-    .replace(/<svg /, `<svg class="${className}" style="color: ${color || 'currentColor'};" `);
-
-  return (
-    <div
-      className={className}
-      dangerouslySetInnerHTML={{ __html: styledSvg }}
-      style={{ color: color || 'currentColor' }}
-    />
-  );
-}
-
-// Helper to render either a Lucide icon, custom image, or inline SVG
+// Helper to render either a Lucide icon or a custom image (no SVG fetching)
 function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {
-  // If it's a custom URL (image or SVG)
+  // If it's a custom URL, render as <img>
   if (iconName?.startsWith('http') || iconName?.startsWith('data:')) {
-    // If it's an SVG, use InlineSvg component
-    if (iconName.endsWith('.svg') || iconName.includes('svg+xml')) {
-      return <InlineSvg url={iconName} className={className} color={color} />;
-    }
-    // Otherwise, render as image
     return <img src={iconName} alt="icon" className={className + " object-contain"} />;
   }
   // Otherwise, render the Lucide icon
@@ -166,13 +107,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     }
     return result;
   }, [products, searchQuery, selectedCategoryId, categories]);
-
-  // Get category products
-  const getCategoryProducts = (categoryId: string) => {
-    const cat = categories.find((c: any) => c.id === categoryId);
-    if (!cat) return [];
-    return products.filter(p => cat.productIds.includes(p.id));
-  };
 
   // Handlers – scroll to category
   const scrollToCategory = (categoryId: string) => {

@@ -26,15 +26,74 @@ interface StoreScreenProps {
   goTo: (screen: string) => void;
 }
 
-// Helper to render either a Lucide icon or a custom image
-function renderIcon(iconName: string, className: string = "h-6 w-6") {
-  // If it's a custom URL (image or SVG), render an <img>
+// Cache for SVG content
+const svgCache = new Map<string, string>();
+
+// Inline SVG component with fetching
+function InlineSvg({ url, className, color }: { url: string; className: string; color?: string }) {
+  const [svgContent, setSvgContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check cache
+    if (svgCache.has(url)) {
+      setSvgContent(svgCache.get(url)!);
+      setLoading(false);
+      return;
+    }
+
+    fetch(url)
+      .then(res => res.text())
+      .then(text => {
+        svgCache.set(url, text);
+        setSvgContent(text);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  }, [url]);
+
+  if (loading) {
+    return <div className={className} />;
+  }
+
+  if (!svgContent) {
+    const FallbackIcon = getStoreIcon('Package');
+    return <FallbackIcon className={className} />;
+  }
+
+  // Inject the SVG with proper color – remove existing fill/stroke and apply currentColor
+  const styledSvg = svgContent
+    .replace(/fill="[^"]*"/g, '')
+    .replace(/fill='[^']*'/g, '')
+    .replace(/stroke="[^"]*"/g, '')
+    .replace(/stroke='[^']*'/g, '')
+    .replace(/<svg /, `<svg class="${className}" style="color: ${color || 'currentColor'};" `);
+
+  return (
+    <div
+      className={className}
+      dangerouslySetInnerHTML={{ __html: styledSvg }}
+      style={{ color: color || 'currentColor' }}
+    />
+  );
+}
+
+// Helper to render either a Lucide icon, custom image, or inline SVG
+function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {
+  // If it's a custom URL (image or SVG)
   if (iconName?.startsWith('http') || iconName?.startsWith('data:')) {
+    // If it's an SVG, use InlineSvg component
+    if (iconName.endsWith('.svg') || iconName.includes('svg+xml')) {
+      return <InlineSvg url={iconName} className={className} color={color} />;
+    }
+    // Otherwise, render as image
     return <img src={iconName} alt="icon" className={className + " object-contain"} />;
   }
   // Otherwise, render the Lucide icon
   const Icon = getStoreIcon(iconName);
-  return <Icon className={className} />;
+  return <Icon className={className} style={{ color: color }} />;
 }
 
 function StoreScreenContent({ goTo }: StoreScreenProps) {
@@ -231,7 +290,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                     className="flex h-12 w-12 items-center justify-center rounded-xl transition"
                     style={{ background: `${themeFrom}15`, color: themeFrom }}
                   >
-                    {renderIcon(h.icon, "h-6 w-6")}
+                    {renderIcon(h.icon, "h-6 w-6", themeFrom)}
                   </div>
                   <span className="text-center text-[9px] font-semibold leading-tight text-gray-600">{h.label}</span>
                 </button>
@@ -331,7 +390,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                       className="flex h-7 w-7 items-center justify-center rounded-lg"
                       style={{ background: `${themeFrom}15`, color: themeFrom }}
                     >
-                      {renderIcon(category.icon, "h-4 w-4")}
+                      {renderIcon(category.icon, "h-4 w-4", themeFrom)}
                     </div>
                     <div className="flex-1">
                       <h3 className="text-sm font-bold text-gray-800">{category.title}</h3>
@@ -437,7 +496,7 @@ function BulkDealBanner({
   icon: string;
   ctaBgColor: string;
   ctaTextColor: string;
-  renderIcon: (name: string, className?: string) => React.ReactNode;
+  renderIcon: (name: string, className?: string, color?: string) => React.ReactNode;
 }) {
   return (
     <div
@@ -451,7 +510,7 @@ function BulkDealBanner({
         <div
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-inner bg-white/20 text-white"
         >
-          {renderIcon(icon, "h-6 w-6 text-white")}
+          {renderIcon(icon, "h-6 w-6", "#ffffff")}
         </div>
         <div className="flex-1 text-white">
           <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">
@@ -492,7 +551,7 @@ function TrendingBanner({
   ctaBgColor: string;
   ctaTextColor: string;
   onIconClick: (id: string) => void;
-  renderIcon: (name: string, className?: string) => React.ReactNode;
+  renderIcon: (name: string, className?: string, color?: string) => React.ReactNode;
 }) {
   return (
     <div className="my-6">
@@ -527,7 +586,7 @@ function TrendingBanner({
                 className="group flex flex-col items-center gap-1.5 rounded-2xl bg-white/15 p-2.5 backdrop-blur transition hover:bg-white/25"
               >
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 transition group-hover:scale-110">
-                  {renderIcon(btn.icon, "h-5 w-5 text-white")}
+                  {renderIcon(btn.icon, "h-5 w-5", "#ffffff")}
                 </div>
                 <span className="text-center text-[9px] font-semibold leading-tight text-white">{btn.label}</span>
               </button>

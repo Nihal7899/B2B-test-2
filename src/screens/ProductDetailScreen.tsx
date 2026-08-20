@@ -1,6 +1,6 @@
 // screens/ProductDetailScreen.tsx
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom'; // <-- fixed import
 import { ArrowLeft, Heart, Share2, Star, Truck, ShieldCheck, Percent, Hash } from 'lucide-react';
 import type { Product, VolumePricingTier } from '@/types';
 import type { useCart } from '@/store';
@@ -20,6 +20,7 @@ interface ProductDetailScreenProps {
 
 function ProductDetailContent({ productId, cart, onBack, onProduct }: ProductDetailScreenProps) {
   const { theme } = useStore();
+  const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -253,7 +254,7 @@ function ProductDetailContent({ productId, cart, onBack, onProduct }: ProductDet
   );
 }
 
-// ---- Wrapper that reads storeId from query param ----
+// ---- Wrapper that reads storeId from query params ----
 export function ProductDetailScreen(props: ProductDetailScreenProps) {
   const [searchParams] = useSearchParams();
   const storeId = searchParams.get('storeId');

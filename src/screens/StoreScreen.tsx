@@ -328,7 +328,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                     onAdd={() => cart.addToCart(p)}
                     onIncrement={() => cart.addToCart(p)}
                     onDecrement={() => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
-                    onClick={() => navigate(`/product?id=${p.id}`)}
+                    onClick={() => navigate(`/product?id=${p.id}&storeId=${storeId}`)}
                     theme={productCardTheme}
                     isWishlisted={wishlist.includes(p.id)}
                     onWishlistToggle={handleWishlistToggle}
@@ -371,7 +371,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                         onAdd={() => cart.addToCart(p)}
                         onIncrement={() => cart.addToCart(p)}
                         onDecrement={() => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
-                        onClick={() => navigate(`/product?id=${p.id}`)}
+                        onClick={() => navigate(`/product?id=${p.id}&storeId=${storeId}`)}
                         theme={productCardTheme}
                         isWishlisted={wishlist.includes(p.id)}
                         onWishlistToggle={handleWishlistToggle}
@@ -582,10 +582,14 @@ function TrustItem({ icon: Icon, label, sub }: { icon: any; label: string; sub: 
   );
 }
 
-// 🔥 Memoize the entire component to prevent re‑mount on navigation
+// 🔥 Memoize the entire component to prevent re-mount on navigation
 export default React.memo(function StoreScreen(props: StoreScreenProps) {
   const [searchParams] = useSearchParams();
-  const storeId = searchParams.get('storeId');
+  
+  // 🔥 Freeze the storeId on initial mount so it doesn't become null when 
+  // navigating to other screens and unmount the cached DOM.
+  const [storeId] = useState(() => searchParams.get('storeId'));
+  
   const navigate = useNavigate();
 
   if (!storeId) {

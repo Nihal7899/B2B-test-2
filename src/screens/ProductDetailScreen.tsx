@@ -38,6 +38,7 @@ function ProductDetailWithTheme({ productId, cart, onBack, onProduct }: ProductD
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
   const [volumeTiers, setVolumeTiers] = useState<VolumePricingTier[]>([]);
+  const [wishlist, setWishlist] = useState<string[]>([]);
 
   const {
     primaryColor = '#10b981',
@@ -57,6 +58,7 @@ function ProductDetailWithTheme({ productId, cart, onBack, onProduct }: ProductD
         setProduct(result.product);
         setRelated(result.related);
         const wl = await fetchWishlist();
+        setWishlist(wl);
         setWishlisted(wl.includes(productId));
         const tiers = await fetchVolumePricing(productId);
         setVolumeTiers(tiers);
@@ -273,6 +275,7 @@ function ProductDetailWithoutStore(props: ProductDetailScreenProps) {
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
   const [volumeTiers, setVolumeTiers] = useState<VolumePricingTier[]>([]);
+  const [wishlist, setWishlist] = useState<string[]>([]);
 
   const {
     primaryColor = '#10b981',
@@ -292,6 +295,7 @@ function ProductDetailWithoutStore(props: ProductDetailScreenProps) {
         setProduct(result.product);
         setRelated(result.related);
         const wl = await fetchWishlist();
+        setWishlist(wl);
         setWishlisted(wl.includes(props.productId));
         const tiers = await fetchVolumePricing(props.productId);
         setVolumeTiers(tiers);
@@ -323,10 +327,6 @@ function ProductDetailWithoutStore(props: ProductDetailScreenProps) {
     setWishlistBusy(false);
   };
 
-  // Same JSX as above but with defaultTheme colors
-  // (Copy the same JSX from ProductDetailWithTheme, using defaultTheme colors instead of theme)
-
-  // For brevity, I'll render a simplified version:
   return (
     <div className="pb-6 space-y-5">
       <div className="relative h-[270px] bg-ink-50 overflow-hidden">

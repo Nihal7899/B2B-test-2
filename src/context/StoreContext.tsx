@@ -7,8 +7,18 @@ import { fetchStoreConfig, updateStoreConfig } from '@/services/catalog';
 const configCache = new Map<string, { data: StoreConfig; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Global store for current store theme (persists across navigation)
+// 🔥 GLOBAL STORE THEME – persists across navigation
 let globalStoreTheme: ThemeProps | null = null;
+
+// 🔥 Get current store theme from global
+export function getGlobalStoreTheme(): ThemeProps | null {
+  return globalStoreTheme;
+}
+
+// 🔥 Set global store theme
+export function setGlobalStoreTheme(theme: ThemeProps) {
+  globalStoreTheme = theme;
+}
 
 interface ThemeProps {
   primaryColor: string;
@@ -76,8 +86,8 @@ export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> =
       gradientFrom: config?.hero?.gradientFrom || '#065f46',
       gradientTo: config?.hero?.gradientTo || '#16a34a',
     };
-    // Update global theme
-    globalStoreTheme = t;
+    // 🔥 Update global theme
+    setGlobalStoreTheme(t);
     return t;
   }, [config]);
 
@@ -208,18 +218,22 @@ export const StoreProvider: React.FC<{ storeId: string; children: ReactNode }> =
   );
 };
 
-// Export a hook to get the current store theme from global state (even outside StoreProvider)
+export const useStore = () => {
+  const context = useContext(StoreContext);
+  if (!context) throw new Error('useStore must be used within StoreProvider');
+  return context;
+};
+
+// 🔥 Hook to get theme (works even without StoreProvider)
 export function useStoreTheme(): ThemeProps {
-  // Try to get from context first
   const context = useContext(StoreContext);
   if (context) {
     return context.theme;
   }
-  // Fallback to global theme
-  if (globalStoreTheme) {
-    return globalStoreTheme;
+  const global = getGlobalStoreTheme();
+  if (global) {
+    return global;
   }
-  // Default fallback
   return {
     primaryColor: '#10b981',
     secondaryColor: '#059669',
@@ -230,9 +244,3 @@ export function useStoreTheme(): ThemeProps {
     gradientTo: '#16a34a',
   };
 }
-
-export const useStore = () => {
-  const context = useContext(StoreContext);
-  if (!context) throw new Error('useStore must be used within StoreProvider');
-  return context;
-};

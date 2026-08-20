@@ -322,17 +322,21 @@ function App() {
 
 
   // 🔥 FIX: Stable key for store screen
-  const key = useMemo(() => {
-    if (screen === 'store') {
-      // Use pathname + search (storeId) to keep the same key when navigating back
-      return location.pathname + '|' + location.search;
-    }
-    return location.pathname + '|' + location.key;
-  }, [screen, location.pathname, location.search, location.key]);
-
-
-  const initPushRef =
-    useRef(false);
+const key = useMemo(() => {
+  if (screen === 'store') {
+    // 🔥 Use pathname + storeId as key – doesn't change on navigation
+    const searchParams = new URLSearchParams(location.search);
+    const storeId = searchParams.get('storeId') || 'default';
+    return `store|${storeId}`;
+  }
+  if (screen === 'product') {
+    // 🔥 Use productId as key – doesn't change on navigation
+    const searchParams = new URLSearchParams(location.search);
+    const productId = searchParams.get('id') || 'default';
+    return `product|${productId}`;
+  }
+  return location.pathname + '|' + location.key;
+}, [screen, location.pathname, location.search, location.key]);
 
 
   // ==========================================================

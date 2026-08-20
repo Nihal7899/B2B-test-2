@@ -29,10 +29,10 @@ const ICON_OPTIONS = [
   // Spices & Cooking
   'Flame', 'CookingPot', 'Utensils', 'ForkKnife', 'Droplet',
   // Household & Cleaning
-  'Broom', 'Cleaning', 'Mop', 'SprayCan', 'Trash2', 'WashingMachine',
+  'Broom', 'Mop', 'SprayCan', 'Trash2', 'WashingMachine',
   // Other
   'Gift', 'Package', 'Sun', 'Star', 'TrendingUp', 'Truck', 'ShieldCheck',
-  // Extra grocery
+  // Extra
   'Avocado', 'Coconut', 'Garlic', 'Ginger', 'Mango', 'Papaya', 'Pineapple', 'Watermelon',
   'Cabbage', 'Cauliflower', 'Celery', 'Cucumber', 'Eggplant', 'Lettuce', 'Mushroom', 'Pumpkin',
   'Lamb', 'Pork', 'Turkey', 'Duck', 'CannedFood', 'FrozenFood', 'Tofu', 'Yogurt',

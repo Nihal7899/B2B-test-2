@@ -15,7 +15,6 @@ import {
   Cherry,
   Chicken,
   Chips,
-  Cleaning,
   Coffee,
   Cookie,
   CookingPot,
@@ -91,7 +90,6 @@ const map: Record<string, LucideIcon> = {
   Cherry,
   Chicken,
   Chips,
-  Cleaning,
   Coffee,
   Cookie,
   CookingPot,
@@ -151,11 +149,7 @@ const map: Record<string, LucideIcon> = {
 };
 
 export function getStoreIcon(name: string): LucideIcon {
-  // If the name looks like a URL, return a placeholder (we handle this in the component)
-  if (name?.startsWith('http')) {
-    return map.Package; // fallback
-  }
-  return map[name] ?? map.Package;
+  return map[name] ?? Package;
 }
 
 export function isCustomIcon(name: string): boolean {

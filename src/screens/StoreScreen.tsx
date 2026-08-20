@@ -26,13 +26,11 @@ interface StoreScreenProps {
   goTo: (screen: string) => void;
 }
 
-// Helper to render either a Lucide icon or a custom image (no SVG fetching)
+// Helper to render either a Lucide icon or a custom image
 function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {
-  // If it's a custom URL, render as <img>
   if (iconName?.startsWith('http') || iconName?.startsWith('data:')) {
     return <img src={iconName} alt="icon" className={className + " object-contain"} />;
   }
-  // Otherwise, render the Lucide icon
   const Icon = getStoreIcon(iconName);
   return <Icon className={className} style={{ color: color }} />;
 }
@@ -142,6 +140,19 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const themeTo = hero.gradientTo || '#16a34a';
   const heroCtaBg = hero.ctaBgColor || '#ffffff';
   const heroCtaText = hero.ctaTextColor || '#065f46';
+
+  // 🔥 THEME FOR PRODUCT CARDS
+  const productCardTheme = {
+    primaryColor: themeFrom,
+    secondaryColor: themeTo,
+    textColor: '#1f2937', // or you can make this configurable later
+    borderColor: '#e5e7eb',
+    buttonStyle: 'brand',
+    cardRadius: 'xl',
+    shadowIntensity: 'md',
+    gradientFrom: themeFrom,
+    gradientTo: themeTo,
+  };
 
   if (loading) return <StoreSkeleton />;
   if (productsLoading) return <StoreSkeleton />;
@@ -302,6 +313,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                     onIncrement={() => cart.addToCart(p)}
                     onDecrement={() => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
                     onClick={() => navigate(`/product?id=${p.id}`)}
+                    theme={productCardTheme}
                   />
                 ))}
               </div>
@@ -342,6 +354,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                         onIncrement={() => cart.addToCart(p)}
                         onDecrement={() => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
                         onClick={() => navigate(`/product?id=${p.id}`)}
+                        theme={productCardTheme}
                       />
                     ))}
                   </div>

@@ -8,8 +8,8 @@ import { OfferBadge } from '@/components/OfferBadge';
 import { QuantitySelector } from '@/components/QuantitySelector';
 import { ProductCard } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
-import { fetchProductById, fetchWishlist, toggleWishlist, fetchVolumePricing } from '@/services/catalog';
-import { getStoreTheme } from '@/context/StoreContext';
+import { fetchProductById, fetchWishlist, toggleWishlist, fetchVolumePricing, fetchStoreConfig } from '@/services/catalog';
+import { getStoreTheme, setStoreTheme } from '@/context/StoreContext';
 
 interface ProductDetailScreenProps {
   productId: string;
@@ -32,8 +32,13 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
   const [searchParams] = useSearchParams();
   const storeId = searchParams.get('storeId');
 
-  // 🔥 Get theme from global map – if no storeId, use default
-  const theme = storeId ? (getStoreTheme(storeId) || defaultTheme) : defaultTheme;
+  // 🔥 Get theme – from global map or fetch
+  const [theme, setTheme] = useState(() => {
+    if (storeId) {
+      return getStoreTheme(storeId) || defaultTheme;
+    }
+    return defaultTheme;
+  });
 
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
@@ -52,6 +57,27 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     gradientFrom = '#065f46',
     gradientTo = '#16a34a',
   } = theme;
+
+  // Fetch theme if not cached
+  useEffect(() => {
+    if (storeId && !getStoreTheme(storeId)) {
+      fetchStoreConfig(storeId)
+        .then(config => {
+          const t = {
+            primaryColor: config?.hero?.gradientFrom || '#10b981',
+            secondaryColor: config?.hero?.gradientTo || '#059669',
+            textColor: '#1f2937',
+            borderColor: '#e5e7eb',
+            buttonStyle: 'brand' as const,
+            gradientFrom: config?.hero?.gradientFrom || '#065f46',
+            gradientTo: config?.hero?.gradientTo || '#16a34a',
+          };
+          setStoreTheme(storeId, t);
+          setTheme(t);
+        })
+        .catch(() => {});
+    }
+  }, [storeId]);
 
   useEffect(() => {
     void (async () => {

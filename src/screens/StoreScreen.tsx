@@ -36,12 +36,15 @@ function renderIcon(iconName: string, className: string = "h-6 w-6", color?: str
 }
 
 function StoreScreenContent({ goTo }: StoreScreenProps) {
-  const { config, loading, theme } = useStore();
+  const { config, loading, theme, storeId } = useStore();
   const navigate = useNavigate();
   const cart = useCart();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [wishlist, setWishlist] = useState<string[]>([]);
+
+  // 🔥 Ref to prevent re‑fetch when restored from cache
+  const dataFetchedRef = useRef<Record<string, boolean>>({});
 
   if (!config) return <StoreSkeleton />;
 
@@ -71,21 +74,28 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     return ids;
   }, [categories]);
 
-  // 🔥 Fetch product details whenever allProductIds changes
+  // 🔥 Fetch product details – skip if already fetched for this store
   useEffect(() => {
+    if (dataFetchedRef.current[storeId]) {
+      // Already fetched, just set loading to false if needed
+      if (productsLoading) setProductsLoading(false);
+      return;
+    }
     if (allProductIds.length === 0) {
       setProducts([]);
       setProductsLoading(false);
+      dataFetchedRef.current[storeId] = true;
       return;
     }
     setProductsLoading(true);
     fetchProductsByIds(allProductIds)
       .then(data => {
         setProducts(data);
+        dataFetchedRef.current[storeId] = true;
       })
       .catch(console.error)
       .finally(() => setProductsLoading(false));
-  }, [allProductIds]);
+  }, [allProductIds, storeId]);
 
   // Fetch wishlist
   useEffect(() => {
@@ -583,6 +593,9 @@ function TrustItem({ icon: Icon, label, sub }: { icon: any; label: string; sub: 
   );
 }
 
+// 🔥 Memoize the whole component to prevent re‑mount on navigation
+const MemoizedStoreScreen = React.memo(StoreScreenContent);
+
 export default function StoreScreen(props: StoreScreenProps) {
   const [searchParams] = useSearchParams();
   const storeId = searchParams.get('storeId');
@@ -599,7 +612,7 @@ export default function StoreScreen(props: StoreScreenProps) {
 
   return (
     <StoreProvider storeId={storeId}>
-      <StoreScreenContent {...props} />
+      <MemoizedStoreScreen {...props} />
     </StoreProvider>
   );
 }

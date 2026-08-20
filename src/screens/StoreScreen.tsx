@@ -7,10 +7,34 @@ import { fetchProductsByIds, fetchStores } from '@/services/catalog';
 import type { Product as AppProduct, Store } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { getStoreIcon } from '@/data/storeIcons';
-import { ChevronLeft, Search, ShoppingCart, ChevronRight, X, ArrowLeft, Star, TrendingUp, Package, ShieldCheck, Truck, Clock } from 'lucide-react';
+import {
+  ChevronLeft,
+  Search,
+  ShoppingCart,
+  ChevronRight,
+  X,
+  ArrowLeft,
+  Star,
+  TrendingUp,
+  Package,
+  ShieldCheck,
+  Truck,
+  Clock,
+} from 'lucide-react';
 
 interface StoreScreenProps {
   goTo: (screen: string) => void;
+}
+
+// Helper to render either a Lucide icon or a custom image
+function renderIcon(iconName: string, className: string = "h-6 w-6") {
+  // If it's a custom URL (image or SVG), render an <img>
+  if (iconName?.startsWith('http') || iconName?.startsWith('data:')) {
+    return <img src={iconName} alt="icon" className={className + " object-contain"} />;
+  }
+  // Otherwise, render the Lucide icon
+  const Icon = getStoreIcon(iconName);
+  return <Icon className={className} />;
 }
 
 function StoreScreenContent({ goTo }: StoreScreenProps) {
@@ -130,7 +154,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   if (productsLoading) return <StoreSkeleton />;
 
   // Filter categories that have at least one product
-  const activeCategories = categories.filter((cat: any) => 
+  const activeCategories = categories.filter((cat: any) =>
     products.some(p => cat.productIds.includes(p.id))
   );
 
@@ -181,8 +205,8 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             <div className="mt-4 rounded-xl bg-white/15 p-3 backdrop-blur">
               <button
                 onClick={() => navigate(hero.ctaLink || '/categories')}
-                className="flex items-center gap-1.5 text-xs font-bold"
-                style={{ backgroundColor: heroCtaBg, color: heroCtaText, padding: '6px 16px', borderRadius: '8px' }}
+                className="flex items-center gap-1.5 text-xs font-bold rounded-lg px-4 py-2"
+                style={{ backgroundColor: heroCtaBg, color: heroCtaText }}
               >
                 {hero.ctaText}
               </button>
@@ -197,24 +221,21 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
           <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-lg">
             <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">What's in this store</p>
             <div className="grid grid-cols-4 gap-2">
-              {highlights.map((h: any) => {
-                const Icon = getStoreIcon(h.icon);
-                return (
-                  <button
-                    key={h.id}
-                    onClick={() => handleIconClick(h.categoryId)}
-                    className="flex flex-col items-center gap-1 rounded-xl p-1.5 transition hover:bg-gray-50"
+              {highlights.map((h: any) => (
+                <button
+                  key={h.id}
+                  onClick={() => handleIconClick(h.categoryId)}
+                  className="flex flex-col items-center gap-1 rounded-xl p-1.5 transition hover:bg-gray-50"
+                >
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-xl transition"
+                    style={{ background: `${themeFrom}15`, color: themeFrom }}
                   >
-                    <div
-                      className="flex h-12 w-12 items-center justify-center rounded-xl transition"
-                      style={{ background: `${themeFrom}15`, color: themeFrom }}
-                    >
-                      <Icon size={22} />
-                    </div>
-                    <span className="text-center text-[9px] font-semibold leading-tight text-gray-600">{h.label}</span>
-                  </button>
-                );
-              })}
+                    {renderIcon(h.icon, "h-6 w-6")}
+                  </div>
+                  <span className="text-center text-[9px] font-semibold leading-tight text-gray-600">{h.label}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -263,6 +284,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
               icon={bulkDeal.icon}
               ctaBgColor={bulkDeal.ctaBgColor || '#ffffff'}
               ctaTextColor={bulkDeal.ctaTextColor || '#065f46'}
+              renderIcon={renderIcon}
             />
           </div>
         )}
@@ -298,7 +320,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
             {activeCategories.map((category: any, index: number) => {
               const categoryProducts = products.filter(p => category.productIds.includes(p.id));
               if (categoryProducts.length === 0) return null;
-              const Icon = getStoreIcon(category.icon);
 
               const categoryElement = (
                 <div
@@ -310,7 +331,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                       className="flex h-7 w-7 items-center justify-center rounded-lg"
                       style={{ background: `${themeFrom}15`, color: themeFrom }}
                     >
-                      <Icon size={15} />
+                      {renderIcon(category.icon, "h-4 w-4")}
                     </div>
                     <div className="flex-1">
                       <h3 className="text-sm font-bold text-gray-800">{category.title}</h3>
@@ -349,6 +370,7 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                       ctaBgColor={trending.ctaBgColor || '#ffffff'}
                       ctaTextColor={trending.ctaTextColor || '#065f46'}
                       onIconClick={handleIconClick}
+                      renderIcon={renderIcon}
                     />
                   </React.Fragment>
                 );
@@ -404,6 +426,7 @@ function BulkDealBanner({
   icon,
   ctaBgColor,
   ctaTextColor,
+  renderIcon,
 }: {
   themeFrom: string;
   themeTo: string;
@@ -414,8 +437,8 @@ function BulkDealBanner({
   icon: string;
   ctaBgColor: string;
   ctaTextColor: string;
+  renderIcon: (name: string, className?: string) => React.ReactNode;
 }) {
-  const Icon = getStoreIcon(icon);
   return (
     <div
       className="relative overflow-hidden rounded-2xl p-4 shadow-lg"
@@ -428,7 +451,7 @@ function BulkDealBanner({
         <div
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-inner bg-white/20 text-white"
         >
-          <Icon size={24} />
+          {renderIcon(icon, "h-6 w-6 text-white")}
         </div>
         <div className="flex-1 text-white">
           <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">
@@ -458,6 +481,7 @@ function TrendingBanner({
   ctaBgColor,
   ctaTextColor,
   onIconClick,
+  renderIcon,
 }: {
   themeFrom: string;
   themeTo: string;
@@ -468,6 +492,7 @@ function TrendingBanner({
   ctaBgColor: string;
   ctaTextColor: string;
   onIconClick: (id: string) => void;
+  renderIcon: (name: string, className?: string) => React.ReactNode;
 }) {
   return (
     <div className="my-6">
@@ -495,21 +520,18 @@ function TrendingBanner({
           <p className="mt-2 text-[12px] text-white/80">{subtitle}</p>
 
           <div className="mt-4 grid grid-cols-4 gap-2.5">
-            {iconButtons.map((btn: any) => {
-              const Icon = getStoreIcon(btn.icon);
-              return (
-                <button
-                  key={btn.id}
-                  onClick={() => onIconClick(btn.categoryId)}
-                  className="group flex flex-col items-center gap-1.5 rounded-2xl bg-white/15 p-2.5 backdrop-blur transition hover:bg-white/25"
-                >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 transition group-hover:scale-110">
-                    <Icon size={20} />
-                  </div>
-                  <span className="text-center text-[9px] font-semibold leading-tight text-white">{btn.label}</span>
-                </button>
-              );
-            })}
+            {iconButtons.map((btn: any) => (
+              <button
+                key={btn.id}
+                onClick={() => onIconClick(btn.categoryId)}
+                className="group flex flex-col items-center gap-1.5 rounded-2xl bg-white/15 p-2.5 backdrop-blur transition hover:bg-white/25"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 transition group-hover:scale-110">
+                  {renderIcon(btn.icon, "h-5 w-5 text-white")}
+                </div>
+                <span className="text-center text-[9px] font-semibold leading-tight text-white">{btn.label}</span>
+              </button>
+            ))}
           </div>
 
           <button

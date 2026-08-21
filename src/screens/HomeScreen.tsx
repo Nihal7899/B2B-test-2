@@ -7,7 +7,6 @@ import type { useCart } from '@/store';
 import { SearchBar } from '@/components/SearchBar';
 import { PromoCarousel } from '@/components/PromoBanner';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
-import { CategoryCard } from '@/components/CategoryCard';
 import { ProductCarousel } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { StoreCarousel } from '@/components/StoreCard';
@@ -57,7 +56,7 @@ export function HomeScreen({
     try {
       await fetchStoreConfig(storeId);
     } catch (e) {
-      // silently ignore – prefetch is optional
+      // silently ignore
     }
   }, []);
 
@@ -326,7 +325,7 @@ export function HomeScreen({
             </div>
           </section>
 
-          {/* Stores – only top padding, left padding handled inside StoreCarousel */}
+          {/* Stores – rendered directly (no wrapper) */}
           {stores.length > 0 && (
             <div>
               <SectionHeader
@@ -334,17 +333,15 @@ export function HomeScreen({
                 subtitle="Curated collections"
                 accent="bg-purple-600"
               />
-              <div className="pt-2">
-                <StoreCarousel
-                  stores={stores}
-                  onStoreClick={onStoreClick}
-                  onPrefetch={prefetchStore}
-                />
-              </div>
+              <StoreCarousel
+                stores={stores}
+                onStoreClick={onStoreClick}
+                onPrefetch={prefetchStore}
+              />
             </div>
           )}
 
-          {/* Trusted Brands – only top padding */}
+          {/* Trusted Brands – rendered directly (no wrapper) */}
           {brands.length > 0 && (
             <div>
               <SectionHeader
@@ -352,17 +349,13 @@ export function HomeScreen({
                 subtitle="Quality you can rely on"
                 accent="bg-blue-600"
               />
-              <div className="pt-2">
-                <BrandCarousel brands={brands} />
-              </div>
+              <BrandCarousel brands={brands} />
             </div>
           )}
 
-          {/* Popular Products – only top padding */}
+          {/* Popular Products – rendered directly */}
           {popular.length > 0 && (
-            <div className="pt-2">
-              <ProductCarousel title="Popular Products" products={popular} {...actions} />
-            </div>
+            <ProductCarousel title="Popular Products" products={popular} {...actions} />
           )}
 
           {/* Middle Banners */}
@@ -378,11 +371,9 @@ export function HomeScreen({
             </section>
           )}
 
-          {/* Wholesale Deals – only top padding */}
+          {/* Wholesale Deals – rendered directly */}
           {deals.length > 0 && (
-            <div className="pt-2">
-              <ProductCarousel title="Wholesale Deals" products={deals} {...actions} />
-            </div>
+            <ProductCarousel title="Wholesale Deals" products={deals} {...actions} />
           )}
 
           {/* Perks */}
@@ -411,11 +402,9 @@ export function HomeScreen({
             </div>
           </section>
 
-          {/* Everyday Essentials – only top padding */}
+          {/* Everyday Essentials – rendered directly */}
           {essentials.length > 0 && (
-            <div className="pt-2">
-              <ProductCarousel title="Everyday Essentials" products={essentials} {...actions} />
-            </div>
+            <ProductCarousel title="Everyday Essentials" products={essentials} {...actions} />
           )}
 
           {/* Bottom Banners */}

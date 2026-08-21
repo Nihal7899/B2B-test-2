@@ -1,4 +1,3 @@
-// components/admin/BrandsManager.tsx
 import React, { useEffect, useState } from 'react';
 import { Plus, Trash2, Save, Loader2, Upload, Eye, EyeOff } from 'lucide-react';
 import { BrandCard } from '@/components/BrandCard';
@@ -11,7 +10,6 @@ import {
 } from '@/services/catalog';
 import type { TrustedBrand } from '@/types';
 
-// Extend TrustedBrand with our new fields (they come from the DB after migration)
 interface BrandWithColors extends TrustedBrand {
   primary_color: string;
   secondary_color: string;
@@ -25,18 +23,16 @@ export default function BrandsManager() {
   const [previewBrandId, setPreviewBrandId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // New brand form state
   const [newBrand, setNewBrand] = useState<Partial<BrandWithColors>>({
     name: '',
     logo_url: '',
     primary_color: '#3B82F6',
     secondary_color: '#1E40AF',
-    product_images: ['', '', ''],
+    product_images: [''],
     sort_order: 0,
     is_active: true,
   });
 
-  // ----- Load brands -----
   const loadBrands = async () => {
     const data = await fetchAllTrustedBrands();
     setBrands(data as BrandWithColors[]);
@@ -47,7 +43,6 @@ export default function BrandsManager() {
     loadBrands();
   }, []);
 
-  // ----- CRUD operations -----
   const handleDelete = async (id: string) => {
     if (window.confirm('Delete this brand?')) {
       await deleteTrustedBrand(id);
@@ -78,14 +73,14 @@ export default function BrandsManager() {
       is_active: newBrand.is_active ?? true,
       primary_color: newBrand.primary_color || '#3B82F6',
       secondary_color: newBrand.secondary_color || '#1E40AF',
-      product_images: newBrand.product_images || ['', '', ''],
+      product_images: newBrand.product_images || [''],
     });
     setNewBrand({
       name: '',
       logo_url: '',
       primary_color: '#3B82F6',
       secondary_color: '#1E40AF',
-      product_images: ['', '', ''],
+      product_images: [''],
       sort_order: 0,
       is_active: true,
     });
@@ -93,16 +88,14 @@ export default function BrandsManager() {
     await loadBrands();
   };
 
-  // ----- Image upload handler -----
   const handleImageUpload = async (
     file: File,
-    brandId: string | null, // null = new brand
+    brandId: string | null,
     field: 'logo_url' | 'product_images',
     index?: number
   ) => {
     const url = await uploadBrandImage(file, brandId, field);
     if (brandId) {
-      // Update existing brand in state
       const brand = brands.find(b => b.id === brandId);
       if (!brand) return;
       if (field === 'logo_url') {
@@ -112,11 +105,10 @@ export default function BrandsManager() {
       }
       setBrands([...brands]);
     } else {
-      // Update new brand form
       if (field === 'logo_url') {
         setNewBrand({ ...newBrand, logo_url: url });
       } else if (field === 'product_images' && index !== undefined) {
-        const newImages = [...(newBrand.product_images || ['', '', ''])];
+        const newImages = [...(newBrand.product_images || [''])];
         newImages[index] = url;
         setNewBrand({ ...newBrand, product_images: newImages });
       }
@@ -125,10 +117,8 @@ export default function BrandsManager() {
 
   if (loading) return <Loader2 className="animate-spin mx-auto" />;
 
-  // ----- Render -----
   return (
     <div className="space-y-6">
-      {/* Add Brand Button */}
       <button
         onClick={() => setShowAddForm(true)}
         className="w-full h-12 rounded-xl bg-brand-600 text-white font-bold flex items-center justify-center gap-2"
@@ -136,7 +126,6 @@ export default function BrandsManager() {
         <Plus size={16} /> Add Brand
       </button>
 
-      {/* Add Form (always shows preview) */}
       {showAddForm && (
         <div className="bg-white border rounded-2xl p-4 shadow-card">
           <h3 className="font-bold mb-3">New Brand</h3>
@@ -218,36 +207,31 @@ export default function BrandsManager() {
                 </label>
               </div>
             </div>
-            <div className="col-span-2">
-              <label>Product Images (up to 3)</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[0, 1, 2].map((idx) => (
-                  <div key={idx} className="flex gap-1">
-                    <input
-                      type="text"
-                      value={newBrand.product_images?.[idx] || ''}
-                      onChange={e => {
-                        const imgs = [...(newBrand.product_images || ['', '', ''])];
-                        imgs[idx] = e.target.value;
-                        setNewBrand({ ...newBrand, product_images: imgs });
-                      }}
-                      className="flex-1 border rounded p-2 text-sm"
-                      placeholder={`Image ${idx+1}`}
-                    />
-                    <label className="cursor-pointer bg-ink-100 p-2 rounded">
-                      <Upload size={14} />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) await handleImageUpload(file, null, 'product_images', idx);
-                        }}
-                      />
-                    </label>
-                  </div>
-                ))}
+            <div>
+              <label>Product Image</label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  value={newBrand.product_images?.[0] || ''}
+                  onChange={e => {
+                    const imgs = [e.target.value];
+                    setNewBrand({ ...newBrand, product_images: imgs });
+                  }}
+                  className="flex-1 border rounded p-2"
+                  placeholder="URL"
+                />
+                <label className="cursor-pointer bg-ink-100 p-2 rounded">
+                  <Upload size={16} />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) await handleImageUpload(file, null, 'product_images', 0);
+                    }}
+                  />
+                </label>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -264,14 +248,14 @@ export default function BrandsManager() {
               <button onClick={handleCreate} className="px-4 py-2 bg-brand-600 text-white rounded">Create</button>
             </div>
           </div>
-          {/* Preview of new brand – always visible */}
+          {/* Preview always visible in add form */}
           <div className="mt-4 flex justify-center">
             <BrandCard
               brandName={newBrand.name || 'Preview'}
               primaryColor={newBrand.primary_color || '#3B82F6'}
               secondaryColor={newBrand.secondary_color || '#1E40AF'}
               logoUrl={newBrand.logo_url || 'https://via.placeholder.com/100'}
-              productImages={newBrand.product_images?.filter(Boolean) || []}
+              productImage={newBrand.product_images?.[0] || 'https://via.placeholder.com/120/CCCCCC/999999?text=Product'}
             />
           </div>
         </div>
@@ -382,34 +366,29 @@ export default function BrandsManager() {
                       </div>
                     </div>
                     <div>
-                      <label>Product Images (up to 3)</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[0, 1, 2].map((idx) => (
-                          <div key={idx} className="flex gap-1">
-                            <input
-                              value={brand.product_images?.[idx] || ''}
-                              onChange={e => {
-                                const imgs = [...(brand.product_images || ['', '', ''])];
-                                imgs[idx] = e.target.value;
-                                const updated = { ...brand, product_images: imgs };
-                                setBrands(brands.map(b => b.id === brand.id ? updated : b));
-                              }}
-                              className="flex-1 border rounded p-1 text-sm"
-                            />
-                            <label className="cursor-pointer bg-ink-100 p-1 rounded">
-                              <Upload size={12} />
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) await handleImageUpload(file, brand.id, 'product_images', idx);
-                                }}
-                              />
-                            </label>
-                          </div>
-                        ))}
+                      <label>Product Image</label>
+                      <div className="flex gap-2">
+                        <input
+                          value={brand.product_images?.[0] || ''}
+                          onChange={e => {
+                            const imgs = [e.target.value];
+                            const updated = { ...brand, product_images: imgs };
+                            setBrands(brands.map(b => b.id === brand.id ? updated : b));
+                          }}
+                          className="flex-1 border rounded p-2"
+                        />
+                        <label className="cursor-pointer bg-ink-100 p-2 rounded">
+                          <Upload size={16} />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) await handleImageUpload(file, brand.id, 'product_images', 0);
+                            }}
+                          />
+                        </label>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -438,25 +417,21 @@ export default function BrandsManager() {
                       primaryColor={brand.primary_color}
                       secondaryColor={brand.secondary_color}
                       logoUrl={brand.logo_url}
-                      productImages={brand.product_images?.filter(Boolean) || []}
+                      productImage={brand.product_images?.[0] || 'https://via.placeholder.com/120/CCCCCC/999999?text=Product'}
                     />
                   </div>
                 </div>
               ) : (
-                // ---- VIEW MODE (preview hidden by default, toggled with eye button) ----
+                // ---- VIEW MODE (preview only when eye clicked, no placeholder) ----
                 <div className="flex flex-col md:flex-row gap-4 items-center">
-                  {previewBrandId === brand.id ? (
+                  {previewBrandId === brand.id && (
                     <BrandCard
                       brandName={brand.name}
                       primaryColor={brand.primary_color}
                       secondaryColor={brand.secondary_color}
                       logoUrl={brand.logo_url}
-                      productImages={brand.product_images?.filter(Boolean) || []}
+                      productImage={brand.product_images?.[0] || 'https://via.placeholder.com/120/CCCCCC/999999?text=Product'}
                     />
-                  ) : (
-                    <div className="w-32 h-40 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
-                      Preview hidden
-                    </div>
                   )}
                   <div className="flex-1">
                     <h3 className="font-bold text-lg">{brand.name}</h3>
@@ -470,12 +445,8 @@ export default function BrandsManager() {
                         {previewBrandId === brand.id ? <EyeOff size={14} /> : <Eye size={14} />}
                         {previewBrandId === brand.id ? 'Hide' : 'Preview'}
                       </button>
-                      <button onClick={() => setEditingId(brand.id)} className="px-3 py-1 bg-brand-50 text-brand-600 rounded">
-                        Edit
-                      </button>
-                      <button onClick={() => handleDelete(brand.id)} className="px-3 py-1 bg-red-50 text-red-500 rounded">
-                        Delete
-                      </button>
+                      <button onClick={() => setEditingId(brand.id)} className="px-3 py-1 bg-brand-50 text-brand-600 rounded">Edit</button>
+                      <button onClick={() => handleDelete(brand.id)} className="px-3 py-1 bg-red-50 text-red-500 rounded">Delete</button>
                     </div>
                   </div>
                 </div>

@@ -16,8 +16,6 @@ const json = (body: Record<string, unknown>, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-// Maps the short audience labels from the admin UI to the actual app_role
-// enum values stored in the user_roles table.
 const AUDIENCE_MAP: Record<string, string> = {
   admin: "admin",
   warehouse: "warehouse_manager",
@@ -54,14 +52,12 @@ Deno.serve(async (req: Request) => {
     });
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify the caller's identity using the anon client (respects RLS)
     const { data: { user }, error: userError } = await supabaseAnon.auth.getUser();
     if (userError || !user) {
       console.log("[send-push] Invalid user:", userError?.message);
       return json({ error: "Invalid token" }, 401);
     }
 
-    // Check admin role using the service client (bypasses RLS)
     const { data: roleData, error: roleError } = await supabaseService
       .from("user_roles")
       .select("role")
@@ -73,23 +69,35 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Forbidden" }, 403);
     }
 
+    // ── Parse Full Payload from Frontend ──
     const body = await req.json() as {
       title?: string;
       body?: string;
       data?: Record<string, unknown>;
       audience?: "all" | "admin" | "warehouse" | "delivery";
+      image?: string;
+      deepLink?: string;
+      buttons?: { id: string; text: string }[];
+      badgeCount?: number;
+      scheduledAt?: string;
+      largeIcon?: string;
+      iosCategory?: string;
+      channelId?: string;
+      accentColor?: string;
+      smallIcon?: string;
     };
 
     const title = (body.title ?? "").trim();
     const messageBody = (body.body ?? "").trim();
     const data = body.data ?? {};
     const audience = body.audience ?? "all";
+    const smallIcon = body.smallIcon?.trim() || "ic_stat_stackknit";
 
     if (!title || !messageBody) {
       return json({ error: "Title and body are required" }, 400);
     }
 
-    // ── Fetch player IDs ───────────────────────────────────────────
+    // ── Fetch player IDs ──
     let playerIds: string[] = [];
 
     if (audience === "all") {
@@ -104,9 +112,6 @@ Deno.serve(async (req: Request) => {
         .map((s) => s.onesignal_player_id)
         .filter((id): id is string => Boolean(id));
     } else {
-      // Filter by role: fetch users with the requested role first, then
-      // fetch their subscriptions. Two-step because user_roles and
-      // user_push_subscriptions have no FK relationship exposed to PostgREST.
       const dbRole = AUDIENCE_MAP[audience] ?? audience;
       const { data: roleUsers, error: roleUsersError } = await supabaseService
         .from("user_roles")
@@ -138,14 +143,67 @@ Deno.serve(async (req: Request) => {
       return json({ message: "No subscribers found", sent: 0 }, 200);
     }
 
-    // ── Send to OneSignal ──────────────────────────────────────────
-    const onesignalPayload = {
+    // ── Build OneSignal payload ──
+    const onesignalPayload: Record<string, unknown> = {
       app_id: ONESIGNAL_APP_ID,
       include_player_ids: playerIds,
       headings: { en: title },
       contents: { en: messageBody },
       data,
     };
+
+    onesignalPayload.small_icon = smallIcon;
+
+    if (body.largeIcon) {
+      onesignalPayload.large_icon = body.largeIcon;
+    }
+
+    if (body.channelId) {
+      onesignalPayload.android_channel_id = body.channelId;
+    }
+
+    // ── FIX: ARGB Hex Parsing without Hash ──
+    if (body.accentColor) {
+      // Strip any '#' and ensure it is uppercase
+      let cleanColor = body.accentColor.replace(/^#/, "").toUpperCase();
+      
+      // If the frontend sends a 6-character RGB (e.g., 007AFF), 
+      // prepend 'FF' to make it a fully opaque ARGB value (e.g., FF007AFF)
+      if (cleanColor.length === 6) {
+        cleanColor = "FF" + cleanColor;
+      }
+      
+      onesignalPayload.android_accent_color = cleanColor;
+    }
+
+    if (body.image) {
+      onesignalPayload.big_picture = body.image;
+      onesignalPayload.ios_attachments = { image1: body.image };
+    }
+
+    if (body.deepLink) {
+      onesignalPayload.app_url = body.deepLink;
+    }
+
+    if (body.buttons && body.buttons.length > 0) {
+      onesignalPayload.buttons = body.buttons;
+    }
+
+    if (body.badgeCount !== undefined) {
+      onesignalPayload.ios_badgeType = "SetTo";
+      onesignalPayload.ios_badgeCount = body.badgeCount;
+    }
+
+    if (body.scheduledAt) {
+      onesignalPayload.send_after = body.scheduledAt;
+    }
+
+    if (body.iosCategory) {
+      onesignalPayload.ios_category = body.iosCategory;
+    }
+
+    // ── Log the payload to the edge function logs ──
+    console.log("[send-push] Final OneSignal payload:", JSON.stringify(onesignalPayload, null, 2));
 
     const response = await fetch("https://onesignal.com/api/v1/notifications", {
       method: "POST",
@@ -157,8 +215,8 @@ Deno.serve(async (req: Request) => {
     });
 
     const result = await response.json();
+    console.log("[send-push] OneSignal response:", JSON.stringify(result, null, 2));
 
-    // ── Log the notification in the DB ─────────────────────────────
     await supabaseService.from("push_notifications").insert({
       title,
       body: messageBody,

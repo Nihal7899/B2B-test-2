@@ -244,57 +244,67 @@ function App() {
         if (!OneSignal?.Notifications) return;
 
         OneSignal.Notifications.addEventListener('click', (event: any) => {
-          const actionId = event.actionId;
+          // FIX: In OneSignal v5, actionId is nested inside event.result
+          const actionId = event.result?.actionId;
           const additionalData = event.notification?.additionalData || {};
 
-          if (!actionId) {
-            navigate(pathFor('home'));
-            return;
-          }
-
-          switch (actionId) {
-            case 'view_order': {
-              const orderId = additionalData.order_id;
-              navigate(orderId ? pathFor('orderDetail', { id: orderId }) : pathFor('orders'));
-              break;
-            }
-            case 'view_product': {
-              const productId = additionalData.product_id;
-              navigate(productId ? pathFor('product', { id: productId }) : pathFor('home'));
-              break;
-            }
-            case 'view_cart':
-              navigate(pathFor('cart'));
-              break;
-            case 'track_delivery': {
-              const orderId = additionalData.order_id;
-              navigate(orderId ? pathFor('orderDetail', { id: orderId }) : pathFor('orders'));
-              break;
-            }
-            case 'contact_support': {
-              const supportUrl = additionalData.support_url || 'tel:+123456789';
-              window.open(supportUrl, '_system');
-              break;
-            }
-            case 'accept':
-            case 'decline': {
-              const orderId = additionalData.order_id;
-              if (orderId) {
-                navigate(pathFor('orders'));
+          // If a specific action button was clicked
+          if (actionId) {
+            switch (actionId) {
+              case 'view_order': {
+                const orderId = additionalData.order_id;
+                navigate(orderId ? pathFor('orderDetail', { id: orderId }) : pathFor('orders'));
+                break;
               }
-              break;
+              case 'view_product': {
+                const productId = additionalData.product_id;
+                navigate(productId ? pathFor('product', { id: productId }) : pathFor('home'));
+                break;
+              }
+              case 'view_cart':
+                navigate(pathFor('cart'));
+                break;
+              case 'track_delivery': {
+                const orderId = additionalData.order_id;
+                navigate(orderId ? pathFor('orderDetail', { id: orderId }) : pathFor('orders'));
+                break;
+              }
+              case 'contact_support': {
+                const supportUrl = additionalData.support_url || 'tel:+123456789';
+                window.open(supportUrl, '_system');
+                break;
+              }
+              case 'accept':
+              case 'decline': {
+                const orderId = additionalData.order_id;
+                if (orderId) {
+                  navigate(pathFor('orders'));
+                }
+                break;
+              }
+              default:
+                navigate(pathFor('home'));
             }
-            default:
+          } 
+          // FIX: If the user tapped the notification body (no button clicked)
+          else {
+            if (additionalData.order_id) {
+              navigate(pathFor('orderDetail', { id: additionalData.order_id }));
+            } else if (additionalData.product_id) {
+              navigate(pathFor('product', { id: additionalData.product_id }));
+            } else {
               navigate(pathFor('home'));
+            }
           }
         });
       } catch (e) {
-        // ignore
+        console.error("OneSignal setup error:", e);
       }
     };
 
     setupListener();
   }, [user]);
+
 
   // ==========================================================
   // NAVIGATION

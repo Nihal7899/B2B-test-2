@@ -32,15 +32,6 @@ const CROP_OPTIONS = [
   { value: 'square', label: 'Square (1:1)', aspect: 1, width: 256, height: 256 },
 ];
 
-// ── Small icon presets ──
-const SMALL_ICON_PRESETS = [
-  { value: 'ic_stat_stackknit', label: 'StackKnit Logo' },
-  { value: 'ic_notification', label: 'Default Notification' },
-  { value: 'ic_launcher', label: 'App Launcher' },
-  { value: 'ic_small', label: 'Small Icon' },
-  // add more as needed
-];
-
 interface ActionButton {
   id: string;
   text: string;
@@ -72,13 +63,14 @@ export function PushNotificationSender() {
   const [iosCategory, setIosCategory] = useState('');
   const [iosCategoryPreset, setIosCategoryPreset] = useState('custom');
 
-  // ── Android accent colour ──
+  // ── Android accent colour (with # for display) ──
   const [accentColor, setAccentColor] = useState('#007AFF');
 
   // ── Small icon state ──
-  const [smallIcon, setSmallIcon] = useState('ic_stat_stackknit');
-  const [smallIconPreset, setSmallIconPreset] = useState('ic_stat_stackknit');
-  const [smallIconCustom, setSmallIconCustom] = useState('');
+  // We'll store the selected small icon name (resource name) in `smallIcon`
+  const [smallIcon, setSmallIcon] = useState('');
+  // All available small icon names from the channels table (distinct)
+  const [availableSmallIcons, setAvailableSmallIcons] = useState<string[]>([]);
 
   // ── Channel state ──
   const [channels, setChannels] = useState<NotificationChannel[]>([]);
@@ -114,50 +106,50 @@ export function PushNotificationSender() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const largeIconInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Fetch channels on mount ──
+  // ── Fetch channels and small icons on mount ──
   useEffect(() => {
-    fetchChannels();
+    fetchChannelsAndIcons();
   }, []);
 
-  const fetchChannels = async () => {
+  const fetchChannelsAndIcons = async () => {
     setLoadingChannels(true);
     try {
-      const { data, error } = await supabase
+      // Fetch channels
+      const { data: channelsData, error: channelsError } = await supabase
         .from('notification_channels')
         .select('*')
         .order('name');
-      if (error) throw error;
-      setChannels(data || []);
-      if (data && data.length > 0 && !selectedChannelId) {
-        const first = data[0];
+      if (channelsError) throw channelsError;
+      setChannels(channelsData || []);
+
+      // Fetch distinct small_icon values
+      const { data: iconData, error: iconError } = await supabase
+        .from('notification_channels')
+        .select('small_icon')
+        .not('small_icon', 'is', null);
+      if (iconError) throw iconError;
+      const icons = iconData
+        .map(row => row.small_icon)
+        .filter((icon): icon is string => typeof icon === 'string' && icon.trim() !== '');
+      // Remove duplicates
+      const uniqueIcons = Array.from(new Set(icons));
+      setAvailableSmallIcons(uniqueIcons);
+
+      // Auto‑select first channel if none selected
+      if (channelsData && channelsData.length > 0 && !selectedChannelId) {
+        const first = channelsData[0];
         setSelectedChannelId(first.channel_id);
-        if (first.small_icon) {
-          updateSmallIconFromName(first.small_icon);
+        if (first.small_icon && uniqueIcons.includes(first.small_icon)) {
+          setSmallIcon(first.small_icon);
         } else {
-          setSmallIcon('ic_stat_stackknit');
-          setSmallIconPreset('ic_stat_stackknit');
-          setSmallIconCustom('');
+          setSmallIcon('');
         }
       }
     } catch (err: any) {
-      console.error('Failed to fetch channels:', err);
+      console.error('Failed to fetch data:', err);
       toast.error('Could not load notification channels');
     } finally {
       setLoadingChannels(false);
-    }
-  };
-
-  // ── Helper to update small icon from a name ──
-  const updateSmallIconFromName = (name: string) => {
-    const preset = SMALL_ICON_PRESETS.find(p => p.value === name);
-    if (preset) {
-      setSmallIconPreset(name);
-      setSmallIcon(name);
-      setSmallIconCustom('');
-    } else {
-      setSmallIconPreset('custom');
-      setSmallIcon(name);
-      setSmallIconCustom(name);
     }
   };
 
@@ -165,31 +157,26 @@ export function PushNotificationSender() {
   const handleChannelChange = (channelId: string) => {
     setSelectedChannelId(channelId);
     const channel = channels.find(ch => ch.channel_id === channelId);
-    if (channel?.small_icon) {
-      updateSmallIconFromName(channel.small_icon);
+    if (channel?.small_icon && availableSmallIcons.includes(channel.small_icon)) {
+      setSmallIcon(channel.small_icon);
     } else {
-      setSmallIcon('ic_stat_stackknit');
-      setSmallIconPreset('ic_stat_stackknit');
-      setSmallIconCustom('');
+      // If the channel's small icon is not in the list (e.g., it was just added but we haven't refreshed)
+      // We'll still set it if it exists, but we'll also refresh the list.
+      if (channel?.small_icon) {
+        setSmallIcon(channel.small_icon);
+        // Optionally add it to the available list if not present
+        if (!availableSmallIcons.includes(channel.small_icon)) {
+          setAvailableSmallIcons(prev => [...prev, channel.small_icon!]);
+        }
+      } else {
+        setSmallIcon('');
+      }
     }
   };
 
-  // ── Small icon preset change ──
-  const handleSmallIconPresetChange = (value: string) => {
-    setSmallIconPreset(value);
-    if (value === 'custom') {
-      setSmallIcon(smallIconCustom || '');
-    } else {
-      setSmallIcon(value);
-      setSmallIconCustom('');
-    }
-  };
-
-  const handleSmallIconCustomChange = (value: string) => {
-    setSmallIconCustom(value);
-    if (smallIconPreset === 'custom') {
-      setSmallIcon(value);
-    }
+  // ── Small icon dropdown change ──
+  const handleSmallIconChange = (value: string) => {
+    setSmallIcon(value);
   };
 
   // ── Image upload helpers ──
@@ -294,10 +281,10 @@ export function PushNotificationSender() {
       setNewChannelDescription('');
       setNewChannelSmallIcon('');
       setShowAddChannel(false);
-      await fetchChannels();
+      await fetchChannelsAndIcons(); // Refresh list and small icons
       setSelectedChannelId(trimmedId);
       if (newChannelSmallIcon.trim()) {
-        updateSmallIconFromName(newChannelSmallIcon.trim());
+        setSmallIcon(newChannelSmallIcon.trim());
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to add channel');
@@ -340,12 +327,14 @@ export function PushNotificationSender() {
       if (error) throw error;
       toast.success('Channel updated');
       cancelEdit();
-      await fetchChannels();
+      await fetchChannelsAndIcons();
       // Update selected channel if needed
       const updated = channels.find(ch => ch.id === channelId);
       if (updated && updated.channel_id === selectedChannelId) {
         if (updated.small_icon) {
-          updateSmallIconFromName(updated.small_icon);
+          setSmallIcon(updated.small_icon);
+        } else {
+          setSmallIcon('');
         }
       }
     } catch (err: any) {
@@ -367,11 +356,9 @@ export function PushNotificationSender() {
       toast.success('Channel deleted');
       if (channel.channel_id === selectedChannelId) {
         setSelectedChannelId('');
-        setSmallIcon('ic_stat_stackknit');
-        setSmallIconPreset('ic_stat_stackknit');
-        setSmallIconCustom('');
+        setSmallIcon('');
       }
-      await fetchChannels();
+      await fetchChannelsAndIcons();
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete channel');
     }
@@ -392,6 +379,12 @@ export function PushNotificationSender() {
       return;
     }
 
+    // Prepare accent color: remove '#' if present
+    let cleanAccent = accentColor.trim();
+    if (cleanAccent.startsWith('#')) {
+      cleanAccent = cleanAccent.slice(1);
+    }
+
     const payload: any = {
       title,
       body,
@@ -406,11 +399,11 @@ export function PushNotificationSender() {
     }
     if (badgeCount !== '') payload.badgeCount = Number(badgeCount);
     if (scheduledAt) payload.scheduledAt = new Date(scheduledAt).toISOString();
-    if (smallIcon.trim()) payload.smallIcon = smallIcon.trim(); // <-- always set
+    if (smallIcon.trim()) payload.smallIcon = smallIcon.trim();
     if (largeIcon.trim()) payload.largeIcon = largeIcon.trim();
     if (iosCategory.trim()) payload.iosCategory = iosCategory.trim();
     if (selectedChannelId) payload.channelId = selectedChannelId;
-    if (accentColor) payload.accentColor = accentColor;
+    if (cleanAccent) payload.accentColor = cleanAccent; // send without '#'
 
     setLoading(true);
     try {
@@ -685,35 +678,24 @@ export function PushNotificationSender() {
         </button>
         {showAndroid && (
           <div className="mt-3 space-y-4 bg-ink-50/30 p-3 rounded-xl border border-ink-100">
-            {/* Small Icon */}
+            {/* Small Icon - dropdown from available icons */}
             <div>
               <label className="block text-sm font-medium text-ink-700">
                 Small Icon (drawable resource name)
-                <span className="text-xs text-ink-400 ml-1">(auto‑filled from channel, select or custom)</span>
+                <span className="text-xs text-ink-400 ml-1">(select from available icons)</span>
               </label>
-              <div className="flex flex-wrap items-center gap-2 mt-1">
-                <select
-                  value={smallIconPreset}
-                  onChange={(e) => handleSmallIconPresetChange(e.target.value)}
-                  className="flex-1 min-w-[150px] px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm bg-white"
-                >
-                  {SMALL_ICON_PRESETS.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                  <option value="custom">Custom...</option>
-                </select>
-                {smallIconPreset === 'custom' && (
-                  <input
-                    type="text"
-                    value={smallIconCustom}
-                    onChange={(e) => handleSmallIconCustomChange(e.target.value)}
-                    className="flex-1 min-w-[150px] px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm"
-                    placeholder="e.g. my_custom_icon"
-                  />
-                )}
-              </div>
+              <select
+                value={smallIcon}
+                onChange={(e) => handleSmallIconChange(e.target.value)}
+                className="w-full mt-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm bg-white"
+              >
+                <option value="">None</option>
+                {availableSmallIcons.map((icon) => (
+                  <option key={icon} value={icon}>
+                    {icon}
+                  </option>
+                ))}
+              </select>
               {smallIcon && (
                 <p className="text-xs text-ink-400 mt-1">
                   Using: <span className="font-mono">{smallIcon}</span>

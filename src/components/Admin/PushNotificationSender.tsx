@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
 import toast from 'react-hot-toast';
-import { X, Plus, ChevronDown, ChevronRight, Upload, Trash2, Pencil, Save, Ban } from 'lucide-react';
+import { X, Plus, ChevronDown, ChevronRight, Upload, Trash2, Pencil, Save } from 'lucide-react';
 
 // ── Button presets ──
 const BUTTON_PRESETS = [
@@ -32,13 +32,21 @@ const CROP_OPTIONS = [
   { value: 'square', label: 'Square (1:1)', aspect: 1, width: 256, height: 256 },
 ];
 
+// ── Small icon presets ──
+const SMALL_ICON_PRESETS = [
+  { value: 'ic_stat_stackknit', label: 'StackKnit Logo' },
+  { value: 'ic_notification', label: 'Default Notification' },
+  { value: 'ic_launcher', label: 'App Launcher' },
+  { value: 'ic_small', label: 'Small Icon' },
+  // add more as needed
+];
+
 interface ActionButton {
   id: string;
   text: string;
   preset?: string;
 }
 
-// ── Channel type ──
 interface NotificationChannel {
   id: string;
   channel_id: string;
@@ -49,6 +57,8 @@ interface NotificationChannel {
 
 export function PushNotificationSender() {
   const { user } = useAuth();
+
+  // ── Notification fields ──
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [dataJson, setDataJson] = useState('{}');
@@ -58,20 +68,24 @@ export function PushNotificationSender() {
   const [buttons, setButtons] = useState<ActionButton[]>([{ id: 'view_order', text: 'View Order', preset: 'view_order' }]);
   const [badgeCount, setBadgeCount] = useState<number | ''>('');
   const [scheduledAt, setScheduledAt] = useState('');
-  const [smallIcon, setSmallIcon] = useState('');
   const [largeIcon, setLargeIcon] = useState('');
   const [iosCategory, setIosCategory] = useState('');
   const [iosCategoryPreset, setIosCategoryPreset] = useState('custom');
 
-  // ── Accent colour ──
+  // ── Android accent colour ──
   const [accentColor, setAccentColor] = useState('#007AFF');
+
+  // ── Small icon state ──
+  const [smallIcon, setSmallIcon] = useState('ic_stat_stackknit');
+  const [smallIconPreset, setSmallIconPreset] = useState('ic_stat_stackknit');
+  const [smallIconCustom, setSmallIconCustom] = useState('');
 
   // ── Channel state ──
   const [channels, setChannels] = useState<NotificationChannel[]>([]);
   const [loadingChannels, setLoadingChannels] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState('');
 
-  // ── Add channel form state ──
+  // ── Add channel form ──
   const [showAddChannel, setShowAddChannel] = useState(false);
   const [newChannelId, setNewChannelId] = useState('');
   const [newChannelName, setNewChannelName] = useState('');
@@ -79,17 +93,18 @@ export function PushNotificationSender() {
   const [newChannelSmallIcon, setNewChannelSmallIcon] = useState('');
   const [addingChannel, setAddingChannel] = useState(false);
 
-  // ── Edit channel state ──
+  // ── Edit channel ──
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editSmallIcon, setEditSmallIcon] = useState('');
   const [updatingChannel, setUpdatingChannel] = useState(false);
 
-  // Crop selection for rich media upload
+  // ── Crop selections ──
   const [selectedImageCrop, setSelectedImageCrop] = useState('landscape');
   const [selectedLargeIconCrop, setSelectedLargeIconCrop] = useState('square');
 
+  // ── Loading & UI state ──
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingLargeIcon, setUploadingLargeIcon] = useState(false);
@@ -113,11 +128,16 @@ export function PushNotificationSender() {
         .order('name');
       if (error) throw error;
       setChannels(data || []);
-      // Auto‑select first channel if none selected
       if (data && data.length > 0 && !selectedChannelId) {
         const first = data[0];
         setSelectedChannelId(first.channel_id);
-        if (first.small_icon) setSmallIcon(first.small_icon);
+        if (first.small_icon) {
+          updateSmallIconFromName(first.small_icon);
+        } else {
+          setSmallIcon('ic_stat_stackknit');
+          setSmallIconPreset('ic_stat_stackknit');
+          setSmallIconCustom('');
+        }
       }
     } catch (err: any) {
       console.error('Failed to fetch channels:', err);
@@ -127,18 +147,52 @@ export function PushNotificationSender() {
     }
   };
 
+  // ── Helper to update small icon from a name ──
+  const updateSmallIconFromName = (name: string) => {
+    const preset = SMALL_ICON_PRESETS.find(p => p.value === name);
+    if (preset) {
+      setSmallIconPreset(name);
+      setSmallIcon(name);
+      setSmallIconCustom('');
+    } else {
+      setSmallIconPreset('custom');
+      setSmallIcon(name);
+      setSmallIconCustom(name);
+    }
+  };
+
   // ── Handle channel selection ──
   const handleChannelChange = (channelId: string) => {
     setSelectedChannelId(channelId);
     const channel = channels.find(ch => ch.channel_id === channelId);
     if (channel?.small_icon) {
-      setSmallIcon(channel.small_icon);
+      updateSmallIconFromName(channel.small_icon);
     } else {
-      setSmallIcon('');
+      setSmallIcon('ic_stat_stackknit');
+      setSmallIconPreset('ic_stat_stackknit');
+      setSmallIconCustom('');
     }
   };
 
-  // ── Image upload helpers (unchanged) ──
+  // ── Small icon preset change ──
+  const handleSmallIconPresetChange = (value: string) => {
+    setSmallIconPreset(value);
+    if (value === 'custom') {
+      setSmallIcon(smallIconCustom || '');
+    } else {
+      setSmallIcon(value);
+      setSmallIconCustom('');
+    }
+  };
+
+  const handleSmallIconCustomChange = (value: string) => {
+    setSmallIconCustom(value);
+    if (smallIconPreset === 'custom') {
+      setSmallIcon(value);
+    }
+  };
+
+  // ── Image upload helpers ──
   const uploadFile = async (
     file: File,
     setUrl: (url: string) => void,
@@ -204,7 +258,7 @@ export function PushNotificationSender() {
     setButtons(updated);
   };
 
-  // ── iOS Category handlers ──
+  // ── iOS Category ──
   const handleIosCategoryPreset = (presetId: string) => {
     setIosCategoryPreset(presetId);
     if (presetId === 'custom') {
@@ -242,7 +296,9 @@ export function PushNotificationSender() {
       setShowAddChannel(false);
       await fetchChannels();
       setSelectedChannelId(trimmedId);
-      setSmallIcon(newChannelSmallIcon.trim());
+      if (newChannelSmallIcon.trim()) {
+        updateSmallIconFromName(newChannelSmallIcon.trim());
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to add channel');
     } finally {
@@ -285,10 +341,12 @@ export function PushNotificationSender() {
       toast.success('Channel updated');
       cancelEdit();
       await fetchChannels();
-      // If the currently selected channel was edited, update the small icon
+      // Update selected channel if needed
       const updated = channels.find(ch => ch.id === channelId);
       if (updated && updated.channel_id === selectedChannelId) {
-        setSmallIcon(updated.small_icon || '');
+        if (updated.small_icon) {
+          updateSmallIconFromName(updated.small_icon);
+        }
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to update channel');
@@ -307,10 +365,11 @@ export function PushNotificationSender() {
         .eq('id', channel.id);
       if (error) throw error;
       toast.success('Channel deleted');
-      // If the deleted channel was selected, reset selection
       if (channel.channel_id === selectedChannelId) {
         setSelectedChannelId('');
-        setSmallIcon('');
+        setSmallIcon('ic_stat_stackknit');
+        setSmallIconPreset('ic_stat_stackknit');
+        setSmallIconCustom('');
       }
       await fetchChannels();
     } catch (err: any) {
@@ -347,18 +406,18 @@ export function PushNotificationSender() {
     }
     if (badgeCount !== '') payload.badgeCount = Number(badgeCount);
     if (scheduledAt) payload.scheduledAt = new Date(scheduledAt).toISOString();
-    if (smallIcon.trim()) payload.smallIcon = smallIcon.trim();
+    if (smallIcon.trim()) payload.smallIcon = smallIcon.trim(); // <-- always set
     if (largeIcon.trim()) payload.largeIcon = largeIcon.trim();
     if (iosCategory.trim()) payload.iosCategory = iosCategory.trim();
     if (selectedChannelId) payload.channelId = selectedChannelId;
-    if (accentColor) payload.accentColor = accentColor; // hex string
+    if (accentColor) payload.accentColor = accentColor;
 
     setLoading(true);
     try {
       const { error } = await supabase.functions.invoke('send-push-notification', { body: payload });
       if (error) throw error;
       toast.success('Notification sent successfully');
-      // Reset form (keep channel, accent colour, and small icon)
+      // Reset form (keep channel, accent, small icon)
       setTitle('');
       setBody('');
       setDataJson('{}');
@@ -626,19 +685,40 @@ export function PushNotificationSender() {
         </button>
         {showAndroid && (
           <div className="mt-3 space-y-4 bg-ink-50/30 p-3 rounded-xl border border-ink-100">
-            {/* Small Icon - auto‑filled */}
+            {/* Small Icon */}
             <div>
               <label className="block text-sm font-medium text-ink-700">
                 Small Icon (drawable resource name)
-                <span className="text-xs text-ink-400 ml-1">(auto‑filled from channel, editable)</span>
+                <span className="text-xs text-ink-400 ml-1">(auto‑filled from channel, select or custom)</span>
               </label>
-              <input
-                type="text"
-                value={smallIcon}
-                onChange={(e) => setSmallIcon(e.target.value)}
-                className="w-full mt-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500"
-                placeholder="ic_small_icon"
-              />
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <select
+                  value={smallIconPreset}
+                  onChange={(e) => handleSmallIconPresetChange(e.target.value)}
+                  className="flex-1 min-w-[150px] px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm bg-white"
+                >
+                  {SMALL_ICON_PRESETS.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                  <option value="custom">Custom...</option>
+                </select>
+                {smallIconPreset === 'custom' && (
+                  <input
+                    type="text"
+                    value={smallIconCustom}
+                    onChange={(e) => handleSmallIconCustomChange(e.target.value)}
+                    className="flex-1 min-w-[150px] px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm"
+                    placeholder="e.g. my_custom_icon"
+                  />
+                )}
+              </div>
+              {smallIcon && (
+                <p className="text-xs text-ink-400 mt-1">
+                  Using: <span className="font-mono">{smallIcon}</span>
+                </p>
+              )}
             </div>
 
             {/* Large Icon */}
@@ -791,7 +871,7 @@ export function PushNotificationSender() {
         {loading ? 'Sending...' : 'Send Notification'}
       </button>
 
-      {/* ── Channel Management Section ── */}
+      {/* ── Channel Management ── */}
       <div className="border-t border-ink-100 pt-4 mt-2">
         <button
           type="button"
@@ -867,14 +947,14 @@ export function PushNotificationSender() {
           </form>
         )}
 
-        {/* ── List of channels with edit/delete ── */}
+        {/* ── List of channels ── */}
         {channels.length > 0 && (
           <div className="mt-4 space-y-2">
             <h4 className="text-sm font-semibold text-ink-700">Existing Channels</h4>
             {channels.map((channel) => (
               <div key={channel.id} className="border border-ink-200 rounded-lg p-2 bg-ink-50/30">
                 {editingChannelId === channel.id ? (
-                  // ── Edit mode ──
+                  // Edit mode
                   <div className="space-y-2">
                     <div>
                       <label className="block text-xs font-medium text-ink-700">Name</label>
@@ -923,7 +1003,7 @@ export function PushNotificationSender() {
                     </div>
                   </div>
                 ) : (
-                  // ── View mode ──
+                  // View mode
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="font-medium text-ink-800">{channel.name}</span>

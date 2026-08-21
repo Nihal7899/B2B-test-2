@@ -9,14 +9,13 @@ interface BrandCardProps {
   logoUrl: string;
   productImage: string;
   productImages?: string[];
-  // NEW editable fields
+  // editable fields
   tagline?: string;
   categories?: string[];
   bottomLabel?: string;
   bottomIcon?: 'shield' | 'crown' | 'leaf';
 }
 
-// Default content (fallback)
 const DEFAULT_CONTENT = {
   tagline: 'Quality You Can Trust',
   categories: ['Premium', 'Quality', 'Trusted'],
@@ -24,7 +23,6 @@ const DEFAULT_CONTENT = {
   bottomIcon: 'shield' as const,
 };
 
-// Helper to get content from props or fallback
 const getBrandContent = (props: BrandCardProps) => ({
   tagline: props.tagline || DEFAULT_CONTENT.tagline,
   categories: props.categories && props.categories.length > 0 ? props.categories : DEFAULT_CONTENT.categories,
@@ -80,7 +78,6 @@ export function BrandCard(props: BrandCardProps) {
   const { brandName, primaryColor, secondaryColor, logoUrl, productImage, productImages = [] } = props;
   const content = getBrandContent(props);
 
-  // Use the first product image (or fallback)
   const image = productImages.find(Boolean) || productImage || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product';
 
   const primaryRgb = hexToRgb(primaryColor);
@@ -92,8 +89,8 @@ export function BrandCard(props: BrandCardProps) {
       className="
         group
         relative
-        h-[300px]            /* increased height for better spacing */
-        w-[200px]
+        h-[270px]            /* reduced by 10% */
+        w-[180px]            /* reduced by 10% */
         flex-shrink-0
         overflow-hidden
         rounded-[25px]
@@ -133,44 +130,44 @@ export function BrandCard(props: BrandCardProps) {
       />
       <div className="absolute -right-10 top-20 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
 
-      {/* Abstract Graphics */}
-      <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]" viewBox="0 0 200 300" preserveAspectRatio="none">
-        <circle cx="-10" cy="55" r="58" fill="none" stroke="white" strokeWidth="1" />
-        <circle cx="-10" cy="55" r="44" fill="none" stroke="white" strokeWidth="1" />
-        <circle cx="210" cy="82" r="38" fill="none" stroke="white" strokeWidth="1" />
-        <path d="M-20 175 C45 140 100 170 225 125" fill="none" stroke="white" strokeWidth="1.2" />
-        <path d="M-20 183 C50 148 108 178 225 133" fill="none" stroke="white" strokeWidth="0.8" />
-        <circle cx="168" cy="38" r="2" fill="white" />
-        <circle cx="180" cy="48" r="1.5" fill="white" />
-        <circle cx="157" cy="49" r="1" fill="white" />
+      {/* Abstract Graphics (adjusted viewBox to 180x270) */}
+      <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]" viewBox="0 0 180 270" preserveAspectRatio="none">
+        <circle cx="-10" cy="50" r="50" fill="none" stroke="white" strokeWidth="1" />
+        <circle cx="-10" cy="50" r="36" fill="none" stroke="white" strokeWidth="1" />
+        <circle cx="190" cy="74" r="34" fill="none" stroke="white" strokeWidth="1" />
+        <path d="M-20 158 C40 126 90 153 205 112" fill="none" stroke="white" strokeWidth="1.2" />
+        <path d="M-20 165 C45 133 97 160 205 120" fill="none" stroke="white" strokeWidth="0.8" />
+        <circle cx="150" cy="34" r="2" fill="white" />
+        <circle cx="162" cy="43" r="1.5" fill="white" />
+        <circle cx="141" cy="44" r="1" fill="white" />
       </svg>
 
       {/* Top Dot Pattern */}
-      <div className="absolute right-4 top-4 z-10 grid grid-cols-3 gap-[4px] opacity-25">
+      <div className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-[3px] opacity-25">
         {Array.from({ length: 9 }).map((_, i) => (
-          <span key={i} className="h-[3px] w-[3px] rounded-full bg-white" />
+          <span key={i} className="h-[2.5px] w-[2.5px] rounded-full bg-white" />
         ))}
       </div>
 
-      {/* Logo */}
+      {/* Logo (slightly smaller) */}
       <div
         className="
-          absolute left-1/2 top-[15px] z-30
-          flex h-[64px] w-[76px] -translate-x-1/2
-          items-center justify-center rounded-[18px]
-          border border-white/70 bg-white p-[9px]
+          absolute left-1/2 top-[14px] z-30
+          flex h-[58px] w-[70px] -translate-x-1/2
+          items-center justify-center rounded-[16px]
+          border border-white/70 bg-white p-[8px]
           shadow-[0_7px_18px_rgba(0,0,0,0.17)]
           transition-transform duration-500 group-hover:scale-[1.04]
         "
       >
         <img src={logoUrl} alt={`${brandName} logo`} className="max-h-full max-w-full object-contain" loading="lazy" />
-        <span className="absolute right-[5px] top-[5px] flex h-[8px] w-[8px] rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.7)]" />
+        <span className="absolute right-[4px] top-[4px] flex h-[7px] w-[7px] rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.7)]" />
       </div>
 
-      {/* Brand Name + Tagline */}
-      <div className="absolute left-3 right-3 top-[86px] z-20 text-center">
+      {/* Brand Name + Tagline (adjusted top) */}
+      <div className="absolute left-3 right-3 top-[76px] z-20 text-center">
         <h3
-          className="truncate text-[20px] font-extrabold leading-tight tracking-[-0.035em]"
+          className="truncate text-[18px] font-extrabold leading-tight tracking-[-0.035em]"
           style={{
             color: textColor,
             textShadow: isLightBackground ? '0 1px 2px rgba(255,255,255,0.5)' : '0 2px 7px rgba(0,0,0,0.22)',
@@ -179,7 +176,7 @@ export function BrandCard(props: BrandCardProps) {
           {brandName}
         </h3>
         <p
-          className="mt-1 truncate text-[10px] font-medium"
+          className="mt-1 truncate text-[9px] font-medium"
           style={{ color: textColor, opacity: 0.86 }}
         >
           {content.tagline}
@@ -187,11 +184,11 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* Category Pills – moved down to avoid overlap */}
-      <div className="absolute left-2 right-2 top-[128px] z-30 flex justify-center gap-1.5">
+      <div className="absolute left-2 right-2 top-[120px] z-30 flex justify-center gap-1.5">
         {content.categories.slice(0, 3).map((cat) => (
           <span
             key={cat}
-            className="rounded-full border border-white/25 bg-white/[0.08] px-2 py-[3px] text-[7px] font-semibold tracking-wide text-white backdrop-blur-sm"
+            className="rounded-full border border-white/25 bg-white/[0.08] px-2 py-[2px] text-[6.5px] font-semibold tracking-wide text-white backdrop-blur-sm"
           >
             {cat}
           </span>
@@ -203,10 +200,10 @@ export function BrandCard(props: BrandCardProps) {
         {/* Background glow behind product */}
         <div className="absolute bottom-0 left-1/2 h-full w-[140%] -translate-x-1/2 rounded-full bg-white/20 blur-2xl" />
         {/* Shadow ellipse */}
-        <div className="absolute bottom-[-10px] left-1/2 h-[60px] w-[180px] -translate-x-1/2 rounded-[50%] bg-black/20 blur-md" />
+        <div className="absolute bottom-[-8px] left-1/2 h-[50px] w-[160px] -translate-x-1/2 rounded-[50%] bg-black/20 blur-md" />
 
         {/* Product image */}
-        <div className="absolute bottom-0 left-1/2 z-20 h-[110%] w-[70%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-1 group-hover:scale-[1.04]">
+        <div className="absolute bottom-0 left-1/2 z-20 h-[105%] w-[70%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-1 group-hover:scale-[1.04]">
           <img
             src={image}
             alt={`${brandName} product`}
@@ -219,8 +216,8 @@ export function BrandCard(props: BrandCardProps) {
       {/* Bottom Strip */}
       <div
         className="
-          absolute bottom-[9px] left-1/2 z-40
-          flex h-[25px] w-[148px] -translate-x-1/2
+          absolute bottom-[8px] left-1/2 z-40
+          flex h-[22px] w-[140px] -translate-x-1/2
           items-center justify-center gap-1.5
           rounded-full border border-white/25 bg-white/[0.10] px-3
           text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]
@@ -228,13 +225,13 @@ export function BrandCard(props: BrandCardProps) {
         "
       >
         <BottomIcon type={content.bottomIcon} />
-        <span className="truncate text-[7px] font-semibold tracking-[0.03em]">
+        <span className="truncate text-[6.5px] font-semibold tracking-[0.03em]">
           {content.bottomLabel}
         </span>
       </div>
 
       {/* Top Light */}
-      <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 h-[90px] bg-gradient-to-b from-white/[0.12] to-transparent" />
+      <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 h-[80px] bg-gradient-to-b from-white/[0.12] to-transparent" />
 
       {/* Premium Border */}
       <div className="pointer-events-none absolute inset-0 z-50 rounded-[25px] border border-white/20" />
@@ -242,7 +239,7 @@ export function BrandCard(props: BrandCardProps) {
   );
 }
 
-// BrandCarousel (unchanged except passing new props)
+// BrandCarousel
 interface BrandCarouselProps {
   brands: TrustedBrand[];
 }

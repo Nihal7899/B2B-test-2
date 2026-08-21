@@ -14,7 +14,7 @@ interface BrandCardProps {
   categories?: string[];
   bottomLabel?: string;
   bottomIcon?: 'shield' | 'crown' | 'leaf';
-  // new theme prop for backgrounds
+  // theme prop for backgrounds
   theme?: 'mesh' | 'waves' | 'grid' | 'minimal' | 'default';
 }
 
@@ -329,26 +329,33 @@ interface BrandCarouselProps {
   brands: TrustedBrand[];
 }
 
+const THEMES = ['default', 'mesh', 'waves', 'grid', 'minimal'] as const;
+
 export function BrandCarousel({ brands }: BrandCarouselProps) {
   return (
     <div className="flex gap-4 overflow-x-auto px-4 pb-3 no-scrollbar scroll-touch">
-      {brands.map((brand) => (
-        <div key={brand.id}>
-          <BrandCard
-            brandName={brand.name}
-            primaryColor={brand.primary_color || '#2563EB'}
-            secondaryColor={brand.secondary_color || '#1E3A8A'}
-            logoUrl={brand.logo_url}
-            productImage={brand.product_images?.[0] || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product'}
-            productImages={brand.product_images || []}
-            tagline={brand.tagline}
-            categories={brand.categories}
-            bottomLabel={brand.bottom_label}
-            bottomIcon={brand.bottom_icon}
-            theme="default" // You can now swap this dynamically, e.g., brand.theme || 'default'
-          />
-        </div>
-      ))}
+      {brands.map((brand, index) => {
+        // This line randomly assigns one of the new designs based on the card's position
+        const randomTheme = THEMES[index % THEMES.length];
+        
+        return (
+          <div key={brand.id}>
+            <BrandCard
+              brandName={brand.name}
+              primaryColor={brand.primary_color || '#2563EB'}
+              secondaryColor={brand.secondary_color || '#1E3A8A'}
+              logoUrl={brand.logo_url}
+              productImage={brand.product_images?.[0] || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product'}
+              productImages={brand.product_images || []}
+              tagline={brand.tagline}
+              categories={brand.categories}
+              bottomLabel={brand.bottom_label}
+              bottomIcon={brand.bottom_icon}
+              theme={randomTheme}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

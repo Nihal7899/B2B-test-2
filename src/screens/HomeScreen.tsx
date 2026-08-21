@@ -53,6 +53,7 @@ export function HomeScreen({
   const [middleBanners, setMiddleBanners] = useState<PromoBanner[]>([]);
   const [bottomBanners, setBottomBanners] = useState<PromoBanner[]>([]);
 
+  // Prefetch store config on hover (for instant loading)
   const prefetchStore = useCallback(async (storeId: string) => {
     try {
       await fetchStoreConfig(storeId);
@@ -61,6 +62,7 @@ export function HomeScreen({
     }
   }, []);
 
+  // Navigate to category detail (with gradient header)
   const openCategoryDetail = useCallback((category: Category) => {
     navigate(`/category?id=${category.id}`);
   }, [navigate]);
@@ -326,7 +328,7 @@ export function HomeScreen({
             </div>
           </section>
 
-          {/* Stores – added wrapper with px-4 and pt-2 for left margin and top spacing */}
+          {/* Stores */}
           {stores.length > 0 && (
             <div>
               <SectionHeader
@@ -334,17 +336,15 @@ export function HomeScreen({
                 subtitle="Curated collections"
                 accent="bg-purple-600"
               />
-              <div className="px-4 pt-2">
-                <StoreCarousel
-                  stores={stores}
-                  onStoreClick={onStoreClick}
-                  onPrefetch={prefetchStore}
-                />
-              </div>
+              <StoreCarousel
+                stores={stores}
+                onStoreClick={onStoreClick}
+                onPrefetch={prefetchStore}
+              />
             </div>
           )}
 
-          {/* Trusted Brands – added wrapper */}
+          {/* Trusted Brands */}
           {brands.length > 0 && (
             <div>
               <SectionHeader
@@ -352,17 +352,13 @@ export function HomeScreen({
                 subtitle="Quality you can rely on"
                 accent="bg-blue-600"
               />
-              <div className="px-4 pt-2">
-                <BrandCarousel brands={brands} />
-              </div>
+              <BrandCarousel brands={brands} />
             </div>
           )}
 
-          {/* Popular Products – added wrapper */}
+          {/* Popular Products */}
           {popular.length > 0 && (
-            <div className="px-4 pt-2">
-              <ProductCarousel title="Popular Products" products={popular} {...actions} />
-            </div>
+            <ProductCarousel title="Popular Products" products={popular} {...actions} />
           )}
 
           {/* Middle Banners */}
@@ -378,11 +374,9 @@ export function HomeScreen({
             </section>
           )}
 
-          {/* Wholesale Deals – added wrapper */}
+          {/* Wholesale Deals */}
           {deals.length > 0 && (
-            <div className="px-4 pt-2">
-              <ProductCarousel title="Wholesale Deals" products={deals} {...actions} />
-            </div>
+            <ProductCarousel title="Wholesale Deals" products={deals} {...actions} />
           )}
 
           {/* Perks */}
@@ -411,11 +405,9 @@ export function HomeScreen({
             </div>
           </section>
 
-          {/* Everyday Essentials – added wrapper */}
+          {/* Everyday Essentials */}
           {essentials.length > 0 && (
-            <div className="px-4 pt-2">
-              <ProductCarousel title="Everyday Essentials" products={essentials} {...actions} />
-            </div>
+            <ProductCarousel title="Everyday Essentials" products={essentials} {...actions} />
           )}
 
           {/* Bottom Banners */}

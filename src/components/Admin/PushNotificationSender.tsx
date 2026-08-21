@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
 import toast from 'react-hot-toast';
-import { X, Plus, ChevronDown, ChevronRight, Upload, Trash2 } from 'lucide-react';
+import { X, Plus, ChevronDown, ChevronRight, Upload, Trash2, Pencil, Save, Ban } from 'lucide-react';
 
 // ── Button presets ──
 const BUTTON_PRESETS = [
@@ -44,7 +44,7 @@ interface NotificationChannel {
   channel_id: string;
   name: string;
   description?: string;
-  small_icon?: string;           // <-- new column
+  small_icon?: string;
 }
 
 export function PushNotificationSender() {
@@ -58,10 +58,13 @@ export function PushNotificationSender() {
   const [buttons, setButtons] = useState<ActionButton[]>([{ id: 'view_order', text: 'View Order', preset: 'view_order' }]);
   const [badgeCount, setBadgeCount] = useState<number | ''>('');
   const [scheduledAt, setScheduledAt] = useState('');
-  const [smallIcon, setSmallIcon] = useState('');          // now auto‑filled from channel
+  const [smallIcon, setSmallIcon] = useState('');
   const [largeIcon, setLargeIcon] = useState('');
   const [iosCategory, setIosCategory] = useState('');
   const [iosCategoryPreset, setIosCategoryPreset] = useState('custom');
+
+  // ── Accent colour ──
+  const [accentColor, setAccentColor] = useState('#007AFF');
 
   // ── Channel state ──
   const [channels, setChannels] = useState<NotificationChannel[]>([]);
@@ -73,8 +76,15 @@ export function PushNotificationSender() {
   const [newChannelId, setNewChannelId] = useState('');
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelDescription, setNewChannelDescription] = useState('');
-  const [newChannelSmallIcon, setNewChannelSmallIcon] = useState('');   // new field
+  const [newChannelSmallIcon, setNewChannelSmallIcon] = useState('');
   const [addingChannel, setAddingChannel] = useState(false);
+
+  // ── Edit channel state ──
+  const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editSmallIcon, setEditSmallIcon] = useState('');
+  const [updatingChannel, setUpdatingChannel] = useState(false);
 
   // Crop selection for rich media upload
   const [selectedImageCrop, setSelectedImageCrop] = useState('landscape');
@@ -103,7 +113,7 @@ export function PushNotificationSender() {
         .order('name');
       if (error) throw error;
       setChannels(data || []);
-      // Auto‑select first channel and set its small icon
+      // Auto‑select first channel if none selected
       if (data && data.length > 0 && !selectedChannelId) {
         const first = data[0];
         setSelectedChannelId(first.channel_id);
@@ -117,19 +127,18 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Handle channel selection ──────────────────────────────────
+  // ── Handle channel selection ──
   const handleChannelChange = (channelId: string) => {
     setSelectedChannelId(channelId);
-    // Auto‑fill small icon from the selected channel
     const channel = channels.find(ch => ch.channel_id === channelId);
     if (channel?.small_icon) {
       setSmallIcon(channel.small_icon);
     } else {
-      setSmallIcon(''); // clear if no icon defined
+      setSmallIcon('');
     }
   };
 
-  // ── Image upload helpers (unchanged) ──────────────────────
+  // ── Image upload helpers (unchanged) ──
   const uploadFile = async (
     file: File,
     setUrl: (url: string) => void,
@@ -169,7 +178,7 @@ export function PushNotificationSender() {
   const removeImage = () => setImage('');
   const removeLargeIcon = () => setLargeIcon('');
 
-  // ── Button management (unchanged) ──────────────────────────
+  // ── Button management ──
   const addButton = () => {
     setButtons([...buttons, { id: '', text: '', preset: 'custom' }]);
   };
@@ -195,7 +204,7 @@ export function PushNotificationSender() {
     setButtons(updated);
   };
 
-  // ── iOS Category handlers (unchanged) ──────────────────────
+  // ── iOS Category handlers ──
   const handleIosCategoryPreset = (presetId: string) => {
     setIosCategoryPreset(presetId);
     if (presetId === 'custom') {
@@ -205,7 +214,7 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Add channel handler (includes small_icon) ──────────────
+  // ── Add channel ──
   const handleAddChannel = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedId = newChannelId.trim();
@@ -226,16 +235,13 @@ export function PushNotificationSender() {
         });
       if (error) throw error;
       toast.success('Channel added successfully');
-      // Reset form
       setNewChannelId('');
       setNewChannelName('');
       setNewChannelDescription('');
       setNewChannelSmallIcon('');
       setShowAddChannel(false);
-      // Refresh list and select the new one
       await fetchChannels();
       setSelectedChannelId(trimmedId);
-      // Auto‑fill small icon
       setSmallIcon(newChannelSmallIcon.trim());
     } catch (err: any) {
       toast.error(err.message || 'Failed to add channel');
@@ -244,7 +250,75 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Send notification ──────────────────────────────────────────
+  // ── Edit channel ──
+  const startEdit = (channel: NotificationChannel) => {
+    setEditingChannelId(channel.id);
+    setEditName(channel.name);
+    setEditDescription(channel.description || '');
+    setEditSmallIcon(channel.small_icon || '');
+  };
+
+  const cancelEdit = () => {
+    setEditingChannelId(null);
+    setEditName('');
+    setEditDescription('');
+    setEditSmallIcon('');
+  };
+
+  const saveEdit = async (channelId: string) => {
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      toast.error('Name is required');
+      return;
+    }
+    setUpdatingChannel(true);
+    try {
+      const { error } = await supabase
+        .from('notification_channels')
+        .update({
+          name: trimmedName,
+          description: editDescription.trim() || null,
+          small_icon: editSmallIcon.trim() || null,
+        })
+        .eq('id', channelId);
+      if (error) throw error;
+      toast.success('Channel updated');
+      cancelEdit();
+      await fetchChannels();
+      // If the currently selected channel was edited, update the small icon
+      const updated = channels.find(ch => ch.id === channelId);
+      if (updated && updated.channel_id === selectedChannelId) {
+        setSmallIcon(updated.small_icon || '');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update channel');
+    } finally {
+      setUpdatingChannel(false);
+    }
+  };
+
+  // ── Delete channel ──
+  const deleteChannel = async (channel: NotificationChannel) => {
+    if (!confirm(`Are you sure you want to delete the channel "${channel.name}"?`)) return;
+    try {
+      const { error } = await supabase
+        .from('notification_channels')
+        .delete()
+        .eq('id', channel.id);
+      if (error) throw error;
+      toast.success('Channel deleted');
+      // If the deleted channel was selected, reset selection
+      if (channel.channel_id === selectedChannelId) {
+        setSelectedChannelId('');
+        setSmallIcon('');
+      }
+      await fetchChannels();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete channel');
+    }
+  };
+
+  // ── Send notification ──
   const sendNotification = async () => {
     if (!title.trim() || !body.trim()) {
       toast.error('Title and body are required');
@@ -273,17 +347,18 @@ export function PushNotificationSender() {
     }
     if (badgeCount !== '') payload.badgeCount = Number(badgeCount);
     if (scheduledAt) payload.scheduledAt = new Date(scheduledAt).toISOString();
-    if (smallIcon.trim()) payload.smallIcon = smallIcon.trim();   // now from channel or overridden
+    if (smallIcon.trim()) payload.smallIcon = smallIcon.trim();
     if (largeIcon.trim()) payload.largeIcon = largeIcon.trim();
     if (iosCategory.trim()) payload.iosCategory = iosCategory.trim();
     if (selectedChannelId) payload.channelId = selectedChannelId;
+    if (accentColor) payload.accentColor = accentColor; // hex string
 
     setLoading(true);
     try {
       const { error } = await supabase.functions.invoke('send-push-notification', { body: payload });
       if (error) throw error;
       toast.success('Notification sent successfully');
-      // Reset form (but keep channel and its small icon)
+      // Reset form (keep channel, accent colour, and small icon)
       setTitle('');
       setBody('');
       setDataJson('{}');
@@ -295,7 +370,6 @@ export function PushNotificationSender() {
       setLargeIcon('');
       setIosCategory('');
       setIosCategoryPreset('custom');
-      // Do not reset smallIcon – keep it from channel
     } catch (err: any) {
       toast.error(err.message || 'Failed to send notification');
     } finally {
@@ -303,7 +377,7 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── UI ──────────────────────────────────────────────────────────
+  // ── UI ──
   return (
     <div className="p-4 bg-white rounded-2xl shadow-card space-y-4">
       <h2 className="text-xl font-bold text-ink-900">Send Push Notification</h2>
@@ -506,7 +580,7 @@ export function PushNotificationSender() {
             ) : (
               channels.map((ch) => (
                 <option key={ch.id} value={ch.channel_id}>
-                  {ch.name}   {/* Only name, no ID */}
+                  {ch.name}
                 </option>
               ))
             )}
@@ -514,6 +588,29 @@ export function PushNotificationSender() {
           {channels.length === 0 && !loadingChannels && (
             <p className="text-xs text-ink-400 mt-1">Add a channel below first.</p>
           )}
+        </div>
+      </div>
+
+      {/* Accent Color */}
+      <div>
+        <label className="block text-sm font-medium text-ink-700">
+          Accent Color (Android)
+          <span className="text-xs text-ink-400 ml-1">(used for buttons, etc.)</span>
+        </label>
+        <div className="flex items-center gap-3 mt-1">
+          <input
+            type="color"
+            value={accentColor}
+            onChange={(e) => setAccentColor(e.target.value)}
+            className="w-12 h-10 p-1 border border-ink-200 rounded-xl cursor-pointer"
+          />
+          <input
+            type="text"
+            value={accentColor}
+            onChange={(e) => setAccentColor(e.target.value)}
+            className="flex-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500"
+            placeholder="#007AFF"
+          />
         </div>
       </div>
 
@@ -529,13 +626,11 @@ export function PushNotificationSender() {
         </button>
         {showAndroid && (
           <div className="mt-3 space-y-4 bg-ink-50/30 p-3 rounded-xl border border-ink-100">
-            {/* Small Icon - now auto‑filled from channel */}
+            {/* Small Icon - auto‑filled */}
             <div>
               <label className="block text-sm font-medium text-ink-700">
                 Small Icon (drawable resource name)
-                <span className="text-xs text-ink-400 ml-1">
-                  (auto‑filled from channel, but editable)
-                </span>
+                <span className="text-xs text-ink-400 ml-1">(auto‑filled from channel, editable)</span>
               </label>
               <input
                 type="text"
@@ -546,7 +641,7 @@ export function PushNotificationSender() {
               />
             </div>
 
-            {/* Large Icon - unchanged */}
+            {/* Large Icon */}
             <div>
               <label className="block text-sm font-medium text-ink-700">
                 Large Icon (URL or resource name)
@@ -614,7 +709,7 @@ export function PushNotificationSender() {
         )}
       </div>
 
-      {/* iOS‑specific settings (unchanged) */}
+      {/* iOS‑specific settings */}
       <div className="border-t border-ink-100 pt-3">
         <button
           type="button"
@@ -663,7 +758,7 @@ export function PushNotificationSender() {
         )}
       </div>
 
-      {/* Audience & Extra Data (unchanged) */}
+      {/* Audience & Extra Data */}
       <div>
         <label className="block text-sm font-medium text-ink-700">Audience</label>
         <select
@@ -696,7 +791,7 @@ export function PushNotificationSender() {
         {loading ? 'Sending...' : 'Send Notification'}
       </button>
 
-      {/* ── Add Channel Section (with small_icon field) ── */}
+      {/* ── Channel Management Section ── */}
       <div className="border-t border-ink-100 pt-4 mt-2">
         <button
           type="button"
@@ -704,7 +799,7 @@ export function PushNotificationSender() {
           className="flex items-center gap-2 text-sm font-medium text-brand-600 hover:text-brand-700"
         >
           {showAddChannel ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          {showAddChannel ? 'Hide' : 'Add New Channel'}
+          {showAddChannel ? 'Hide Add Channel' : 'Add New Channel'}
         </button>
 
         {showAddChannel && (
@@ -771,12 +866,103 @@ export function PushNotificationSender() {
             </div>
           </form>
         )}
+
+        {/* ── List of channels with edit/delete ── */}
+        {channels.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <h4 className="text-sm font-semibold text-ink-700">Existing Channels</h4>
+            {channels.map((channel) => (
+              <div key={channel.id} className="border border-ink-200 rounded-lg p-2 bg-ink-50/30">
+                {editingChannelId === channel.id ? (
+                  // ── Edit mode ──
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-xs font-medium text-ink-700">Name</label>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink-700">Description</label>
+                      <input
+                        type="text"
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink-700">Small Icon</label>
+                      <input
+                        type="text"
+                        value={editSmallIcon}
+                        onChange={(e) => setEditSmallIcon(e.target.value)}
+                        className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
+                        placeholder="ic_notification_logo"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="px-3 py-1 text-sm border border-ink-200 rounded-lg hover:bg-ink-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => saveEdit(channel.id)}
+                        disabled={updatingChannel}
+                        className="px-3 py-1 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <Save size={14} /> Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // ── View mode ──
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-medium text-ink-800">{channel.name}</span>
+                      <span className="text-xs text-ink-400 ml-2">({channel.channel_id})</span>
+                      {channel.small_icon && (
+                        <span className="text-xs text-ink-400 ml-2">icon: {channel.small_icon}</span>
+                      )}
+                      {channel.description && (
+                        <span className="text-xs text-ink-400 ml-2">— {channel.description}</span>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(channel)}
+                        className="p-1.5 text-ink-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteChannel(channel)}
+                        className="p-1.5 text-ink-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ── Image processing helper (unchanged) ──────────────────────
+// ── Image processing helper (unchanged) ─────────────────────────────
 async function processImage(
   file: File,
   aspectRatio: number,

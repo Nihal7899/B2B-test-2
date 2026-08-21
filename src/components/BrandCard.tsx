@@ -14,6 +14,8 @@ interface BrandCardProps {
   categories?: string[];
   bottomLabel?: string;
   bottomIcon?: 'shield' | 'crown' | 'leaf';
+  // new theme prop for backgrounds
+  theme?: 'mesh' | 'waves' | 'grid' | 'minimal' | 'default';
 }
 
 const DEFAULT_CONTENT = {
@@ -75,7 +77,16 @@ function BottomIcon({ type }: { type: 'shield' | 'crown' | 'leaf' }) {
 }
 
 export function BrandCard(props: BrandCardProps) {
-  const { brandName, primaryColor, secondaryColor, logoUrl, productImage, productImages = [] } = props;
+  const { 
+    brandName, 
+    primaryColor, 
+    secondaryColor, 
+    logoUrl, 
+    productImage, 
+    productImages = [],
+    theme = 'default'
+  } = props;
+  
   const content = getBrandContent(props);
 
   const image = productImages.find(Boolean) || productImage || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product';
@@ -83,6 +94,126 @@ export function BrandCard(props: BrandCardProps) {
   const primaryRgb = hexToRgb(primaryColor);
   const isLightBackground = getLuminance(primaryColor) > 0.68;
   const textColor = isLightBackground ? '#111827' : '#ffffff';
+
+  const renderBackground = () => {
+    switch (theme) {
+      case 'mesh':
+        return (
+          <>
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }}
+            />
+            <div className="absolute -left-12 -top-12 h-40 w-40 rounded-full bg-white/20 blur-[40px]" />
+            <div className="absolute -bottom-16 -right-12 h-48 w-48 rounded-full bg-white/10 blur-[35px]" />
+            <div 
+              className="absolute -right-4 top-1/3 h-32 w-32 rounded-full blur-[30px]"
+              style={{ background: `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.6)` }}
+            />
+            <div className="absolute inset-0 bg-white/[0.03] backdrop-blur-[2px]" />
+          </>
+        );
+      case 'waves':
+        return (
+          <>
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(160deg, ${primaryColor} 15%, ${secondaryColor} 100%)` }}
+            />
+            <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.15]" viewBox="0 0 180 270" preserveAspectRatio="none">
+              <path d="M-20 80 C 40 40, 100 120, 200 80" fill="none" stroke="white" strokeWidth="2.5" />
+              <path d="M-20 105 C 40 65, 100 145, 200 105" fill="none" stroke="white" strokeWidth="1.5" />
+              <path d="M-20 130 C 40 90, 100 170, 200 130" fill="none" stroke="white" strokeWidth="0.75" />
+              <path d="M-20 155 C 40 115, 100 195, 200 155" fill="none" stroke="white" strokeWidth="0.25" />
+            </svg>
+            <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/10 to-transparent" />
+          </>
+        );
+      case 'grid':
+        return (
+          <>
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(180deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }}
+            />
+            <div
+              className="absolute inset-0 opacity-[0.12] mix-blend-overlay"
+              style={{
+                backgroundImage: `
+                  linear-gradient(to right, white 1px, transparent 1px),
+                  linear-gradient(to bottom, white 1px, transparent 1px)
+                `,
+                backgroundSize: '24px 24px',
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent" />
+            <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-20" viewBox="0 0 180 270">
+              <polygon points="180,270 0,270 180,160" fill="white" />
+              <line x1="0" y1="210" x2="180" y2="130" stroke="white" strokeWidth="1" strokeDasharray="4 4" />
+            </svg>
+          </>
+        );
+      case 'minimal':
+        return (
+          <>
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(to bottom right, ${primaryColor}, ${secondaryColor})` }}
+            />
+            <div className="absolute -right-8 -top-8 h-[180px] w-[180px] rounded-full border-[1.5px] border-white/20" />
+            <div className="absolute -right-2 -top-2 h-[120px] w-[120px] rounded-full border-[1.5px] border-white/15" />
+            <div className="absolute right-4 top-4 h-[60px] w-[60px] rounded-full border-[1.5px] border-white/10" />
+            <div className="absolute left-6 top-[45%] h-1.5 w-1.5 rounded-full bg-white/40" />
+            <div className="absolute left-10 top-[52%] h-1 w-1 rounded-full bg-white/20" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent" />
+          </>
+        );
+      case 'default':
+      default:
+        return (
+          <>
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `
+                  radial-gradient(
+                    circle at 50% 15%,
+                    rgba(255,255,255,0.18),
+                    transparent 30%
+                  ),
+                  linear-gradient(
+                    145deg,
+                    ${primaryColor} 0%,
+                    ${primaryColor} 45%,
+                    ${secondaryColor} 100%
+                  )
+                `,
+              }}
+            />
+            <div
+              className="absolute -left-12 -top-8 h-32 w-32 rounded-full blur-2xl"
+              style={{ background: `rgba(${primaryRgb.r},${primaryRgb.g},${primaryRgb.b},0.35)` }}
+            />
+            <div className="absolute -right-10 top-20 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
+            <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]" viewBox="0 0 180 270" preserveAspectRatio="none">
+              <circle cx="-10" cy="50" r="50" fill="none" stroke="white" strokeWidth="1" />
+              <circle cx="-10" cy="50" r="36" fill="none" stroke="white" strokeWidth="1" />
+              <circle cx="190" cy="74" r="34" fill="none" stroke="white" strokeWidth="1" />
+              <path d="M-20 158 C40 126 90 153 205 112" fill="none" stroke="white" strokeWidth="1.2" />
+              <path d="M-20 165 C45 133 97 160 205 120" fill="none" stroke="white" strokeWidth="0.8" />
+              <circle cx="150" cy="34" r="2" fill="white" />
+              <circle cx="162" cy="43" r="1.5" fill="white" />
+              <circle cx="141" cy="44" r="1" fill="white" />
+            </svg>
+            <div className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-[3px] opacity-25">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <span key={i} className="h-[2.5px] w-[2.5px] rounded-full bg-white" />
+              ))}
+            </div>
+          </>
+        );
+    }
+  };
 
   return (
     <div
@@ -103,51 +234,8 @@ export function BrandCard(props: BrandCardProps) {
         hover:shadow-[0_18px_45px_rgba(0,0,0,0.20)]
       "
     >
-      {/* Main Gradient */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `
-            radial-gradient(
-              circle at 50% 15%,
-              rgba(255,255,255,0.18),
-              transparent 30%
-            ),
-            linear-gradient(
-              145deg,
-              ${primaryColor} 0%,
-              ${primaryColor} 45%,
-              ${secondaryColor} 100%
-            )
-          `,
-        }}
-      />
-
-      {/* Decorative Glows */}
-      <div
-        className="absolute -left-12 -top-8 h-32 w-32 rounded-full blur-2xl"
-        style={{ background: `rgba(${primaryRgb.r},${primaryRgb.g},${primaryRgb.b},0.35)` }}
-      />
-      <div className="absolute -right-10 top-20 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
-
-      {/* Abstract Graphics */}
-      <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]" viewBox="0 0 180 270" preserveAspectRatio="none">
-        <circle cx="-10" cy="50" r="50" fill="none" stroke="white" strokeWidth="1" />
-        <circle cx="-10" cy="50" r="36" fill="none" stroke="white" strokeWidth="1" />
-        <circle cx="190" cy="74" r="34" fill="none" stroke="white" strokeWidth="1" />
-        <path d="M-20 158 C40 126 90 153 205 112" fill="none" stroke="white" strokeWidth="1.2" />
-        <path d="M-20 165 C45 133 97 160 205 120" fill="none" stroke="white" strokeWidth="0.8" />
-        <circle cx="150" cy="34" r="2" fill="white" />
-        <circle cx="162" cy="43" r="1.5" fill="white" />
-        <circle cx="141" cy="44" r="1" fill="white" />
-      </svg>
-
-      {/* Top Dot Pattern */}
-      <div className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-[3px] opacity-25">
-        {Array.from({ length: 9 }).map((_, i) => (
-          <span key={i} className="h-[2.5px] w-[2.5px] rounded-full bg-white" />
-        ))}
-      </div>
+      {/* Background Block (Dynamic based on theme prop) */}
+      {renderBackground()}
 
       {/* Logo */}
       <div
@@ -257,6 +345,7 @@ export function BrandCarousel({ brands }: BrandCarouselProps) {
             categories={brand.categories}
             bottomLabel={brand.bottom_label}
             bottomIcon={brand.bottom_icon}
+            theme="default" // You can now swap this dynamically, e.g., brand.theme || 'default'
           />
         </div>
       ))}

@@ -1334,3 +1334,19 @@ export async function uploadBrandImage(
     .getPublicUrl(path);
   return urlData.publicUrl;
 }
+
+export async function deleteBrandImage(imageUrl: string): Promise<void> {
+  if (!imageUrl) return;
+  // Only delete if it's from our bucket (brands)
+  if (!imageUrl.includes('/storage/v1/object/public/brands/')) return;
+  try {
+    const url = new URL(imageUrl);
+    const path = url.pathname.split('/').slice(4).join('/'); // remove /storage/v1/object/public/brands/
+    const { error } = await supabase.storage
+      .from('brands')
+      .remove([path]);
+    if (error) console.error('Failed to delete brand image:', error);
+  } catch (e) {
+    console.error('Error deleting brand image:', e);
+  }
+}

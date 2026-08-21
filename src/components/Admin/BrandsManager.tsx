@@ -8,10 +8,11 @@ import {
   updateTrustedBrand,
   deleteTrustedBrand,
   uploadBrandImage,
-  deleteBrandImage, // new import
+  deleteBrandImage,   // ✅ imported from catalog
 } from '@/services/catalog';
 import type { TrustedBrand } from '@/types';
 
+// Extend TrustedBrand with our new fields
 interface BrandWithColors extends TrustedBrand {
   primary_color: string;
   secondary_color: string;
@@ -24,6 +25,7 @@ export default function BrandsManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
+  // New brand form state
   const [newBrand, setNewBrand] = useState<Partial<BrandWithColors>>({
     name: '',
     logo_url: '',
@@ -34,6 +36,7 @@ export default function BrandsManager() {
     is_active: true,
   });
 
+  // ----- Load brands -----
   const loadBrands = async () => {
     const data = await fetchAllTrustedBrands();
     setBrands(data as BrandWithColors[]);
@@ -44,25 +47,28 @@ export default function BrandsManager() {
     loadBrands();
   }, []);
 
+  // ----- CRUD operations -----
   const handleDelete = async (id: string) => {
-    if (window.confirm('Delete this brand?')) {
-      // Optionally delete images from storage before deleting the record
-      const brand = brands.find(b => b.id === id);
-      if (brand) {
-        if (brand.logo_url && !brand.logo_url.includes('placeholder')) {
-          await deleteBrandImage(brand.logo_url);
-        }
-        if (brand.product_images && brand.product_images.length) {
-          for (const img of brand.product_images) {
-            if (img && !img.includes('placeholder')) {
-              await deleteBrandImage(img);
-            }
+    if (!window.confirm('Delete this brand?')) return;
+
+    const brand = brands.find(b => b.id === id);
+    if (brand) {
+      // Delete logo image if it exists (skip placeholders)
+      if (brand.logo_url && !brand.logo_url.includes('placeholder')) {
+        await deleteBrandImage(brand.logo_url);
+      }
+      // Delete product images
+      if (brand.product_images && brand.product_images.length) {
+        for (const img of brand.product_images) {
+          if (img && !img.includes('placeholder')) {
+            await deleteBrandImage(img);
           }
         }
       }
-      await deleteTrustedBrand(id);
-      await loadBrands();
     }
+
+    await deleteTrustedBrand(id);
+    await loadBrands();
   };
 
   const handleSaveEdit = async (brand: BrandWithColors) => {
@@ -103,13 +109,14 @@ export default function BrandsManager() {
     await loadBrands();
   };
 
+  // ----- Image upload with old image deletion -----
   const handleImageUpload = async (
     file: File,
-    brandId: string | null,
+    brandId: string | null, // null = new brand
     field: 'logo_url' | 'product_images',
     index?: number
   ) => {
-    // Get old URL before uploading new
+    // 1. Capture old URL
     let oldUrl = '';
     if (brandId) {
       const brand = brands.find(b => b.id === brandId);
@@ -127,15 +134,15 @@ export default function BrandsManager() {
       }
     }
 
-    // Delete old image if exists and not a placeholder
+    // 2. Delete old image if exists (skip placeholders)
     if (oldUrl && !oldUrl.includes('placeholder')) {
       await deleteBrandImage(oldUrl);
     }
 
-    // Upload new image
+    // 3. Upload new image
     const url = await uploadBrandImage(file, brandId, field);
 
-    // Update state
+    // 4. Update state
     if (brandId) {
       const brand = brands.find(b => b.id === brandId);
       if (!brand) return;
@@ -160,6 +167,7 @@ export default function BrandsManager() {
 
   return (
     <div className="space-y-6">
+      {/* Add Brand Button */}
       <button
         onClick={() => setShowAddForm(true)}
         className="w-full h-12 rounded-xl bg-brand-600 text-white font-bold flex items-center justify-center gap-2"
@@ -167,6 +175,7 @@ export default function BrandsManager() {
         <Plus size={16} /> Add Brand
       </button>
 
+      {/* ---- Add Form (preview always visible) ---- */}
       {showAddForm && (
         <div className="bg-white border rounded-2xl p-4 shadow-card">
           <h3 className="font-bold mb-3">New Brand</h3>
@@ -289,6 +298,7 @@ export default function BrandsManager() {
               <button onClick={handleCreate} className="px-4 py-2 bg-brand-600 text-white rounded">Create</button>
             </div>
           </div>
+          {/* Preview */}
           <div className="mt-4 flex justify-center">
             <BrandCard
               brandName={newBrand.name || 'Preview'}
@@ -301,12 +311,14 @@ export default function BrandsManager() {
         </div>
       )}
 
+      {/* ---- List of existing brands ---- */}
       <div className="space-y-4">
         {brands.map((brand) => {
           const isEditing = editingId === brand.id;
           return (
             <div key={brand.id} className="bg-white border rounded-2xl p-4 shadow-card">
               {isEditing ? (
+                // ---- EDIT MODE (preview always visible) ----
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <div>
@@ -448,6 +460,7 @@ export default function BrandsManager() {
                       </button>
                     </div>
                   </div>
+                  {/* Preview in edit mode */}
                   <div className="flex justify-center items-center bg-gray-50 rounded-xl p-4">
                     <BrandCard
                       brandName={brand.name}
@@ -459,6 +472,7 @@ export default function BrandsManager() {
                   </div>
                 </div>
               ) : (
+                // ---- VIEW MODE: Left = info + buttons, Right = preview (always) ----
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="flex-1">
                     <h3 className="font-bold text-lg">{brand.name}</h3>

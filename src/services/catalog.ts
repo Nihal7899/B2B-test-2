@@ -1335,18 +1335,51 @@ export async function uploadBrandImage(
   return urlData.publicUrl;
 }
 
+// services/catalog.ts – add this function (place near other storage functions)
+
 export async function deleteBrandImage(imageUrl: string): Promise<void> {
-  if (!imageUrl) return;
-  // Only delete if it's from our bucket (brands)
-  if (!imageUrl.includes('/storage/v1/object/public/brands/')) return;
+  if (!imageUrl) {
+    console.log('[deleteBrandImage] No URL provided');
+    return;
+  }
+
+  // Skip placeholder images
+  if (imageUrl.includes('placeholder')) {
+    console.log('[deleteBrandImage] Skipping placeholder:', imageUrl);
+    return;
+  }
+
+  // Only delete if it's from our bucket
+  if (!imageUrl.includes('/storage/v1/object/public/brands/')) {
+    console.log('[deleteBrandImage] URL not from brands bucket:', imageUrl);
+    return;
+  }
+
   try {
     const url = new URL(imageUrl);
-    const path = url.pathname.split('/').slice(4).join('/'); // remove /storage/v1/object/public/brands/
+    const pathParts = url.pathname.split('/');
+    const brandsIndex = pathParts.indexOf('brands');
+    if (brandsIndex === -1) {
+      console.log('[deleteBrandImage] Could not find "brands" in path');
+      return;
+    }
+    // Path after 'brands': e.g., "brand_123/logo_url/12345_image.jpg"
+    const path = pathParts.slice(brandsIndex + 1).join('/');
+    if (!path) {
+      console.log('[deleteBrandImage] No path extracted');
+      return;
+    }
+
+    console.log('[deleteBrandImage] Deleting:', path);
     const { error } = await supabase.storage
       .from('brands')
       .remove([path]);
-    if (error) console.error('Failed to delete brand image:', error);
+    if (error) {
+      console.error('[deleteBrandImage] Error deleting:', error);
+    } else {
+      console.log('[deleteBrandImage] Deleted successfully');
+    }
   } catch (e) {
-    console.error('Error deleting brand image:', e);
+    console.error('[deleteBrandImage] Exception:', e);
   }
 }

@@ -26,6 +26,15 @@ const IOS_CATEGORY_PRESETS = [
   { id: 'custom', label: 'Custom...' },
 ];
 
+// ── Android Channel ID presets ──
+const CHANNEL_PRESETS = [
+  { id: 'default', label: 'Default' },
+  { id: 'orders', label: 'Orders' },
+  { id: 'promotions', label: 'Promotions' },
+  { id: 'delivery', label: 'Delivery' },
+  { id: 'custom', label: 'Custom...' },
+];
+
 // ── Crop options ──
 const CROP_OPTIONS = [
   { value: 'landscape', label: 'Rich Media (2:1 landscape)', aspect: 2, width: 1024, height: 512 },
@@ -47,13 +56,16 @@ export function PushNotificationSender() {
   const [image, setImage] = useState('');
   const [deepLink, setDeepLink] = useState('');
   const [buttons, setButtons] = useState<ActionButton[]>([{ id: 'view_order', text: 'View Order', preset: 'view_order' }]);
-  const [sound, setSound] = useState('');
   const [badgeCount, setBadgeCount] = useState<number | ''>('');
   const [scheduledAt, setScheduledAt] = useState('');
   const [smallIcon, setSmallIcon] = useState('');
   const [largeIcon, setLargeIcon] = useState('');
   const [iosCategory, setIosCategory] = useState('');
   const [iosCategoryPreset, setIosCategoryPreset] = useState('custom');
+
+  // ── Android Channel ID state ──
+  const [channelId, setChannelId] = useState('');
+  const [channelPreset, setChannelPreset] = useState('default');
 
   // Crop selection for rich media upload
   const [selectedImageCrop, setSelectedImageCrop] = useState('landscape');
@@ -145,6 +157,16 @@ export function PushNotificationSender() {
     }
   };
 
+  // ── Channel ID handlers ──
+  const handleChannelPreset = (presetId: string) => {
+    setChannelPreset(presetId);
+    if (presetId === 'custom') {
+      setChannelId('');
+    } else {
+      setChannelId(presetId);
+    }
+  };
+
   // ── Send notification ───────────────────────────────────────────
   const sendNotification = async () => {
     if (!title.trim() || !body.trim()) {
@@ -172,12 +194,14 @@ export function PushNotificationSender() {
       const validButtons = buttons.filter(b => b.id.trim() && b.text.trim());
       if (validButtons.length) payload.buttons = validButtons.map(({ id, text }) => ({ id, text }));
     }
-    if (sound.trim()) payload.sound = sound.trim();
+    // Sound field removed
     if (badgeCount !== '') payload.badgeCount = Number(badgeCount);
     if (scheduledAt) payload.scheduledAt = new Date(scheduledAt).toISOString();
     if (smallIcon.trim()) payload.smallIcon = smallIcon.trim();
     if (largeIcon.trim()) payload.largeIcon = largeIcon.trim();
     if (iosCategory.trim()) payload.iosCategory = iosCategory.trim();
+    // ── Add channel ID ──
+    if (channelId.trim()) payload.channelId = channelId.trim();
 
     setLoading(true);
     try {
@@ -191,13 +215,14 @@ export function PushNotificationSender() {
       setImage('');
       setDeepLink('');
       setButtons([{ id: 'view_order', text: 'View Order', preset: 'view_order' }]);
-      setSound('');
       setBadgeCount('');
       setScheduledAt('');
       setSmallIcon('');
       setLargeIcon('');
       setIosCategory('');
       setIosCategoryPreset('custom');
+      setChannelId('default');
+      setChannelPreset('default');
     } catch (err: any) {
       toast.error(err.message || 'Failed to send notification');
     } finally {
@@ -369,18 +394,8 @@ export function PushNotificationSender() {
         <p className="text-xs text-ink-400 mt-1">Buttons work on both platforms. For iOS, set a Category below.</p>
       </div>
 
-      {/* Sound, Badge, Schedule */}
+      {/* Badge, Schedule, Channel ID (replaces Sound) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-ink-700">Sound</label>
-          <input
-            type="text"
-            value={sound}
-            onChange={(e) => setSound(e.target.value)}
-            className="w-full mt-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500"
-            placeholder="default"
-          />
-        </div>
         <div>
           <label className="block text-sm font-medium text-ink-700">Badge Count</label>
           <input
@@ -399,6 +414,39 @@ export function PushNotificationSender() {
             onChange={(e) => setScheduledAt(e.target.value)}
             className="w-full mt-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500"
           />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-ink-700">
+            Android Channel ID
+            <span className="text-xs text-ink-400 ml-1">(used for sound & importance)</span>
+          </label>
+          <div className="flex items-center gap-2 mt-1">
+            <select
+              value={channelPreset}
+              onChange={(e) => handleChannelPreset(e.target.value)}
+              className="flex-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm bg-white"
+            >
+              {CHANNEL_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            {channelPreset === 'custom' && (
+              <input
+                type="text"
+                value={channelId}
+                onChange={(e) => setChannelId(e.target.value)}
+                className="flex-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm"
+                placeholder="Custom channel (e.g. my_channel)"
+              />
+            )}
+          </div>
+          {channelPreset !== 'custom' && (
+            <p className="text-xs text-ink-400 mt-1">
+              Using channel: <span className="font-mono">{channelId || 'default'}</span>
+            </p>
+          )}
         </div>
       </div>
 

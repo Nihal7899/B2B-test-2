@@ -1,7 +1,7 @@
 // screens/HomeScreen.tsx
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Truck, ShieldCheck, Tag, RotateCcw, ChevronRight } from 'lucide-react';
+import { Truck, ShieldCheck, Tag, RotateCcw, ChevronRight } from 'lucide-react';
 import type { Category, Product, PromoBanner, Store, TrustedBrand } from '@/types';
 import type { useCart } from '@/store';
 import { SearchBar } from '@/components/SearchBar';
@@ -53,7 +53,6 @@ export function HomeScreen({
   const [middleBanners, setMiddleBanners] = useState<PromoBanner[]>([]);
   const [bottomBanners, setBottomBanners] = useState<PromoBanner[]>([]);
 
-  // Prefetch store config on hover (for instant loading)
   const prefetchStore = useCallback(async (storeId: string) => {
     try {
       await fetchStoreConfig(storeId);
@@ -62,7 +61,6 @@ export function HomeScreen({
     }
   }, []);
 
-  // Navigate to category detail (with gradient header)
   const openCategoryDetail = useCallback((category: Category) => {
     navigate(`/category?id=${category.id}`);
   }, [navigate]);
@@ -283,7 +281,7 @@ export function HomeScreen({
         </div>
       ) : (
         <>
-          {/* Category Grid – now navigates to category detail with inline gradient style */}
+          {/* Category Grid */}
           <section className="px-4">
             <div className="mb-3 flex items-center justify-between">
               <div>
@@ -328,7 +326,7 @@ export function HomeScreen({
             </div>
           </section>
 
-          {/* Stores */}
+          {/* Stores – only top padding, left padding handled inside StoreCarousel */}
           {stores.length > 0 && (
             <div>
               <SectionHeader
@@ -336,15 +334,17 @@ export function HomeScreen({
                 subtitle="Curated collections"
                 accent="bg-purple-600"
               />
-              <StoreCarousel
-                stores={stores}
-                onStoreClick={onStoreClick}
-                onPrefetch={prefetchStore}
-              />
+              <div className="pt-2">
+                <StoreCarousel
+                  stores={stores}
+                  onStoreClick={onStoreClick}
+                  onPrefetch={prefetchStore}
+                />
+              </div>
             </div>
           )}
 
-          {/* Trusted Brands */}
+          {/* Trusted Brands – only top padding */}
           {brands.length > 0 && (
             <div>
               <SectionHeader
@@ -352,13 +352,17 @@ export function HomeScreen({
                 subtitle="Quality you can rely on"
                 accent="bg-blue-600"
               />
-              <BrandCarousel brands={brands} />
+              <div className="pt-2">
+                <BrandCarousel brands={brands} />
+              </div>
             </div>
           )}
 
-          {/* Popular Products */}
+          {/* Popular Products – only top padding */}
           {popular.length > 0 && (
-            <ProductCarousel title="Popular Products" products={popular} {...actions} />
+            <div className="pt-2">
+              <ProductCarousel title="Popular Products" products={popular} {...actions} />
+            </div>
           )}
 
           {/* Middle Banners */}
@@ -374,9 +378,11 @@ export function HomeScreen({
             </section>
           )}
 
-          {/* Wholesale Deals */}
+          {/* Wholesale Deals – only top padding */}
           {deals.length > 0 && (
-            <ProductCarousel title="Wholesale Deals" products={deals} {...actions} />
+            <div className="pt-2">
+              <ProductCarousel title="Wholesale Deals" products={deals} {...actions} />
+            </div>
           )}
 
           {/* Perks */}
@@ -405,9 +411,11 @@ export function HomeScreen({
             </div>
           </section>
 
-          {/* Everyday Essentials */}
+          {/* Everyday Essentials – only top padding */}
           {essentials.length > 0 && (
-            <ProductCarousel title="Everyday Essentials" products={essentials} {...actions} />
+            <div className="pt-2">
+              <ProductCarousel title="Everyday Essentials" products={essentials} {...actions} />
+            </div>
           )}
 
           {/* Bottom Banners */}

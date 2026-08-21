@@ -860,6 +860,8 @@ export async function fetchAllTrustedBrands(): Promise<TrustedBrand[]> {
   return data as TrustedBrand[];
 }
 
+// services/catalog.ts
+
 export async function createTrustedBrand(
   input: Omit<TrustedBrand, 'id' | 'created_at' | 'updated_at'>
 ): Promise<TrustedBrand | null> {
@@ -873,6 +875,11 @@ export async function createTrustedBrand(
       primary_color: input.primary_color || '#3B82F6',
       secondary_color: input.secondary_color || '#1E40AF',
       product_images: input.product_images || [],
+      // NEW
+      tagline: input.tagline || null,
+      categories: input.categories || null,
+      bottom_label: input.bottom_label || null,
+      bottom_icon: input.bottom_icon || null,
     })
     .select()
     .single();
@@ -891,6 +898,11 @@ export async function updateTrustedBrand(id: string, updates: Partial<TrustedBra
       primary_color: updates.primary_color,
       secondary_color: updates.secondary_color,
       product_images: updates.product_images,
+      // NEW
+      tagline: updates.tagline,
+      categories: updates.categories,
+      bottom_label: updates.bottom_label,
+      bottom_icon: updates.bottom_icon,
     })
     .eq('id', id);
   if (error) throw error;

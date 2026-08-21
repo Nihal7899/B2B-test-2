@@ -290,6 +290,7 @@ export interface Store {
 }
 
 // types.ts
+// types.ts
 export interface TrustedBrand {
   id: string;
   name: string;
@@ -298,10 +299,15 @@ export interface TrustedBrand {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  // new fields
   primary_color?: string;
   secondary_color?: string;
   product_images?: string[];
+
+  // --- NEW editable fields ---
+  tagline?: string;               // text below brand name
+  categories?: string[];          // pill labels (max 3)
+  bottom_label?: string;          // text in the bottom strip
+  bottom_icon?: 'shield' | 'crown' | 'leaf';
 }
 
 export interface DeliveryRange {

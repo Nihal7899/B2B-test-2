@@ -8,15 +8,19 @@ import {
   updateTrustedBrand,
   deleteTrustedBrand,
   uploadBrandImage,
-  deleteBrandImage,   // ✅ imported from catalog
+  deleteBrandImage,
 } from '@/services/catalog';
 import type { TrustedBrand } from '@/types';
 
-// Extend TrustedBrand with our new fields
+// Extend TrustedBrand with our new fields (now aligned)
 interface BrandWithColors extends TrustedBrand {
   primary_color: string;
   secondary_color: string;
   product_images: string[];
+  tagline?: string;
+  categories?: string[];
+  bottom_label?: string;
+  bottom_icon?: 'shield' | 'crown' | 'leaf';
 }
 
 export default function BrandsManager() {
@@ -25,7 +29,7 @@ export default function BrandsManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // New brand form state
+  // New brand form state (includes new fields)
   const [newBrand, setNewBrand] = useState<Partial<BrandWithColors>>({
     name: '',
     logo_url: '',
@@ -34,6 +38,10 @@ export default function BrandsManager() {
     product_images: [''],
     sort_order: 0,
     is_active: true,
+    tagline: 'Quality You Can Trust',
+    categories: ['Premium', 'Quality', 'Trusted'],
+    bottom_label: 'Premium Quality',
+    bottom_icon: 'shield',
   });
 
   // ----- Load brands -----
@@ -50,14 +58,11 @@ export default function BrandsManager() {
   // ----- CRUD operations -----
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this brand?')) return;
-
     const brand = brands.find(b => b.id === id);
     if (brand) {
-      // Delete logo image if it exists (skip placeholders)
       if (brand.logo_url && !brand.logo_url.includes('placeholder')) {
         await deleteBrandImage(brand.logo_url);
       }
-      // Delete product images
       if (brand.product_images && brand.product_images.length) {
         for (const img of brand.product_images) {
           if (img && !img.includes('placeholder')) {
@@ -66,7 +71,6 @@ export default function BrandsManager() {
         }
       }
     }
-
     await deleteTrustedBrand(id);
     await loadBrands();
   };
@@ -80,6 +84,11 @@ export default function BrandsManager() {
       primary_color: brand.primary_color,
       secondary_color: brand.secondary_color,
       product_images: brand.product_images,
+      // NEW fields
+      tagline: brand.tagline,
+      categories: brand.categories,
+      bottom_label: brand.bottom_label,
+      bottom_icon: brand.bottom_icon,
     });
     setEditingId(null);
     await loadBrands();
@@ -95,6 +104,10 @@ export default function BrandsManager() {
       primary_color: newBrand.primary_color || '#3B82F6',
       secondary_color: newBrand.secondary_color || '#1E40AF',
       product_images: newBrand.product_images || [''],
+      tagline: newBrand.tagline,
+      categories: newBrand.categories,
+      bottom_label: newBrand.bottom_label,
+      bottom_icon: newBrand.bottom_icon,
     });
     setNewBrand({
       name: '',
@@ -104,19 +117,22 @@ export default function BrandsManager() {
       product_images: [''],
       sort_order: 0,
       is_active: true,
+      tagline: 'Quality You Can Trust',
+      categories: ['Premium', 'Quality', 'Trusted'],
+      bottom_label: 'Premium Quality',
+      bottom_icon: 'shield',
     });
     setShowAddForm(false);
     await loadBrands();
   };
 
-  // ----- Image upload with old image deletion -----
+  // ----- Image upload (unchanged) -----
   const handleImageUpload = async (
     file: File,
-    brandId: string | null, // null = new brand
+    brandId: string | null,
     field: 'logo_url' | 'product_images',
     index?: number
   ) => {
-    // 1. Capture old URL
     let oldUrl = '';
     if (brandId) {
       const brand = brands.find(b => b.id === brandId);
@@ -133,16 +149,10 @@ export default function BrandsManager() {
         oldUrl = (newBrand.product_images || [])[index] || '';
       }
     }
-
-    // 2. Delete old image if exists (skip placeholders)
     if (oldUrl && !oldUrl.includes('placeholder')) {
       await deleteBrandImage(oldUrl);
     }
-
-    // 3. Upload new image
     const url = await uploadBrandImage(file, brandId, field);
-
-    // 4. Update state
     if (brandId) {
       const brand = brands.find(b => b.id === brandId);
       if (!brand) return;
@@ -165,6 +175,59 @@ export default function BrandsManager() {
 
   if (loading) return <Loader2 className="animate-spin mx-auto" />;
 
+  // Helper to render the editable fields (used in add & edit)
+  const renderEditableFields = (
+    brand: Partial<BrandWithColors>,
+    setBrand: (b: any) => void,
+    isEdit: boolean = false
+  ) => (
+    <>
+      <div>
+        <label>Tagline (below name)</label>
+        <input
+          value={brand.tagline || ''}
+          onChange={e => setBrand({ ...brand, tagline: e.target.value })}
+          className="w-full border rounded p-2"
+          placeholder="e.g. Goodness of Purity"
+        />
+      </div>
+      <div>
+        <label>Categories (comma separated, max 3)</label>
+        <input
+          value={(brand.categories || []).join(', ')}
+          onChange={e => {
+            const raw = e.target.value;
+            const items = raw.split(',').map(s => s.trim()).filter(Boolean);
+            setBrand({ ...brand, categories: items.slice(0, 3) });
+          }}
+          className="w-full border rounded p-2"
+          placeholder="e.g. Dairy, Butter, Ice Cream"
+        />
+      </div>
+      <div>
+        <label>Bottom Label</label>
+        <input
+          value={brand.bottom_label || ''}
+          onChange={e => setBrand({ ...brand, bottom_label: e.target.value })}
+          className="w-full border rounded p-2"
+          placeholder="e.g. Trusted by Generations"
+        />
+      </div>
+      <div>
+        <label>Bottom Icon</label>
+        <select
+          value={brand.bottom_icon || 'shield'}
+          onChange={e => setBrand({ ...brand, bottom_icon: e.target.value as any })}
+          className="w-full border rounded p-2"
+        >
+          <option value="shield">Shield</option>
+          <option value="crown">Crown</option>
+          <option value="leaf">Leaf</option>
+        </select>
+      </div>
+    </>
+  );
+
   return (
     <div className="space-y-6">
       {/* Add Brand Button */}
@@ -175,11 +238,12 @@ export default function BrandsManager() {
         <Plus size={16} /> Add Brand
       </button>
 
-      {/* ---- Add Form (preview always visible) ---- */}
+      {/* ---- Add Form ---- */}
       {showAddForm && (
         <div className="bg-white border rounded-2xl p-4 shadow-card">
           <h3 className="font-bold mb-3">New Brand</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* existing fields: name, sort, colors, logo, product image */}
             <div>
               <label>Name *</label>
               <input
@@ -211,7 +275,6 @@ export default function BrandsManager() {
                   value={newBrand.primary_color}
                   onChange={e => setNewBrand({ ...newBrand, primary_color: e.target.value })}
                   className="flex-1 border rounded p-2"
-                  placeholder="#HEX"
                 />
               </div>
             </div>
@@ -229,7 +292,6 @@ export default function BrandsManager() {
                   value={newBrand.secondary_color}
                   onChange={e => setNewBrand({ ...newBrand, secondary_color: e.target.value })}
                   className="flex-1 border rounded p-2"
-                  placeholder="#HEX"
                 />
               </div>
             </div>
@@ -241,7 +303,6 @@ export default function BrandsManager() {
                   value={newBrand.logo_url}
                   onChange={e => setNewBrand({ ...newBrand, logo_url: e.target.value })}
                   className="flex-1 border rounded p-2"
-                  placeholder="URL"
                 />
                 <label className="cursor-pointer bg-ink-100 p-2 rounded">
                   <Upload size={16} />
@@ -268,7 +329,6 @@ export default function BrandsManager() {
                     setNewBrand({ ...newBrand, product_images: imgs });
                   }}
                   className="flex-1 border rounded p-2"
-                  placeholder="URL"
                 />
                 <label className="cursor-pointer bg-ink-100 p-2 rounded">
                   <Upload size={16} />
@@ -293,7 +353,9 @@ export default function BrandsManager() {
                 /> Active
               </label>
             </div>
-            <div className="flex justify-end gap-2">
+            {/* NEW editable fields */}
+            {renderEditableFields(newBrand, setNewBrand, false)}
+            <div className="flex justify-end gap-2 col-span-2">
               <button onClick={() => setShowAddForm(false)} className="px-4 py-2 border rounded">Cancel</button>
               <button onClick={handleCreate} className="px-4 py-2 bg-brand-600 text-white rounded">Create</button>
             </div>
@@ -306,6 +368,10 @@ export default function BrandsManager() {
               secondaryColor={newBrand.secondary_color || '#1E40AF'}
               logoUrl={newBrand.logo_url || 'https://via.placeholder.com/100'}
               productImage={newBrand.product_images?.[0] || 'https://via.placeholder.com/120/CCCCCC/999999?text=Product'}
+              tagline={newBrand.tagline}
+              categories={newBrand.categories}
+              bottomLabel={newBrand.bottom_label}
+              bottomIcon={newBrand.bottom_icon}
             />
           </div>
         </div>
@@ -318,9 +384,10 @@ export default function BrandsManager() {
           return (
             <div key={brand.id} className="bg-white border rounded-2xl p-4 shadow-card">
               {isEditing ? (
-                // ---- EDIT MODE (preview always visible) ----
+                // ---- EDIT MODE ----
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
+                    {/* existing fields */}
                     <div>
                       <label>Name</label>
                       <input
@@ -453,6 +520,10 @@ export default function BrandsManager() {
                         /> Active
                       </label>
                     </div>
+                    {/* NEW editable fields */}
+                    {renderEditableFields(brand, (updated) => {
+                      setBrands(brands.map(b => b.id === brand.id ? updated : b));
+                    }, true)}
                     <div className="flex justify-end gap-2 mt-4">
                       <button onClick={() => setEditingId(null)} className="px-4 py-2 border rounded">Cancel</button>
                       <button onClick={() => handleSaveEdit(brand)} className="px-4 py-2 bg-brand-600 text-white rounded flex items-center gap-1">
@@ -468,11 +539,15 @@ export default function BrandsManager() {
                       secondaryColor={brand.secondary_color}
                       logoUrl={brand.logo_url}
                       productImage={brand.product_images?.[0] || 'https://via.placeholder.com/120/CCCCCC/999999?text=Product'}
+                      tagline={brand.tagline}
+                      categories={brand.categories}
+                      bottomLabel={brand.bottom_label}
+                      bottomIcon={brand.bottom_icon}
                     />
                   </div>
                 </div>
               ) : (
-                // ---- VIEW MODE: Left = info + buttons, Right = preview (always) ----
+                // ---- VIEW MODE ----
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="flex-1">
                     <h3 className="font-bold text-lg">{brand.name}</h3>
@@ -494,6 +569,10 @@ export default function BrandsManager() {
                       secondaryColor={brand.secondary_color}
                       logoUrl={brand.logo_url}
                       productImage={brand.product_images?.[0] || 'https://via.placeholder.com/120/CCCCCC/999999?text=Product'}
+                      tagline={brand.tagline}
+                      categories={brand.categories}
+                      bottomLabel={brand.bottom_label}
+                      bottomIcon={brand.bottom_icon}
                     />
                   </div>
                 </div>

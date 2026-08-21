@@ -13,3 +13,7 @@ ADD COLUMN small_icon TEXT;
 
 -- (Optional) You can also add an index if you query by it often
 
+ALTER TABLE trusted_brands
+ADD COLUMN primary_color VARCHAR(20) DEFAULT '#3B82F6',
+ADD COLUMN secondary_color VARCHAR(20) DEFAULT '#1E40AF',
+ADD COLUMN product_images JSONB DEFAULT '[]';

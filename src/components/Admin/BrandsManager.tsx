@@ -1,105 +1,465 @@
-// components/admin/BrandsManager.tsx (simplified preview version)
-import React, { useState } from 'react';
+// components/admin/BrandsManager.tsx
+import React, { useEffect, useState } from 'react';
+import { Plus, Trash2, Save, Loader2, Upload } from 'lucide-react';
 import { BrandCard } from '@/components/BrandCard';
+import {
+  fetchAllTrustedBrands,
+  createTrustedBrand,
+  updateTrustedBrand,
+  deleteTrustedBrand,
+  uploadBrandImage,      // new helper
+} from '@/services/catalog';
+import type { TrustedBrand } from '@/types';
+
+// Extend TrustedBrand with our new fields (will be added to DB)
+interface BrandWithColors extends TrustedBrand {
+  primary_color: string;
+  secondary_color: string;
+  product_images: string[]; // array of URLs
+}
 
 export default function BrandsManager() {
-  const [brandName, setBrandName] = useState('Amul');
-  const [primaryColor, setPrimaryColor] = useState('#3B82F6');
-  const [secondaryColor, setSecondaryColor] = useState('#1E40AF');
-  const [logoUrl, setLogoUrl] = useState('https://via.placeholder.com/100/FFFFFF/000000?text=Logo');
-  const [productImages, setProductImages] = useState([
-    'https://via.placeholder.com/80/FF0000/FFFFFF?text=Prod1',
-    'https://via.placeholder.com/80/00FF00/FFFFFF?text=Prod2',
-    'https://via.placeholder.com/80/0000FF/FFFFFF?text=Prod3',
-  ]);
+  const [brands, setBrands] = useState<BrandWithColors[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null); // which brand is being edited
+  const [newBrand, setNewBrand] = useState<Partial<BrandWithColors>>({
+    name: '',
+    logo_url: '',
+    primary_color: '#3B82F6',
+    secondary_color: '#1E40AF',
+    product_images: ['', '', ''],
+    sort_order: 0,
+    is_active: true,
+  });
+  const [showAddForm, setShowAddForm] = useState(false);
 
-  const updateImage = (index: number, value: string) => {
-    const newImages = [...productImages];
-    newImages[index] = value;
-    setProductImages(newImages);
+  const loadBrands = async () => {
+    const data = await fetchAllTrustedBrands();
+    // Cast to include new fields (they will come from DB)
+    setBrands(data as BrandWithColors[]);
+    setLoading(false);
   };
 
-  return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      <h2 className="text-xl font-bold">Brand Editor (Live Preview)</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Input Panel */}
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium">Brand Name</label>
-            <input
-              type="text"
-              value={brandName}
-              onChange={(e) => setBrandName(e.target.value)}
-              className="mt-1 block w-full border rounded-md p-2"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Primary Color</label>
-            <input
-              type="color"
-              value={primaryColor}
-              onChange={(e) => setPrimaryColor(e.target.value)}
-              className="mt-1 block w-full h-10 p-1 border rounded-md"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Secondary Color</label>
-            <input
-              type="color"
-              value={secondaryColor}
-              onChange={(e) => setSecondaryColor(e.target.value)}
-              className="mt-1 block w-full h-10 p-1 border rounded-md"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Logo URL</label>
-            <input
-              type="text"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              className="mt-1 block w-full border rounded-md p-2"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Product Image 1</label>
-            <input
-              type="text"
-              value={productImages[0] || ''}
-              onChange={(e) => updateImage(0, e.target.value)}
-              className="mt-1 block w-full border rounded-md p-2"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Product Image 2</label>
-            <input
-              type="text"
-              value={productImages[1] || ''}
-              onChange={(e) => updateImage(1, e.target.value)}
-              className="mt-1 block w-full border rounded-md p-2"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Product Image 3</label>
-            <input
-              type="text"
-              value={productImages[2] || ''}
-              onChange={(e) => updateImage(2, e.target.value)}
-              className="mt-1 block w-full border rounded-md p-2"
-            />
-          </div>
-        </div>
+  useEffect(() => {
+    loadBrands();
+  }, []);
 
-        {/* Live Preview */}
-        <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg p-4">
-          <BrandCard
-            brandName={brandName}
-            primaryColor={primaryColor}
-            secondaryColor={secondaryColor}
-            logoUrl={logoUrl}
-            productImages={productImages}
-          />
+  // ---- CRUD ----
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Delete this brand?')) {
+      await deleteTrustedBrand(id);
+      await loadBrands();
+    }
+  };
+
+  const handleSaveEdit = async (brand: BrandWithColors) => {
+    await updateTrustedBrand(brand.id, {
+      name: brand.name,
+      logo_url: brand.logo_url,
+      sort_order: brand.sort_order,
+      is_active: brand.is_active,
+      primary_color: brand.primary_color,
+      secondary_color: brand.secondary_color,
+      product_images: brand.product_images,
+    });
+    setEditingId(null);
+    await loadBrands();
+  };
+
+  const handleCreate = async () => {
+    if (!newBrand.name || !newBrand.logo_url) return;
+    await createTrustedBrand({
+      name: newBrand.name,
+      logo_url: newBrand.logo_url,
+      sort_order: newBrand.sort_order || 0,
+      is_active: newBrand.is_active ?? true,
+      primary_color: newBrand.primary_color || '#3B82F6',
+      secondary_color: newBrand.secondary_color || '#1E40AF',
+      product_images: newBrand.product_images || ['', '', ''],
+    });
+    setNewBrand({
+      name: '',
+      logo_url: '',
+      primary_color: '#3B82F6',
+      secondary_color: '#1E40AF',
+      product_images: ['', '', ''],
+      sort_order: 0,
+      is_active: true,
+    });
+    setShowAddForm(false);
+    await loadBrands();
+  };
+
+  // ---- Image upload ----
+  const handleImageUpload = async (
+    file: File,
+    brandId: string | null, // null for new brand
+    field: 'logo_url' | 'product_images',
+    index?: number
+  ) => {
+    const url = await uploadBrandImage(file, brandId, field);
+    if (brandId) {
+      // update existing brand
+      const brand = brands.find(b => b.id === brandId);
+      if (!brand) return;
+      if (field === 'logo_url') {
+        brand.logo_url = url;
+      } else if (field === 'product_images' && index !== undefined) {
+        brand.product_images[index] = url;
+      }
+      setBrands([...brands]);
+    } else {
+      // new brand
+      if (field === 'logo_url') {
+        setNewBrand({ ...newBrand, logo_url: url });
+      } else if (field === 'product_images' && index !== undefined) {
+        const newImages = [...(newBrand.product_images || ['', '', ''])];
+        newImages[index] = url;
+        setNewBrand({ ...newBrand, product_images: newImages });
+      }
+    }
+  };
+
+  if (loading) return <Loader2 className="animate-spin mx-auto" />;
+
+  return (
+    <div className="space-y-6">
+      <button
+        onClick={() => setShowAddForm(true)}
+        className="w-full h-12 rounded-xl bg-brand-600 text-white font-bold flex items-center justify-center gap-2"
+      >
+        <Plus size={16} /> Add Brand
+      </button>
+
+      {showAddForm && (
+        <div className="bg-white border rounded-2xl p-4 shadow-card">
+          <h3 className="font-bold mb-3">New Brand</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label>Name *</label>
+              <input
+                value={newBrand.name}
+                onChange={e => setNewBrand({ ...newBrand, name: e.target.value })}
+                className="w-full border rounded p-2"
+              />
+            </div>
+            <div>
+              <label>Sort Order</label>
+              <input
+                type="number"
+                value={newBrand.sort_order}
+                onChange={e => setNewBrand({ ...newBrand, sort_order: Number(e.target.value) })}
+                className="w-full border rounded p-2"
+              />
+            </div>
+            <div>
+              <label>Primary Color</label>
+              <div className="flex gap-2">
+                <input
+                  type="color"
+                  value={newBrand.primary_color}
+                  onChange={e => setNewBrand({ ...newBrand, primary_color: e.target.value })}
+                  className="h-10 w-10 p-1 border rounded"
+                />
+                <input
+                  type="text"
+                  value={newBrand.primary_color}
+                  onChange={e => setNewBrand({ ...newBrand, primary_color: e.target.value })}
+                  className="flex-1 border rounded p-2"
+                  placeholder="#HEX"
+                />
+              </div>
+            </div>
+            <div>
+              <label>Secondary Color</label>
+              <div className="flex gap-2">
+                <input
+                  type="color"
+                  value={newBrand.secondary_color}
+                  onChange={e => setNewBrand({ ...newBrand, secondary_color: e.target.value })}
+                  className="h-10 w-10 p-1 border rounded"
+                />
+                <input
+                  type="text"
+                  value={newBrand.secondary_color}
+                  onChange={e => setNewBrand({ ...newBrand, secondary_color: e.target.value })}
+                  className="flex-1 border rounded p-2"
+                  placeholder="#HEX"
+                />
+              </div>
+            </div>
+            <div>
+              <label>Logo</label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  value={newBrand.logo_url}
+                  onChange={e => setNewBrand({ ...newBrand, logo_url: e.target.value })}
+                  className="flex-1 border rounded p-2"
+                  placeholder="URL"
+                />
+                <label className="cursor-pointer bg-ink-100 p-2 rounded">
+                  <Upload size={16} />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) await handleImageUpload(file, null, 'logo_url');
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="col-span-2">
+              <label>Product Images (up to 3)</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[0, 1, 2].map((idx) => (
+                  <div key={idx} className="flex gap-1">
+                    <input
+                      type="text"
+                      value={newBrand.product_images?.[idx] || ''}
+                      onChange={e => {
+                        const imgs = [...(newBrand.product_images || ['', '', ''])];
+                        imgs[idx] = e.target.value;
+                        setNewBrand({ ...newBrand, product_images: imgs });
+                      }}
+                      className="flex-1 border rounded p-2 text-sm"
+                      placeholder={`Image ${idx+1}`}
+                    />
+                    <label className="cursor-pointer bg-ink-100 p-2 rounded">
+                      <Upload size={14} />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) await handleImageUpload(file, null, 'product_images', idx);
+                        }}
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={newBrand.is_active}
+                  onChange={e => setNewBrand({ ...newBrand, is_active: e.target.checked })}
+                /> Active
+              </label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowAddForm(false)} className="px-4 py-2 border rounded">Cancel</button>
+              <button onClick={handleCreate} className="px-4 py-2 bg-brand-600 text-white rounded">Create</button>
+            </div>
+          </div>
+          {/* Preview of new brand */}
+          <div className="mt-4 flex justify-center">
+            <BrandCard
+              brandName={newBrand.name || 'Preview'}
+              primaryColor={newBrand.primary_color || '#3B82F6'}
+              secondaryColor={newBrand.secondary_color || '#1E40AF'}
+              logoUrl={newBrand.logo_url || 'https://via.placeholder.com/100'}
+              productImages={newBrand.product_images?.filter(Boolean) || []}
+            />
+          </div>
         </div>
+      )}
+
+      {/* List of existing brands */}
+      <div className="space-y-4">
+        {brands.map((brand) => {
+          const isEditing = editingId === brand.id;
+          return (
+            <div key={brand.id} className="bg-white border rounded-2xl p-4 shadow-card">
+              {isEditing ? (
+                // Edit mode – full form with preview
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div>
+                      <label>Name</label>
+                      <input
+                        value={brand.name}
+                        onChange={e => {
+                          const updated = { ...brand, name: e.target.value };
+                          setBrands(brands.map(b => b.id === brand.id ? updated : b));
+                        }}
+                        className="w-full border rounded p-2"
+                      />
+                    </div>
+                    <div>
+                      <label>Sort Order</label>
+                      <input
+                        type="number"
+                        value={brand.sort_order}
+                        onChange={e => {
+                          const updated = { ...brand, sort_order: Number(e.target.value) };
+                          setBrands(brands.map(b => b.id === brand.id ? updated : b));
+                        }}
+                        className="w-full border rounded p-2"
+                      />
+                    </div>
+                    <div>
+                      <label>Primary Color</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="color"
+                          value={brand.primary_color}
+                          onChange={e => {
+                            const updated = { ...brand, primary_color: e.target.value };
+                            setBrands(brands.map(b => b.id === brand.id ? updated : b));
+                          }}
+                          className="h-10 w-10 p-1 border rounded"
+                        />
+                        <input
+                          type="text"
+                          value={brand.primary_color}
+                          onChange={e => {
+                            const updated = { ...brand, primary_color: e.target.value };
+                            setBrands(brands.map(b => b.id === brand.id ? updated : b));
+                          }}
+                          className="flex-1 border rounded p-2"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label>Secondary Color</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="color"
+                          value={brand.secondary_color}
+                          onChange={e => {
+                            const updated = { ...brand, secondary_color: e.target.value };
+                            setBrands(brands.map(b => b.id === brand.id ? updated : b));
+                          }}
+                          className="h-10 w-10 p-1 border rounded"
+                        />
+                        <input
+                          type="text"
+                          value={brand.secondary_color}
+                          onChange={e => {
+                            const updated = { ...brand, secondary_color: e.target.value };
+                            setBrands(brands.map(b => b.id === brand.id ? updated : b));
+                          }}
+                          className="flex-1 border rounded p-2"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label>Logo</label>
+                      <div className="flex gap-2">
+                        <input
+                          value={brand.logo_url}
+                          onChange={e => {
+                            const updated = { ...brand, logo_url: e.target.value };
+                            setBrands(brands.map(b => b.id === brand.id ? updated : b));
+                          }}
+                          className="flex-1 border rounded p-2"
+                        />
+                        <label className="cursor-pointer bg-ink-100 p-2 rounded">
+                          <Upload size={16} />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) await handleImageUpload(file, brand.id, 'logo_url');
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                    <div>
+                      <label>Product Images (up to 3)</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[0, 1, 2].map((idx) => (
+                          <div key={idx} className="flex gap-1">
+                            <input
+                              value={brand.product_images?.[idx] || ''}
+                              onChange={e => {
+                                const imgs = [...(brand.product_images || ['', '', ''])];
+                                imgs[idx] = e.target.value;
+                                const updated = { ...brand, product_images: imgs };
+                                setBrands(brands.map(b => b.id === brand.id ? updated : b));
+                              }}
+                              className="flex-1 border rounded p-1 text-sm"
+                            />
+                            <label className="cursor-pointer bg-ink-100 p-1 rounded">
+                              <Upload size={12} />
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) await handleImageUpload(file, brand.id, 'product_images', idx);
+                                }}
+                              />
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          checked={brand.is_active}
+                          onChange={e => {
+                            const updated = { ...brand, is_active: e.target.checked };
+                            setBrands(brands.map(b => b.id === brand.id ? updated : b));
+                          }}
+                        /> Active
+                      </label>
+                    </div>
+                    <div className="flex justify-end gap-2 mt-4">
+                      <button onClick={() => setEditingId(null)} className="px-4 py-2 border rounded">Cancel</button>
+                      <button onClick={() => handleSaveEdit(brand)} className="px-4 py-2 bg-brand-600 text-white rounded flex items-center gap-1">
+                        <Save size={16} /> Save
+                      </button>
+                    </div>
+                  </div>
+                  {/* Preview */}
+                  <div className="flex justify-center items-center bg-gray-50 rounded-xl p-4">
+                    <BrandCard
+                      brandName={brand.name}
+                      primaryColor={brand.primary_color}
+                      secondaryColor={brand.secondary_color}
+                      logoUrl={brand.logo_url}
+                      productImages={brand.product_images?.filter(Boolean) || []}
+                    />
+                  </div>
+                </div>
+              ) : (
+                // View mode – summary with inline preview and edit/delete buttons
+                <div className="flex flex-col md:flex-row gap-4 items-center">
+                  <BrandCard
+                    brandName={brand.name}
+                    primaryColor={brand.primary_color}
+                    secondaryColor={brand.secondary_color}
+                    logoUrl={brand.logo_url}
+                    productImages={brand.product_images?.filter(Boolean) || []}
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg">{brand.name}</h3>
+                    <p className="text-sm text-ink-500">Order: {brand.sort_order}</p>
+                    <p className="text-sm">{brand.is_active ? 'Active' : 'Inactive'}</p>
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={() => setEditingId(brand.id)} className="px-3 py-1 bg-brand-50 text-brand-600 rounded">Edit</button>
+                      <button onClick={() => handleDelete(brand.id)} className="px-3 py-1 bg-red-50 text-red-500 rounded">Delete</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

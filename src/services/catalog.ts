@@ -1304,3 +1304,27 @@ export async function uploadIconImage(
     .getPublicUrl(path);
   return urlData.publicUrl;
 }
+
+// services/catalog.ts
+
+// Upload a brand image to Supabase Storage
+export async function uploadBrandImage(
+  file: File,
+  brandId: string | null,  // null for new brand (will be created later)
+  field: 'logo_url' | 'product_images'
+): Promise<string> {
+  const bucket = 'brands';
+  const folder = brandId ? `brand_${brandId}` : 'temp';
+  const fileName = `${Date.now()}_${file.name}`;
+  const path = `${folder}/${field}/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file);
+  if (error) throw error;
+
+  const { data: urlData } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(path);
+  return urlData.publicUrl;
+}

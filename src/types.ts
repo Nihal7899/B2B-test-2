@@ -289,6 +289,7 @@ export interface Store {
   config?: any; // <-- add this
 }
 
+// types.ts
 export interface TrustedBrand {
   id: string;
   name: string;
@@ -297,6 +298,10 @@ export interface TrustedBrand {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // new fields
+  primary_color?: string;
+  secondary_color?: string;
+  product_images?: string[];
 }
 
 export interface DeliveryRange {

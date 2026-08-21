@@ -44,6 +44,7 @@ interface NotificationChannel {
   channel_id: string;
   name: string;
   description?: string;
+  small_icon?: string;           // <-- new column
 }
 
 export function PushNotificationSender() {
@@ -57,7 +58,7 @@ export function PushNotificationSender() {
   const [buttons, setButtons] = useState<ActionButton[]>([{ id: 'view_order', text: 'View Order', preset: 'view_order' }]);
   const [badgeCount, setBadgeCount] = useState<number | ''>('');
   const [scheduledAt, setScheduledAt] = useState('');
-  const [smallIcon, setSmallIcon] = useState('');
+  const [smallIcon, setSmallIcon] = useState('');          // now auto‑filled from channel
   const [largeIcon, setLargeIcon] = useState('');
   const [iosCategory, setIosCategory] = useState('');
   const [iosCategoryPreset, setIosCategoryPreset] = useState('custom');
@@ -72,6 +73,7 @@ export function PushNotificationSender() {
   const [newChannelId, setNewChannelId] = useState('');
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelDescription, setNewChannelDescription] = useState('');
+  const [newChannelSmallIcon, setNewChannelSmallIcon] = useState('');   // new field
   const [addingChannel, setAddingChannel] = useState(false);
 
   // Crop selection for rich media upload
@@ -101,9 +103,11 @@ export function PushNotificationSender() {
         .order('name');
       if (error) throw error;
       setChannels(data || []);
-      // If no channel selected and we have channels, select the first one
+      // Auto‑select first channel and set its small icon
       if (data && data.length > 0 && !selectedChannelId) {
-        setSelectedChannelId(data[0].channel_id);
+        const first = data[0];
+        setSelectedChannelId(first.channel_id);
+        if (first.small_icon) setSmallIcon(first.small_icon);
       }
     } catch (err: any) {
       console.error('Failed to fetch channels:', err);
@@ -113,7 +117,19 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Image upload helper ────────────────────────────────────────
+  // ── Handle channel selection ──────────────────────────────────
+  const handleChannelChange = (channelId: string) => {
+    setSelectedChannelId(channelId);
+    // Auto‑fill small icon from the selected channel
+    const channel = channels.find(ch => ch.channel_id === channelId);
+    if (channel?.small_icon) {
+      setSmallIcon(channel.small_icon);
+    } else {
+      setSmallIcon(''); // clear if no icon defined
+    }
+  };
+
+  // ── Image upload helpers (unchanged) ──────────────────────
   const uploadFile = async (
     file: File,
     setUrl: (url: string) => void,
@@ -153,7 +169,7 @@ export function PushNotificationSender() {
   const removeImage = () => setImage('');
   const removeLargeIcon = () => setLargeIcon('');
 
-  // ── Button management ──────────────────────────────────────────
+  // ── Button management (unchanged) ──────────────────────────
   const addButton = () => {
     setButtons([...buttons, { id: '', text: '', preset: 'custom' }]);
   };
@@ -179,7 +195,7 @@ export function PushNotificationSender() {
     setButtons(updated);
   };
 
-  // ── iOS Category handlers ──
+  // ── iOS Category handlers (unchanged) ──────────────────────
   const handleIosCategoryPreset = (presetId: string) => {
     setIosCategoryPreset(presetId);
     if (presetId === 'custom') {
@@ -189,7 +205,7 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Add channel handler ──
+  // ── Add channel handler (includes small_icon) ──────────────
   const handleAddChannel = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedId = newChannelId.trim();
@@ -206,6 +222,7 @@ export function PushNotificationSender() {
           channel_id: trimmedId,
           name: trimmedName,
           description: newChannelDescription.trim() || null,
+          small_icon: newChannelSmallIcon.trim() || null,
         });
       if (error) throw error;
       toast.success('Channel added successfully');
@@ -213,10 +230,13 @@ export function PushNotificationSender() {
       setNewChannelId('');
       setNewChannelName('');
       setNewChannelDescription('');
+      setNewChannelSmallIcon('');
       setShowAddChannel(false);
       // Refresh list and select the new one
       await fetchChannels();
       setSelectedChannelId(trimmedId);
+      // Auto‑fill small icon
+      setSmallIcon(newChannelSmallIcon.trim());
     } catch (err: any) {
       toast.error(err.message || 'Failed to add channel');
     } finally {
@@ -224,7 +244,7 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Send notification ───────────────────────────────────────────
+  // ── Send notification ──────────────────────────────────────────
   const sendNotification = async () => {
     if (!title.trim() || !body.trim()) {
       toast.error('Title and body are required');
@@ -253,10 +273,9 @@ export function PushNotificationSender() {
     }
     if (badgeCount !== '') payload.badgeCount = Number(badgeCount);
     if (scheduledAt) payload.scheduledAt = new Date(scheduledAt).toISOString();
-    if (smallIcon.trim()) payload.smallIcon = smallIcon.trim();
+    if (smallIcon.trim()) payload.smallIcon = smallIcon.trim();   // now from channel or overridden
     if (largeIcon.trim()) payload.largeIcon = largeIcon.trim();
     if (iosCategory.trim()) payload.iosCategory = iosCategory.trim();
-    // ── Channel ID from dropdown ──
     if (selectedChannelId) payload.channelId = selectedChannelId;
 
     setLoading(true);
@@ -264,7 +283,7 @@ export function PushNotificationSender() {
       const { error } = await supabase.functions.invoke('send-push-notification', { body: payload });
       if (error) throw error;
       toast.success('Notification sent successfully');
-      // Reset form (keep channel selected)
+      // Reset form (but keep channel and its small icon)
       setTitle('');
       setBody('');
       setDataJson('{}');
@@ -273,10 +292,10 @@ export function PushNotificationSender() {
       setButtons([{ id: 'view_order', text: 'View Order', preset: 'view_order' }]);
       setBadgeCount('');
       setScheduledAt('');
-      setSmallIcon('');
       setLargeIcon('');
       setIosCategory('');
       setIosCategoryPreset('custom');
+      // Do not reset smallIcon – keep it from channel
     } catch (err: any) {
       toast.error(err.message || 'Failed to send notification');
     } finally {
@@ -448,7 +467,7 @@ export function PushNotificationSender() {
         <p className="text-xs text-ink-400 mt-1">Buttons work on both platforms. For iOS, set a Category below.</p>
       </div>
 
-      {/* Badge, Schedule, Channel ID (replaces Sound) */}
+      {/* Badge, Schedule, Channel ID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div>
           <label className="block text-sm font-medium text-ink-700">Badge Count</label>
@@ -476,7 +495,7 @@ export function PushNotificationSender() {
           </label>
           <select
             value={selectedChannelId}
-            onChange={(e) => setSelectedChannelId(e.target.value)}
+            onChange={(e) => handleChannelChange(e.target.value)}
             className="w-full mt-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-white"
             disabled={loadingChannels}
           >
@@ -487,7 +506,7 @@ export function PushNotificationSender() {
             ) : (
               channels.map((ch) => (
                 <option key={ch.id} value={ch.channel_id}>
-                  {ch.name} ({ch.channel_id})
+                  {ch.name}   {/* Only name, no ID */}
                 </option>
               ))
             )}
@@ -498,7 +517,7 @@ export function PushNotificationSender() {
         </div>
       </div>
 
-      {/* Android‑specific */}
+      {/* Android‑specific settings */}
       <div className="border-t border-ink-100 pt-3">
         <button
           type="button"
@@ -510,11 +529,13 @@ export function PushNotificationSender() {
         </button>
         {showAndroid && (
           <div className="mt-3 space-y-4 bg-ink-50/30 p-3 rounded-xl border border-ink-100">
-            {/* Small Icon - text only */}
+            {/* Small Icon - now auto‑filled from channel */}
             <div>
               <label className="block text-sm font-medium text-ink-700">
                 Small Icon (drawable resource name)
-                <span className="text-xs text-ink-400 ml-1">(must be a resource name, e.g. ic_notification)</span>
+                <span className="text-xs text-ink-400 ml-1">
+                  (auto‑filled from channel, but editable)
+                </span>
               </label>
               <input
                 type="text"
@@ -525,7 +546,7 @@ export function PushNotificationSender() {
               />
             </div>
 
-            {/* Large Icon - supports URL/upload */}
+            {/* Large Icon - unchanged */}
             <div>
               <label className="block text-sm font-medium text-ink-700">
                 Large Icon (URL or resource name)
@@ -593,7 +614,7 @@ export function PushNotificationSender() {
         )}
       </div>
 
-      {/* iOS‑specific */}
+      {/* iOS‑specific settings (unchanged) */}
       <div className="border-t border-ink-100 pt-3">
         <button
           type="button"
@@ -642,7 +663,7 @@ export function PushNotificationSender() {
         )}
       </div>
 
-      {/* Audience & Extra Data */}
+      {/* Audience & Extra Data (unchanged) */}
       <div>
         <label className="block text-sm font-medium text-ink-700">Audience</label>
         <select
@@ -675,7 +696,7 @@ export function PushNotificationSender() {
         {loading ? 'Sending...' : 'Send Notification'}
       </button>
 
-      {/* ── Add Channel Section ── */}
+      {/* ── Add Channel Section (with small_icon field) ── */}
       <div className="border-t border-ink-100 pt-4 mt-2">
         <button
           type="button"
@@ -713,6 +734,16 @@ export function PushNotificationSender() {
               </div>
             </div>
             <div>
+              <label className="block text-xs font-medium text-ink-700">Small Icon (resource name, optional)</label>
+              <input
+                type="text"
+                value={newChannelSmallIcon}
+                onChange={(e) => setNewChannelSmallIcon(e.target.value)}
+                className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
+                placeholder="e.g. ic_notification_logo"
+              />
+            </div>
+            <div>
               <label className="block text-xs font-medium text-ink-700">Description (optional)</label>
               <input
                 type="text"
@@ -745,7 +776,7 @@ export function PushNotificationSender() {
   );
 }
 
-// ── Image processing helper (unchanged) ──
+// ── Image processing helper (unchanged) ──────────────────────
 async function processImage(
   file: File,
   aspectRatio: number,
@@ -753,7 +784,6 @@ async function processImage(
   targetHeight: number,
   quality = 0.8
 ): Promise<File> {
-  // ... (same as before)
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);

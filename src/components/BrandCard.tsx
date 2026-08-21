@@ -7,7 +7,58 @@ interface BrandCardProps {
   secondaryColor: string;
   logoUrl: string;
   productImage: string;
+  productImages?: string[];
 }
+
+interface BrandContent {
+  tagline: string;
+  categories: string[];
+  bottomLabel: string;
+  bottomIcon: 'shield' | 'crown' | 'leaf';
+}
+
+/*
+|--------------------------------------------------------------------------
+| Static content for now
+|--------------------------------------------------------------------------
+| You can make this dynamic later from Supabase.
+*/
+const STATIC_BRAND_CONTENT: Record<string, BrandContent> = {
+  amul: {
+    tagline: 'Goodness of Purity',
+    categories: ['Dairy', 'Butter', 'Ice Cream'],
+    bottomLabel: 'Trusted by Generations',
+    bottomIcon: 'shield',
+  },
+
+  'golden crown': {
+    tagline: 'Classic Taste, Trusted Always',
+    categories: ['Pasta', 'Vermicelli', 'Spices'],
+    bottomLabel: 'Premium Quality',
+    bottomIcon: 'crown',
+  },
+
+  'east made': {
+    tagline: 'Authentic Flavours, Pure Spices',
+    categories: ['Spices', 'Masala', 'Blends'],
+    bottomLabel: 'Pure • Natural • Authentic',
+    bottomIcon: 'leaf',
+  },
+};
+
+const DEFAULT_CONTENT: BrandContent = {
+  tagline: 'Quality You Can Trust',
+  categories: ['Premium', 'Quality', 'Trusted'],
+  bottomLabel: 'Premium Quality',
+  bottomIcon: 'shield',
+};
+
+const getBrandContent = (brandName: string): BrandContent => {
+  return (
+    STATIC_BRAND_CONTENT[brandName.trim().toLowerCase()] ||
+    DEFAULT_CONTENT
+  );
+};
 
 const hexToRgb = (hex: string) => {
   const clean = hex.replace('#', '');
@@ -17,9 +68,9 @@ const hexToRgb = (hex: string) => {
   }
 
   return {
-    r: parseInt(clean.slice(0, 2), 16),
-    g: parseInt(clean.slice(2, 4), 16),
-    b: parseInt(clean.slice(4, 6), 16),
+    r: parseInt(clean.substring(0, 2), 16),
+    g: parseInt(clean.substring(2, 4), 16),
+    b: parseInt(clean.substring(4, 6), 16),
   };
 };
 
@@ -28,6 +79,7 @@ const getLuminance = (hex: string) => {
 
   const values = [r, g, b].map((value) => {
     const channel = value / 255;
+
     return channel <= 0.03928
       ? channel / 12.92
       : Math.pow((channel + 0.055) / 1.055, 2.4);
@@ -40,70 +92,166 @@ const getLuminance = (hex: string) => {
   );
 };
 
+function BottomIcon({
+  type,
+}: {
+  type: BrandContent['bottomIcon'];
+}) {
+  if (type === 'crown') {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-[13px] w-[13px]"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path
+          d="m3 7 4 4 5-7 5 7 4-4-2 11H5L3 7Z"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M5 21h14"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (type === 'leaf') {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-[14px] w-[14px]"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path
+          d="M20 4C11 4 5 7 5 13c0 3 2 5 5 5 6 0 9-6 10-14Z"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M4 21c3-6 7-9 13-12"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[13px] w-[13px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path
+        d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6l8-3Z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      <path
+        d="m8.5 12 2.2 2.2 4.8-5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function BrandCard({
   brandName,
   primaryColor,
   secondaryColor,
   logoUrl,
   productImage,
+  productImages = [],
 }: BrandCardProps) {
+  const content = getBrandContent(brandName);
+
+  /*
+   * Keep the original single-image prop compatible,
+   * while automatically supporting multiple products.
+   */
+  const products = [
+    ...productImages.filter(Boolean),
+    productImage,
+  ].filter(Boolean);
+
+  const uniqueProducts = Array.from(
+    new Set(products)
+  ).slice(0, 3);
+
   const primaryRgb = hexToRgb(primaryColor);
-  const secondaryRgb = hexToRgb(secondaryColor);
 
-  const isLight =
-    getLuminance(primaryColor) > 0.65;
+  const isLightBackground =
+    getLuminance(primaryColor) > 0.68;
 
-  const textColor = isLight ? '#111827' : '#ffffff';
+  const textColor = isLightBackground
+    ? '#111827'
+    : '#ffffff';
 
   return (
     <div
       className="
-        group relative
-        w-[150px] h-[194px]
+        group
+        relative
+        h-[260px]
+        w-[182px]
         flex-shrink-0
         overflow-hidden
-        rounded-[24px]
-        select-none
+        rounded-[25px]
         isolate
-        shadow-[0_8px_30px_rgba(0,0,0,0.12)]
-        transition-all duration-500
+        bg-white
+        shadow-[0_10px_35px_rgba(0,0,0,0.14)]
+        transition-all
+        duration-500
         hover:-translate-y-1
-        hover:shadow-[0_16px_40px_rgba(0,0,0,0.18)]
+        hover:shadow-[0_18px_45px_rgba(0,0,0,0.20)]
       "
-      style={{
-        '--primary': primaryColor,
-        '--secondary': secondaryColor,
-      } as React.CSSProperties}
     >
-      {/* =========================================================
-          BACKGROUND
-      ========================================================== */}
+      {/* ========================================================
+          MAIN GRADIENT
+      ========================================================= */}
 
       <div
         className="absolute inset-0"
         style={{
           background: `
             radial-gradient(
-              circle at 50% 10%,
-              rgba(255,255,255,0.20),
-              transparent 32%
+              circle at 50% 15%,
+              rgba(255,255,255,0.18),
+              transparent 30%
             ),
             linear-gradient(
               145deg,
               ${primaryColor} 0%,
-              ${primaryColor} 42%,
+              ${primaryColor} 45%,
               ${secondaryColor} 100%
             )
           `,
         }}
       />
 
-      {/* =========================================================
-          DECORATIVE LIGHT BLOBS
-      ========================================================== */}
+      {/* ========================================================
+          DECORATIVE GLOW
+      ========================================================= */}
 
       <div
-        className="absolute -left-10 -top-10 h-28 w-28 rounded-full blur-[2px]"
+        className="
+          absolute
+          -left-12
+          -top-8
+          h-32
+          w-32
+          rounded-full
+          blur-2xl
+        "
         style={{
           background: `rgba(
             ${primaryRgb.r},
@@ -115,113 +263,149 @@ export function BrandCard({
       />
 
       <div
-        className="absolute -right-8 top-12 h-24 w-24 rounded-full blur-xl"
-        style={{
-          background: `rgba(
-            255,
-            255,
-            255,
-            0.10
-          )`,
-        }}
+        className="
+          absolute
+          -right-10
+          top-20
+          h-28
+          w-28
+          rounded-full
+          bg-white/10
+          blur-2xl
+        "
       />
 
-      <div
-        className="absolute -bottom-8 -left-8 h-28 w-28 rounded-full blur-2xl"
-        style={{
-          background: `rgba(
-            0,
-            0,
-            0,
-            0.12
-          )`,
-        }}
-      />
-
-      {/* =========================================================
-          ABSTRACT SVG GRAPHICS
-      ========================================================== */}
+      {/* ========================================================
+          ABSTRACT GRAPHICS
+      ========================================================= */}
 
       <svg
-        className="absolute inset-0 h-full w-full opacity-[0.14]"
-        viewBox="0 0 150 194"
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          h-full
+          w-full
+          opacity-[0.13]
+        "
+        viewBox="0 0 182 260"
         preserveAspectRatio="none"
-        aria-hidden="true"
       >
+        {/* left arcs */}
         <circle
-          cx="5"
-          cy="42"
+          cx="-10"
+          cy="55"
+          r="58"
+          fill="none"
+          stroke="white"
+          strokeWidth="1"
+        />
+
+        <circle
+          cx="-10"
+          cy="55"
+          r="44"
+          fill="none"
+          stroke="white"
+          strokeWidth="1"
+        />
+
+        {/* right decorative circle */}
+        <circle
+          cx="190"
+          cy="82"
           r="38"
           fill="none"
           stroke="white"
           strokeWidth="1"
         />
 
-        <circle
-          cx="5"
-          cy="42"
-          r="28"
+        {/* flowing lines */}
+        <path
+          d="M-20 175 C45 140 100 170 205 125"
           fill="none"
           stroke="white"
-          strokeWidth="1"
-        />
-
-        <circle
-          cx="145"
-          cy="70"
-          r="28"
-          fill="none"
-          stroke="white"
-          strokeWidth="1"
+          strokeWidth="1.2"
         />
 
         <path
-          d="M-10 130 C35 105 70 122 165 88"
+          d="M-20 183 C50 148 108 178 205 133"
           fill="none"
           stroke="white"
-          strokeWidth="1.5"
+          strokeWidth="0.8"
         />
 
-        <path
-          d="M-10 137 C40 112 75 129 165 95"
-          fill="none"
-          stroke="white"
-          strokeWidth="1"
+        {/* small decorative stars */}
+        <circle
+          cx="154"
+          cy="38"
+          r="2"
+          fill="white"
+        />
+
+        <circle
+          cx="166"
+          cy="48"
+          r="1.5"
+          fill="white"
+        />
+
+        <circle
+          cx="143"
+          cy="49"
+          r="1"
+          fill="white"
         />
       </svg>
 
-      {/* =========================================================
-          DECORATIVE DOTS
-      ========================================================== */}
-
-      <div className="absolute right-4 top-4 grid grid-cols-3 gap-1 opacity-25">
-        {[...Array(9)].map((_, index) => (
-          <span
-            key={index}
-            className="h-1 w-1 rounded-full bg-white"
-          />
-        ))}
-      </div>
-
-      {/* =========================================================
-          LOGO GLASS CONTAINER
-      ========================================================== */}
+      {/* ========================================================
+          TOP DOT PATTERN
+      ========================================================= */}
 
       <div
         className="
           absolute
-          left-1/2 top-[13px]
+          right-4
+          top-4
+          z-10
+          grid
+          grid-cols-3
+          gap-[4px]
+          opacity-25
+        "
+      >
+        {Array.from({ length: 9 }).map((_, index) => (
+          <span
+            key={index}
+            className="h-[3px] w-[3px] rounded-full bg-white"
+          />
+        ))}
+      </div>
+
+      {/* ========================================================
+          LOGO
+      ========================================================= */}
+
+      <div
+        className="
+          absolute
+          left-1/2
+          top-[15px]
           z-30
           flex
-          h-[58px] w-[70px]
+          h-[64px]
+          w-[76px]
           -translate-x-1/2
-          items-center justify-center
-          rounded-[17px]
-          border border-white/60
+          items-center
+          justify-center
+          rounded-[18px]
+          border
+          border-white/70
           bg-white
-          p-2
-          shadow-[0_8px_20px_rgba(0,0,0,0.16)]
-          transition-transform duration-500
+          p-[9px]
+          shadow-[0_7px_18px_rgba(0,0,0,0.17)]
+          transition-transform
+          duration-500
           group-hover:scale-[1.04]
         "
       >
@@ -236,28 +420,34 @@ export function BrandCard({
           loading="lazy"
         />
 
-        {/* Tiny premium indicator */}
+        {/* Green quality mark */}
         <span
           className="
             absolute
-            right-1.5 top-1.5
-            h-1.5 w-1.5
+            right-[5px]
+            top-[5px]
+            flex
+            h-[8px]
+            w-[8px]
+            items-center
+            justify-center
             rounded-full
             bg-emerald-500
-            shadow-[0_0_5px_rgba(16,185,129,0.6)]
+            shadow-[0_0_5px_rgba(16,185,129,0.7)]
           "
         />
       </div>
 
-      {/* =========================================================
-          BRAND NAME
-      ========================================================== */}
+      {/* ========================================================
+          BRAND NAME + TAGLINE
+      ========================================================= */}
 
       <div
         className="
           absolute
-          left-2 right-2
-          top-[76px]
+          left-3
+          right-3
+          top-[86px]
           z-20
           text-center
         "
@@ -265,91 +455,97 @@ export function BrandCard({
         <h3
           className="
             truncate
-            text-[15px]
-            font-bold
-            tracking-[-0.02em]
+            text-[20px]
+            font-extrabold
+            leading-tight
+            tracking-[-0.035em]
           "
           style={{
             color: textColor,
-            textShadow: isLight
-              ? '0 1px 2px rgba(255,255,255,0.4)'
-              : '0 2px 6px rgba(0,0,0,0.2)',
+            textShadow: isLightBackground
+              ? '0 1px 2px rgba(255,255,255,0.5)'
+              : '0 2px 7px rgba(0,0,0,0.22)',
           }}
         >
           {brandName}
         </h3>
 
-        <div className="mt-1 flex items-center justify-center gap-1.5">
-          <span
-            className="h-[3px] w-[3px] rounded-full"
-            style={{
-              backgroundColor: textColor,
-              opacity: 0.55,
-            }}
-          />
-
-          <span
-            className="text-[8px] font-medium uppercase tracking-[0.12em]"
-            style={{
-              color: textColor,
-              opacity: 0.72,
-            }}
-          >
-            Trusted Brand
-          </span>
-
-          <span
-            className="h-[3px] w-[3px] rounded-full"
-            style={{
-              backgroundColor: textColor,
-              opacity: 0.55,
-            }}
-          />
-        </div>
+        <p
+          className="
+            mt-1
+            truncate
+            text-[10px]
+            font-medium
+          "
+          style={{
+            color: textColor,
+            opacity: 0.86,
+          }}
+        >
+          {content.tagline}
+        </p>
       </div>
 
-      {/* =========================================================
-          PRODUCT STAGE
-      ========================================================== */}
+      {/* ========================================================
+          CATEGORY PILLS
+      ========================================================= */}
 
-      <div className="absolute bottom-0 left-0 right-0 z-10 h-[105px]">
-        {/* curved stage */}
-        <div
-          className="absolute bottom-[-30px] left-1/2 h-[100px] w-[175px] -translate-x-1/2 rounded-[50%]"
-          style={{
-            background: `
-              radial-gradient(
-                ellipse at center,
-                rgba(255,255,255,0.20) 0%,
-                rgba(255,255,255,0.08) 42%,
-                transparent 70%
-              )
-            `,
-          }}
-        />
+      <div
+        className="
+          absolute
+          left-2
+          right-2
+          top-[125px]
+          z-30
+          flex
+          justify-center
+          gap-1.5
+        "
+      >
+        {content.categories.map((category) => (
+          <span
+            key={category}
+            className="
+              rounded-full
+              border
+              border-white/25
+              bg-white/[0.08]
+              px-2
+              py-[3px]
+              text-[7px]
+              font-semibold
+              tracking-wide
+              text-white
+              backdrop-blur-sm
+            "
+          >
+            {category}
+          </span>
+        ))}
+      </div>
 
-        {/* dark product platform */}
-        <div
-          className="absolute bottom-[-24px] left-1/2 h-[65px] w-[165px] -translate-x-1/2 rounded-[50%]"
-          style={{
-            background: `
-              radial-gradient(
-                ellipse at center,
-                rgba(0,0,0,0.24),
-                rgba(0,0,0,0.05) 65%,
-                transparent 72%
-              )
-            `,
-          }}
-        />
+      {/* ========================================================
+          PRODUCT SHOWCASE AREA
+      ========================================================= */}
 
+      <div
+        className="
+          absolute
+          bottom-[34px]
+          left-0
+          right-0
+          z-10
+          h-[105px]
+        "
+      >
         {/* product glow */}
         <div
           className="
             absolute
-            bottom-5
+            bottom-3
             left-1/2
-            h-16 w-28
+            h-20
+            w-32
             -translate-x-1/2
             rounded-full
             bg-white/20
@@ -357,115 +553,297 @@ export function BrandCard({
           "
         />
 
-        {/* product */}
+        {/* curved stage */}
         <div
           className="
             absolute
-            bottom-[-4px]
+            bottom-[-38px]
             left-1/2
-            z-20
-            h-[94px]
-            w-[135px]
+            h-[90px]
+            w-[190px]
             -translate-x-1/2
-            transition-all
-            duration-500
-            group-hover:-translate-y-1
-            group-hover:scale-[1.04]
+            rounded-[50%]
           "
-        >
-          <img
-            src={productImage}
-            alt={`${brandName} product`}
+          style={{
+            background: `
+              radial-gradient(
+                ellipse,
+                rgba(0,0,0,0.22) 0%,
+                rgba(0,0,0,0.10) 48%,
+                transparent 70%
+              )
+            `,
+          }}
+        />
+
+        {/* ======================================================
+            MULTI PRODUCT MODE
+        ====================================================== */}
+
+        {uniqueProducts.length >= 3 ? (
+          <>
+            {/* Left product */}
+            <div
+              className="
+                absolute
+                bottom-[-3px]
+                left-[5px]
+                z-10
+                h-[96px]
+                w-[72px]
+                -rotate-[5deg]
+                transition-all
+                duration-500
+                group-hover:-translate-x-1
+                group-hover:-rotate-[8deg]
+              "
+            >
+              <img
+                src={uniqueProducts[0]}
+                alt=""
+                className="
+                  h-full
+                  w-full
+                  object-contain
+                  object-bottom
+                  drop-shadow-[0_8px_7px_rgba(0,0,0,0.28)]
+                "
+                loading="lazy"
+              />
+            </div>
+
+            {/* Center product */}
+            <div
+              className="
+                absolute
+                bottom-[-3px]
+                left-1/2
+                z-20
+                h-[104px]
+                w-[78px]
+                -translate-x-1/2
+                transition-all
+                duration-500
+                group-hover:-translate-y-1
+              "
+            >
+              <img
+                src={uniqueProducts[1]}
+                alt=""
+                className="
+                  h-full
+                  w-full
+                  object-contain
+                  object-bottom
+                  drop-shadow-[0_9px_8px_rgba(0,0,0,0.30)]
+                "
+                loading="lazy"
+              />
+            </div>
+
+            {/* Right product */}
+            <div
+              className="
+                absolute
+                bottom-[-3px]
+                right-[5px]
+                z-10
+                h-[96px]
+                w-[72px]
+                rotate-[5deg]
+                transition-all
+                duration-500
+                group-hover:translate-x-1
+                group-hover:rotate-[8deg]
+              "
+            >
+              <img
+                src={uniqueProducts[2]}
+                alt=""
+                className="
+                  h-full
+                  w-full
+                  object-contain
+                  object-bottom
+                  drop-shadow-[0_8px_7px_rgba(0,0,0,0.28)]
+                "
+                loading="lazy"
+              />
+            </div>
+          </>
+        ) : uniqueProducts.length === 2 ? (
+          <>
+            <div
+              className="
+                absolute
+                bottom-[-3px]
+                left-[18px]
+                z-10
+                h-[98px]
+                w-[78px]
+                -rotate-[5deg]
+                transition-transform
+                duration-500
+                group-hover:-translate-x-1
+              "
+            >
+              <img
+                src={uniqueProducts[0]}
+                alt=""
+                className="
+                  h-full
+                  w-full
+                  object-contain
+                  object-bottom
+                  drop-shadow-[0_8px_7px_rgba(0,0,0,0.28)]
+                "
+                loading="lazy"
+              />
+            </div>
+
+            <div
+              className="
+                absolute
+                bottom-[-3px]
+                right-[18px]
+                z-20
+                h-[104px]
+                w-[82px]
+                rotate-[4deg]
+                transition-transform
+                duration-500
+                group-hover:translate-x-1
+              "
+            >
+              <img
+                src={uniqueProducts[1]}
+                alt=""
+                className="
+                  h-full
+                  w-full
+                  object-contain
+                  object-bottom
+                  drop-shadow-[0_9px_8px_rgba(0,0,0,0.30)]
+                "
+                loading="lazy"
+              />
+            </div>
+          </>
+        ) : (
+          /* Single product fallback */
+          <div
             className="
-              h-full
-              w-full
-              object-contain
-              object-bottom
-              drop-shadow-[0_9px_7px_rgba(0,0,0,0.28)]
+              absolute
+              bottom-[-3px]
+              left-1/2
+              z-20
+              h-[105px]
+              w-[145px]
+              -translate-x-1/2
+              transition-all
+              duration-500
+              group-hover:-translate-y-1
+              group-hover:scale-[1.04]
             "
-            loading="lazy"
-          />
-        </div>
+          >
+            <img
+              src={uniqueProducts[0]}
+              alt={`${brandName} product`}
+              className="
+                h-full
+                w-full
+                object-contain
+                object-bottom
+                drop-shadow-[0_10px_8px_rgba(0,0,0,0.30)]
+              "
+              loading="lazy"
+            />
+          </div>
+        )}
       </div>
 
-      {/* =========================================================
-          BOTTOM TRUST BADGE
-      ========================================================== */}
+      {/* ========================================================
+          BOTTOM PREMIUM STRIP
+      ========================================================= */}
 
       <div
         className="
           absolute
-          bottom-2.5
+          bottom-[9px]
           left-1/2
-          z-30
+          z-40
           flex
+          h-[25px]
+          w-[148px]
           -translate-x-1/2
           items-center
+          justify-center
           gap-1.5
-          whitespace-nowrap
           rounded-full
-          border border-white/20
-          bg-black/10
-          px-2.5 py-1
+          border
+          border-white/25
+          bg-white/[0.10]
+          px-3
+          text-white
+          shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]
           backdrop-blur-md
         "
       >
-        <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/20">
-          <svg
-            viewBox="0 0 24 24"
-            className="h-2.5 w-2.5"
-            fill="none"
-            stroke="white"
-            strokeWidth="2.5"
-          >
-            <path
-              d="M20 6 9 17l-5-5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
+        <BottomIcon type={content.bottomIcon} />
 
-        <span className="text-[7px] font-semibold tracking-wide text-white">
-          PREMIUM
+        <span
+          className="
+            truncate
+            text-[7px]
+            font-semibold
+            tracking-[0.03em]
+          "
+        >
+          {content.bottomLabel}
         </span>
       </div>
 
-      {/* =========================================================
-          TOP SHINE
-      ========================================================== */}
+      {/* ========================================================
+          TOP LIGHT
+      ========================================================= */}
 
       <div
         className="
           pointer-events-none
-          absolute inset-x-0 top-0
-          z-40 h-20
+          absolute
+          left-0
+          right-0
+          top-0
+          z-40
+          h-[90px]
           bg-gradient-to-b
-          from-white/10
+          from-white/[0.12]
           to-transparent
         "
       />
 
-      {/* =========================================================
-          CARD BORDER
-      ========================================================== */}
+      {/* ========================================================
+          PREMIUM BORDER
+      ========================================================= */}
 
       <div
         className="
           pointer-events-none
-          absolute inset-0
+          absolute
+          inset-0
           z-50
-          rounded-[24px]
-          border border-white/20
+          rounded-[25px]
+          border
+          border-white/20
         "
       />
     </div>
   );
 }
 
-// ================================================================
+// ============================================================================
 // BRAND CAROUSEL
-// ================================================================
+// ============================================================================
 
 interface BrandCarouselProps {
   brands: TrustedBrand[];
@@ -484,12 +862,14 @@ export function BrandCarousel({
     <div
       className="
         flex
-        gap-3.5
+        gap-4
         overflow-x-auto
-        px-4 pb-3
+        px-4
+        pb-3
         no-scrollbar
         scroll-touch
-        snap-x snap-mandatory
+        snap-x
+        snap-mandatory
       "
     >
       {brands.map((brand) => {
@@ -501,8 +881,12 @@ export function BrandCarousel({
           (brand as any).secondary_color ||
           DEFAULT_SECONDARY;
 
+        const images =
+          ((brand as any).product_images || [])
+            .filter(Boolean);
+
         const productImage =
-          (brand as any).product_images?.[0] ||
+          images[0] ||
           PLACEHOLDER_PRODUCT;
 
         return (
@@ -516,6 +900,7 @@ export function BrandCarousel({
               secondaryColor={secondary}
               logoUrl={brand.logo_url}
               productImage={productImage}
+              productImages={images}
             />
           </div>
         );

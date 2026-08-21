@@ -1,27 +1,31 @@
 // components/admin/BrandsManager.tsx
 import React, { useEffect, useState } from 'react';
-import { Plus, Trash2, Save, Loader2, Upload } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, Upload, Eye, EyeOff } from 'lucide-react';
 import { BrandCard } from '@/components/BrandCard';
 import {
   fetchAllTrustedBrands,
   createTrustedBrand,
   updateTrustedBrand,
   deleteTrustedBrand,
-  uploadBrandImage,      // new helper
+  uploadBrandImage,
 } from '@/services/catalog';
 import type { TrustedBrand } from '@/types';
 
-// Extend TrustedBrand with our new fields (will be added to DB)
+// Extend TrustedBrand with our new fields (they come from the DB after migration)
 interface BrandWithColors extends TrustedBrand {
   primary_color: string;
   secondary_color: string;
-  product_images: string[]; // array of URLs
+  product_images: string[];
 }
 
 export default function BrandsManager() {
   const [brands, setBrands] = useState<BrandWithColors[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<string | null>(null); // which brand is being edited
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [previewBrandId, setPreviewBrandId] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  // New brand form state
   const [newBrand, setNewBrand] = useState<Partial<BrandWithColors>>({
     name: '',
     logo_url: '',
@@ -31,11 +35,10 @@ export default function BrandsManager() {
     sort_order: 0,
     is_active: true,
   });
-  const [showAddForm, setShowAddForm] = useState(false);
 
+  // ----- Load brands -----
   const loadBrands = async () => {
     const data = await fetchAllTrustedBrands();
-    // Cast to include new fields (they will come from DB)
     setBrands(data as BrandWithColors[]);
     setLoading(false);
   };
@@ -44,7 +47,7 @@ export default function BrandsManager() {
     loadBrands();
   }, []);
 
-  // ---- CRUD ----
+  // ----- CRUD operations -----
   const handleDelete = async (id: string) => {
     if (window.confirm('Delete this brand?')) {
       await deleteTrustedBrand(id);
@@ -90,16 +93,16 @@ export default function BrandsManager() {
     await loadBrands();
   };
 
-  // ---- Image upload ----
+  // ----- Image upload handler -----
   const handleImageUpload = async (
     file: File,
-    brandId: string | null, // null for new brand
+    brandId: string | null, // null = new brand
     field: 'logo_url' | 'product_images',
     index?: number
   ) => {
     const url = await uploadBrandImage(file, brandId, field);
     if (brandId) {
-      // update existing brand
+      // Update existing brand in state
       const brand = brands.find(b => b.id === brandId);
       if (!brand) return;
       if (field === 'logo_url') {
@@ -109,7 +112,7 @@ export default function BrandsManager() {
       }
       setBrands([...brands]);
     } else {
-      // new brand
+      // Update new brand form
       if (field === 'logo_url') {
         setNewBrand({ ...newBrand, logo_url: url });
       } else if (field === 'product_images' && index !== undefined) {
@@ -122,8 +125,10 @@ export default function BrandsManager() {
 
   if (loading) return <Loader2 className="animate-spin mx-auto" />;
 
+  // ----- Render -----
   return (
     <div className="space-y-6">
+      {/* Add Brand Button */}
       <button
         onClick={() => setShowAddForm(true)}
         className="w-full h-12 rounded-xl bg-brand-600 text-white font-bold flex items-center justify-center gap-2"
@@ -131,6 +136,7 @@ export default function BrandsManager() {
         <Plus size={16} /> Add Brand
       </button>
 
+      {/* Add Form (always shows preview) */}
       {showAddForm && (
         <div className="bg-white border rounded-2xl p-4 shadow-card">
           <h3 className="font-bold mb-3">New Brand</h3>
@@ -258,7 +264,7 @@ export default function BrandsManager() {
               <button onClick={handleCreate} className="px-4 py-2 bg-brand-600 text-white rounded">Create</button>
             </div>
           </div>
-          {/* Preview of new brand */}
+          {/* Preview of new brand – always visible */}
           <div className="mt-4 flex justify-center">
             <BrandCard
               brandName={newBrand.name || 'Preview'}
@@ -278,7 +284,7 @@ export default function BrandsManager() {
           return (
             <div key={brand.id} className="bg-white border rounded-2xl p-4 shadow-card">
               {isEditing ? (
-                // Edit mode – full form with preview
+                // ---- EDIT MODE (preview always visible) ----
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <div>
@@ -425,7 +431,7 @@ export default function BrandsManager() {
                       </button>
                     </div>
                   </div>
-                  {/* Preview */}
+                  {/* Preview in edit mode – always visible */}
                   <div className="flex justify-center items-center bg-gray-50 rounded-xl p-4">
                     <BrandCard
                       brandName={brand.name}
@@ -437,22 +443,39 @@ export default function BrandsManager() {
                   </div>
                 </div>
               ) : (
-                // View mode – summary with inline preview and edit/delete buttons
+                // ---- VIEW MODE (preview hidden by default, toggled with eye button) ----
                 <div className="flex flex-col md:flex-row gap-4 items-center">
-                  <BrandCard
-                    brandName={brand.name}
-                    primaryColor={brand.primary_color}
-                    secondaryColor={brand.secondary_color}
-                    logoUrl={brand.logo_url}
-                    productImages={brand.product_images?.filter(Boolean) || []}
-                  />
+                  {previewBrandId === brand.id ? (
+                    <BrandCard
+                      brandName={brand.name}
+                      primaryColor={brand.primary_color}
+                      secondaryColor={brand.secondary_color}
+                      logoUrl={brand.logo_url}
+                      productImages={brand.product_images?.filter(Boolean) || []}
+                    />
+                  ) : (
+                    <div className="w-32 h-40 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
+                      Preview hidden
+                    </div>
+                  )}
                   <div className="flex-1">
                     <h3 className="font-bold text-lg">{brand.name}</h3>
                     <p className="text-sm text-ink-500">Order: {brand.sort_order}</p>
                     <p className="text-sm">{brand.is_active ? 'Active' : 'Inactive'}</p>
                     <div className="flex gap-2 mt-2">
-                      <button onClick={() => setEditingId(brand.id)} className="px-3 py-1 bg-brand-50 text-brand-600 rounded">Edit</button>
-                      <button onClick={() => handleDelete(brand.id)} className="px-3 py-1 bg-red-50 text-red-500 rounded">Delete</button>
+                      <button
+                        onClick={() => setPreviewBrandId(prev => prev === brand.id ? null : brand.id)}
+                        className="px-3 py-1 bg-gray-100 rounded flex items-center gap-1"
+                      >
+                        {previewBrandId === brand.id ? <EyeOff size={14} /> : <Eye size={14} />}
+                        {previewBrandId === brand.id ? 'Hide' : 'Preview'}
+                      </button>
+                      <button onClick={() => setEditingId(brand.id)} className="px-3 py-1 bg-brand-50 text-brand-600 rounded">
+                        Edit
+                      </button>
+                      <button onClick={() => handleDelete(brand.id)} className="px-3 py-1 bg-red-50 text-red-500 rounded">
+                        Delete
+                      </button>
                     </div>
                   </div>
                 </div>

@@ -870,6 +870,9 @@ export async function createTrustedBrand(
       logo_url: input.logo_url,
       sort_order: input.sort_order,
       is_active: input.is_active,
+      primary_color: input.primary_color || '#3B82F6',
+      secondary_color: input.secondary_color || '#1E40AF',
+      product_images: input.product_images || [],
     })
     .select()
     .single();
@@ -885,6 +888,9 @@ export async function updateTrustedBrand(id: string, updates: Partial<TrustedBra
       logo_url: updates.logo_url,
       sort_order: updates.sort_order,
       is_active: updates.is_active,
+      primary_color: updates.primary_color,
+      secondary_color: updates.secondary_color,
+      product_images: updates.product_images,
     })
     .eq('id', id);
   if (error) throw error;

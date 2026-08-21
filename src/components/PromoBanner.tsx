@@ -92,7 +92,7 @@ export function PromoCarousel({ banners, onAction }: { banners: PromoBanner[]; o
   return (
     <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
       {banners.map((banner) => (
-        <div key={banner.id} className="scroll-snap-item shrink-0 w-[85%] max-w-[340px]">
+        <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
           <PromoBannerCard banner={banner} onAction={onAction} />
         </div>
       ))}

@@ -325,7 +325,7 @@ export function HomeScreen({
             </div>
           </section>
 
-          {/* Stores – rendered directly (no wrapper) */}
+          {/* Stores */}
           {stores.length > 0 && (
             <div>
               <SectionHeader
@@ -341,7 +341,7 @@ export function HomeScreen({
             </div>
           )}
 
-          {/* Trusted Brands – rendered directly (no wrapper) */}
+          {/* Trusted Brands */}
           {brands.length > 0 && (
             <div>
               <SectionHeader
@@ -353,15 +353,15 @@ export function HomeScreen({
             </div>
           )}
 
-          {/* Popular Products – rendered directly */}
+          {/* Popular Products */}
           {popular.length > 0 && (
             <ProductCarousel title="Popular Products" products={popular} {...actions} />
           )}
 
           {/* Middle Banners */}
           {middleBanners.length > 0 && (
-            <section className="px-4">
-              <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch pb-1">
+            <section>
+              <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
                 {middleBanners.map((banner) => (
                   <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
                     {renderActionBanner(banner)}
@@ -371,7 +371,7 @@ export function HomeScreen({
             </section>
           )}
 
-          {/* Wholesale Deals – rendered directly */}
+          {/* Wholesale Deals */}
           {deals.length > 0 && (
             <ProductCarousel title="Wholesale Deals" products={deals} {...actions} />
           )}
@@ -402,15 +402,15 @@ export function HomeScreen({
             </div>
           </section>
 
-          {/* Everyday Essentials – rendered directly */}
+          {/* Everyday Essentials */}
           {essentials.length > 0 && (
             <ProductCarousel title="Everyday Essentials" products={essentials} {...actions} />
           )}
 
           {/* Bottom Banners */}
           {bottomBanners.length > 0 && (
-            <section className="px-4">
-              <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch pb-1">
+            <section>
+              <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
                 {bottomBanners.map((banner) => (
                   <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
                     {renderActionBanner(banner)}

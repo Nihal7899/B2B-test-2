@@ -89,8 +89,8 @@ export function BrandCard(props: BrandCardProps) {
       className="
         group
         relative
-        h-[270px]            /* reduced by 10% */
-        w-[180px]            /* reduced by 10% */
+        h-[270px]
+        w-[180px]
         flex-shrink-0
         overflow-hidden
         rounded-[25px]
@@ -130,7 +130,7 @@ export function BrandCard(props: BrandCardProps) {
       />
       <div className="absolute -right-10 top-20 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
 
-      {/* Abstract Graphics (adjusted viewBox to 180x270) */}
+      {/* Abstract Graphics */}
       <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]" viewBox="0 0 180 270" preserveAspectRatio="none">
         <circle cx="-10" cy="50" r="50" fill="none" stroke="white" strokeWidth="1" />
         <circle cx="-10" cy="50" r="36" fill="none" stroke="white" strokeWidth="1" />
@@ -149,7 +149,7 @@ export function BrandCard(props: BrandCardProps) {
         ))}
       </div>
 
-      {/* Logo (slightly smaller) */}
+      {/* Logo */}
       <div
         className="
           absolute left-1/2 top-[14px] z-30
@@ -164,7 +164,7 @@ export function BrandCard(props: BrandCardProps) {
         <span className="absolute right-[4px] top-[4px] flex h-[7px] w-[7px] rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.7)]" />
       </div>
 
-      {/* Brand Name + Tagline (adjusted top) */}
+      {/* Brand Name + Tagline */}
       <div className="absolute left-3 right-3 top-[76px] z-20 text-center">
         <h3
           className="truncate text-[18px] font-extrabold leading-tight tracking-[-0.035em]"
@@ -183,7 +183,7 @@ export function BrandCard(props: BrandCardProps) {
         </p>
       </div>
 
-      {/* Category Pills – moved down to avoid overlap */}
+      {/* Category Pills */}
       <div className="absolute left-2 right-2 top-[120px] z-30 flex justify-center gap-1.5">
         {content.categories.slice(0, 3).map((cat) => (
           <span
@@ -195,14 +195,11 @@ export function BrandCard(props: BrandCardProps) {
         ))}
       </div>
 
-      {/* ===== SINGLE PRODUCT CONTAINER (35% of height from bottom) ===== */}
+      {/* ===== SINGLE PRODUCT CONTAINER ===== */}
       <div className="absolute bottom-0 left-0 right-0 z-10 h-[35%]">
-        {/* Background glow behind product */}
         <div className="absolute bottom-0 left-1/2 h-full w-[140%] -translate-x-1/2 rounded-full bg-white/20 blur-2xl" />
-        {/* Shadow ellipse */}
         <div className="absolute bottom-[-8px] left-1/2 h-[50px] w-[160px] -translate-x-1/2 rounded-[50%] bg-black/20 blur-md" />
 
-        {/* Product image */}
         <div className="absolute bottom-0 left-1/2 z-20 h-[105%] w-[70%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-1 group-hover:scale-[1.04]">
           <img
             src={image}
@@ -246,9 +243,9 @@ interface BrandCarouselProps {
 
 export function BrandCarousel({ brands }: BrandCarouselProps) {
   return (
-    <div className="flex gap-4 overflow-x-auto px-4 pb-3 no-scrollbar scroll-touch snap-x snap-mandatory">
+    <div className="flex gap-4 overflow-x-auto px-4 pb-3 no-scrollbar scroll-touch">
       {brands.map((brand) => (
-        <div key={brand.id} className="snap-start">
+        <div key={brand.id}>
           <BrandCard
             brandName={brand.name}
             primaryColor={brand.primary_color || '#2563EB'}

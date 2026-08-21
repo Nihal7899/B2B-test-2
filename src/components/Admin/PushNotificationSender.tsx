@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
 import toast from 'react-hot-toast';
@@ -26,15 +26,6 @@ const IOS_CATEGORY_PRESETS = [
   { id: 'custom', label: 'Custom...' },
 ];
 
-// ── Android Channel ID presets ──
-const CHANNEL_PRESETS = [
-  { id: 'default', label: 'Default' },
-  { id: 'orders', label: 'Orders' },
-  { id: 'promotions', label: 'Promotions' },
-  { id: 'delivery', label: 'Delivery' },
-  { id: 'custom', label: 'Custom...' },
-];
-
 // ── Crop options ──
 const CROP_OPTIONS = [
   { value: 'landscape', label: 'Rich Media (2:1 landscape)', aspect: 2, width: 1024, height: 512 },
@@ -45,6 +36,14 @@ interface ActionButton {
   id: string;
   text: string;
   preset?: string;
+}
+
+// ── Channel type ──
+interface NotificationChannel {
+  id: string;
+  channel_id: string;
+  name: string;
+  description?: string;
 }
 
 export function PushNotificationSender() {
@@ -63,13 +62,20 @@ export function PushNotificationSender() {
   const [iosCategory, setIosCategory] = useState('');
   const [iosCategoryPreset, setIosCategoryPreset] = useState('custom');
 
-  // ── Android Channel ID state ──
-  const [channelId, setChannelId] = useState('');
-  const [channelPreset, setChannelPreset] = useState('default');
+  // ── Channel state ──
+  const [channels, setChannels] = useState<NotificationChannel[]>([]);
+  const [loadingChannels, setLoadingChannels] = useState(false);
+  const [selectedChannelId, setSelectedChannelId] = useState('');
+
+  // ── Add channel form state ──
+  const [showAddChannel, setShowAddChannel] = useState(false);
+  const [newChannelId, setNewChannelId] = useState('');
+  const [newChannelName, setNewChannelName] = useState('');
+  const [newChannelDescription, setNewChannelDescription] = useState('');
+  const [addingChannel, setAddingChannel] = useState(false);
 
   // Crop selection for rich media upload
   const [selectedImageCrop, setSelectedImageCrop] = useState('landscape');
-  // Crop selection for large icon upload
   const [selectedLargeIconCrop, setSelectedLargeIconCrop] = useState('square');
 
   const [loading, setLoading] = useState(false);
@@ -80,6 +86,32 @@ export function PushNotificationSender() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const largeIconInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Fetch channels on mount ──
+  useEffect(() => {
+    fetchChannels();
+  }, []);
+
+  const fetchChannels = async () => {
+    setLoadingChannels(true);
+    try {
+      const { data, error } = await supabase
+        .from('notification_channels')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      setChannels(data || []);
+      // If no channel selected and we have channels, select the first one
+      if (data && data.length > 0 && !selectedChannelId) {
+        setSelectedChannelId(data[0].channel_id);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch channels:', err);
+      toast.error('Could not load notification channels');
+    } finally {
+      setLoadingChannels(false);
+    }
+  };
 
   // ── Image upload helper ────────────────────────────────────────
   const uploadFile = async (
@@ -157,13 +189,38 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Channel ID handlers ──
-  const handleChannelPreset = (presetId: string) => {
-    setChannelPreset(presetId);
-    if (presetId === 'custom') {
-      setChannelId('');
-    } else {
-      setChannelId(presetId);
+  // ── Add channel handler ──
+  const handleAddChannel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedId = newChannelId.trim();
+    const trimmedName = newChannelName.trim();
+    if (!trimmedId || !trimmedName) {
+      toast.error('Channel ID and Name are required');
+      return;
+    }
+    setAddingChannel(true);
+    try {
+      const { error } = await supabase
+        .from('notification_channels')
+        .insert({
+          channel_id: trimmedId,
+          name: trimmedName,
+          description: newChannelDescription.trim() || null,
+        });
+      if (error) throw error;
+      toast.success('Channel added successfully');
+      // Reset form
+      setNewChannelId('');
+      setNewChannelName('');
+      setNewChannelDescription('');
+      setShowAddChannel(false);
+      // Refresh list and select the new one
+      await fetchChannels();
+      setSelectedChannelId(trimmedId);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add channel');
+    } finally {
+      setAddingChannel(false);
     }
   };
 
@@ -194,21 +251,20 @@ export function PushNotificationSender() {
       const validButtons = buttons.filter(b => b.id.trim() && b.text.trim());
       if (validButtons.length) payload.buttons = validButtons.map(({ id, text }) => ({ id, text }));
     }
-    // Sound field removed
     if (badgeCount !== '') payload.badgeCount = Number(badgeCount);
     if (scheduledAt) payload.scheduledAt = new Date(scheduledAt).toISOString();
     if (smallIcon.trim()) payload.smallIcon = smallIcon.trim();
     if (largeIcon.trim()) payload.largeIcon = largeIcon.trim();
     if (iosCategory.trim()) payload.iosCategory = iosCategory.trim();
-    // ── Add channel ID ──
-    if (channelId.trim()) payload.channelId = channelId.trim();
+    // ── Channel ID from dropdown ──
+    if (selectedChannelId) payload.channelId = selectedChannelId;
 
     setLoading(true);
     try {
       const { error } = await supabase.functions.invoke('send-push-notification', { body: payload });
       if (error) throw error;
       toast.success('Notification sent successfully');
-      // Reset form
+      // Reset form (keep channel selected)
       setTitle('');
       setBody('');
       setDataJson('{}');
@@ -221,8 +277,6 @@ export function PushNotificationSender() {
       setLargeIcon('');
       setIosCategory('');
       setIosCategoryPreset('custom');
-      setChannelId('default');
-      setChannelPreset('default');
     } catch (err: any) {
       toast.error(err.message || 'Failed to send notification');
     } finally {
@@ -417,35 +471,29 @@ export function PushNotificationSender() {
         </div>
         <div>
           <label className="block text-sm font-medium text-ink-700">
-            Android Channel ID
-            <span className="text-xs text-ink-400 ml-1">(used for sound & importance)</span>
+            Android Channel
+            <span className="text-xs text-ink-400 ml-1">(for sound & importance)</span>
           </label>
-          <div className="flex items-center gap-2 mt-1">
-            <select
-              value={channelPreset}
-              onChange={(e) => handleChannelPreset(e.target.value)}
-              className="flex-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm bg-white"
-            >
-              {CHANNEL_PRESETS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
+          <select
+            value={selectedChannelId}
+            onChange={(e) => setSelectedChannelId(e.target.value)}
+            className="w-full mt-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 bg-white"
+            disabled={loadingChannels}
+          >
+            {loadingChannels ? (
+              <option>Loading...</option>
+            ) : channels.length === 0 ? (
+              <option value="">No channels available</option>
+            ) : (
+              channels.map((ch) => (
+                <option key={ch.id} value={ch.channel_id}>
+                  {ch.name} ({ch.channel_id})
                 </option>
-              ))}
-            </select>
-            {channelPreset === 'custom' && (
-              <input
-                type="text"
-                value={channelId}
-                onChange={(e) => setChannelId(e.target.value)}
-                className="flex-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm"
-                placeholder="Custom channel (e.g. my_channel)"
-              />
+              ))
             )}
-          </div>
-          {channelPreset !== 'custom' && (
-            <p className="text-xs text-ink-400 mt-1">
-              Using channel: <span className="font-mono">{channelId || 'default'}</span>
-            </p>
+          </select>
+          {channels.length === 0 && !loadingChannels && (
+            <p className="text-xs text-ink-400 mt-1">Add a channel below first.</p>
           )}
         </div>
       </div>
@@ -621,16 +669,83 @@ export function PushNotificationSender() {
 
       <button
         onClick={sendNotification}
-        disabled={loading || uploadingImage || uploadingLargeIcon}
+        disabled={loading || uploadingImage || uploadingLargeIcon || loadingChannels || channels.length === 0}
         className="w-full py-2 px-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition disabled:opacity-50"
       >
         {loading ? 'Sending...' : 'Send Notification'}
       </button>
+
+      {/* ── Add Channel Section ── */}
+      <div className="border-t border-ink-100 pt-4 mt-2">
+        <button
+          type="button"
+          onClick={() => setShowAddChannel(!showAddChannel)}
+          className="flex items-center gap-2 text-sm font-medium text-brand-600 hover:text-brand-700"
+        >
+          {showAddChannel ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          {showAddChannel ? 'Hide' : 'Add New Channel'}
+        </button>
+
+        {showAddChannel && (
+          <form onSubmit={handleAddChannel} className="mt-3 p-3 bg-ink-50/50 rounded-xl border border-ink-100 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-ink-700">Channel ID <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={newChannelId}
+                  onChange={(e) => setNewChannelId(e.target.value)}
+                  className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
+                  placeholder="e.g. orders"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink-700">Display Name <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={newChannelName}
+                  onChange={(e) => setNewChannelName(e.target.value)}
+                  className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
+                  placeholder="e.g. Orders"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-700">Description (optional)</label>
+              <input
+                type="text"
+                value={newChannelDescription}
+                onChange={(e) => setNewChannelDescription(e.target.value)}
+                className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
+                placeholder="Describe this channel"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAddChannel(false)}
+                className="px-4 py-1.5 text-sm border border-ink-200 rounded-lg hover:bg-ink-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={addingChannel}
+                className="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50"
+              >
+                {addingChannel ? 'Adding...' : 'Add Channel'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
 
-// ── Image processing helper ─────────────────────────────────────────────
+// ── Image processing helper (unchanged) ──
 async function processImage(
   file: File,
   aspectRatio: number,
@@ -638,6 +753,7 @@ async function processImage(
   targetHeight: number,
   quality = 0.8
 ): Promise<File> {
+  // ... (same as before)
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);

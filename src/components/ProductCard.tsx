@@ -1,3 +1,4 @@
+// components/ProductCard.tsx
 import { Heart, Star, ShoppingCart, Plus, Minus } from 'lucide-react';
 import type { Product } from '@/types';
 import { OfferBadge } from './OfferBadge';
@@ -98,7 +99,7 @@ export function ProductCard({
 
   return (
     <article onClick={onClick} className={cardClasses} style={{ borderColor }}>
-      {/* Image with gradient overlay from store theme */}
+      {/* Image with gradient overlay using theme colors */}
       <div className="relative bg-ink-50 h-[132px] flex items-center justify-center overflow-hidden">
         <img
           src={product.image}
@@ -106,10 +107,12 @@ export function ProductCard({
           className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
-        {/* Gradient overlay using store theme */}
+        {/* Gradient overlay using theme's primary->secondary */}
         <div
-          className="absolute inset-0 bg-gradient-to-t opacity-20 pointer-events-none"
-          style={{ background: `linear-gradient(to top, ${gradientFrom}, ${gradientTo})` }}
+          className="absolute inset-0 opacity-20 pointer-events-none"
+          style={{
+            background: `linear-gradient(to top, ${gradientFrom}, ${gradientTo})`
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
         <div className="absolute top-2 left-2">
@@ -217,7 +220,7 @@ export function QuantitySelector({ quantity, onIncrement, onDecrement, size = 's
   );
 }
 
-// ---- ProductCarousel ----
+// ---- ProductCarousel (unchanged, but now passes theme to each card) ----
 interface ProductCarouselProps {
   title: string;
   products: Product[];

@@ -1,3 +1,4 @@
+// screens/BrandScreen.tsx
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -72,7 +73,6 @@ export function BrandScreen() {
         return;
       }
       setBrand(b);
-      // Fetch products with this brand name (case-insensitive)
       const { products: allProducts } = await fetchProducts();
       const filtered = allProducts.filter(p => p.brand.toLowerCase() === b.name.toLowerCase());
       setProducts(filtered);
@@ -106,25 +106,52 @@ export function BrandScreen() {
 
   return (
     <div className="min-h-screen bg-ink-50 pb-24">
-      {/* Hero Banner */}
-      <div
-        className="relative overflow-hidden pt-12 pb-8 px-4"
-        style={{
-          background: `
-            radial-gradient(
-              circle at 50% 15%,
-              rgba(255,255,255,0.18),
-              transparent 30%
-            ),
-            linear-gradient(
-              145deg,
-              ${primary_color} 0%,
-              ${primary_color} 45%,
-              ${secondary_color} 100%
-            )
-          `,
-        }}
-      >
+      {/* ===== HERO ===== */}
+      <div className="relative overflow-hidden pt-12 pb-8 px-4 isolate">
+        {/* ---- Background (exactly like BrandCard) ---- */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `
+              radial-gradient(
+                circle at 50% 15%,
+                rgba(255,255,255,0.18),
+                transparent 30%
+              ),
+              linear-gradient(
+                145deg,
+                ${primary_color} 0%,
+                ${primary_color} 45%,
+                ${secondary_color} 100%
+              )
+            `,
+          }}
+        />
+        <div
+          className="absolute -left-12 -top-8 h-32 w-32 rounded-full blur-2xl"
+          style={{ background: `rgba(${primaryRgb.r},${primaryRgb.g},${primaryRgb.b},0.35)` }}
+        />
+        <div className="absolute -right-10 top-20 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
+
+        {/* SVG decorative lines (same as BrandCard) */}
+        <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]" viewBox="0 0 180 270" preserveAspectRatio="none">
+          <circle cx="-10" cy="50" r="50" fill="none" stroke="white" strokeWidth="1" />
+          <circle cx="-10" cy="50" r="36" fill="none" stroke="white" strokeWidth="1" />
+          <circle cx="190" cy="74" r="34" fill="none" stroke="white" strokeWidth="1" />
+          <path d="M-20 158 C40 126 90 153 205 112" fill="none" stroke="white" strokeWidth="1.2" />
+          <path d="M-20 165 C45 133 97 160 205 120" fill="none" stroke="white" strokeWidth="0.8" />
+          <circle cx="150" cy="34" r="2" fill="white" />
+          <circle cx="162" cy="43" r="1.5" fill="white" />
+          <circle cx="141" cy="44" r="1" fill="white" />
+        </svg>
+
+        {/* Dot grid (top right) */}
+        <div className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-[3px] opacity-25">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <span key={i} className="h-[2.5px] w-[2.5px] rounded-full bg-white" />
+          ))}
+        </div>
+
         {/* Back button */}
         <button
           onClick={() => navigate(-1)}
@@ -133,16 +160,12 @@ export function BrandScreen() {
           <ArrowLeft size={20} />
         </button>
 
-        {/* Decorative circles */}
-        <div
-          className="absolute -left-12 -top-8 h-32 w-32 rounded-full blur-2xl"
-          style={{ background: `rgba(${primaryRgb.r},${primaryRgb.g},${primaryRgb.b},0.35)` }}
-        />
-        <div className="absolute -right-10 top-20 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
+        {/* Top light overlay */}
+        <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 h-[80px] bg-gradient-to-b from-white/[0.12] to-transparent" />
 
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center text-center" style={{ color: textColor }}>
-          {/* Logo */}
+        {/* ---- Hero Content ---- */}
+        <div className="relative z-20 flex flex-col items-center text-center" style={{ color: textColor }}>
+          {/* Logo (like BrandCard's logo but bigger) */}
           <div className="h-24 w-24 rounded-2xl border-2 border-white/40 bg-white p-2 shadow-lg mb-4 flex items-center justify-center">
             <img src={logo_url} alt={name} className="max-h-full max-w-full object-contain" />
           </div>
@@ -179,7 +202,7 @@ export function BrandScreen() {
         </div>
       </div>
 
-      {/* Product carousel */}
+      {/* Product carousel with brand theme */}
       {products.length > 0 && (
         <div className="mt-6">
           <ProductCarousel
@@ -191,6 +214,12 @@ export function BrandScreen() {
             onDecrement={(p) => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
             onProductClick={(p) => navigate(`/product?id=${p.id}`)}
             onViewAll={() => navigate('/')}
+            theme={{
+              primaryColor: primary_color,
+              secondaryColor: secondary_color,
+              gradientFrom: primary_color,
+              gradientTo: secondary_color,
+            }}
           />
         </div>
       )}

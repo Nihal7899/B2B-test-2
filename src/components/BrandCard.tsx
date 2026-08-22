@@ -198,22 +198,24 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
-      {/* Zoomed out by reducing width to 85% to reveal the side edges */}
-      <div className="absolute bottom-[-15px] left-1/2 z-10 h-[100px] w-[85%] -translate-x-1/2 pointer-events-none">
+      {/* Width set to 110% as requested */}
+      <div className="absolute bottom-[-15px] left-1/2 z-10 h-[100px] w-[110%] -translate-x-1/2 pointer-events-none">
         
         {/* Layer 1: Base Curve */}
+        {/* Gradient changed to "to right" so it perfectly aligns with Layer 2 */}
         <div 
           className="absolute top-[30px] left-0 w-full h-[70px] rounded-[50%]" 
           style={{ 
-            background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
+            background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
           }} 
         />
         
         {/* Layer 2: Cylinder Body / Front Lip */}
+        {/* Gradient changed to "to right" to match the curved base without leaving a seam */}
         <div 
           className="absolute top-[35px] left-0 w-full h-[30px]" 
           style={{ 
-            background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
+            background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
           }} 
         />
         
@@ -238,7 +240,7 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* Bottom Strip (Pill Badge) over the front lip */}
-      {/* Moved down by exactly 10px (from bottom-[18px] to bottom-[8px]) */}
+      {/* Anchored at bottom-[8px] */}
       <div
         className="
           absolute bottom-[8px] left-1/2 z-40

@@ -1,14 +1,10 @@
 // components/StoreCard.tsx
-import { Store } from '@/types';
+import { Store, FeatureItem, PremiumBadge } from '@/types';
+import { getStoreIcon, iconNames } from '@/data/storeIcons';
 import {
   ChevronRight,
-  Clock3,
-  Leaf,
-  ShieldCheck,
   Star,
   Store as StoreIcon,
-  Truck,
-  Sparkles,
 } from 'lucide-react';
 
 interface StoreCardProps {
@@ -17,38 +13,27 @@ interface StoreCardProps {
   onMouseEnter?: () => void;
 }
 
-export function StoreCard({
-  store,
-  onClick,
-  onMouseEnter,
-}: StoreCardProps) {
-  const config = store.config || {};
-
+export function StoreCard({ store, onClick, onMouseEnter }: StoreCardProps) {
   const tintColor = store.primary_color || '#10b981';
-  const badgeColor = config.badgeColor || '#fbbf24';
+  const badgeColor = store.config?.badgeColor || '#fbbf24';
+  const storeBadge = store.config?.badgeText || 'STORE';
 
-  // Static for now — make these dynamic later
-  const rating = '4.8';
-  const orders = '120+ Orders';
-  const storeBadge = config.badgeText || 'STORE';
+  // Dynamic values – now from store columns
+  const rating = store.rating || '4.8';
+  const orders = store.orders || '120+ Orders';
+  const StoreIconComponent = getStoreIcon(store.store_icon || 'Store');
 
-  const features = [
-    {
-      icon: ShieldCheck,
-      title: 'Hygienic',
-      subtitle: 'Packing',
-    },
-    {
-      icon: Leaf,
-      title: 'Fresh &',
-      subtitle: 'Quality',
-    },
-    {
-      icon: Clock3,
-      title: 'On Time',
-      subtitle: 'Delivery',
-    },
-  ];
+  const features: FeatureItem[] = (store.features || [
+    { icon: 'ShieldCheck', title: 'Hygienic', subtitle: 'Packing' },
+    { icon: 'Leaf', title: 'Fresh &', subtitle: 'Quality' },
+    { icon: 'Clock3', title: 'On Time', subtitle: 'Delivery' },
+  ]).slice(0, 3);
+
+  const premium: PremiumBadge = store.premium_badge || {
+    icon: 'Sparkles',
+    label: 'PREMIUM',
+    sublabel: 'QUALITY',
+  };
 
   return (
     <button
@@ -68,51 +53,27 @@ export function StoreCard({
           loading="lazy"
         />
 
-        {/* Image shade */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/20" />
-
-        {/* Subtle brand tint */}
         <div
           className="absolute inset-0 mix-blend-multiply opacity-20"
           style={{ backgroundColor: tintColor }}
         />
 
-        {/* =====================================================
-            RATING BADGE
-        ===================================================== */}
-
+        {/* RATING BADGE */}
         <div className="absolute left-3 top-3 rounded-2xl border border-white/30 bg-white/90 px-2.5 py-1 shadow-lg backdrop-blur-md">
           <div className="flex items-center gap-1">
-            <Star
-              size={12}
-              fill="#fbbf24"
-              strokeWidth={0}
-              className="text-amber-400"
-            />
-
-            <span className="text-[12px] font-extrabold text-slate-900">
-              {rating}
-            </span>
+            <Star size={12} fill="#fbbf24" strokeWidth={0} className="text-amber-400" />
+            <span className="text-[12px] font-extrabold text-slate-900">{rating}</span>
           </div>
-
-          <p className="mt-0.5 text-[8px] font-medium text-slate-500">
-            {orders}
-          </p>
+          <p className="mt-0.5 text-[8px] font-medium text-slate-500">{orders}</p>
         </div>
 
-        {/* =====================================================
-            STORE ICON
-        ===================================================== */}
-
+        {/* STORE ICON (dynamic) */}
         <div
           className="absolute right-3 top-3 flex h-[36px] w-[36px] items-center justify-center rounded-full shadow-lg ring-4 ring-white/20"
           style={{ backgroundColor: tintColor }}
         >
-          <StoreIcon
-            size={17}
-            strokeWidth={2.2}
-            className="text-white"
-          />
+          <StoreIconComponent size={17} strokeWidth={2.2} className="text-white" />
         </div>
       </div>
 
@@ -121,7 +82,6 @@ export function StoreCard({
       ========================================================= */}
 
       <div className="absolute inset-x-0 bottom-0 h-[153px] bg-white">
-        {/* Organic curved top */}
         <div
           className="absolute -top-[32px] left-0 h-[58px] w-full"
           style={{
@@ -129,24 +89,16 @@ export function StoreCard({
             clipPath: 'ellipse(78% 75% at 18% 100%)',
           }}
         />
-
-        {/* Main white curved area */}
         <div
           className="absolute -top-[25px] left-0 h-[43px] w-full bg-white"
-          style={{
-            clipPath: 'ellipse(75% 70% at 20% 100%)',
-          }}
+          style={{ clipPath: 'ellipse(75% 70% at 20% 100%)' }}
         />
 
-        {/* Content */}
         <div className="relative z-10 h-full px-3.5 pb-3.5 pt-1.5">
           {/* Store badge */}
           <span
             className="inline-flex rounded-full px-2 py-0.5 text-[7px] font-extrabold tracking-wide shadow-sm"
-            style={{
-              backgroundColor: badgeColor,
-              color: tintColor,
-            }}
+            style={{ backgroundColor: badgeColor, color: tintColor }}
           >
             {storeBadge}
           </span>
@@ -156,47 +108,30 @@ export function StoreCard({
             {store.name}
           </h4>
 
-          {/* Description */}
           <p className="mt-0.5 line-clamp-1 text-[9px] font-medium text-slate-500">
             {store.description || 'Everything you need, all in one place'}
           </p>
 
-          {/* =====================================================
-              FEATURES
-          ===================================================== */}
-
+          {/* FEATURES */}
           <div className="mt-1.5 flex items-center justify-between rounded-2xl bg-slate-50 px-1.5 py-1.5">
             {features.map((feature, index) => {
-              const Icon = feature.icon;
-
+              const Icon = getStoreIcon(feature.icon);
               return (
-                <div
-                  key={feature.title}
-                  className="flex min-w-0 flex-1 items-center gap-1"
-                >
+                <div key={feature.title} className="flex min-w-0 flex-1 items-center gap-1">
                   <div
                     className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full"
-                    style={{
-                      backgroundColor: `${tintColor}16`,
-                    }}
+                    style={{ backgroundColor: `${tintColor}16` }}
                   >
-                    <Icon
-                      size={10}
-                      strokeWidth={2.3}
-                      style={{ color: tintColor }}
-                    />
+                    <Icon size={10} strokeWidth={2.3} style={{ color: tintColor }} />
                   </div>
-
                   <div className="min-w-0">
                     <p className="truncate text-[6.5px] font-bold leading-tight text-slate-800">
                       {feature.title}
                     </p>
-
                     <p className="truncate text-[6.5px] leading-tight text-slate-500">
                       {feature.subtitle}
                     </p>
                   </div>
-
                   {index < features.length - 1 && (
                     <div className="ml-auto h-5 w-px bg-slate-200" />
                   )}
@@ -205,58 +140,35 @@ export function StoreCard({
             })}
           </div>
 
-          {/* =====================================================
-              SHOP NOW BUTTON
-          ===================================================== */}
-
+          {/* SHOP NOW BUTTON */}
           <div
             className="mt-1.5 flex h-[29px] items-center justify-between rounded-xl px-3 text-white shadow-md transition-all duration-300 group-hover:shadow-lg"
-            style={{
-              background: `linear-gradient(135deg, ${tintColor}, ${tintColor}dd)`,
-            }}
+            style={{ background: `linear-gradient(135deg, ${tintColor}, ${tintColor}dd)` }}
           >
-            <span className="text-[9px] font-extrabold">
-              Shop now
-            </span>
-
+            <span className="text-[9px] font-extrabold">Shop now</span>
             <div className="flex h-[14px] w-[14px] items-center justify-center rounded-full bg-white/20">
-              <ChevronRight
-                size={11}
-                strokeWidth={2.5}
-              />
+              <ChevronRight size={11} strokeWidth={2.5} />
             </div>
           </div>
         </div>
       </div>
 
       {/* =========================================================
-          PREMIUM FLOATING BADGE
+          PREMIUM BADGE (dynamic)
       ========================================================= */}
-
       <div
         className="absolute right-3 top-[124px] z-20 flex h-[49px] w-[49px] flex-col items-center justify-center rounded-full border-[3px] border-white bg-white shadow-xl"
-        style={{
-          boxShadow: `0 5px 18px ${tintColor}35`,
-        }}
+        style={{ boxShadow: `0 5px 18px ${tintColor}35` }}
       >
-        <Sparkles
-          size={10}
-          style={{ color: tintColor }}
-          strokeWidth={2.5}
-        />
-
-        <span
-          className="mt-0.5 text-[7px] font-black leading-none"
-          style={{ color: tintColor }}
-        >
-          PREMIUM
+        {(() => {
+          const Icon = getStoreIcon(premium.icon);
+          return <Icon size={10} style={{ color: tintColor }} strokeWidth={2.5} />;
+        })()}
+        <span className="mt-0.5 text-[7px] font-black leading-none" style={{ color: tintColor }}>
+          {premium.label}
         </span>
-
-        <span
-          className="text-[6.5px] font-bold leading-none"
-          style={{ color: tintColor }}
-        >
-          QUALITY
+        <span className="text-[6.5px] font-bold leading-none" style={{ color: tintColor }}>
+          {premium.sublabel}
         </span>
       </div>
     </button>

@@ -755,6 +755,8 @@ export async function fetchAllStores(): Promise<Store[]> {
   return data as Store[];
 }
 
+// services/catalog.ts
+
 export async function createStore(
   input: Omit<Store, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Store | null> {
@@ -774,6 +776,12 @@ export async function createStore(
       sort_order: input.sort_order,
       is_active: input.is_active,
       config: input.config,
+      // NEW columns
+      rating: input.rating,
+      orders: input.orders,
+      store_icon: input.store_icon,
+      features: input.features,
+      premium_badge: input.premium_badge,
     })
     .select()
     .single();
@@ -798,6 +806,12 @@ export async function updateStore(id: string, updates: Partial<Store>): Promise<
       sort_order: updates.sort_order,
       is_active: updates.is_active,
       config: updates.config,
+      // NEW columns
+      rating: updates.rating,
+      orders: updates.orders,
+      store_icon: updates.store_icon,
+      features: updates.features,
+      premium_badge: updates.premium_badge,
     })
     .eq('id', id);
   if (error) throw error;

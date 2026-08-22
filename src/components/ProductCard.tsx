@@ -1,11 +1,9 @@
 // components/ProductCard.tsx
-import React, { useState, useMemo } from 'react';
 import { Heart, Star, ShoppingCart, Plus, Minus } from 'lucide-react';
 import type { Product } from '@/types';
 import { OfferBadge } from './OfferBadge';
-
-// Stable empty object to prevent breaking React.memo with inline {}
-const DEFAULT_THEME: ThemeProps = {};
+import { QuantitySelector } from './QuantitySelector';
+import { useState } from 'react';
 
 interface ThemeProps {
   primaryColor?: string;
@@ -19,22 +17,20 @@ interface ThemeProps {
   gradientTo?: string;
 }
 
-// 1. Updated Props: Handlers now expect a Product so we avoid inline arrow functions in parents
 interface ProductCardProps {
   product: Product;
   quantity: number;
-  onAdd: (product: Product) => void;
-  onIncrement: (product: Product) => void;
-  onDecrement: (product: Product) => void;
-  onClick: (product: Product) => void;
+  onAdd: () => void;
+  onIncrement: () => void;
+  onDecrement: () => void;
+  onClick: () => void;
   horizontal?: boolean;
   theme?: ThemeProps;
   isWishlisted?: boolean;
   onWishlistToggle?: (productId: string) => void;
 }
 
-// 2. Wrapped in React.memo
-export const ProductCard = React.memo(function ProductCard({
+export function ProductCard({
   product,
   quantity,
   onAdd,
@@ -42,7 +38,7 @@ export const ProductCard = React.memo(function ProductCard({
   onDecrement,
   onClick,
   horizontal = false,
-  theme = DEFAULT_THEME,
+  theme = {},
   isWishlisted = false,
   onWishlistToggle,
 }: ProductCardProps) {
@@ -88,9 +84,8 @@ export const ProductCard = React.memo(function ProductCard({
     shadow-sm tap-highlight active:scale-95 transition-transform
   `;
 
-  const handleAdd = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onAdd(product);
+  const handleAdd = () => {
+    onAdd();
     setAdded(true);
     setTimeout(() => setAdded(false), 1200);
   };
@@ -102,18 +97,9 @@ export const ProductCard = React.memo(function ProductCard({
     }
   };
 
-  // Stable callbacks for QuantitySelector to preserve its memoization
-  const handleIncrement = () => onIncrement(product);
-  const handleDecrement = () => onDecrement(product);
-
-  // Stable theme reference for the Quantity Selector
-  const quantityTheme = useMemo(
-    () => ({ primaryColor, secondaryColor }), 
-    [primaryColor, secondaryColor]
-  );
-
   return (
-    <article onClick={() => onClick(product)} className={cardClasses} style={{ borderColor }}>
+    <article onClick={onClick} className={cardClasses} style={{ borderColor }}>
+      {/* Image with gradient overlay using theme colors */}
       <div className="relative bg-ink-50 h-[132px] flex items-center justify-center overflow-hidden">
         <img
           src={product.image}
@@ -121,6 +107,7 @@ export const ProductCard = React.memo(function ProductCard({
           className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
+        {/* Gradient overlay using theme's primary->secondary */}
         <div
           className="absolute inset-0 opacity-20 pointer-events-none"
           style={{
@@ -168,9 +155,9 @@ export const ProductCard = React.memo(function ProductCard({
           {quantity > 0 ? (
             <QuantitySelector
               quantity={quantity}
-              onIncrement={handleIncrement}
-              onDecrement={handleDecrement}
-              theme={quantityTheme}
+              onIncrement={onIncrement}
+              onDecrement={onDecrement}
+              theme={{ primaryColor, secondaryColor }}
             />
           ) : added ? (
             <span className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-white" style={{ backgroundColor: primaryColor }}>
@@ -178,7 +165,7 @@ export const ProductCard = React.memo(function ProductCard({
             </span>
           ) : (
             <button
-              onClick={handleAdd}
+              onClick={(e) => { e.stopPropagation(); handleAdd(); }}
               className={buttonBase}
               style={
                 buttonStyle === 'outline'
@@ -195,9 +182,9 @@ export const ProductCard = React.memo(function ProductCard({
       </div>
     </article>
   );
-});
+}
 
-// ---- QuantitySelector wrapped in React.memo ----
+// ---- QuantitySelector with theme support ----
 interface QuantitySelectorProps {
   quantity: number;
   onIncrement: () => void;
@@ -206,14 +193,8 @@ interface QuantitySelectorProps {
   theme?: { primaryColor?: string; secondaryColor?: string };
 }
 
-export const QuantitySelector = React.memo(function QuantitySelector({ 
-  quantity, 
-  onIncrement, 
-  onDecrement, 
-  size = 'sm', 
-  theme = DEFAULT_THEME 
-}: QuantitySelectorProps) {
-  const { primaryColor = '#10b981' } = theme;
+export function QuantitySelector({ quantity, onIncrement, onDecrement, size = 'sm', theme = {} }: QuantitySelectorProps) {
+  const { primaryColor = '#10b981', secondaryColor = '#059669' } = theme;
   const sizeClasses = size === 'md' ? 'h-8 w-8 text-sm' : 'h-7 w-7 text-xs';
 
   return (
@@ -237,9 +218,9 @@ export const QuantitySelector = React.memo(function QuantitySelector({
       </button>
     </div>
   );
-});
+}
 
-// ---- ProductCarousel wrapped in React.memo ----
+// ---- ProductCarousel (unchanged, but now passes theme to each card) ----
 interface ProductCarouselProps {
   title: string;
   products: Product[];
@@ -254,7 +235,7 @@ interface ProductCarouselProps {
   onWishlistToggle?: (id: string) => void;
 }
 
-export const ProductCarousel = React.memo(function ProductCarousel({
+export function ProductCarousel({
   title,
   products,
   getQuantity,
@@ -263,7 +244,7 @@ export const ProductCarousel = React.memo(function ProductCarousel({
   onDecrement,
   onProductClick,
   onViewAll,
-  theme = DEFAULT_THEME,
+  theme = {},
   wishlist = [],
   onWishlistToggle,
 }: ProductCarouselProps) {
@@ -273,17 +254,16 @@ export const ProductCarousel = React.memo(function ProductCarousel({
         <h2 className="text-base font-bold text-ink-900 tracking-tight">{title}</h2>
         <button onClick={onViewAll} className="text-xs font-semibold text-brand-600 tap-highlight">View All</button>
       </div>
-      {/* 4. Added transform-gpu for hardware accelerated scrolling */}
-      <div className="flex gap-2.5 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">
+      <div className="flex gap-2.5 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
         {products.map((product) => (
           <ProductCard
             key={product.id}
             product={product}
             quantity={getQuantity(product.id)}
-            onAdd={onAdd}
-            onIncrement={onIncrement}
-            onDecrement={onDecrement}
-            onClick={onProductClick}
+            onAdd={() => onAdd(product)}
+            onIncrement={() => onIncrement(product)}
+            onDecrement={() => onDecrement(product)}
+            onClick={() => onProductClick(product)}
             horizontal
             theme={theme}
             isWishlisted={wishlist.includes(product.id)}
@@ -293,4 +273,4 @@ export const ProductCarousel = React.memo(function ProductCarousel({
       </div>
     </section>
   );
-});
+}

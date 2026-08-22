@@ -198,38 +198,49 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
-      {/* Width scaled down to 115% to reveal the raised left and right edges */}
-      <div className="absolute bottom-[-10px] left-1/2 z-10 h-[80px] w-[115%] -translate-x-1/2 pointer-events-none">
+      <div className="absolute bottom-[-20px] left-1/2 z-10 h-[105px] w-[125%] -translate-x-1/2 pointer-events-none">
         
-        {/* Layer 1: Base Curve (The bottom rounded edge) */}
-        <div className="absolute bottom-0 left-0 w-full h-[40px] rounded-[50%] bg-gradient-to-r from-[#0a1020] via-[#2563eb] to-[#0a1020]" />
+        {/* Layer 1: Base Curve (Bottom Ellipse) */}
+        {/* Increased curve height to 65px */}
+        <div 
+          className="absolute bottom-0 left-0 w-full h-[65px] rounded-[50%]" 
+          style={{ background: 'linear-gradient(90deg, #040814 0%, #1e3a8a 35%, #3b82f6 50%, #0a1526 100%)' }}
+        />
         
-        {/* Layer 2: Cylinder Body (The front face connecting top and bottom circles) */}
-        <div className="absolute bottom-[20px] left-0 w-full h-[25px] bg-gradient-to-r from-[#0a1020] via-[#1d4ed8] to-[#0a1020]" />
+        {/* Layer 2: Cylinder Body (Front Lip) */}
+        {/* Raised front lip by increasing height to 40px and starting halfway up the bottom ellipse */}
+        <div 
+          className="absolute bottom-[32.5px] left-0 w-full h-[40px]" 
+          style={{ background: 'linear-gradient(90deg, #040814 0%, #1e3a8a 35%, #3b82f6 50%, #0a1526 100%)' }}
+        />
         
-        {/* Layer 3: Top Curve (The deep inner floor where the product sits with a prominent lip) */}
-        <div className="absolute top-[15px] left-0 w-full h-[40px] rounded-[50%] bg-[#08122a] border-b-[2px] border-[#60a5fa]/60 shadow-[inset_0_-10px_20px_rgba(0,0,0,0.8),inset_0_5px_15px_rgba(0,0,0,0.5)]" />
+        {/* Layer 3: Top Curve (Inner floor/back) */}
+        {/* Perfectly matches the bottom ellipse shape (65px height). Added gradient for the back floor. */}
+        <div 
+          className="absolute bottom-[40px] left-0 w-full h-[65px] rounded-[50%] border-b-[2px] border-[#3b82f6]/60 shadow-[inset_0_15px_25px_rgba(4,8,20,0.9),inset_0_-5px_15px_rgba(30,58,138,0.3)]" 
+          style={{ background: 'linear-gradient(180deg, #040814 0%, #0a1526 40%, #1e3a8a 100%)' }}
+        />
         
       </div>
 
       {/* Single Dynamic Product positioned ON the floor */}
-      <div className="absolute bottom-[32px] left-1/2 z-20 h-[45%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
+      <div className="absolute bottom-[42px] left-1/2 z-20 h-[42%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
         <img
           src={image}
           alt={`${brandName} product`}
-          className="h-full w-full object-contain object-bottom drop-shadow-[0_15px_15px_rgba(0,0,0,0.55)]"
+          className="h-full w-full object-contain object-bottom drop-shadow-[0_20px_15px_rgba(0,0,0,0.65)]"
           loading="lazy"
         />
       </div>
 
-      {/* Bottom Strip (Pill Badge) over the front lip */}
+      {/* Bottom Strip (Pill Badge) hovering in front of the lip */}
       <div
         className="
           absolute bottom-[10px] left-1/2 z-40
           flex h-[24px] w-auto min-w-[130px] max-w-[90%] -translate-x-1/2
           items-center justify-center gap-1.5
-          rounded-full border border-white/20 bg-black/40 px-3
-          text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.3)]
+          rounded-full border border-[#3b82f6]/30 bg-[#040814]/80 px-3
+          text-white shadow-[0_4px_12px_rgba(4,8,20,0.5)]
           backdrop-blur-md
         "
       >

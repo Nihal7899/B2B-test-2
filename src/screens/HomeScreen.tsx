@@ -1,5 +1,5 @@
 // screens/HomeScreen.tsx
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck, ShieldCheck, Tag, RotateCcw, ChevronRight } from 'lucide-react';
 import type { Category, Product, PromoBanner, Store, TrustedBrand } from '@/types';
@@ -23,13 +23,201 @@ import {
 interface HomeScreenProps {
   search: string;
   onSearchChange: (value: string) => void;
-  onCategory: (category: Category) => void; // added for category navigation
+  onCategory: (category: Category) => void;
   onProduct: (product: Product) => void;
   onViewAll: () => void;
   onStoreClick: (store: Store) => void;
   cart: ReturnType<typeof useCart>;
   onBannerAction?: (banner: PromoBanner) => void;
 }
+
+// 1. Extracted & Memoized Banner Component
+const PromoActionBanner = React.memo(({ 
+  banner, 
+  onAction 
+}: { 
+  banner: PromoBanner; 
+  onAction?: (banner: PromoBanner) => void 
+}) => {
+  let bgStyle: React.CSSProperties = {};
+  let bgClass = '';
+
+  if (banner.bgType === 'image') {
+    bgStyle = {
+      backgroundImage: `url(${banner.image})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+    };
+  } else if (banner.bgType === 'color') {
+    bgStyle = { backgroundColor: banner.bgColor || '#16a34a' };
+  } else if (banner.bgType === 'gradient') {
+    bgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
+  }
+
+  const overlayStyle: React.CSSProperties = {
+    backgroundColor: banner.overlayColor || '#000000',
+    opacity: (banner.overlayOpacity || 50) / 100,
+  };
+
+  const showImage = banner.bgType !== 'image' && banner.image;
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl h-[150px] flex items-center text-white shadow-card transform-gpu">
+      {banner.bgType === 'gradient' ? (
+        <div className={`absolute inset-0 ${bgClass}`} />
+      ) : (
+        <div className="absolute inset-0" style={bgStyle} />
+      )}
+      {showImage && (
+        <div className="absolute right-0 top-0 h-full w-2/5">
+          <img
+            src={banner.image}
+            alt={banner.headline}
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
+            }}
+          />
+        </div>
+      )}
+      {banner.overlayEnabled && (
+        <div className="absolute inset-0 z-10" style={overlayStyle} />
+      )}
+      <div className="relative z-20 px-4 py-3 w-3/5 h-full flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          {banner.badge && (
+            <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
+              {banner.badge}
+            </span>
+          )}
+          <h3 className="text-[17px] font-extrabold leading-tight mt-0.5 line-clamp-2">
+            {banner.headline}
+          </h3>
+          <p className="text-[11px] opacity-80 mt-0.5 line-clamp-2">
+            {banner.subtext}
+          </p>
+        </div>
+        {banner.showCta !== false && (
+          <button
+            onClick={() => onAction?.(banner)}
+            className="flex-shrink-0 mt-2 bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 shadow-sm self-start tap-highlight"
+          >
+            {banner.cta}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+});
+
+// 2. Extracted & Memoized Product Grid Card (Fixes Cart Lag)
+const GridProductCard = React.memo(({
+  product,
+  quantity,
+  onAdd,
+  onUpdateQuantity,
+  onClick
+}: {
+  product: Product;
+  quantity: number;
+  onAdd: (p: Product) => void;
+  onUpdateQuantity: (id: string, qty: number) => void;
+  onClick: (p: Product) => void;
+}) => {
+  return (
+    <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden flex flex-col">
+      <div
+        className="relative bg-ink-50 h-[132px] overflow-hidden cursor-pointer"
+        onClick={() => onClick(product)}
+      >
+        <img
+          src={product.image}
+          alt={product.name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={(e) => {
+            e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Product';
+          }}
+        />
+      </div>
+      <div className="p-2.5 flex flex-col flex-grow justify-between">
+        <div>
+          <p className="text-[10px] text-brand-600 font-bold uppercase tracking-wide truncate">
+            {product.brand}
+          </p>
+          <h3 className="text-[12px] font-bold text-ink-800 leading-tight mt-0.5 line-clamp-2">
+            {product.name}
+          </h3>
+          <p className="text-[10px] text-ink-400 mt-1">{product.packSize}</p>
+        </div>
+        <div className="flex items-end justify-between gap-1 mt-2">
+          <div>
+            <p className="text-[10px] text-ink-400 line-through">₹{product.mrp}</p>
+            <p className="text-[15px] font-extrabold text-brand-700">₹{product.price}</p>
+          </div>
+          {quantity > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => onUpdateQuantity(product.id, quantity - 1)}
+                className="h-7 w-7 rounded-lg border border-brand-200 text-brand-700 font-bold tap-highlight"
+              >
+                -
+              </button>
+              <span className="text-xs font-bold w-3 text-center">{quantity}</span>
+              <button
+                onClick={() => onAdd(product)}
+                className="h-7 w-7 rounded-lg border border-brand-200 text-brand-700 font-bold tap-highlight"
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => onAdd(product)}
+              className="h-8 px-2.5 rounded-lg bg-brand-600 text-white text-[11px] font-bold tap-highlight"
+            >
+              Add
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// 3. Skeleton Loading Component
+const HomeSkeleton = () => (
+  <div className="space-y-6 pb-6 animate-pulse">
+    <div className="px-4 pt-2">
+      <div className="h-10 bg-ink-200 rounded-xl w-full" />
+    </div>
+    <div className="px-4">
+      <div className="h-[150px] bg-ink-200 rounded-2xl w-full" />
+    </div>
+    <div className="px-4">
+      <div className="flex justify-between mb-3">
+        <div className="h-5 bg-ink-200 rounded w-1/3" />
+        <div className="h-4 bg-ink-200 rounded w-16" />
+      </div>
+      <div className="grid grid-cols-4 gap-3">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="flex flex-col items-center gap-1.5">
+            <div className="h-16 w-16 bg-ink-200 rounded-2xl" />
+            <div className="h-2 bg-ink-200 rounded w-12" />
+          </div>
+        ))}
+      </div>
+    </div>
+    <div className="px-4">
+      <div className="h-5 bg-ink-200 rounded w-1/3 mb-3" />
+      <div className="flex gap-3 overflow-hidden">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-[220px] w-[140px] shrink-0 bg-ink-200 rounded-2xl" />
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 export function HomeScreen({
   search,
@@ -66,7 +254,6 @@ export function HomeScreen({
     navigate(`/category?id=${category.id}`);
   }, [navigate]);
 
-  // Brand click handler
   const onBrandClick = useCallback((brand: TrustedBrand) => {
     navigate(`/brand?id=${brand.id}`);
   }, [navigate]);
@@ -86,15 +273,10 @@ export function HomeScreen({
         setStores(storesRes);
         setBrands(brandsRes);
 
-        const top = banners.find((b) => b.position === 'top') || null;
-        const carousel = banners.filter((b) => b.position === 'carousel');
-        const middle = banners.filter((b) => b.position === 'middle');
-        const bottom = banners.filter((b) => b.position === 'bottom');
-
-        setTopBanner(top);
-        setCarouselBanners(carousel);
-        setMiddleBanners(middle);
-        setBottomBanners(bottom);
+        setTopBanner(banners.find((b) => b.position === 'top') || null);
+        setCarouselBanners(banners.filter((b) => b.position === 'carousel'));
+        setMiddleBanners(banners.filter((b) => b.position === 'middle'));
+        setBottomBanners(banners.filter((b) => b.position === 'bottom'));
       } catch (err) {
         console.error('Failed to load catalog', err);
       }
@@ -102,107 +284,39 @@ export function HomeScreen({
     })();
   }, []);
 
-  const query = search.trim().toLowerCase();
-  const filtered = query
-    ? products.filter((p) =>
-        `${p.brand} ${p.name} ${p.category}`.toLowerCase().includes(query)
-      )
-    : products;
-  const popular = filtered.slice(0, 8);
-  const deals = filtered.slice(8, 16);
-  const essentials = filtered.slice(16, 24);
+  // 4. Memoize heavy filtering and array slicing
+  const { filtered, popular, deals, essentials } = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const filteredProducts = query
+      ? products.filter((p) =>
+          `${p.brand} ${p.name} ${p.category}`.toLowerCase().includes(query)
+        )
+      : products;
+      
+    return {
+      filtered: filteredProducts,
+      popular: filteredProducts.slice(0, 8),
+      deals: filteredProducts.slice(8, 16),
+      essentials: filteredProducts.slice(16, 24)
+    };
+  }, [search, products]);
+
+  // Stable callbacks for cart actions
+  const handleAddToCart = useCallback((p: Product) => cart.addToCart(p), [cart]);
+  const handleUpdateQuantity = useCallback((id: string, qty: number) => cart.updateQuantity(id, qty), [cart]);
 
   const actions = {
     getQuantity: cart.getQuantity,
     onAdd: cart.addToCart,
     onIncrement: (p: Product) => cart.addToCart(p),
-    onDecrement: (p: Product) =>
-      cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1),
+    onDecrement: (p: Product) => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1),
     onProductClick: onProduct,
     onViewAll,
   };
 
-  const renderActionBanner = (banner: PromoBanner) => {
-    let bgStyle: React.CSSProperties = {};
-    let bgClass = '';
+  if (loading) return <HomeSkeleton />;
 
-    if (banner.bgType === 'image') {
-      bgStyle = {
-        backgroundImage: `url(${banner.image})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      };
-    } else if (banner.bgType === 'color') {
-      bgStyle = { backgroundColor: banner.bgColor || '#16a34a' };
-    } else if (banner.bgType === 'gradient') {
-      bgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
-    }
-
-    const overlayStyle: React.CSSProperties = {
-      backgroundColor: banner.overlayColor || '#000000',
-      opacity: (banner.overlayOpacity || 50) / 100,
-    };
-
-    const showImage = banner.bgType !== 'image' && banner.image;
-
-    return (
-      <div
-        key={banner.id}
-        className="relative overflow-hidden rounded-2xl h-[150px] flex items-center text-white shadow-card"
-      >
-        {banner.bgType === 'gradient' ? (
-          <div className={`absolute inset-0 ${bgClass}`} />
-        ) : (
-          <div className="absolute inset-0" style={bgStyle} />
-        )}
-        {showImage && (
-          <div className="absolute right-0 top-0 h-full w-2/5">
-            <img
-              src={banner.image}
-              alt={banner.headline}
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
-              }}
-            />
-          </div>
-        )}
-        {banner.overlayEnabled && (
-          <div className="absolute inset-0 z-10" style={overlayStyle} />
-        )}
-        <div className="relative z-20 px-4 py-3 w-3/5 h-full flex flex-col justify-between overflow-hidden">
-          <div className="flex-1 overflow-hidden">
-            {banner.badge && (
-              <span className="text-[9px] font-bold tracking-wider uppercase opacity-80">
-                {banner.badge}
-              </span>
-            )}
-            <h3 className="text-[17px] font-extrabold leading-tight mt-0.5 line-clamp-2">
-              {banner.headline}
-            </h3>
-            <p className="text-[11px] opacity-80 mt-0.5 line-clamp-2">
-              {banner.subtext}
-            </p>
-          </div>
-          {banner.showCta !== false && (
-            <button
-              onClick={() => onBannerAction?.(banner)}
-              className="flex-shrink-0 mt-2 bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 shadow-sm self-start"
-            >
-              {banner.cta}
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  if (loading)
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
-      </div>
-    );
+  const query = search.trim();
 
   return (
     <div className="space-y-6 pb-6">
@@ -222,66 +336,14 @@ export function HomeScreen({
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {filtered.map((p) => (
-              <div
-                key={p.id}
-                className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden"
-              >
-                <div
-                  className="relative bg-ink-50 h-[132px] overflow-hidden cursor-pointer"
-                  onClick={() => onProduct(p)}
-                >
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Product';
-                    }}
-                  />
-                </div>
-                <div className="p-2.5">
-                  <p className="text-[10px] text-brand-600 font-bold uppercase tracking-wide truncate">
-                    {p.brand}
-                  </p>
-                  <h3 className="text-[12px] font-bold text-ink-800 leading-tight mt-0.5 line-clamp-2">
-                    {p.name}
-                  </h3>
-                  <p className="text-[10px] text-ink-400 mt-1">{p.packSize}</p>
-                  <div className="flex items-end justify-between gap-1 mt-2">
-                    <div>
-                      <p className="text-[10px] text-ink-400 line-through">₹{p.mrp}</p>
-                      <p className="text-[15px] font-extrabold text-brand-700">₹{p.price}</p>
-                    </div>
-                    {cart.getQuantity(p.id) > 0 ? (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() =>
-                            cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)
-                          }
-                          className="h-7 w-7 rounded-lg border border-brand-200 text-brand-700 font-bold"
-                        >
-                          -
-                        </button>
-                        <span className="text-xs font-bold">{cart.getQuantity(p.id)}</span>
-                        <button
-                          onClick={() => cart.addToCart(p)}
-                          className="h-7 w-7 rounded-lg border border-brand-200 text-brand-700 font-bold"
-                        >
-                          +
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => cart.addToCart(p)}
-                        className="h-8 px-2.5 rounded-lg bg-brand-600 text-white text-[11px] font-bold"
-                      >
-                        Add
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <GridProductCard 
+                key={p.id} 
+                product={p}
+                quantity={cart.getQuantity(p.id)}
+                onAdd={handleAddToCart}
+                onUpdateQuantity={handleUpdateQuantity}
+                onClick={onProduct}
+              />
             ))}
           </div>
         </div>
@@ -298,7 +360,7 @@ export function HomeScreen({
               </div>
               <button
                 onClick={onViewAll}
-                className="flex items-center text-xs font-semibold text-brand-600"
+                className="flex items-center text-xs font-semibold text-brand-600 tap-highlight"
               >
                 See all <ChevronRight className="h-3.5 w-3.5" />
               </button>
@@ -365,13 +427,13 @@ export function HomeScreen({
             <ProductCarousel title="Popular Products" products={popular} {...actions} />
           )}
 
-          {/* Middle Banners */}
+          {/* Middle Banners (Hardware Accelerated) */}
           {middleBanners.length > 0 && (
             <section>
-              <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
+              <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">
                 {middleBanners.map((banner) => (
                   <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
-                    {renderActionBanner(banner)}
+                    <PromoActionBanner banner={banner} onAction={onBannerAction} />
                   </div>
                 ))}
               </div>
@@ -414,13 +476,13 @@ export function HomeScreen({
             <ProductCarousel title="Everyday Essentials" products={essentials} {...actions} />
           )}
 
-          {/* Bottom Banners */}
+          {/* Bottom Banners (Hardware Accelerated) */}
           {bottomBanners.length > 0 && (
             <section>
-              <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
+              <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">
                 {bottomBanners.map((banner) => (
                   <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
-                    {renderActionBanner(banner)}
+                    <PromoActionBanner banner={banner} onAction={onBannerAction} />
                   </div>
                 ))}
               </div>

@@ -95,3 +95,16 @@ ALTER TABLE trusted_brands ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}'::j
 
 -- Optional: create index for faster queries (if needed)
 CREATE INDEX IF NOT EXISTS idx_trusted_brands_config ON trusted_brands USING gin (config);
+
+-- Add columns for badge and all card fields
+ALTER TABLE stores 
+ADD COLUMN IF NOT EXISTS rating TEXT,
+ADD COLUMN IF NOT EXISTS orders TEXT,
+ADD COLUMN IF NOT EXISTS store_icon TEXT,
+ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS premium_badge JSONB DEFAULT '{"icon":"Sparkles","label":"PREMIUM","sublabel":"QUALITY"}'::jsonb,
+ADD COLUMN IF NOT EXISTS badge_text TEXT DEFAULT 'STORE',
+ADD COLUMN IF NOT EXISTS badge_color TEXT DEFAULT '#fbbf24';
+
+-- Remove old tint_opacity if it exists
+ALTER TABLE stores DROP COLUMN IF EXISTS tint_opacity;

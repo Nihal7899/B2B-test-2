@@ -1,11 +1,7 @@
 // components/StoreCard.tsx
 import { Store, FeatureItem, PremiumBadge } from '@/types';
 import { getStoreIcon } from '@/data/storeIcons';
-import {
-  ChevronRight,
-  Star,
-  Store as StoreIcon,
-} from 'lucide-react';
+import { ChevronRight, Star } from 'lucide-react';
 
 interface StoreCardProps {
   store: Store;
@@ -15,10 +11,9 @@ interface StoreCardProps {
 
 export function StoreCard({ store, onClick, onMouseEnter }: StoreCardProps) {
   const tintColor = store.primary_color || '#10b981';
-  const badgeColor = store.config?.badgeColor || '#fbbf24';
-  const storeBadge = store.config?.badgeText || 'STORE';
+  const badgeColor = store.badge_color || '#fbbf24';
+  const storeBadge = store.badge_text || 'STORE';
 
-  // Dynamic values – now from store columns
   const rating = store.rating || '4.8';
   const orders = store.orders || '120+ Orders';
   const StoreIconComponent = getStoreIcon(store.store_icon || 'Store');

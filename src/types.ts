@@ -270,16 +270,13 @@ export interface SmartCollection {
   updated_at: string;
 }
 
-// types.ts – add this to the Store interface
-// types.ts
-// types.ts
 export interface Store {
   id: string;
   name: string;
   image_url: string;
   banner_image_url?: string;
   description: string;
-  primary_color: string;          // this is your "Brand Color"
+  primary_color: string;          // "Brand Color"
   secondary_color: string;
   text_color: string;
   border_color: string;
@@ -289,14 +286,28 @@ export interface Store {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  config?: any;                  // keep for other store‑screen configs
+  config?: any;                   // ONLY for store-screen config (hero, highlights, etc.)
 
-  // New card‑specific columns
-  rating: string;                // e.g. "4.8"
-  orders: string;                // e.g. "120+ Orders"
-  store_icon: string;            // icon name from storeIcons.ts
-  features: FeatureItem[];       // array of {icon, title, subtitle}
-  premium_badge: PremiumBadge;   // {icon, label, sublabel}
+  // Card-specific columns
+  rating: string;
+  orders: string;
+  store_icon: string;
+  features: FeatureItem[];
+  premium_badge: PremiumBadge;
+  badge_text: string;
+  badge_color: string;
+}
+
+export interface FeatureItem {
+  icon: string;
+  title: string;
+  subtitle: string;
+}
+
+export interface PremiumBadge {
+  icon: string;
+  label: string;
+  sublabel: string;
 }
 
 export interface FeatureItem {

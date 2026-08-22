@@ -1,7 +1,6 @@
 // src/components/admin/StoresManager.tsx
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2, Save } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import type { Store, FeatureItem, PremiumBadge } from '@/types';
 import { fetchAllStores, createStore, updateStore, deleteStore } from '@/services/catalog';
 import { iconNames } from '@/data/storeIcons';
@@ -124,8 +123,6 @@ function StoreForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const initialConfig = initial?.config || {};
-
   const defaultFeatures: FeatureItem[] = [
     { icon: 'ShieldCheck', title: 'Hygienic', subtitle: 'Packing' },
     { icon: 'Leaf', title: 'Fresh &', subtitle: 'Quality' },
@@ -145,22 +142,23 @@ function StoreForm({
     description: initial?.description ?? '',
     brand_color: initial?.primary_color ?? '#10b981',
     text_color: initial?.text_color ?? '#ffffff',
-    badge_text: initialConfig?.badgeText ?? 'STORE',
-    badge_color: initialConfig?.badgeColor ?? '#fbbf24',
     sort_order: initial?.sort_order ?? 0,
     is_active: initial?.is_active ?? true,
 
+    // Card fields
     rating: initial?.rating ?? '4.8',
     orders: initial?.orders ?? '120+ Orders',
     store_icon: initial?.store_icon ?? 'Store',
     features: initial?.features?.length ? initial.features : defaultFeatures,
     premium_badge: initial?.premium_badge ?? defaultPremium,
+    badge_text: initial?.badge_text ?? 'STORE',
+    badge_color: initial?.badge_color ?? '#fbbf24',
   });
 
   const [saving, setSaving] = useState(false);
 
+  // Sync on edit
   useEffect(() => {
-    const config = initial?.config || {};
     setForm({
       name: initial?.name ?? '',
       image_url: initial?.image_url ?? '',
@@ -168,8 +166,6 @@ function StoreForm({
       description: initial?.description ?? '',
       brand_color: initial?.primary_color ?? '#10b981',
       text_color: initial?.text_color ?? '#ffffff',
-      badge_text: config?.badgeText ?? 'STORE',
-      badge_color: config?.badgeColor ?? '#fbbf24',
       sort_order: initial?.sort_order ?? 0,
       is_active: initial?.is_active ?? true,
       rating: initial?.rating ?? '4.8',
@@ -177,6 +173,8 @@ function StoreForm({
       store_icon: initial?.store_icon ?? 'Store',
       features: initial?.features?.length ? initial.features : defaultFeatures,
       premium_badge: initial?.premium_badge ?? defaultPremium,
+      badge_text: initial?.badge_text ?? 'STORE',
+      badge_color: initial?.badge_color ?? '#fbbf24',
     });
   }, [initial]);
 
@@ -193,11 +191,6 @@ function StoreForm({
   const handleSave = async () => {
     setSaving(true);
 
-    const configData = {
-      badgeText: form.badge_text,
-      badgeColor: form.badge_color,
-    };
-
     const data = {
       name: form.name,
       image_url: form.image_url,
@@ -207,18 +200,21 @@ function StoreForm({
       text_color: form.text_color,
       sort_order: form.sort_order,
       is_active: form.is_active,
-      config: configData,
+      // ⚠️ config NOT included – it stays untouched
       rating: form.rating,
       orders: form.orders,
       store_icon: form.store_icon,
       features: form.features,
       premium_badge: form.premium_badge,
+      badge_text: form.badge_text,
+      badge_color: form.badge_color,
     };
 
     if (initial) {
       await updateStore(initial.id, data);
     } else {
-      await createStore(data);
+      // For new store, pass an empty config (to be filled later by StoreConfigManager)
+      await createStore({ ...data, config: {} });
     }
     setSaving(false);
     onSaved();
@@ -233,6 +229,7 @@ function StoreForm({
         </button>
       </div>
 
+      {/* Basic fields */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Store name *</label>
         <input
@@ -279,6 +276,7 @@ function StoreForm({
         />
       </div>
 
+      {/* Colors */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Brand Color</label>
@@ -318,6 +316,7 @@ function StoreForm({
         </div>
       </div>
 
+      {/* Badge fields (now separate) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Badge Text</label>
@@ -348,6 +347,7 @@ function StoreForm({
         </div>
       </div>
 
+      {/* Rating & Orders */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Rating</label>
@@ -371,6 +371,7 @@ function StoreForm({
         </div>
       </div>
 
+      {/* Store Icon */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Store Icon</label>
         <select
@@ -384,6 +385,7 @@ function StoreForm({
         </select>
       </div>
 
+      {/* Features (max 3) */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Features (max 3)</label>
         {form.features.map((feature, idx) => (
@@ -428,6 +430,7 @@ function StoreForm({
         )}
       </div>
 
+      {/* Premium Badge */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Premium Badge</label>
         <div className="grid grid-cols-3 gap-2">
@@ -457,6 +460,7 @@ function StoreForm({
         </div>
       </div>
 
+      {/* Sort order & Active */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Sort order</label>

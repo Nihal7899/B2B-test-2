@@ -775,13 +775,15 @@ export async function createStore(
       product_ids: input.product_ids,
       sort_order: input.sort_order,
       is_active: input.is_active,
-      config: input.config,
-      // NEW columns
+      config: input.config || {},    // keep existing store-screen config
+      // New card columns
       rating: input.rating,
       orders: input.orders,
       store_icon: input.store_icon,
       features: input.features,
       premium_badge: input.premium_badge,
+      badge_text: input.badge_text,
+      badge_color: input.badge_color,
     })
     .select()
     .single();
@@ -790,29 +792,33 @@ export async function createStore(
 }
 
 export async function updateStore(id: string, updates: Partial<Store>): Promise<void> {
+  // Build the update object – but NEVER touch `config`
+  const updateData: any = {};
+  if (updates.name !== undefined) updateData.name = updates.name;
+  if (updates.image_url !== undefined) updateData.image_url = updates.image_url;
+  if (updates.banner_image_url !== undefined) updateData.banner_image_url = updates.banner_image_url;
+  if (updates.description !== undefined) updateData.description = updates.description;
+  if (updates.primary_color !== undefined) updateData.primary_color = updates.primary_color;
+  if (updates.secondary_color !== undefined) updateData.secondary_color = updates.secondary_color;
+  if (updates.text_color !== undefined) updateData.text_color = updates.text_color;
+  if (updates.border_color !== undefined) updateData.border_color = updates.border_color;
+  if (updates.button_style !== undefined) updateData.button_style = updates.button_style;
+  if (updates.product_ids !== undefined) updateData.product_ids = updates.product_ids;
+  if (updates.sort_order !== undefined) updateData.sort_order = updates.sort_order;
+  if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
+  // Card fields
+  if (updates.rating !== undefined) updateData.rating = updates.rating;
+  if (updates.orders !== undefined) updateData.orders = updates.orders;
+  if (updates.store_icon !== undefined) updateData.store_icon = updates.store_icon;
+  if (updates.features !== undefined) updateData.features = updates.features;
+  if (updates.premium_badge !== undefined) updateData.premium_badge = updates.premium_badge;
+  if (updates.badge_text !== undefined) updateData.badge_text = updates.badge_text;
+  if (updates.badge_color !== undefined) updateData.badge_color = updates.badge_color;
+  // DO NOT include config – we never update it here
+
   const { error } = await supabase
     .from('stores')
-    .update({
-      name: updates.name,
-      image_url: updates.image_url,
-      banner_image_url: updates.banner_image_url,
-      description: updates.description,
-      primary_color: updates.primary_color,
-      secondary_color: updates.secondary_color,
-      text_color: updates.text_color,
-      border_color: updates.border_color,
-      button_style: updates.button_style,
-      product_ids: updates.product_ids,
-      sort_order: updates.sort_order,
-      is_active: updates.is_active,
-      config: updates.config,
-      // NEW columns
-      rating: updates.rating,
-      orders: updates.orders,
-      store_icon: updates.store_icon,
-      features: updates.features,
-      premium_badge: updates.premium_badge,
-    })
+    .update(updateData)
     .eq('id', id);
   if (error) throw error;
 }

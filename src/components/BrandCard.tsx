@@ -197,15 +197,20 @@ export function BrandCard(props: BrandCardProps) {
         ))}
       </div>
 
-      {/* ===== LAYER 1: BACK LIP (Inner Floor) - Z-INDEX 10 ===== */}
-      {/* Brought down by 10px and curve reduced to 60px to make it flatter */}
+
+      {/* ========================================== */}
+      {/* PERFECT 3D CYLINDER - UNBREAKABLE MATH     */}
+      {/* ========================================== */}
+
+      {/* LAYER 1: BACK LIP (Inner Floor) - Z-INDEX 10 */}
+      {/* 100% width, exact height. Cannot overflow or blob. */}
       <div 
-        className="absolute bottom-[30px] left-1/2 z-10 h-[60px] w-[114%] -translate-x-1/2 rounded-[50%] shadow-[inset_0_10px_20px_rgba(0,0,0,0.3),inset_0_-2px_6px_rgba(0,0,0,0.15)] pointer-events-none"
-        style={{ background: `linear-gradient(to bottom, ${primaryColor} 0%, ${secondaryColor} 100%)` }} 
+        className="absolute bottom-[25px] left-0 right-0 z-10 h-[30px] w-full rounded-[50%] shadow-[inset_0_8px_16px_rgba(0,0,0,0.3)] pointer-events-none"
+        style={{ background: `linear-gradient(to bottom, ${primaryColor}, ${secondaryColor})` }} 
       />
 
-      {/* ===== LAYER 2: PRODUCT IMAGE - Z-INDEX 20 ===== */}
-      {/* Moved up slightly and perfectly sandwiched inside the cup layers */}
+      {/* LAYER 2: PRODUCT IMAGE - Z-INDEX 20 */}
+      {/* Sits EXACTLY in the middle, behind the front lip layer but in front of the back lip */}
       <div className="absolute bottom-[28px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
         <img
           src={image}
@@ -215,32 +220,31 @@ export function BrandCard(props: BrandCardProps) {
         />
       </div>
 
-      {/* ===== LAYER 3: FRONT LIP - Z-INDEX 30 ===== */}
-      {/* Container moved up by 10px (bottom-[-20px]) but original downward curve math restored */}
-      <div className="absolute bottom-[-20px] left-1/2 z-30 h-[125px] w-[114%] -translate-x-1/2 pointer-events-none">
-        
-        {/* Front Lip Base Curve: The deep 90px stretch down is back and mathematically perfect */}
-        <div 
-          className="absolute top-[35px] left-0 w-full h-[90px] rounded-[50%]" 
-          style={{ background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }} 
-        />
-        
-        {/* Front Lip Body: Top edge aligns exactly with Back Lip's equator, Bottom edge aligns exactly with Front Base Curve's equator. Zero cuts on sides. */}
-        <div 
-          className="absolute top-[45px] left-0 w-full h-[35px]" 
-          style={{ background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }} 
-        />
-        
-      </div>
+      {/* LAYER 3: FRONT LIP - Z-INDEX 30 */}
+      {/* Sits exactly on top of the bottom edge of the product, fully hiding it in the cup */}
+      
+      {/* Front Lip Body: Bridges perfectly from Center of Back Lip (40px from bottom) to Center of Front Lip (15px from bottom) */}
+      <div 
+        className="absolute bottom-[15px] left-0 right-0 z-30 h-[25px] w-full pointer-events-none"
+        style={{ background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }} 
+      />
+      
+      {/* Front Lip Curve: Deep downward stretch perfectly spanning 100% width */}
+      <div 
+        className="absolute bottom-0 left-0 right-0 z-30 h-[30px] w-full rounded-[50%] pointer-events-none"
+        style={{ background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }} 
+      />
 
-      {/* ===== BOTTOM STRIP (Pill Badge) - Z-INDEX 40 ===== */}
+      {/* ========================================== */}
+
+      {/* BOTTOM STRIP (Pill Badge) - Z-INDEX 40 */}
       <div
         className="
           absolute bottom-[10px] left-1/2 z-40
           flex h-[24px] w-auto min-w-[130px] max-w-[90%] -translate-x-1/2
           items-center justify-center gap-1.5
           rounded-full border border-white/20 bg-black/40 px-3
-          text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.3)]
+          text-white shadow-[0_4px_10px_rgba(0,0,0,0.2)]
           backdrop-blur-md
         "
       >

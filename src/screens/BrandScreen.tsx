@@ -1,7 +1,7 @@
 // screens/BrandScreen.tsx
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, ChevronRight, ShieldCheck, Truck, Star } from 'lucide-react';
+import { ArrowLeft, TrendingUp, ChevronRight, ShieldCheck, Truck, Star, Search, X } from 'lucide-react';
 import { fetchBrandById, fetchProducts, fetchWishlist, toggleWishlist } from '@/services/catalog';
 import type { TrustedBrand, Product } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
@@ -85,6 +85,11 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Search state
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+
   useEffect(() => {
     if (!brandId) {
       navigate('/');
@@ -114,6 +119,30 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
       setWishlist(wishlist.filter(id => id !== productId));
     } else {
       setWishlist([...wishlist, productId]);
+    }
+  };
+
+  // Filter logic for search
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    const q = searchQuery.toLowerCase().trim();
+    return products.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q)
+    );
+  }, [products, searchQuery]);
+
+  const hasActiveFilter = !!searchQuery.trim();
+
+  const clearFilter = () => {
+    setSearchQuery('');
+    setSearchOpen(false);
+  };
+
+  const toggleSearch = () => {
+    setSearchOpen(!searchOpen);
+    if (!searchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 300);
     }
   };
 
@@ -279,63 +308,79 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         </div>
       )}
 
-      {/* Bulk Deal Banner */}
-      {bulkDeal.enabled && (
-        <div className="mx-auto max-w-md px-4 mt-4">
-          <div
-            className="relative overflow-hidden rounded-2xl p-4 shadow-lg"
-            style={{ background: `linear-gradient(120deg, ${primary_color}, ${secondary_color})` }}
-          >
-            <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
-            <div className="pointer-events-none absolute -bottom-8 right-8 h-16 w-16 rounded-full bg-white/5" />
-            <div className="relative flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-inner bg-white/20 text-white">
-                {renderIcon(bulkDeal.icon, "h-6 w-6", "#ffffff")}
-              </div>
-              <div className="flex-1 text-white">
-                <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">
-                  {bulkDeal.tag}
-                </span>
-                <h4 className="mt-1 text-base font-extrabold leading-tight">{bulkDeal.title}</h4>
-                <p className="text-[11px] text-white/80">{bulkDeal.subtitle}</p>
-              </div>
-            </div>
+      {/* Sticky search bar */}
+      <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg mt-2">
+        <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-white p-2 shadow-md ring-1 ring-black/5">
+          <div className="flex flex-1 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
+            <Search size={16} className="text-gray-400" />
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search this brand…"
+              className="flex-1 bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            {searchQuery && (
+              <button onClick={clearFilter} className="text-gray-400 hover:text-gray-600">
+                <X size={16} />
+              </button>
+            )}
             <button
-              className="mt-3 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
-              style={{ backgroundColor: bulkDeal.ctaBgColor || '#ffffff', color: bulkDeal.ctaTextColor || '#065f46' }}
+              onClick={toggleSearch}
+              className="rounded-xl p-2 text-gray-500 hover:bg-gray-100"
             >
-              {bulkDeal.cta} <ChevronRight size={14} />
+              <Search size={18} />
             </button>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Categories with products */}
       <div className="mx-auto max-w-md px-4 mt-4 space-y-6">
-        {activeCategories.map((category: any, index: number) => {
-          const categoryProducts = products.filter(p => category.productIds?.includes(p.id));
-          if (categoryProducts.length === 0) return null;
-
-          const categoryElement = (
+        {/* Bulk Deal Banner */}
+        {bulkDeal.enabled && !hasActiveFilter && (
+          <div>
             <div
-              key={category.id}
-              ref={(el) => { categoryRefs.current[category.id] = el; }}
+              className="relative overflow-hidden rounded-2xl p-4 shadow-lg"
+              style={{ background: `linear-gradient(120deg, ${primary_color}, ${secondary_color})` }}
             >
-              <div className="mb-2.5 flex items-center gap-2">
-                <div
-                  className="flex h-7 w-7 items-center justify-center rounded-lg"
-                  style={{ background: `${primary_color}15`, color: primary_color }}
-                >
-                  {renderIcon(category.icon, "h-4 w-4", primary_color)}
+              <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
+              <div className="pointer-events-none absolute -bottom-8 right-8 h-16 w-16 rounded-full bg-white/5" />
+              <div className="relative flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-inner bg-white/20 text-white">
+                  {renderIcon(bulkDeal.icon, "h-6 w-6", "#ffffff")}
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-bold text-gray-800">{category.title}</h3>
-                  <p className="text-[10px] text-gray-400">{category.description}</p>
+                <div className="flex-1 text-white">
+                  <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">
+                    {bulkDeal.tag}
+                  </span>
+                  <h4 className="mt-1 text-base font-extrabold leading-tight">{bulkDeal.title}</h4>
+                  <p className="text-[11px] text-white/80">{bulkDeal.subtitle}</p>
                 </div>
-                <span className="text-[10px] text-gray-400">{categoryProducts.length}</span>
               </div>
+              <button
+                className="mt-3 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
+                style={{ backgroundColor: bulkDeal.ctaBgColor || '#ffffff', color: bulkDeal.ctaTextColor || '#065f46' }}
+              >
+                {bulkDeal.cta} <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Search Results or Categories */}
+        {hasActiveFilter ? (
+          <div>
+            <h3 className="mb-3 text-sm font-bold text-gray-800">Search results ({filteredProducts.length})</h3>
+            {filteredProducts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Search size={32} className="mb-2 text-gray-300" />
+                <p className="text-sm text-gray-500">No products match "{searchQuery}"</p>
+              </div>
+            ) : (
               <div className="grid grid-cols-2 gap-3">
-                {categoryProducts.slice(0, 4).map((p) => (
+                {filteredProducts.map((p) => (
                   <ProductCard
                     key={p.id}
                     product={p}
@@ -343,78 +388,119 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
                     onAdd={() => cart.addToCart(p)}
                     onIncrement={() => cart.addToCart(p)}
                     onDecrement={() => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
-                    onClick={() => {
-                      // FIX: ensure we navigate with both id and brandId
-                      navigate(`/product?id=${p.id}&brandId=${brand.id}`);
-                    }}
+                    onClick={() => navigate(`/product?id=${p.id}&brandId=${brand.id}`)}
                     theme={productCardTheme}
                     isWishlisted={wishlist.includes(p.id)}
                     onWishlistToggle={handleWishlistToggle}
                   />
                 ))}
               </div>
-            </div>
-          );
+            )}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {activeCategories.map((category: any, index: number) => {
+              const categoryProducts = products.filter(p => category.productIds?.includes(p.id));
+              if (categoryProducts.length === 0) return null;
 
-          // Insert Trending Banner after 3rd category (index === 2)
-          if (index === 2 && trending.enabled) {
-            return (
-              <React.Fragment key={`group-${category.id}`}>
-                {categoryElement}
-                <div className="my-6">
-                  <div
-                    className="relative overflow-hidden rounded-3xl p-5 text-white shadow-xl"
-                    style={{ background: `linear-gradient(135deg, ${primary_color}, ${secondary_color})` }}
-                  >
-                    <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
-                    <div className="pointer-events-none absolute -bottom-12 -left-6 h-36 w-36 rounded-full bg-black/10 blur-xl" />
-                    <div className="pointer-events-none absolute right-6 bottom-4 h-16 w-16 rounded-full border-4 border-white/10" />
-
-                    <div className="relative">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
-                          <TrendingUp size={18} />
-                        </div>
-                        <div>
-                          <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">
-                            TRENDING IN BRAND
-                          </span>
-                          <h4 className="mt-0.5 text-lg font-extrabold leading-tight">{trending.title}</h4>
-                        </div>
-                      </div>
-
-                      <p className="mt-2 text-[12px] text-white/80">{trending.subtitle}</p>
-
-                      <div className="mt-4 grid grid-cols-4 gap-2.5">
-                        {trending.iconButtons.map((btn: any) => (
-                          <button
-                            key={btn.id}
-                            onClick={() => btn.categoryId && scrollToCategory(btn.categoryId)}
-                            className="group flex flex-col items-center gap-1.5 rounded-2xl bg-white/15 p-2.5 backdrop-blur transition hover:bg-white/25"
-                          >
-                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 transition group-hover:scale-110">
-                              {renderIcon(btn.icon, "h-5 w-5", "#ffffff")}
-                            </div>
-                            <span className="text-center text-[9px] font-semibold leading-tight text-white">{btn.label}</span>
-                          </button>
-                        ))}
-                      </div>
-
-                      <button
-                        className="mt-4 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
-                        style={{ backgroundColor: trending.ctaBgColor || '#ffffff', color: trending.ctaTextColor || '#065f46' }}
-                      >
-                        {trending.ctaText} <ChevronRight size={14} />
-                      </button>
+              const categoryElement = (
+                <div
+                  key={category.id}
+                  ref={(el) => { categoryRefs.current[category.id] = el; }}
+                >
+                  <div className="mb-2.5 flex items-center gap-2">
+                    <div
+                      className="flex h-7 w-7 items-center justify-center rounded-lg"
+                      style={{ background: `${primary_color}15`, color: primary_color }}
+                    >
+                      {renderIcon(category.icon, "h-4 w-4", primary_color)}
                     </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-bold text-gray-800">{category.title}</h3>
+                      <p className="text-[10px] text-gray-400">{category.description}</p>
+                    </div>
+                    <span className="text-[10px] text-gray-400">{categoryProducts.length}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {categoryProducts.slice(0, 4).map((p) => (
+                      <ProductCard
+                        key={p.id}
+                        product={p}
+                        quantity={cart.getQuantity(p.id)}
+                        onAdd={() => cart.addToCart(p)}
+                        onIncrement={() => cart.addToCart(p)}
+                        onDecrement={() => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
+                        onClick={() => navigate(`/product?id=${p.id}&brandId=${brand.id}`)}
+                        theme={productCardTheme}
+                        isWishlisted={wishlist.includes(p.id)}
+                        onWishlistToggle={handleWishlistToggle}
+                      />
+                    ))}
                   </div>
                 </div>
-              </React.Fragment>
-            );
-          }
+              );
 
-          return categoryElement;
-        })}
+              // Insert Trending Banner after 3rd category (index === 2)
+              if (index === 2 && trending.enabled) {
+                return (
+                  <React.Fragment key={`group-${category.id}`}>
+                    {categoryElement}
+                    <div className="my-6">
+                      <div
+                        className="relative overflow-hidden rounded-3xl p-5 text-white shadow-xl"
+                        style={{ background: `linear-gradient(135deg, ${primary_color}, ${secondary_color})` }}
+                      >
+                        <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
+                        <div className="pointer-events-none absolute -bottom-12 -left-6 h-36 w-36 rounded-full bg-black/10 blur-xl" />
+                        <div className="pointer-events-none absolute right-6 bottom-4 h-16 w-16 rounded-full border-4 border-white/10" />
+
+                        <div className="relative">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+                              <TrendingUp size={18} />
+                            </div>
+                            <div>
+                              <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">
+                                TRENDING IN BRAND
+                              </span>
+                              <h4 className="mt-0.5 text-lg font-extrabold leading-tight">{trending.title}</h4>
+                            </div>
+                          </div>
+
+                          <p className="mt-2 text-[12px] text-white/80">{trending.subtitle}</p>
+
+                          <div className="mt-4 grid grid-cols-4 gap-2.5">
+                            {trending.iconButtons.map((btn: any) => (
+                              <button
+                                key={btn.id}
+                                onClick={() => btn.categoryId && scrollToCategory(btn.categoryId)}
+                                className="group flex flex-col items-center gap-1.5 rounded-2xl bg-white/15 p-2.5 backdrop-blur transition hover:bg-white/25"
+                              >
+                                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 transition group-hover:scale-110">
+                                  {renderIcon(btn.icon, "h-5 w-5", "#ffffff")}
+                                </div>
+                                <span className="text-center text-[9px] font-semibold leading-tight text-white">{btn.label}</span>
+                              </button>
+                            ))}
+                          </div>
+
+                          <button
+                            className="mt-4 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
+                            style={{ backgroundColor: trending.ctaBgColor || '#ffffff', color: trending.ctaTextColor || '#065f46' }}
+                          >
+                            {trending.ctaText} <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              }
+
+              return categoryElement;
+            })}
+          </div>
+        )}
       </div>
 
       {/* Trust footer */}

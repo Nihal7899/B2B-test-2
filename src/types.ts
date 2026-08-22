@@ -133,7 +133,7 @@ export interface Order {
 export type ScreenName =
   | 'home'
   | 'categories'
-  | 'categoryDetail'   // new
+  | 'categoryDetail'
   | 'orders'
   | 'cart'
   | 'account'
@@ -148,7 +148,9 @@ export type ScreenName =
   | 'businessRegistration'
   | 'businessSelect'
   | 'outletSelect'
-  | 'filteredProducts';
+  | 'filteredProducts'
+  | 'store'
+  | 'brand';   // <-- NEW
 
 export interface Business {
   id: string;
@@ -289,8 +291,6 @@ export interface Store {
   config?: any; // <-- add this
 }
 
-// types.ts
-// types.ts
 export interface TrustedBrand {
   id: string;
   name: string;
@@ -302,12 +302,11 @@ export interface TrustedBrand {
   primary_color?: string;
   secondary_color?: string;
   product_images?: string[];
-
-  // --- NEW editable fields ---
-  tagline?: string;               // text below brand name
-  categories?: string[];          // pill labels (max 3)
-  bottom_label?: string;          // text in the bottom strip
+  tagline?: string;
+  categories?: string[];
+  bottom_label?: string;
   bottom_icon?: 'shield' | 'crown' | 'leaf';
+  description?: string;          // <-- NEW
 }
 
 export interface DeliveryRange {

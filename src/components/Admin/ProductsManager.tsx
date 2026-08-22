@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2, Save } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { fetchSubcategories } from '@/services/catalog';
+import { fetchSubcategories, fetchDistinctBrands } from '@/services/catalog';
 import type { DbCategory, DbProduct, Subcategory } from '@/types';
 
 export default function ProductsManager() {
@@ -74,7 +74,7 @@ export default function ProductsManager() {
   );
 }
 
-// ---- ProductForm (fully defined) ----
+// ---- ProductForm with brand combobox ----
 function ProductForm({
   initial,
   categories,
@@ -87,6 +87,7 @@ function ProductForm({
   onSaved: () => void;
 }) {
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
   const [form, setForm] = useState({
     category_id: initial?.category_id ?? categories[0]?.id ?? '',
     subcategory_id: initial?.subcategory_id ?? '',
@@ -115,6 +116,11 @@ function ProductForm({
     }
     fetchSubcategories(form.category_id).then(setSubcategories);
   }, [form.category_id]);
+
+  // Fetch brand suggestions on mount
+  useEffect(() => {
+    fetchDistinctBrands().then(setBrandSuggestions);
+  }, []);
 
   // Auto-generate slug from name
   useEffect(() => {
@@ -175,11 +181,17 @@ function ProductForm({
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Brand *</label>
           <input
+            list="brand-suggestions"
             value={form.brand}
             onChange={(e) => setForm({ ...form, brand: e.target.value })}
             placeholder="e.g. Fortune"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
+          <datalist id="brand-suggestions">
+            {brandSuggestions.map(b => (
+              <option key={b} value={b} />
+            ))}
+          </datalist>
         </div>
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Name *</label>
@@ -187,7 +199,7 @@ function ProductForm({
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="e.g. Sunflower Oil"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
         </div>
       </div>
@@ -199,7 +211,7 @@ function ProductForm({
             value={form.slug}
             onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
             placeholder="e.g. sunflower-oil"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
         </div>
         <div>
@@ -208,7 +220,7 @@ function ProductForm({
             value={form.pack_size}
             onChange={(e) => setForm({ ...form, pack_size: e.target.value })}
             placeholder="e.g. 1 L"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
         </div>
       </div>
@@ -220,7 +232,7 @@ function ProductForm({
             type="number"
             value={form.mrp}
             onChange={(e) => setForm({ ...form, mrp: Number(e.target.value) })}
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
         </div>
         <div>
@@ -229,7 +241,7 @@ function ProductForm({
             type="number"
             value={form.wholesale_price}
             onChange={(e) => setForm({ ...form, wholesale_price: Number(e.target.value) })}
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
         </div>
         <div>
@@ -238,7 +250,7 @@ function ProductForm({
             type="number"
             value={form.moq}
             onChange={(e) => setForm({ ...form, moq: Number(e.target.value) })}
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
         </div>
       </div>
@@ -250,7 +262,7 @@ function ProductForm({
             type="number"
             value={form.stock_quantity}
             onChange={(e) => setForm({ ...form, stock_quantity: Number(e.target.value) })}
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
         </div>
         <div>
@@ -260,7 +272,7 @@ function ProductForm({
             step="0.1"
             value={form.rating}
             onChange={(e) => setForm({ ...form, rating: Number(e.target.value) })}
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
         </div>
       </div>
@@ -272,7 +284,7 @@ function ProductForm({
             value={form.hsn_code}
             onChange={(e) => setForm({ ...form, hsn_code: e.target.value })}
             placeholder="e.g. 1512"
-            className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
         </div>
         <div>

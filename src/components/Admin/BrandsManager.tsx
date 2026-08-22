@@ -9,6 +9,7 @@ import {
   deleteTrustedBrand,
   uploadBrandImage,
   deleteBrandImage,
+  fetchDistinctBrands, // <-- NEW import
 } from '@/services/catalog';
 import type { TrustedBrand } from '@/types';
 
@@ -21,6 +22,7 @@ interface BrandWithColors extends TrustedBrand {
   categories?: string[];
   bottom_label?: string;
   bottom_icon?: 'shield' | 'crown' | 'leaf';
+  description?: string; // <-- NEW
 }
 
 export default function BrandsManager() {
@@ -42,9 +44,13 @@ export default function BrandsManager() {
     categories: ['Premium', 'Quality', 'Trusted'],
     bottom_label: 'Premium Quality',
     bottom_icon: 'shield',
+    description: '', // <-- NEW
   });
 
-  // ----- Load brands -----
+  // For brand suggestions
+  const [productBrands, setProductBrands] = useState<string[]>([]);
+
+  // ----- Load brands and product brand list -----
   const loadBrands = async () => {
     const data = await fetchAllTrustedBrands();
     setBrands(data as BrandWithColors[]);
@@ -53,6 +59,7 @@ export default function BrandsManager() {
 
   useEffect(() => {
     loadBrands();
+    fetchDistinctBrands().then(setProductBrands);
   }, []);
 
   // ----- CRUD operations -----
@@ -88,6 +95,7 @@ export default function BrandsManager() {
       categories: brand.categories,
       bottom_label: brand.bottom_label,
       bottom_icon: brand.bottom_icon,
+      description: brand.description, // <-- NEW
     });
     setEditingId(null);
     await loadBrands();
@@ -107,6 +115,7 @@ export default function BrandsManager() {
       categories: newBrand.categories,
       bottom_label: newBrand.bottom_label,
       bottom_icon: newBrand.bottom_icon,
+      description: newBrand.description, // <-- NEW
     });
     setNewBrand({
       name: '',
@@ -120,12 +129,13 @@ export default function BrandsManager() {
       categories: ['Premium', 'Quality', 'Trusted'],
       bottom_label: 'Premium Quality',
       bottom_icon: 'shield',
+      description: '',
     });
     setShowAddForm(false);
     await loadBrands();
   };
 
-  // ----- Image upload (with old image deletion) -----
+  // ----- Image upload -----
   const handleImageUpload = async (
     file: File,
     brandId: string | null,
@@ -172,7 +182,7 @@ export default function BrandsManager() {
     }
   };
 
-  // Helper to render editable fields (tagline, categories, bottom label, icon)
+  // Helper to render editable fields (tagline, categories, bottom label, icon, description)
   const renderEditableFields = (
     brand: Partial<BrandWithColors>,
     setBrand: (b: any) => void,
@@ -194,7 +204,6 @@ export default function BrandsManager() {
           value={(brand.categories || []).join(', ')}
           onChange={(e) => {
             const raw = e.target.value;
-            // FIX: use regex to split on comma with optional whitespace
             const items = raw.split(/\s*,\s*/).filter(Boolean);
             setBrand({ ...brand, categories: items.slice(0, 3) });
           }}
@@ -224,6 +233,16 @@ export default function BrandsManager() {
           <option value="crown">Crown</option>
           <option value="leaf">Leaf</option>
         </select>
+      </div>
+      <div>
+        <label>Description</label>
+        <textarea
+          value={brand.description || ''}
+          onChange={(e) => setBrand({ ...brand, description: e.target.value })}
+          className="w-full border rounded p-2"
+          rows={3}
+          placeholder="Tell the story of this brand..."
+        />
       </div>
     </>
   );
@@ -255,6 +274,25 @@ export default function BrandsManager() {
                 }
                 className="w-full border rounded p-2"
               />
+            </div>
+            {/* Quick import from product brands */}
+            <div>
+              <label>Quick import from product brand</label>
+              <select
+                value=""
+                onChange={(e) => {
+                  const selected = e.target.value;
+                  if (selected) {
+                    setNewBrand(prev => ({ ...prev, name: selected }));
+                  }
+                }}
+                className="w-full border rounded p-2"
+              >
+                <option value="">-- select --</option>
+                {productBrands.map(b => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label>Sort Order</label>
@@ -373,7 +411,7 @@ export default function BrandsManager() {
               </label>
             </div>
 
-            {/* NEW editable fields */}
+            {/* Editable fields including description */}
             {renderEditableFields(newBrand, setNewBrand, false)}
 
             <div className="flex justify-end gap-2 col-span-2">
@@ -406,6 +444,7 @@ export default function BrandsManager() {
               categories={newBrand.categories}
               bottomLabel={newBrand.bottom_label}
               bottomIcon={newBrand.bottom_icon}
+              // description is not displayed on card, but included for completeness
             />
           </div>
         </div>
@@ -606,7 +645,7 @@ export default function BrandsManager() {
                       </label>
                     </div>
 
-                    {/* NEW editable fields */}
+                    {/* Editable fields including description */}
                     {renderEditableFields(
                       brand,
                       (updated) => {
@@ -661,6 +700,10 @@ export default function BrandsManager() {
                     <p className="text-sm">
                       {brand.is_active ? 'Active' : 'Inactive'}
                     </p>
+                    {/* Optionally show description */}
+                    {brand.description && (
+                      <p className="text-sm text-ink-600 mt-1 line-clamp-2">{brand.description}</p>
+                    )}
                     <div className="flex gap-2 mt-2">
                       <button
                         onClick={() => setEditingId(brand.id)}

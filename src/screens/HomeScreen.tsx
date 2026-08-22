@@ -23,6 +23,7 @@ import {
 interface HomeScreenProps {
   search: string;
   onSearchChange: (value: string) => void;
+  onCategory: (category: Category) => void; // added for category navigation
   onProduct: (product: Product) => void;
   onViewAll: () => void;
   onStoreClick: (store: Store) => void;
@@ -33,6 +34,7 @@ interface HomeScreenProps {
 export function HomeScreen({
   search,
   onSearchChange,
+  onCategory,
   onProduct,
   onViewAll,
   onStoreClick,
@@ -62,6 +64,11 @@ export function HomeScreen({
 
   const openCategoryDetail = useCallback((category: Category) => {
     navigate(`/category?id=${category.id}`);
+  }, [navigate]);
+
+  // Brand click handler
+  const onBrandClick = useCallback((brand: TrustedBrand) => {
+    navigate(`/brand?id=${brand.id}`);
   }, [navigate]);
 
   useEffect(() => {
@@ -349,7 +356,7 @@ export function HomeScreen({
                 subtitle="Quality you can rely on"
                 accent="bg-blue-600"
               />
-              <BrandCarousel brands={brands} />
+              <BrandCarousel brands={brands} onBrandClick={onBrandClick} />
             </div>
           )}
 

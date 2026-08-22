@@ -89,7 +89,8 @@ const SCREEN_TO_PATH: Record<ScreenName, string> = {
   outletSelect: '/outlet-select',
   filteredProducts: '/filtered',
   store: '/store',
-  categoryDetail: '/category', // <-- NEW ROUTE
+  categoryDetail: '/category', // <-- NEW ROUT
+  brand: '/brand',
 };
 
 const PATH_TO_SCREEN: Record<string, ScreenName> =
@@ -561,6 +562,13 @@ function App() {
       // ============================================================
       case 'store':
         return <StoreScreen goTo={goTo} />;
+    
+      // ============================================================
+      // BRAND SCREEN
+      // ============================================================
+        
+      case 'brand':
+        return <BrandScreen />;
 
       // ============================================================
       // CATEGORY DETAIL SCREEN (NEW)

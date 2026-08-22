@@ -875,11 +875,11 @@ export async function createTrustedBrand(
       primary_color: input.primary_color || '#3B82F6',
       secondary_color: input.secondary_color || '#1E40AF',
       product_images: input.product_images || [],
-      // NEW
       tagline: input.tagline || null,
       categories: input.categories || null,
       bottom_label: input.bottom_label || null,
       bottom_icon: input.bottom_icon || null,
+      description: input.description || null,   // <-- NEW
     })
     .select()
     .single();
@@ -898,15 +898,16 @@ export async function updateTrustedBrand(id: string, updates: Partial<TrustedBra
       primary_color: updates.primary_color,
       secondary_color: updates.secondary_color,
       product_images: updates.product_images,
-      // NEW
       tagline: updates.tagline,
       categories: updates.categories,
       bottom_label: updates.bottom_label,
       bottom_icon: updates.bottom_icon,
+      description: updates.description,   // <-- NEW
     })
     .eq('id', id);
   if (error) throw error;
 }
+
 
 export async function deleteTrustedBrand(id: string): Promise<void> {
   await supabase.from('trusted_brands').delete().eq('id', id);
@@ -1394,4 +1395,30 @@ export async function deleteBrandImage(imageUrl: string): Promise<void> {
   } catch (e) {
     console.error('[deleteBrandImage] Exception:', e);
   }
+}
+
+// ================================================================
+// DISTINCT BRANDS (for suggestions)
+// ================================================================
+export async function fetchDistinctBrands(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('brand')
+    .eq('is_active', true);
+  if (error) return [];
+  const brands = new Set((data as { brand: string }[]).map((r) => r.brand.trim()).filter(Boolean));
+  return Array.from(brands).sort();
+}
+
+// ================================================================
+// FETCH BRAND BY ID
+// ================================================================
+export async function fetchBrandById(id: string): Promise<TrustedBrand | null> {
+  const { data, error } = await supabase
+    .from('trusted_brands')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) return null;
+  return data as TrustedBrand;
 }

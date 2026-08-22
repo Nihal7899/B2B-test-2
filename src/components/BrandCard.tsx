@@ -14,6 +14,7 @@ interface BrandCardProps {
   categories?: string[];
   bottomLabel?: string;
   bottomIcon?: 'shield' | 'crown' | 'leaf';
+  onClick?: () => void; // <-- NEW
 }
 
 const DEFAULT_CONTENT = {
@@ -82,6 +83,7 @@ export function BrandCard(props: BrandCardProps) {
     logoUrl, 
     productImage, 
     productImages = [],
+    onClick,
   } = props;
   
   const content = getBrandContent(props);
@@ -94,6 +96,7 @@ export function BrandCard(props: BrandCardProps) {
 
   return (
     <div
+      onClick={onClick}
       className="
         group
         relative
@@ -109,6 +112,7 @@ export function BrandCard(props: BrandCardProps) {
         duration-500
         hover:-translate-y-1
         hover:shadow-[0_18px_45px_rgba(0,0,0,0.20)]
+        cursor-pointer
       "
     >
       {/* ===== ORIGINAL DEFAULT BACKGROUND ===== */}
@@ -198,11 +202,9 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
-      {/* Width set to 110% as requested */}
       <div className="absolute bottom-[-15px] left-1/2 z-10 h-[100px] w-[110%] -translate-x-1/2 pointer-events-none">
         
         {/* Layer 1: Base Curve */}
-        {/* Gradient changed to "to right" so it perfectly aligns with Layer 2 */}
         <div 
           className="absolute top-[30px] left-0 w-full h-[70px] rounded-[50%]" 
           style={{ 
@@ -211,7 +213,6 @@ export function BrandCard(props: BrandCardProps) {
         />
         
         {/* Layer 2: Cylinder Body / Front Lip */}
-        {/* Gradient changed to "to right" to match the curved base without leaving a seam */}
         <div 
           className="absolute top-[35px] left-0 w-full h-[30px]" 
           style={{ 
@@ -240,7 +241,6 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* Bottom Strip (Pill Badge) over the front lip */}
-      {/* Anchored at bottom-[8px] */}
       <div
         className="
           absolute bottom-[8px] left-1/2 z-40
@@ -269,9 +269,10 @@ export function BrandCard(props: BrandCardProps) {
 // BrandCarousel
 interface BrandCarouselProps {
   brands: TrustedBrand[];
+  onBrandClick?: (brand: TrustedBrand) => void;
 }
 
-export function BrandCarousel({ brands }: BrandCarouselProps) {
+export function BrandCarousel({ brands, onBrandClick }: BrandCarouselProps) {
   return (
     <div className="flex gap-4 overflow-x-auto px-4 pb-3 no-scrollbar scroll-touch">
       {brands.map((brand) => (
@@ -287,6 +288,7 @@ export function BrandCarousel({ brands }: BrandCarouselProps) {
             categories={brand.categories}
             bottomLabel={brand.bottom_label}
             bottomIcon={brand.bottom_icon}
+            onClick={() => onBrandClick?.(brand)}
           />
         </div>
       ))}

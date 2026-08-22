@@ -197,40 +197,20 @@ export function BrandCard(props: BrandCardProps) {
         ))}
       </div>
 
-      {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
-      {/* SCALED DOWN height from 125px to 100px. Brought up to bottom-[-15px] so the front lip is highly visible inside the card. */}
+      {/* ===== 3D CYLINDRICAL CUP - BACK HALF (INNER FLOOR) ===== */}
       <div className="absolute bottom-[-15px] left-1/2 z-10 h-[100px] w-[114%] -translate-x-1/2 pointer-events-none">
-        
-        {/* Layer 1: Base Curve (Scales down ellipse height to 70px) */}
-        <div 
-          className="absolute top-[30px] left-0 w-full h-[70px] rounded-[50%]" 
-          style={{ 
-            background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
-          }} 
-        />
-        
-        {/* Layer 2: Cylinder Body / Front Lip */}
-        {/* Starts exactly at the center of the top ellipse (70/2 = 35px) and spans 30px to connect down to the base */}
-        <div 
-          className="absolute top-[35px] left-0 w-full h-[30px]" 
-          style={{ 
-            background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
-          }} 
-        />
-        
-        {/* Layer 3: Top Curve (Inner floor/back lip - scaled to 70px) */}
+        {/* Layer 3: Top Curve (Inner floor/back lip) */}
         <div 
           className="absolute top-0 left-0 w-full h-[70px] rounded-[50%] shadow-[inset_0_10px_20px_rgba(0,0,0,0.3),inset_0_-2px_6px_rgba(0,0,0,0.15)]" 
           style={{ 
             background: `linear-gradient(to bottom, ${primaryColor} 0%, ${secondaryColor} 100%)` 
           }} 
         />
-        
       </div>
 
-      {/* Single Dynamic Product */}
-      {/* Grounded perfectly inside the new scaled 70px inner floor */}
-      <div className="absolute bottom-[16px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
+      {/* ===== SINGLE DYNAMIC PRODUCT ===== */}
+      {/* Moved UP to bottom-[44px] and sandwiched at z-20 so it rests on the floor but behind the front lip */}
+      <div className="absolute bottom-[44px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
         <img
           src={image}
           alt={`${brandName} product`}
@@ -239,11 +219,29 @@ export function BrandCard(props: BrandCardProps) {
         />
       </div>
 
+      {/* ===== 3D CYLINDRICAL CUP - FRONT HALF (FRONT LIP) ===== */}
+      <div className="absolute bottom-[-15px] left-1/2 z-30 h-[100px] w-[114%] -translate-x-1/2 pointer-events-none">
+        {/* Layer 1: Base Curve */}
+        <div 
+          className="absolute top-[30px] left-0 w-full h-[70px] rounded-[50%]" 
+          style={{ 
+            background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
+          }} 
+        />
+        {/* Layer 2: Cylinder Body / Front Lip */}
+        <div 
+          className="absolute top-[35px] left-0 w-full h-[30px]" 
+          style={{ 
+            background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
+          }} 
+        />
+      </div>
+
       {/* Bottom Strip (Pill Badge) over the front lip */}
-      {/* Positioned at 22px to perfectly straddle the newly visible 30px thick front lip */}
+      {/* Moved down slightly to bottom-[14px] and bumped to z-40 so it stays perfectly visible on the cup wall */}
       <div
         className="
-          absolute bottom-[22px] left-1/2 z-40
+          absolute bottom-[14px] left-1/2 z-40
           flex h-[24px] w-auto min-w-[130px] max-w-[90%] -translate-x-1/2
           items-center justify-center gap-1.5
           rounded-full border border-white/20 bg-black/40 px-3
@@ -258,7 +256,7 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* Top Light Overlay */}
-      <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 h-[80px] bg-gradient-to-b from-white/[0.12] to-transparent" />
+      <div className="pointer-events-none absolute left-0 right-0 top-0 z-50 h-[80px] bg-gradient-to-b from-white/[0.12] to-transparent" />
 
       {/* Premium Border */}
       <div className="pointer-events-none absolute inset-0 z-50 rounded-[25px] border border-white/20" />

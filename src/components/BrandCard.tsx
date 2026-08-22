@@ -1,4 +1,5 @@
 // components/BrandCard.tsx
+
 import React from 'react';
 import type { TrustedBrand } from '@/types';
 
@@ -10,30 +11,43 @@ interface BrandCardProps {
   productImage: string;
   productImages?: string[];
 
-  // Keep these for future dynamic data
+  // Editable fields
   tagline?: string;
   categories?: string[];
   bottomLabel?: string;
   bottomIcon?: 'shield' | 'crown' | 'leaf';
 }
 
-interface BrandContent {
-  tagline: string;
-  categories: string[];
-  bottomLabel: string;
-  bottomIcon: 'shield' | 'crown' | 'leaf';
-}
+/*
+|--------------------------------------------------------------------------
+| STATIC DEFAULT CONTENT
+|--------------------------------------------------------------------------
+*/
+
+const DEFAULT_CONTENT = {
+  tagline: 'Quality You Can Trust',
+  categories: ['Premium', 'Quality', 'Trusted'],
+  bottomLabel: 'Premium Quality',
+  bottomIcon: 'shield' as const,
+};
 
 /*
 |--------------------------------------------------------------------------
 | STATIC BRAND CONTENT
 |--------------------------------------------------------------------------
-| Keep static for now.
-| Later you can move these fields to Supabase.
+| You can make this dynamic later.
 |--------------------------------------------------------------------------
 */
 
-const STATIC_BRAND_CONTENT: Record<string, BrandContent> = {
+const STATIC_BRAND_CONTENT: Record<
+  string,
+  {
+    tagline: string;
+    categories: string[];
+    bottomLabel: string;
+    bottomIcon: 'shield' | 'crown' | 'leaf';
+  }
+> = {
   amul: {
     tagline: 'Goodness of Purity',
     categories: ['Dairy', 'Butter', 'Ice Cream'],
@@ -56,18 +70,54 @@ const STATIC_BRAND_CONTENT: Record<string, BrandContent> = {
   },
 };
 
-const DEFAULT_CONTENT: BrandContent = {
-  tagline: 'Quality You Can Trust',
-  categories: ['Premium', 'Quality', 'Trusted'],
-  bottomLabel: 'Premium Quality',
-  bottomIcon: 'shield',
-};
+/*
+|--------------------------------------------------------------------------
+| STATIC POCKET COLOR
+|--------------------------------------------------------------------------
+| Keep this static for now.
+| Later you can make this dynamic from Supabase.
+|--------------------------------------------------------------------------
+*/
 
-const getBrandContent = (brandName: string): BrandContent => {
-  return (
-    STATIC_BRAND_CONTENT[brandName.trim().toLowerCase()] ||
-    DEFAULT_CONTENT
-  );
+const POCKET_COLOR = '#F4E7D0';
+
+/*
+|--------------------------------------------------------------------------
+| CONTENT HELPER
+|--------------------------------------------------------------------------
+*/
+
+const getBrandContent = (
+  props: BrandCardProps
+) => {
+  const staticContent =
+    STATIC_BRAND_CONTENT[
+      props.brandName.trim().toLowerCase()
+    ];
+
+  return {
+    tagline:
+      props.tagline ||
+      staticContent?.tagline ||
+      DEFAULT_CONTENT.tagline,
+
+    categories:
+      props.categories &&
+      props.categories.length > 0
+        ? props.categories
+        : staticContent?.categories ||
+          DEFAULT_CONTENT.categories,
+
+    bottomLabel:
+      props.bottomLabel ||
+      staticContent?.bottomLabel ||
+      DEFAULT_CONTENT.bottomLabel,
+
+    bottomIcon:
+      props.bottomIcon ||
+      staticContent?.bottomIcon ||
+      DEFAULT_CONTENT.bottomIcon,
+  };
 };
 
 /*
@@ -102,7 +152,10 @@ const getLuminance = (hex: string) => {
 
     return channel <= 0.03928
       ? channel / 12.92
-      : Math.pow((channel + 0.055) / 1.055, 2.4);
+      : Math.pow(
+          (channel + 0.055) / 1.055,
+          2.4
+        );
   });
 
   return (
@@ -137,6 +190,7 @@ function BottomIcon({
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+
         <path
           d="M5 21h14"
           strokeLinecap="round"
@@ -159,6 +213,7 @@ function BottomIcon({
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+
         <path
           d="M4 21c3-6 7-9 13-12"
           strokeLinecap="round"
@@ -196,7 +251,9 @@ function BottomIcon({
 |--------------------------------------------------------------------------
 */
 
-export function BrandCard(props: BrandCardProps) {
+export function BrandCard(
+  props: BrandCardProps
+) {
   const {
     brandName,
     primaryColor,
@@ -206,14 +263,17 @@ export function BrandCard(props: BrandCardProps) {
     productImages = [],
   } = props;
 
-  const content = getBrandContent(brandName);
+  const content = getBrandContent(props);
 
   /*
-   * Use up to 3 products when available.
+   * Combine all available product images.
+   * Maximum 3 products.
    */
   const images = Array.from(
     new Set(
-      [...productImages, productImage].filter(Boolean)
+      [...productImages, productImage].filter(
+        Boolean
+      )
     )
   ).slice(0, 3);
 
@@ -251,7 +311,8 @@ export function BrandCard(props: BrandCardProps) {
     >
 
       {/* ======================================================
-          BACKGROUND
+          ORIGINAL GRADIENT BACKGROUND
+          KEEPING YOUR ORIGINAL VERSION
       ====================================================== */}
 
       <div
@@ -274,7 +335,7 @@ export function BrandCard(props: BrandCardProps) {
       />
 
       {/* ======================================================
-          DECORATIVE GLOW
+          DECORATIVE GLOWS
       ====================================================== */}
 
       <div
@@ -311,7 +372,7 @@ export function BrandCard(props: BrandCardProps) {
       />
 
       {/* ======================================================
-          ABSTRACT BACKGROUND GRAPHICS
+          ABSTRACT GRAPHICS
       ====================================================== */}
 
       <svg
@@ -390,7 +451,7 @@ export function BrandCard(props: BrandCardProps) {
       </svg>
 
       {/* ======================================================
-          TOP DOTS
+          TOP DOT PATTERN
       ====================================================== */}
 
       <div
@@ -405,17 +466,19 @@ export function BrandCard(props: BrandCardProps) {
           opacity-25
         "
       >
-        {Array.from({ length: 9 }).map((_, i) => (
-          <span
-            key={i}
-            className="
-              h-[2.5px]
-              w-[2.5px]
-              rounded-full
-              bg-white
-            "
-          />
-        ))}
+        {Array.from({ length: 9 }).map(
+          (_, i) => (
+            <span
+              key={i}
+              className="
+                h-[2.5px]
+                w-[2.5px]
+                rounded-full
+                bg-white
+              "
+            />
+          )
+        )}
       </div>
 
       {/* ======================================================
@@ -472,7 +535,7 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* ======================================================
-          BRAND NAME
+          BRAND NAME + TAGLINE
       ====================================================== */}
 
       <div
@@ -495,9 +558,10 @@ export function BrandCard(props: BrandCardProps) {
           "
           style={{
             color: textColor,
-            textShadow: isLightBackground
-              ? '0 1px 2px rgba(255,255,255,0.5)'
-              : '0 2px 7px rgba(0,0,0,0.22)',
+            textShadow:
+              isLightBackground
+                ? '0 1px 2px rgba(255,255,255,0.5)'
+                : '0 2px 7px rgba(0,0,0,0.22)',
           }}
         >
           {brandName}
@@ -560,7 +624,7 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* ======================================================
-          BOTTOM PRODUCT AREA
+          PRODUCT + POCKET AREA
       ====================================================== */}
 
       <div
@@ -570,68 +634,177 @@ export function BrandCard(props: BrandCardProps) {
           left-0
           right-0
           z-10
-          h-[116px]
+          h-[120px]
         "
       >
 
         {/* ====================================================
-            LARGE CURVED POCKET / SHELF
-            This is the important part.
+            BACK SHADOW
+            This creates depth behind the pocket.
         ==================================================== */}
 
         <div
           className="
             absolute
-            bottom-[-42px]
+            bottom-[-20px]
             left-1/2
-            h-[125px]
-            w-[225px]
+            h-[92px]
+            w-[190px]
             -translate-x-1/2
             rounded-[50%]
-            opacity-90
+            bg-black/30
+            blur-xl
+          "
+        />
+
+        {/* ====================================================
+            BACK INNER GLOW
+        ==================================================== */}
+
+        <div
+          className="
+            absolute
+            bottom-[15px]
+            left-1/2
+            h-[75px]
+            w-[180px]
+            -translate-x-1/2
+            rounded-[50%]
+            bg-white/[0.10]
+            blur-lg
+          "
+        />
+
+        {/* ====================================================
+            ACTUAL CURVED POCKET
+            STATIC COLOR
+        ==================================================== */}
+
+        <div
+          className="
+            absolute
+            bottom-[-45px]
+            left-1/2
+            h-[108px]
+            w-[225px]
+            -translate-x-1/2
+            overflow-hidden
+            rounded-[50%]
+            border
+            border-[#D8C6A8]
           "
           style={{
             background: `
               linear-gradient(
                 180deg,
-                rgba(0,0,0,0.20) 0%,
-                rgba(0,0,0,0.12) 48%,
-                rgba(0,0,0,0.04) 100%
+                ${POCKET_COLOR} 0%,
+                #E8D5B8 48%,
+                #D2B991 100%
               )
+            `,
+            boxShadow: `
+              inset 0 8px 14px rgba(255,255,255,0.32),
+              inset 0 -16px 22px rgba(80,55,25,0.15),
+              0 -2px 5px rgba(255,255,255,0.18)
             `,
           }}
         />
 
         {/* ====================================================
-            INNER POCKET HIGHLIGHT
+            POCKET INNER SHADOW
         ==================================================== */}
 
         <div
           className="
             absolute
-            bottom-[2px]
+            bottom-[19px]
             left-1/2
-            h-[76px]
-            w-[185px]
+            z-[18]
+            h-[55px]
+            w-[175px]
             -translate-x-1/2
             rounded-[50%]
-            border-t
-            border-white/10
+            bg-black/10
+            blur-md
+          "
+        />
+
+        {/* ====================================================
+            FRONT POCKET WALL / STRIP
+            This is the visible front-facing part.
+        ==================================================== */}
+
+        <div
+          className="
+            absolute
+            bottom-[18px]
+            left-1/2
+            z-[28]
+            h-[31px]
+            w-[178px]
+            -translate-x-1/2
+            overflow-hidden
+            rounded-[50%]
+            border
+            border-[#D8C6A8]
           "
           style={{
             background: `
-              radial-gradient(
-                ellipse at center,
-                rgba(255,255,255,0.10) 0%,
-                rgba(255,255,255,0.04) 50%,
-                transparent 72%
+              linear-gradient(
+                180deg,
+                #F8EBD7 0%,
+                #E8D4B6 40%,
+                #D1B78D 100%
               )
+            `,
+            boxShadow: `
+              inset 0 2px 2px rgba(255,255,255,0.42),
+              inset 0 -6px 10px rgba(85,55,20,0.12),
+              0 4px 9px rgba(0,0,0,0.14)
             `,
           }}
         />
 
         {/* ====================================================
-            POCKET EDGE
+            FRONT POCKET HIGHLIGHT
+        ==================================================== */}
+
+        <div
+          className="
+            absolute
+            bottom-[43px]
+            left-1/2
+            z-[29]
+            h-[2px]
+            w-[142px]
+            -translate-x-1/2
+            rounded-full
+            bg-white/50
+            blur-[0.4px]
+          "
+        />
+
+        {/* ====================================================
+            POCKET CENTER SHINE
+        ==================================================== */}
+
+        <div
+          className="
+            absolute
+            bottom-[28px]
+            left-1/2
+            z-[29]
+            h-[7px]
+            w-[85px]
+            -translate-x-1/2
+            rounded-full
+            bg-white/15
+            blur-md
+          "
+        />
+
+        {/* ====================================================
+            PRODUCT GROUND SHADOW
         ==================================================== */}
 
         <div
@@ -639,30 +812,13 @@ export function BrandCard(props: BrandCardProps) {
             absolute
             bottom-[27px]
             left-1/2
-            h-[2px]
-            w-[145px]
+            z-[20]
+            h-[35px]
+            w-[140px]
             -translate-x-1/2
-            rounded-full
-            bg-white/10
-            blur-[0.5px]
-          "
-        />
-
-        {/* ====================================================
-            PRODUCT SHADOW
-        ==================================================== */}
-
-        <div
-          className="
-            absolute
-            bottom-[1px]
-            left-1/2
-            h-[48px]
-            w-[145px]
-            -translate-x-1/2
-            rounded-full
-            bg-black/25
-            blur-lg
+            rounded-[50%]
+            bg-black/30
+            blur-md
           "
         />
 
@@ -677,10 +833,10 @@ export function BrandCard(props: BrandCardProps) {
             <div
               className="
                 absolute
-                bottom-[2px]
+                bottom-[23px]
                 left-[3px]
-                z-20
-                h-[100px]
+                z-[35]
+                h-[96px]
                 w-[70px]
                 -rotate-[6deg]
                 transition-all
@@ -708,9 +864,9 @@ export function BrandCard(props: BrandCardProps) {
             <div
               className="
                 absolute
-                bottom-[0px]
+                bottom-[20px]
                 left-1/2
-                z-30
+                z-[40]
                 h-[108px]
                 w-[78px]
                 -translate-x-1/2
@@ -739,10 +895,10 @@ export function BrandCard(props: BrandCardProps) {
             <div
               className="
                 absolute
-                bottom-[2px]
+                bottom-[23px]
                 right-[3px]
-                z-20
-                h-[100px]
+                z-[35]
+                h-[96px]
                 w-[70px]
                 rotate-[6deg]
                 transition-all
@@ -773,9 +929,9 @@ export function BrandCard(props: BrandCardProps) {
           <div
             className="
               absolute
-              bottom-[0px]
+              bottom-[20px]
               left-1/2
-              z-30
+              z-[40]
               h-[108px]
               w-[145px]
               -translate-x-1/2
@@ -802,39 +958,41 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* ======================================================
-          BOTTOM POCKET LABEL
+          FRONT POCKET LABEL
       ====================================================== */}
 
       <div
         className="
           absolute
-          bottom-[8px]
+          bottom-[14px]
           left-1/2
-          z-40
+          z-[50]
           flex
-          h-[22px]
-          w-[140px]
+          h-[20px]
+          w-[128px]
           -translate-x-1/2
           items-center
           justify-center
           gap-1.5
           rounded-full
           border
-          border-white/25
-          bg-white/[0.10]
+          border-black/5
+          bg-white/35
           px-3
-          text-white
-          shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]
+          text-[#5D4930]
+          shadow-[inset_0_1px_1px_rgba(255,255,255,0.65)]
           backdrop-blur-md
         "
       >
-        <BottomIcon type={content.bottomIcon} />
+        <BottomIcon
+          type={content.bottomIcon}
+        />
 
         <span
           className="
             truncate
             text-[6.5px]
-            font-semibold
+            font-bold
             tracking-[0.03em]
           "
         >
@@ -853,7 +1011,7 @@ export function BrandCard(props: BrandCardProps) {
           left-0
           right-0
           top-0
-          z-40
+          z-[60]
           h-[80px]
           bg-gradient-to-b
           from-white/[0.12]
@@ -870,7 +1028,7 @@ export function BrandCard(props: BrandCardProps) {
           pointer-events-none
           absolute
           inset-0
-          z-50
+          z-[70]
           rounded-[25px]
           border
           border-white/20
@@ -923,6 +1081,12 @@ export function BrandCarousel({
             productImages={
               brand.product_images || []
             }
+
+            {/* Keep these available for later dynamic use */}
+            tagline={brand.tagline}
+            categories={brand.categories}
+            bottomLabel={brand.bottom_label}
+            bottomIcon={brand.bottom_icon}
           />
         </div>
       ))}

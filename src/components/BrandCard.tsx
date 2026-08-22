@@ -197,9 +197,9 @@ export function BrandCard(props: BrandCardProps) {
         ))}
       </div>
 
-      {/* ===== 3D CYLINDRICAL CUP (PODIUM) - REVERTED TO SINGLE CONTAINER ===== */}
-      {/* Scaled out the width from 114% to 122% */}
-      <div className="absolute bottom-[-15px] left-1/2 z-10 h-[100px] w-[122%] -translate-x-1/2 pointer-events-none">
+      {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
+      {/* Zoomed out by reducing width to 85% to reveal the side edges */}
+      <div className="absolute bottom-[-15px] left-1/2 z-10 h-[100px] w-[85%] -translate-x-1/2 pointer-events-none">
         
         {/* Layer 1: Base Curve */}
         <div 
@@ -228,7 +228,6 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* Single Dynamic Product positioned ON the floor */}
-      {/* Moved up from 16px to 30px to sit properly */}
       <div className="absolute bottom-[30px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
         <img
           src={image}
@@ -239,10 +238,10 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* Bottom Strip (Pill Badge) over the front lip */}
-      {/* Adjusted bottom to 18px */}
+      {/* Moved down by exactly 10px (from bottom-[18px] to bottom-[8px]) */}
       <div
         className="
-          absolute bottom-[18px] left-1/2 z-40
+          absolute bottom-[8px] left-1/2 z-40
           flex h-[24px] w-auto min-w-[130px] max-w-[90%] -translate-x-1/2
           items-center justify-center gap-1.5
           rounded-full border border-white/20 bg-black/40 px-3

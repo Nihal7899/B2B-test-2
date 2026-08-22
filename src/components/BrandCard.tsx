@@ -197,41 +197,16 @@ export function BrandCard(props: BrandCardProps) {
         ))}
       </div>
 
-      {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
-      {/* Lowered container to -30px so the back lip doesn't rise, while height is expanded for a deeper curve */}
-      <div className="absolute bottom-[-30px] left-1/2 z-10 h-[125px] w-[114%] -translate-x-1/2 pointer-events-none">
-        
-        {/* Layer 1: Base Curve (The bottom rounded edge of the cylinder) */}
-        <div 
-          className="absolute top-[35px] left-0 w-full h-[90px] rounded-[50%]" 
-          style={{ 
-            background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
-          }} 
-        />
-        
-        {/* Layer 2: Cylinder Body (The raised front lip connecting the curves) */}
-        {/* MATH FIX: Starts exactly at the center of the top ellipse (90/2 = 45px) and spans exactly to the center of the bottom ellipse. This completely eliminates the left/right "cut". */}
-        <div 
-          className="absolute top-[45px] left-0 w-full h-[35px]" 
-          style={{ 
-            background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
-          }} 
-        />
-        
-        {/* Layer 3: Top Curve (Inner floor/back lip) */}
-        {/* Gradient fixed: Lightest color (primary) at the top edge, fading into dark (secondary) at the bottom to remove the harsh dark back edge. */}
-        <div 
-          className="absolute top-0 left-0 w-full h-[90px] rounded-[50%] shadow-[inset_0_10px_20px_rgba(0,0,0,0.3),inset_0_-2px_6px_rgba(0,0,0,0.15)]" 
-          style={{ 
-            background: `linear-gradient(to bottom, ${primaryColor} 0%, ${secondaryColor} 100%)` 
-          }} 
-        />
-        
-      </div>
+      {/* ===== LAYER 1: BACK LIP (Inner Floor) - Z-INDEX 10 ===== */}
+      {/* Brought down by positioning closer to bottom. Curve height reduced to 64px. */}
+      <div 
+        className="absolute bottom-[18px] left-1/2 z-10 h-[64px] w-[114%] -translate-x-1/2 rounded-[50%] shadow-[inset_0_10px_20px_rgba(0,0,0,0.3),inset_0_-2px_6px_rgba(0,0,0,0.15)] pointer-events-none"
+        style={{ background: `linear-gradient(to bottom, ${primaryColor} 0%, ${secondaryColor} 100%)` }} 
+      />
 
-      {/* Single Dynamic Product positioned ON the lowered floor */}
-      {/* Brought down to 12px to sit deep inside the new curved cup */}
-      <div className="absolute bottom-[12px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
+      {/* ===== LAYER 2: PRODUCT IMAGE - Z-INDEX 20 ===== */}
+      {/* Sandwiched between back lip and front lip. Moved up to sit neatly in the 3D space. */}
+      <div className="absolute bottom-[32px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
         <img
           src={image}
           alt={`${brandName} product`}
@@ -240,7 +215,24 @@ export function BrandCard(props: BrandCardProps) {
         />
       </div>
 
-      {/* Bottom Strip (Pill Badge) over the front lip */}
+      {/* ===== LAYER 3: FRONT LIP (Body & Base) - Z-INDEX 30 ===== */}
+      {/* This layer sits ON TOP of the bottom edge of the product, fully immersing it in the cup */}
+      
+      {/* Front Lip Body */}
+      {/* Math fix: Top edge perfectly aligns with the absolute center (equator) of the back lip to prevent side cuts */}
+      <div 
+        className="absolute bottom-[20px] left-1/2 z-30 h-[30px] w-[114%] -translate-x-1/2 pointer-events-none"
+        style={{ background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }} 
+      />
+      
+      {/* Front Lip Base Curve */}
+      {/* Kept deep curve (90px). Math fix: Center (equator) perfectly aligns with the bottom edge of the body layer */}
+      <div 
+        className="absolute bottom-[-25px] left-1/2 z-30 h-[90px] w-[114%] -translate-x-1/2 rounded-[50%] pointer-events-none"
+        style={{ background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }} 
+      />
+
+      {/* ===== BOTTOM STRIP (Pill Badge) - Z-INDEX 40 ===== */}
       <div
         className="
           absolute bottom-[10px] left-1/2 z-40
@@ -258,7 +250,7 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* Top Light Overlay */}
-      <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 h-[80px] bg-gradient-to-b from-white/[0.12] to-transparent" />
+      <div className="pointer-events-none absolute left-0 right-0 top-0 z-50 h-[80px] bg-gradient-to-b from-white/[0.12] to-transparent" />
 
       {/* Premium Border */}
       <div className="pointer-events-none absolute inset-0 z-50 rounded-[25px] border border-white/20" />

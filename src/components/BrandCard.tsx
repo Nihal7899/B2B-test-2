@@ -86,7 +86,7 @@ export function BrandCard(props: BrandCardProps) {
   
   const content = getBrandContent(props);
 
-  // Reverted to standard single image logic
+  // Single Image Logic Reverted
   const image = productImages.find(Boolean) || productImage || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product';
 
   const primaryRgb = hexToRgb(primaryColor);
@@ -198,29 +198,31 @@ export function BrandCard(props: BrandCardProps) {
         ))}
       </div>
 
-      {/* ===== 3D CYLINDRICAL CUP & SINGLE PRODUCT CONTAINER ===== */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 h-[45%] pointer-events-none">
+      {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
+      <div className="absolute bottom-[-15px] left-1/2 z-10 h-[100px] w-[140%] -translate-x-1/2 pointer-events-none">
         
-        {/* The 3D Base using 3 shades of blue */}
-        <div 
-          className="absolute bottom-[-40px] left-1/2 h-[140px] w-[140%] -translate-x-1/2 rounded-[100%] border-t border-blue-400/30 shadow-[inset_0_25px_30px_rgba(0,0,0,0.4)]"
-          style={{
-            background: 'radial-gradient(ellipse at 50% 0%, #3B82F6 0%, #1D4ED8 40%, #0F172A 100%)' // 3 shades: Light Blue, Mid Blue, Deep Navy
-          }}
-        />
-
-        {/* Reverted back to a Single Dynamic Product */}
-        <div className="absolute bottom-[28px] left-1/2 z-20 h-[110%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
-          <img
-            src={image}
-            alt={`${brandName} product`}
-            className="h-full w-full object-contain object-bottom drop-shadow-[0_15px_15px_rgba(0,0,0,0.45)]"
-            loading="lazy"
-          />
-        </div>
+        {/* Layer 1: Base Curve (The bottom rounded edge of the cylinder) */}
+        <div className="absolute bottom-0 left-0 w-full h-[55px] rounded-[50%] bg-gradient-to-r from-[#0f172a] via-[#2563eb] to-[#0f172a]" />
+        
+        {/* Layer 2: Cylinder Body (The distinct front strip/wall) */}
+        <div className="absolute bottom-[27.5px] left-0 w-full h-[25px] bg-gradient-to-r from-[#0f172a] via-[#1d4ed8] to-[#0f172a]" />
+        
+        {/* Layer 3: Top Curve (The deep floor where the product sits) */}
+        <div className="absolute top-[20px] left-0 w-full h-[55px] rounded-[50%] bg-[#08122a] border-b border-[#60a5fa]/50 shadow-[inset_0_-15px_25px_rgba(0,0,0,0.8),inset_0_5px_15px_rgba(0,0,0,0.4)]" />
+        
       </div>
 
-      {/* Bottom Strip (Pill Badge) */}
+      {/* Single Dynamic Product positioned ON the floor */}
+      <div className="absolute bottom-[35px] left-1/2 z-20 h-[45%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
+        <img
+          src={image}
+          alt={`${brandName} product`}
+          className="h-full w-full object-contain object-bottom drop-shadow-[0_15px_15px_rgba(0,0,0,0.55)]"
+          loading="lazy"
+        />
+      </div>
+
+      {/* Bottom Strip (Pill Badge) over the front lip */}
       <div
         className="
           absolute bottom-[10px] left-1/2 z-40

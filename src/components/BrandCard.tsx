@@ -198,15 +198,15 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* ===== LAYER 1: BACK LIP (Inner Floor) - Z-INDEX 10 ===== */}
-      {/* Brought down by positioning closer to bottom. Curve height reduced to 64px. */}
+      {/* Brought down by 10px and curve reduced to 60px to make it flatter */}
       <div 
-        className="absolute bottom-[18px] left-1/2 z-10 h-[64px] w-[114%] -translate-x-1/2 rounded-[50%] shadow-[inset_0_10px_20px_rgba(0,0,0,0.3),inset_0_-2px_6px_rgba(0,0,0,0.15)] pointer-events-none"
+        className="absolute bottom-[30px] left-1/2 z-10 h-[60px] w-[114%] -translate-x-1/2 rounded-[50%] shadow-[inset_0_10px_20px_rgba(0,0,0,0.3),inset_0_-2px_6px_rgba(0,0,0,0.15)] pointer-events-none"
         style={{ background: `linear-gradient(to bottom, ${primaryColor} 0%, ${secondaryColor} 100%)` }} 
       />
 
       {/* ===== LAYER 2: PRODUCT IMAGE - Z-INDEX 20 ===== */}
-      {/* Sandwiched between back lip and front lip. Moved up to sit neatly in the 3D space. */}
-      <div className="absolute bottom-[32px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
+      {/* Moved up slightly and perfectly sandwiched inside the cup layers */}
+      <div className="absolute bottom-[28px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
         <img
           src={image}
           alt={`${brandName} product`}
@@ -215,22 +215,23 @@ export function BrandCard(props: BrandCardProps) {
         />
       </div>
 
-      {/* ===== LAYER 3: FRONT LIP (Body & Base) - Z-INDEX 30 ===== */}
-      {/* This layer sits ON TOP of the bottom edge of the product, fully immersing it in the cup */}
-      
-      {/* Front Lip Body */}
-      {/* Math fix: Top edge perfectly aligns with the absolute center (equator) of the back lip to prevent side cuts */}
-      <div 
-        className="absolute bottom-[20px] left-1/2 z-30 h-[30px] w-[114%] -translate-x-1/2 pointer-events-none"
-        style={{ background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }} 
-      />
-      
-      {/* Front Lip Base Curve */}
-      {/* Kept deep curve (90px). Math fix: Center (equator) perfectly aligns with the bottom edge of the body layer */}
-      <div 
-        className="absolute bottom-[-25px] left-1/2 z-30 h-[90px] w-[114%] -translate-x-1/2 rounded-[50%] pointer-events-none"
-        style={{ background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }} 
-      />
+      {/* ===== LAYER 3: FRONT LIP - Z-INDEX 30 ===== */}
+      {/* Container moved up by 10px (bottom-[-20px]) but original downward curve math restored */}
+      <div className="absolute bottom-[-20px] left-1/2 z-30 h-[125px] w-[114%] -translate-x-1/2 pointer-events-none">
+        
+        {/* Front Lip Base Curve: The deep 90px stretch down is back and mathematically perfect */}
+        <div 
+          className="absolute top-[35px] left-0 w-full h-[90px] rounded-[50%]" 
+          style={{ background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }} 
+        />
+        
+        {/* Front Lip Body: Top edge aligns exactly with Back Lip's equator, Bottom edge aligns exactly with Front Base Curve's equator. Zero cuts on sides. */}
+        <div 
+          className="absolute top-[45px] left-0 w-full h-[35px]" 
+          style={{ background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }} 
+        />
+        
+      </div>
 
       {/* ===== BOTTOM STRIP (Pill Badge) - Z-INDEX 40 ===== */}
       <div

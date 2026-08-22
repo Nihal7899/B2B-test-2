@@ -1081,8 +1081,6 @@ export function BrandCarousel({
             productImages={
               brand.product_images || []
             }
-
-            {/* Keep these available for later dynamic use */}
             tagline={brand.tagline}
             categories={brand.categories}
             bottomLabel={brand.bottom_label}

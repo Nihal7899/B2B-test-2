@@ -86,7 +86,6 @@ export function BrandCard(props: BrandCardProps) {
   
   const content = getBrandContent(props);
 
-  // Single Image Logic Reverted
   const image = productImages.find(Boolean) || productImage || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product';
 
   const primaryRgb = hexToRgb(primaryColor);
@@ -199,21 +198,22 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
-      <div className="absolute bottom-[-15px] left-1/2 z-10 h-[100px] w-[140%] -translate-x-1/2 pointer-events-none">
+      {/* Width scaled down to 115% to reveal the raised left and right edges */}
+      <div className="absolute bottom-[-10px] left-1/2 z-10 h-[80px] w-[115%] -translate-x-1/2 pointer-events-none">
         
-        {/* Layer 1: Base Curve (The bottom rounded edge of the cylinder) */}
-        <div className="absolute bottom-0 left-0 w-full h-[55px] rounded-[50%] bg-gradient-to-r from-[#0f172a] via-[#2563eb] to-[#0f172a]" />
+        {/* Layer 1: Base Curve (The bottom rounded edge) */}
+        <div className="absolute bottom-0 left-0 w-full h-[40px] rounded-[50%] bg-gradient-to-r from-[#0a1020] via-[#2563eb] to-[#0a1020]" />
         
-        {/* Layer 2: Cylinder Body (The distinct front strip/wall) */}
-        <div className="absolute bottom-[27.5px] left-0 w-full h-[25px] bg-gradient-to-r from-[#0f172a] via-[#1d4ed8] to-[#0f172a]" />
+        {/* Layer 2: Cylinder Body (The front face connecting top and bottom circles) */}
+        <div className="absolute bottom-[20px] left-0 w-full h-[25px] bg-gradient-to-r from-[#0a1020] via-[#1d4ed8] to-[#0a1020]" />
         
-        {/* Layer 3: Top Curve (The deep floor where the product sits) */}
-        <div className="absolute top-[20px] left-0 w-full h-[55px] rounded-[50%] bg-[#08122a] border-b border-[#60a5fa]/50 shadow-[inset_0_-15px_25px_rgba(0,0,0,0.8),inset_0_5px_15px_rgba(0,0,0,0.4)]" />
+        {/* Layer 3: Top Curve (The deep inner floor where the product sits with a prominent lip) */}
+        <div className="absolute top-[15px] left-0 w-full h-[40px] rounded-[50%] bg-[#08122a] border-b-[2px] border-[#60a5fa]/60 shadow-[inset_0_-10px_20px_rgba(0,0,0,0.8),inset_0_5px_15px_rgba(0,0,0,0.5)]" />
         
       </div>
 
       {/* Single Dynamic Product positioned ON the floor */}
-      <div className="absolute bottom-[35px] left-1/2 z-20 h-[45%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
+      <div className="absolute bottom-[32px] left-1/2 z-20 h-[45%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
         <img
           src={image}
           alt={`${brandName} product`}

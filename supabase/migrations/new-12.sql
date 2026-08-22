@@ -87,3 +87,11 @@ using (
   bucket_id = 'brands'
   and auth_helpers.is_admin()
 );
+
+ALTER TABLE trusted_brands ADD COLUMN description TEXT;
+
+-- Add config column to trusted_brands
+ALTER TABLE trusted_brands ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}'::jsonb;
+
+-- Optional: create index for faster queries (if needed)
+CREATE INDEX IF NOT EXISTS idx_trusted_brands_config ON trusted_brands USING gin (config);

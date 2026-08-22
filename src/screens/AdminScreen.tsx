@@ -26,7 +26,8 @@ import AdminInvoices from '@/components/AdminInvoices';
 import Dashboard from '@/components/Admin/Dashboard';
 import BannersManager from '@/components/Admin/BannersManager';
 import StoresManager from '@/components/Admin/StoresManager';
-import StoreConfigManager from '@/components/Admin/StoreConfigManager'; // NEW
+import StoreConfigManager from '@/components/Admin/StoreConfigManager';
+import BrandConfigManager from '@/components/Admin/BrandConfigManager'; // NEW
 import BrandsManager from '@/components/Admin/BrandsManager';
 import CategoriesManager from '@/components/Admin/CategoriesManager';
 import ProductsManager from '@/components/Admin/ProductsManager';
@@ -48,6 +49,7 @@ type Tab =
   | 'banners'
   | 'stores'
   | 'storeContent'
+  | 'brandContent'   // NEW
   | 'brands'
   | 'categories'
   | 'products'
@@ -70,6 +72,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'banners', label: 'Banners', icon: Tag },
     { id: 'stores', label: 'Stores', icon: Store },
     { id: 'storeContent', label: 'Store Content', icon: PenTool },
+    { id: 'brandContent', label: 'Brand Content', icon: PenTool }, // NEW
     { id: 'brands', label: 'Brands', icon: Award },
     { id: 'categories', label: 'Categories', icon: LayoutGrid },
     { id: 'subcategories', label: 'Subcategories', icon: LayoutGrid },
@@ -125,6 +128,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'banners' && <BannersManager />}
         {tab === 'stores' && <StoresManager />}
         {tab === 'storeContent' && <StoreConfigManager />}
+        {tab === 'brandContent' && <BrandConfigManager />} {/* NEW */}
         {tab === 'brands' && <BrandsManager />}
         {tab === 'categories' && <CategoriesManager />}
         {tab === 'subcategories' && <SubcategoriesManager />}

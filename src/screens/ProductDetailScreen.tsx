@@ -1,13 +1,20 @@
 // screens/ProductDetailScreen.tsx
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Heart, Share2, Star, Truck, ShieldCheck, Percent, Hash, Plus, Minus } from 'lucide-react';
 import type { Product, VolumePricingTier } from '@/types';
 import type { useCart } from '@/store';
 import { OfferBadge } from '@/components/OfferBadge';
 import { ProductCard } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
-import { fetchProductById, fetchWishlist, toggleWishlist, fetchVolumePricing, fetchStoreConfig } from '@/services/catalog';
+import {
+  fetchProductById,
+  fetchWishlist,
+  toggleWishlist,
+  fetchVolumePricing,
+  fetchStoreConfig,
+  fetchBrandById,
+} from '@/services/catalog';
 import { getStoreTheme, setStoreTheme } from '@/context/StoreContext';
 
 interface ProductDetailScreenProps {
@@ -28,10 +35,12 @@ const defaultTheme = {
 };
 
 export function ProductDetailScreen({ productId, cart, onBack, onProduct }: ProductDetailScreenProps) {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const storeId = searchParams.get('storeId');
+  const brandId = searchParams.get('brandId');
 
-  // 🔥 Get theme – from global map or fetch
+  // 🔥 Get theme – from store global map, or brand (fetched), or default
   const [theme, setTheme] = useState(() => {
     if (storeId) {
       return getStoreTheme(storeId) || defaultTheme;
@@ -57,7 +66,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     gradientTo = '#16a34a',
   } = theme;
 
-  // Fetch theme if not cached
+  // Fetch store theme if not cached
   useEffect(() => {
     if (storeId && !getStoreTheme(storeId)) {
       fetchStoreConfig(storeId)
@@ -78,6 +87,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     }
   }, [storeId]);
 
+  // Fetch product and brand (if brandId present)
   useEffect(() => {
     void (async () => {
       setLoading(true);
@@ -90,10 +100,29 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
         setWishlisted(wl.includes(productId));
         const tiers = await fetchVolumePricing(productId);
         setVolumeTiers(tiers);
+
+        // If brandId is provided, fetch brand and apply theme
+        if (brandId) {
+          const brand = await fetchBrandById(brandId);
+          if (brand) {
+            const t = {
+              primaryColor: brand.primary_color || '#10b981',
+              secondaryColor: brand.secondary_color || '#059669',
+              textColor: '#1f2937',
+              borderColor: '#e5e7eb',
+              buttonStyle: 'brand' as const,
+              gradientFrom: brand.primary_color || '#065f46',
+              gradientTo: brand.secondary_color || '#16a34a',
+            };
+            setTheme(t);
+            // Store in global map for future visits
+            setStoreTheme(`brand_${brandId}`, t);
+          }
+        }
       }
       setLoading(false);
     })();
-  }, [productId]);
+  }, [productId, brandId]);
 
   if (loading) return <div className="flex items-center justify-center min-h-[50vh]"><div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" /></div>;
   if (!product) return <div className="flex flex-col items-center justify-center min-h-[50vh] text-center"><p className="text-sm text-ink-500">Product not found</p><button onClick={onBack} className="mt-3 text-sm font-bold text-brand-600">Go back</button></div>;
@@ -118,7 +147,15 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     setWishlistBusy(false);
   };
 
-  // Full JSX with theme colors
+  // Navigation for related products – preserve brandId
+  const handleProductClick = (p: Product) => {
+    const params = new URLSearchParams();
+    params.set('id', p.id);
+    if (brandId) params.set('brandId', brandId);
+    if (storeId) params.set('storeId', storeId);
+    navigate(`/product?${params.toString()}`);
+  };
+
   return (
     <div className="pb-6 space-y-5">
       {/* Image header with theme gradient overlay */}
@@ -296,7 +333,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
                 onAdd={() => cart.addToCart(item)}
                 onIncrement={() => cart.addToCart(item)}
                 onDecrement={() => cart.updateQuantity(item.id, cart.getQuantity(item.id) - 1)}
-                onClick={() => onProduct(item)}
+                onClick={() => handleProductClick(item)}
                 horizontal
                 theme={theme}
                 isWishlisted={wishlist.includes(item.id)}

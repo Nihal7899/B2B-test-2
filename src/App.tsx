@@ -203,6 +203,10 @@ function App() {
       const storeId = searchParams.get('storeId') || 'default';
       return `store|${storeId}`;
     }
+    if (screen === 'brand') {
+      const brandId = new URLSearchParams(location.search).get('id') || 'default';
+      return `brand|${brandId}`;
+    }
     if (screen === 'product') {
       const searchParams = new URLSearchParams(location.search);
       const productId = searchParams.get('id') || 'default';
@@ -595,7 +599,8 @@ function App() {
   // ==========================================================
 
   // 🔥 1. Define which screens use custom full-bleed headers
-  const isFullBleed = screen === 'store' || screen === 'categories' || screen === 'categoryDetail';
+  // In App.tsx, near the bottom
+  const isFullBleed = screen === 'store' || screen === 'categories' || screen === 'categoryDetail' || screen === 'brand';
 
   return (
     <div className="min-h-screen bg-ink-100">

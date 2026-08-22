@@ -306,7 +306,8 @@ export interface TrustedBrand {
   categories?: string[];
   bottom_label?: string;
   bottom_icon?: 'shield' | 'crown' | 'leaf';
-  description?: string;          // <-- NEW
+  description?: string;
+  config?: any; // <-- NEW: brand content configuration
 }
 
 export interface DeliveryRange {

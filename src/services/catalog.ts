@@ -879,7 +879,8 @@ export async function createTrustedBrand(
       categories: input.categories || null,
       bottom_label: input.bottom_label || null,
       bottom_icon: input.bottom_icon || null,
-      description: input.description || null,   // <-- NEW
+      description: input.description || null,
+      config: input.config || null, // <-- NEW
     })
     .select()
     .single();
@@ -902,7 +903,8 @@ export async function updateTrustedBrand(id: string, updates: Partial<TrustedBra
       categories: updates.categories,
       bottom_label: updates.bottom_label,
       bottom_icon: updates.bottom_icon,
-      description: updates.description,   // <-- NEW
+      description: updates.description,
+      config: updates.config, // <-- NEW
     })
     .eq('id', id);
   if (error) throw error;

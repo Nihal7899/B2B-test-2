@@ -198,27 +198,29 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
-      <div className="absolute bottom-[-10px] left-1/2 z-10 h-[120px] w-[130%] -translate-x-1/2 pointer-events-none">
+      {/* Lowered entire block, reduced width to 112% to increase curve steepness */}
+      <div className="absolute bottom-[-20px] left-1/2 z-10 h-[100px] w-[112%] -translate-x-1/2 pointer-events-none">
         
         {/* Layer 1: Base Curve (The bottom rounded edge) */}
         <div 
-          className="absolute top-[25px] left-0 w-full h-[95px] rounded-[50%]" 
+          className="absolute top-[25px] left-0 w-full h-[75px] rounded-[50%]" 
           style={{ 
             background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
           }} 
         />
         
-        {/* Layer 2: Cylinder Body (The raised front lip connecting top and bottom curves) */}
+        {/* Layer 2: Cylinder Body (Connecting top and bottom curves seamlessly) */}
+        {/* top-[36px] perfectly overlaps the midline of the circles to prevent white lines */}
         <div 
-          className="absolute top-[47px] left-0 w-full h-[26px]" 
+          className="absolute top-[36px] left-0 w-full h-[28px]" 
           style={{ 
             background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
           }} 
         />
         
-        {/* Layer 3: Top Curve (Inner floor/back) */}
+        {/* Layer 3: Top Curve (Inner floor/back lip, now positioned much lower) */}
         <div 
-          className="absolute top-0 left-0 w-full h-[95px] rounded-[50%] shadow-[inset_0_20px_35px_rgba(0,0,0,0.65),inset_0_-3px_10px_rgba(0,0,0,0.25)]" 
+          className="absolute top-0 left-0 w-full h-[75px] rounded-[50%] shadow-[inset_0_15px_25px_rgba(0,0,0,0.6),inset_0_-2px_8px_rgba(0,0,0,0.25)]" 
           style={{ 
             background: `linear-gradient(to bottom, ${secondaryColor} 0%, ${primaryColor} 100%)` 
           }} 
@@ -226,8 +228,8 @@ export function BrandCard(props: BrandCardProps) {
         
       </div>
 
-      {/* Single Dynamic Product positioned ON the floor */}
-      <div className="absolute bottom-[30px] left-1/2 z-20 h-[48%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
+      {/* Single Dynamic Product positioned securely ON the new lowered floor */}
+      <div className="absolute bottom-[24px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
         <img
           src={image}
           alt={`${brandName} product`}
@@ -236,7 +238,7 @@ export function BrandCard(props: BrandCardProps) {
         />
       </div>
 
-      {/* Bottom Strip (Pill Badge) over the front lip */}
+      {/* Bottom Strip (Pill Badge) perfectly layered over the front lip */}
       <div
         className="
           absolute bottom-[10px] left-1/2 z-40

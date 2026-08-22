@@ -7,6 +7,7 @@ import type { TrustedBrand, Product } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { useCart } from '@/store';
 import { getStoreIcon } from '@/data/storeIcons';
+import { useSearchParams } from 'react-router-dom';
 
 // Helper: render icon (Lucide or custom image)
 function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {

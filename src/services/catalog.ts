@@ -1411,10 +1411,10 @@ export async function fetchDistinctBrands(): Promise<string[]> {
   const brands = new Set((data as { brand: string }[]).map((r) => r.brand.trim()).filter(Boolean));
   return Array.from(brands).sort();
 }
-
 // ================================================================
 // FETCH BRAND BY ID
 // ================================================================
+
 export async function fetchBrandById(id: string): Promise<TrustedBrand | null> {
   const { data, error } = await supabase
     .from('trusted_brands')

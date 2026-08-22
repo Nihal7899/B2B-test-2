@@ -198,38 +198,40 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
-      {/* Lowered entire block, reduced width to 112% to increase curve steepness */}
-      <div className="absolute bottom-[-20px] left-1/2 z-10 h-[100px] w-[112%] -translate-x-1/2 pointer-events-none">
+      {/* Lowered container to -30px so the back lip doesn't rise, while height is expanded for a deeper curve */}
+      <div className="absolute bottom-[-30px] left-1/2 z-10 h-[125px] w-[114%] -translate-x-1/2 pointer-events-none">
         
-        {/* Layer 1: Base Curve (The bottom rounded edge) */}
+        {/* Layer 1: Base Curve (The bottom rounded edge of the cylinder) */}
         <div 
-          className="absolute top-[25px] left-0 w-full h-[75px] rounded-[50%]" 
+          className="absolute top-[35px] left-0 w-full h-[90px] rounded-[50%]" 
           style={{ 
             background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
           }} 
         />
         
-        {/* Layer 2: Cylinder Body (Connecting top and bottom curves seamlessly) */}
-        {/* top-[36px] perfectly overlaps the midline of the circles to prevent white lines */}
+        {/* Layer 2: Cylinder Body (The raised front lip connecting the curves) */}
+        {/* MATH FIX: Starts exactly at the center of the top ellipse (90/2 = 45px) and spans exactly to the center of the bottom ellipse. This completely eliminates the left/right "cut". */}
         <div 
-          className="absolute top-[36px] left-0 w-full h-[28px]" 
+          className="absolute top-[45px] left-0 w-full h-[35px]" 
           style={{ 
             background: `linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
           }} 
         />
         
-        {/* Layer 3: Top Curve (Inner floor/back lip, now positioned much lower) */}
+        {/* Layer 3: Top Curve (Inner floor/back lip) */}
+        {/* Gradient fixed: Lightest color (primary) at the top edge, fading into dark (secondary) at the bottom to remove the harsh dark back edge. */}
         <div 
-          className="absolute top-0 left-0 w-full h-[75px] rounded-[50%] shadow-[inset_0_15px_25px_rgba(0,0,0,0.6),inset_0_-2px_8px_rgba(0,0,0,0.25)]" 
+          className="absolute top-0 left-0 w-full h-[90px] rounded-[50%] shadow-[inset_0_10px_20px_rgba(0,0,0,0.3),inset_0_-2px_6px_rgba(0,0,0,0.15)]" 
           style={{ 
-            background: `linear-gradient(to bottom, ${secondaryColor} 0%, ${primaryColor} 100%)` 
+            background: `linear-gradient(to bottom, ${primaryColor} 0%, ${secondaryColor} 100%)` 
           }} 
         />
         
       </div>
 
-      {/* Single Dynamic Product positioned securely ON the new lowered floor */}
-      <div className="absolute bottom-[24px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
+      {/* Single Dynamic Product positioned ON the lowered floor */}
+      {/* Brought down to 12px to sit deep inside the new curved cup */}
+      <div className="absolute bottom-[12px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
         <img
           src={image}
           alt={`${brandName} product`}
@@ -238,7 +240,7 @@ export function BrandCard(props: BrandCardProps) {
         />
       </div>
 
-      {/* Bottom Strip (Pill Badge) perfectly layered over the front lip */}
+      {/* Bottom Strip (Pill Badge) over the front lip */}
       <div
         className="
           absolute bottom-[10px] left-1/2 z-40

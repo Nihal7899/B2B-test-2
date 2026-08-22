@@ -14,8 +14,6 @@ interface BrandCardProps {
   categories?: string[];
   bottomLabel?: string;
   bottomIcon?: 'shield' | 'crown' | 'leaf';
-  // theme prop for backgrounds
-  theme?: 'mesh' | 'waves' | 'grid' | 'minimal' | 'default';
 }
 
 const DEFAULT_CONTENT = {
@@ -84,95 +82,16 @@ export function BrandCard(props: BrandCardProps) {
     logoUrl, 
     productImage, 
     productImages = [],
-    theme = 'default'
   } = props;
   
   const content = getBrandContent(props);
 
-  // Use productImages if available, otherwise fallback to single productImage
-  const imagesToDisplay = productImages.length > 0 
-    ? productImages 
-    : [productImage || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product'];
+  // Reverted to standard single image logic
+  const image = productImages.find(Boolean) || productImage || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product';
 
   const primaryRgb = hexToRgb(primaryColor);
   const isLightBackground = getLuminance(primaryColor) > 0.68;
   const textColor = isLightBackground ? '#111827' : '#ffffff';
-
-  const renderBackground = () => {
-    switch (theme) {
-      case 'mesh':
-        return (
-          <>
-            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }} />
-            <div className="absolute -left-12 -top-12 h-40 w-40 rounded-full bg-white/20 blur-[40px]" />
-            <div className="absolute -bottom-16 -right-12 h-48 w-48 rounded-full bg-white/10 blur-[35px]" />
-            <div className="absolute -right-4 top-1/3 h-32 w-32 rounded-full blur-[30px]" style={{ background: `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.6)` }} />
-            <div className="absolute inset-0 bg-white/[0.03] backdrop-blur-[2px]" />
-          </>
-        );
-      case 'waves':
-        return (
-          <>
-            <div className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${primaryColor} 15%, ${secondaryColor} 100%)` }} />
-            <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.15]" viewBox="0 0 180 270" preserveAspectRatio="none">
-              <path d="M-20 80 C 40 40, 100 120, 200 80" fill="none" stroke="white" strokeWidth="2.5" />
-              <path d="M-20 105 C 40 65, 100 145, 200 105" fill="none" stroke="white" strokeWidth="1.5" />
-              <path d="M-20 130 C 40 90, 100 170, 200 130" fill="none" stroke="white" strokeWidth="0.75" />
-              <path d="M-20 155 C 40 115, 100 195, 200 155" fill="none" stroke="white" strokeWidth="0.25" />
-            </svg>
-            <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/10 to-transparent" />
-          </>
-        );
-      case 'grid':
-        return (
-          <>
-            <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }} />
-            <div className="absolute inset-0 opacity-[0.12] mix-blend-overlay" style={{ backgroundImage: `linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)`, backgroundSize: '24px 24px' }} />
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent" />
-            <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-20" viewBox="0 0 180 270">
-              <polygon points="180,270 0,270 180,160" fill="white" />
-              <line x1="0" y1="210" x2="180" y2="130" stroke="white" strokeWidth="1" strokeDasharray="4 4" />
-            </svg>
-          </>
-        );
-      case 'minimal':
-        return (
-          <>
-            <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom right, ${primaryColor}, ${secondaryColor})` }} />
-            <div className="absolute -right-8 -top-8 h-[180px] w-[180px] rounded-full border-[1.5px] border-white/20" />
-            <div className="absolute -right-2 -top-2 h-[120px] w-[120px] rounded-full border-[1.5px] border-white/15" />
-            <div className="absolute right-4 top-4 h-[60px] w-[60px] rounded-full border-[1.5px] border-white/10" />
-            <div className="absolute left-6 top-[45%] h-1.5 w-1.5 rounded-full bg-white/40" />
-            <div className="absolute left-10 top-[52%] h-1 w-1 rounded-full bg-white/20" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent" />
-          </>
-        );
-      case 'default':
-      default:
-        return (
-          <>
-            <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 15%, rgba(255,255,255,0.18), transparent 30%), linear-gradient(145deg, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }} />
-            <div className="absolute -left-12 -top-8 h-32 w-32 rounded-full blur-2xl" style={{ background: `rgba(${primaryRgb.r},${primaryRgb.g},${primaryRgb.b},0.35)` }} />
-            <div className="absolute -right-10 top-20 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
-            <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]" viewBox="0 0 180 270" preserveAspectRatio="none">
-              <circle cx="-10" cy="50" r="50" fill="none" stroke="white" strokeWidth="1" />
-              <circle cx="-10" cy="50" r="36" fill="none" stroke="white" strokeWidth="1" />
-              <circle cx="190" cy="74" r="34" fill="none" stroke="white" strokeWidth="1" />
-              <path d="M-20 158 C40 126 90 153 205 112" fill="none" stroke="white" strokeWidth="1.2" />
-              <path d="M-20 165 C45 133 97 160 205 120" fill="none" stroke="white" strokeWidth="0.8" />
-              <circle cx="150" cy="34" r="2" fill="white" />
-              <circle cx="162" cy="43" r="1.5" fill="white" />
-              <circle cx="141" cy="44" r="1" fill="white" />
-            </svg>
-            <div className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-[3px] opacity-25">
-              {Array.from({ length: 9 }).map((_, i) => (
-                <span key={i} className="h-[2.5px] w-[2.5px] rounded-full bg-white" />
-              ))}
-            </div>
-          </>
-        );
-    }
-  };
 
   return (
     <div
@@ -193,8 +112,45 @@ export function BrandCard(props: BrandCardProps) {
         hover:shadow-[0_18px_45px_rgba(0,0,0,0.20)]
       "
     >
-      {/* Background Block */}
-      {renderBackground()}
+      {/* ===== ORIGINAL DEFAULT BACKGROUND ===== */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `
+            radial-gradient(
+              circle at 50% 15%,
+              rgba(255,255,255,0.18),
+              transparent 30%
+            ),
+            linear-gradient(
+              145deg,
+              ${primaryColor} 0%,
+              ${primaryColor} 45%,
+              ${secondaryColor} 100%
+            )
+          `,
+        }}
+      />
+      <div
+        className="absolute -left-12 -top-8 h-32 w-32 rounded-full blur-2xl"
+        style={{ background: `rgba(${primaryRgb.r},${primaryRgb.g},${primaryRgb.b},0.35)` }}
+      />
+      <div className="absolute -right-10 top-20 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
+      <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]" viewBox="0 0 180 270" preserveAspectRatio="none">
+        <circle cx="-10" cy="50" r="50" fill="none" stroke="white" strokeWidth="1" />
+        <circle cx="-10" cy="50" r="36" fill="none" stroke="white" strokeWidth="1" />
+        <circle cx="190" cy="74" r="34" fill="none" stroke="white" strokeWidth="1" />
+        <path d="M-20 158 C40 126 90 153 205 112" fill="none" stroke="white" strokeWidth="1.2" />
+        <path d="M-20 165 C45 133 97 160 205 120" fill="none" stroke="white" strokeWidth="0.8" />
+        <circle cx="150" cy="34" r="2" fill="white" />
+        <circle cx="162" cy="43" r="1.5" fill="white" />
+        <circle cx="141" cy="44" r="1" fill="white" />
+      </svg>
+      <div className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-[3px] opacity-25">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <span key={i} className="h-[2.5px] w-[2.5px] rounded-full bg-white" />
+        ))}
+      </div>
 
       {/* Logo */}
       <div
@@ -242,45 +198,25 @@ export function BrandCard(props: BrandCardProps) {
         ))}
       </div>
 
-      {/* ===== PODIUM & PRODUCT CONTAINER ===== */}
+      {/* ===== 3D CYLINDRICAL CUP & SINGLE PRODUCT CONTAINER ===== */}
       <div className="absolute bottom-0 left-0 right-0 z-10 h-[45%] pointer-events-none">
         
-        {/* Static Cylindrical Cup Base (The 3D Floor) */}
-        {/* Using a static dark color (#0a1120) with inner shadow to create the deep cup effect */}
+        {/* The 3D Base using 3 shades of blue */}
         <div 
-          className="absolute bottom-[-35px] left-1/2 h-[120px] w-[150%] -translate-x-1/2 rounded-[100%] border-t border-white/10 bg-[#0a1120] shadow-[inset_0_20px_25px_rgba(0,0,0,0.6)]"
+          className="absolute bottom-[-40px] left-1/2 h-[140px] w-[140%] -translate-x-1/2 rounded-[100%] border-t border-blue-400/30 shadow-[inset_0_25px_30px_rgba(0,0,0,0.4)]"
+          style={{
+            background: 'radial-gradient(ellipse at 50% 0%, #3B82F6 0%, #1D4ED8 40%, #0F172A 100%)' // 3 shades: Light Blue, Mid Blue, Deep Navy
+          }}
         />
 
-        {/* Dynamic Products Display */}
-        <div className="absolute bottom-[35px] left-1/2 z-30 flex w-[150px] -translate-x-1/2 items-end justify-center transition-transform duration-500 group-hover:-translate-y-2 group-hover:scale-105 pointer-events-auto">
-          
-          {imagesToDisplay.length === 1 && (
-            <img 
-              src={imagesToDisplay[0]} 
-              alt={`${brandName} product`} 
-              className="max-h-[110px] w-auto object-contain drop-shadow-[0_15px_15px_rgba(0,0,0,0.5)]" 
-              loading="lazy"
-            />
-          )}
-
-          {imagesToDisplay.length === 2 && (
-            <>
-              <img src={imagesToDisplay[0]} alt="Product 1" className="absolute left-1 max-h-[95px] w-[70px] origin-bottom-left -rotate-3 object-contain drop-shadow-lg z-10" loading="lazy" />
-              <img src={imagesToDisplay[1]} alt="Product 2" className="absolute right-1 max-h-[105px] w-[75px] origin-bottom-right rotate-2 object-contain drop-shadow-xl z-20" loading="lazy" />
-            </>
-          )}
-
-          {imagesToDisplay.length >= 3 && (
-            <>
-              {/* Left Product */}
-              <img src={imagesToDisplay[0]} alt="Product 1" className="absolute left-0 max-h-[85px] w-[55px] object-contain drop-shadow-xl z-10" loading="lazy" />
-              {/* Right Product */}
-              <img src={imagesToDisplay[2]} alt="Product 3" className="absolute right-0 max-h-[85px] w-[55px] object-contain drop-shadow-xl z-10" loading="lazy" />
-              {/* Center Product (Overlapping in front) */}
-              <img src={imagesToDisplay[1]} alt="Product 2" className="relative max-h-[110px] w-[70px] object-contain drop-shadow-2xl z-30" loading="lazy" />
-            </>
-          )}
-
+        {/* Reverted back to a Single Dynamic Product */}
+        <div className="absolute bottom-[28px] left-1/2 z-20 h-[110%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
+          <img
+            src={image}
+            alt={`${brandName} product`}
+            className="h-full w-full object-contain object-bottom drop-shadow-[0_15px_15px_rgba(0,0,0,0.45)]"
+            loading="lazy"
+          />
         </div>
       </div>
 
@@ -315,32 +251,25 @@ interface BrandCarouselProps {
   brands: TrustedBrand[];
 }
 
-const THEMES = ['default', 'mesh', 'waves', 'grid', 'minimal'] as const;
-
 export function BrandCarousel({ brands }: BrandCarouselProps) {
   return (
     <div className="flex gap-4 overflow-x-auto px-4 pb-3 no-scrollbar scroll-touch">
-      {brands.map((brand, index) => {
-        const randomTheme = THEMES[index % THEMES.length];
-        
-        return (
-          <div key={brand.id}>
-            <BrandCard
-              brandName={brand.name}
-              primaryColor={brand.primary_color || '#2563EB'}
-              secondaryColor={brand.secondary_color || '#1E3A8A'}
-              logoUrl={brand.logo_url}
-              productImage={brand.product_images?.[0] || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product'}
-              productImages={brand.product_images || []}
-              tagline={brand.tagline}
-              categories={brand.categories}
-              bottomLabel={brand.bottom_label}
-              bottomIcon={brand.bottom_icon}
-              theme={randomTheme}
-            />
-          </div>
-        );
-      })}
+      {brands.map((brand) => (
+        <div key={brand.id}>
+          <BrandCard
+            brandName={brand.name}
+            primaryColor={brand.primary_color || '#2563EB'}
+            secondaryColor={brand.secondary_color || '#1E3A8A'}
+            logoUrl={brand.logo_url}
+            productImage={brand.product_images?.[0] || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product'}
+            productImages={brand.product_images || []}
+            tagline={brand.tagline}
+            categories={brand.categories}
+            bottomLabel={brand.bottom_label}
+            bottomIcon={brand.bottom_icon}
+          />
+        </div>
+      ))}
     </div>
   );
 }

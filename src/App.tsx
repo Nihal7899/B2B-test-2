@@ -43,6 +43,7 @@ import { AuthScreen } from '@/screens/AuthScreen';
 import StoreScreen from '@/screens/StoreScreen';
 import { CategoryScreen } from '@/screens/CategoryScreen'; // <-- NEW IMPORT
 import { BrandScreen } from '@/screens/BrandScreen';
+import { BannerScreen } from '@/screens/BannerScreen'; // <-- NEW IMPORT
 
 import type {
   Category,
@@ -92,6 +93,7 @@ const SCREEN_TO_PATH: Record<ScreenName, string> = {
   store: '/store',
   categoryDetail: '/category', // <-- NEW ROUT
   brand: '/brand',
+  banner: '/banner', // <-- NEW PATH
 };
 
 const PATH_TO_SCREEN: Record<string, ScreenName> =
@@ -574,6 +576,13 @@ function App() {
         
       case 'brand':
         return <BrandScreen />;
+        
+      // ============================================================
+      // BANNER SCREEN (NEW)
+      // ============================================================
+      case 'banner':
+        return <BannerScreen />;
+
 
       // ============================================================
       // CATEGORY DETAIL SCREEN (NEW)
@@ -600,7 +609,13 @@ function App() {
 
   // 🔥 1. Define which screens use custom full-bleed headers
   // In App.tsx, near the bottom
-  const isFullBleed = screen === 'store' || screen === 'categories' || screen === 'categoryDetail' || screen === 'brand';
+    const isFullBleed = 
+    screen === 'store' || 
+    screen === 'categories' || 
+    screen === 'categoryDetail' || 
+    screen === 'brand' ||
+    screen === 'banner'; // <-- ADD THIS
+
 
   return (
     <div className="min-h-screen bg-ink-100">

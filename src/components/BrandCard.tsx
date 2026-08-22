@@ -198,8 +198,8 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
-      {/* Lowered container to -30px so the back lip doesn't rise, while height is expanded for a deeper curve */}
-      <div className="absolute bottom-[-30px] left-1/2 z-10 h-[125px] w-[114%] -translate-x-1/2 pointer-events-none">
+      {/* Moved bottom-[-30px] to bottom-[-45px] to shift the entire curve down without changing shape */}
+      <div className="absolute bottom-[-45px] left-1/2 z-10 h-[125px] w-[114%] -translate-x-1/2 pointer-events-none">
         
         {/* Layer 1: Base Curve (The bottom rounded edge of the cylinder) */}
         <div 
@@ -210,7 +210,6 @@ export function BrandCard(props: BrandCardProps) {
         />
         
         {/* Layer 2: Cylinder Body (The raised front lip connecting the curves) */}
-        {/* MATH FIX: Starts exactly at the center of the top ellipse (90/2 = 45px) and spans exactly to the center of the bottom ellipse. This completely eliminates the left/right "cut". */}
         <div 
           className="absolute top-[45px] left-0 w-full h-[35px]" 
           style={{ 
@@ -219,7 +218,6 @@ export function BrandCard(props: BrandCardProps) {
         />
         
         {/* Layer 3: Top Curve (Inner floor/back lip) */}
-        {/* Gradient fixed: Lightest color (primary) at the top edge, fading into dark (secondary) at the bottom to remove the harsh dark back edge. */}
         <div 
           className="absolute top-0 left-0 w-full h-[90px] rounded-[50%] shadow-[inset_0_10px_20px_rgba(0,0,0,0.3),inset_0_-2px_6px_rgba(0,0,0,0.15)]" 
           style={{ 
@@ -230,7 +228,6 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* Single Dynamic Product positioned ON the lowered floor */}
-      {/* Brought down to 12px to sit deep inside the new curved cup */}
       <div className="absolute bottom-[12px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
         <img
           src={image}
@@ -241,9 +238,10 @@ export function BrandCard(props: BrandCardProps) {
       </div>
 
       {/* Bottom Strip (Pill Badge) over the front lip */}
+      {/* Moved bottom-[10px] to bottom-[25px] to shift the font pill upwards */}
       <div
         className="
-          absolute bottom-[10px] left-1/2 z-40
+          absolute bottom-[25px] left-1/2 z-40
           flex h-[24px] w-auto min-w-[130px] max-w-[90%] -translate-x-1/2
           items-center justify-center gap-1.5
           rounded-full border border-white/20 bg-black/40 px-3

@@ -1,13 +1,12 @@
 // screens/BrandScreen.tsx
-import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, ChevronRight, ShieldCheck, Truck, Star } from 'lucide-react';
 import { fetchBrandById, fetchProducts, fetchWishlist, toggleWishlist } from '@/services/catalog';
 import type { TrustedBrand, Product } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { useCart } from '@/store';
 import { getStoreIcon } from '@/data/storeIcons';
-import { useSearchParams } from 'react-router-dom';
 
 // Helper: render icon (Lucide or custom image)
 function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {
@@ -76,12 +75,10 @@ function TrustItem({ icon: Icon, label, sub }: { icon: any; label: string; sub: 
 }
 
 // Main component
-function BrandScreenContent() {
+function BrandScreenContent({ brandId }: { brandId: string }) {
   const navigate = useNavigate();
-  const location = useLocation();
   const cart = useCart();
 
-  const brandId = new URLSearchParams(location.search).get('id');
   const [brand, setBrand] = useState<TrustedBrand | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -450,5 +447,5 @@ export const BrandScreen = React.memo(() => {
     );
   }
 
-  return <BrandScreenContent />;
+  return <BrandScreenContent brandId={brandId} />;
 });

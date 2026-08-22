@@ -139,7 +139,8 @@ export function StoreCard({
         />
 
         {/* Content */}
-        <div className="relative z-10 h-full px-4 pb-3 pt-1.5">
+        {/* 🔽 CHANGED: pt-2 / pb-4 for more bottom breathing room */}
+        <div className="relative z-10 h-full px-4 pb-4 pt-2">
           {/* Store badge */}
           <span
             className="inline-flex rounded-full px-2.5 py-0.5 text-[8px] font-extrabold tracking-wide shadow-sm"
@@ -165,7 +166,8 @@ export function StoreCard({
               FEATURES
           ===================================================== */}
 
-          <div className="mt-2.5 flex items-center justify-between rounded-2xl bg-slate-50 px-2 py-2">
+          {/* 🔽 CHANGED: mt-2 (was mt-2.5) */}
+          <div className="mt-2 flex items-center justify-between rounded-2xl bg-slate-50 px-2 py-2">
             {features.map((feature, index) => {
               const Icon = feature.icon;
 
@@ -209,19 +211,22 @@ export function StoreCard({
               SHOP NOW BUTTON
           ===================================================== */}
 
+          {/* 🔽 CHANGED: mt-2 / h-8 (smaller button) */}
           <div
-            className="mt-2.5 flex h-9 items-center justify-between rounded-xl px-3.5 text-white shadow-md transition-all duration-300 group-hover:shadow-lg"
+            className="mt-2 flex h-8 items-center justify-between rounded-xl px-3.5 text-white shadow-md transition-all duration-300 group-hover:shadow-lg"
             style={{
               background: `linear-gradient(135deg, ${tintColor}, ${tintColor}dd)`,
             }}
           >
-            <span className="text-[11px] font-extrabold">
+            {/* 🔽 CHANGED: text-[10px] (smaller text) */}
+            <span className="text-[10px] font-extrabold">
               Shop now
             </span>
 
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
+            {/* 🔽 CHANGED: h-4 w-4 / size={12} (smaller icon) */}
+            <div className="flex h-4 w-4 items-center justify-center rounded-full bg-white/20">
               <ChevronRight
-                size={14}
+                size={12}
                 strokeWidth={2.5}
               />
             </div>

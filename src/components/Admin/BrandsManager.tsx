@@ -1,6 +1,6 @@
 // components/admin/BrandsManager.tsx
 import React, { useEffect, useState } from 'react';
-import { Plus, Trash2, Save, Loader2, Upload } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, Upload, Copy } from 'lucide-react';
 import { BrandCard } from '@/components/BrandCard';
 import {
   fetchAllTrustedBrands,
@@ -9,11 +9,10 @@ import {
   deleteTrustedBrand,
   uploadBrandImage,
   deleteBrandImage,
-  fetchDistinctBrands, // <-- NEW import
+  fetchDistinctBrands,
 } from '@/services/catalog';
 import type { TrustedBrand } from '@/types';
 
-// Extend TrustedBrand with our new fields
 interface BrandWithColors extends TrustedBrand {
   primary_color: string;
   secondary_color: string;
@@ -22,7 +21,7 @@ interface BrandWithColors extends TrustedBrand {
   categories?: string[];
   bottom_label?: string;
   bottom_icon?: 'shield' | 'crown' | 'leaf';
-  description?: string; // <-- NEW
+  description?: string;
 }
 
 export default function BrandsManager() {
@@ -31,7 +30,8 @@ export default function BrandsManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // New brand form state
+  const [productBrands, setProductBrands] = useState<string[]>([]);
+
   const [newBrand, setNewBrand] = useState<Partial<BrandWithColors>>({
     name: '',
     logo_url: '',
@@ -44,11 +44,8 @@ export default function BrandsManager() {
     categories: ['Premium', 'Quality', 'Trusted'],
     bottom_label: 'Premium Quality',
     bottom_icon: 'shield',
-    description: '', // <-- NEW
+    description: '',
   });
-
-  // For brand suggestions
-  const [productBrands, setProductBrands] = useState<string[]>([]);
 
   // ----- Load brands and product brand list -----
   const loadBrands = async () => {
@@ -95,7 +92,7 @@ export default function BrandsManager() {
       categories: brand.categories,
       bottom_label: brand.bottom_label,
       bottom_icon: brand.bottom_icon,
-      description: brand.description, // <-- NEW
+      description: brand.description,
     });
     setEditingId(null);
     await loadBrands();
@@ -115,7 +112,7 @@ export default function BrandsManager() {
       categories: newBrand.categories,
       bottom_label: newBrand.bottom_label,
       bottom_icon: newBrand.bottom_icon,
-      description: newBrand.description, // <-- NEW
+      description: newBrand.description,
     });
     setNewBrand({
       name: '',
@@ -182,7 +179,7 @@ export default function BrandsManager() {
     }
   };
 
-  // Helper to render editable fields (tagline, categories, bottom label, icon, description)
+  // Helper to render editable fields
   const renderEditableFields = (
     brand: Partial<BrandWithColors>,
     setBrand: (b: any) => void,
@@ -264,7 +261,43 @@ export default function BrandsManager() {
         <div className="bg-white border rounded-2xl p-4 shadow-card">
           <h3 className="font-bold mb-3">New Brand</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Basic fields */}
+            {/* Quick import dropdown - prominent */}
+            <div className="col-span-2">
+              <label className="block font-medium text-sm text-ink-700 mb-1">
+                Quick import from product brands
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const selected = e.target.value;
+                    if (selected) {
+                      setNewBrand(prev => ({ ...prev, name: selected }));
+                    }
+                  }}
+                  className="flex-1 border rounded p-2"
+                >
+                  <option value="">-- select a product brand --</option>
+                  {productBrands.map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Optionally clear the name if needed
+                  }}
+                  className="px-3 py-2 bg-ink-100 rounded text-sm"
+                >
+                  Clear
+                </button>
+              </div>
+              <p className="text-xs text-ink-400 mt-1">
+                Selecting a brand will fill the <strong>Name</strong> field below.
+              </p>
+            </div>
+
+            {/* Name field */}
             <div>
               <label>Name *</label>
               <input
@@ -275,25 +308,7 @@ export default function BrandsManager() {
                 className="w-full border rounded p-2"
               />
             </div>
-            {/* Quick import from product brands */}
-            <div>
-              <label>Quick import from product brand</label>
-              <select
-                value=""
-                onChange={(e) => {
-                  const selected = e.target.value;
-                  if (selected) {
-                    setNewBrand(prev => ({ ...prev, name: selected }));
-                  }
-                }}
-                className="w-full border rounded p-2"
-              >
-                <option value="">-- select --</option>
-                {productBrands.map(b => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-            </div>
+
             <div>
               <label>Sort Order</label>
               <input
@@ -411,7 +426,6 @@ export default function BrandsManager() {
               </label>
             </div>
 
-            {/* Editable fields including description */}
             {renderEditableFields(newBrand, setNewBrand, false)}
 
             <div className="flex justify-end gap-2 col-span-2">
@@ -444,7 +458,6 @@ export default function BrandsManager() {
               categories={newBrand.categories}
               bottomLabel={newBrand.bottom_label}
               bottomIcon={newBrand.bottom_icon}
-              // description is not displayed on card, but included for completeness
             />
           </div>
         </div>
@@ -463,20 +476,42 @@ export default function BrandsManager() {
                 // ---- EDIT MODE ----
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
-                    {/* Existing fields */}
+                    {/* Name with "Copy from product brand" helper */}
                     <div>
-                      <label>Name</label>
-                      <input
-                        value={brand.name}
-                        onChange={(e) => {
-                          const updated = { ...brand, name: e.target.value };
-                          setBrands(
-                            brands.map((b) => (b.id === brand.id ? updated : b))
-                          );
-                        }}
-                        className="w-full border rounded p-2"
-                      />
+                      <label className="block text-sm font-medium">Name *</label>
+                      <div className="flex gap-2">
+                        <input
+                          value={brand.name}
+                          onChange={(e) => {
+                            const updated = { ...brand, name: e.target.value };
+                            setBrands(
+                              brands.map((b) => (b.id === brand.id ? updated : b))
+                            );
+                          }}
+                          className="flex-1 border rounded p-2"
+                        />
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            const selected = e.target.value;
+                            if (selected) {
+                              const updated = { ...brand, name: selected };
+                              setBrands(
+                                brands.map((b) => (b.id === brand.id ? updated : b))
+                              );
+                            }
+                          }}
+                          className="border rounded p-2 text-sm"
+                          title="Copy name from product brand"
+                        >
+                          <option value="">📋 Copy</option>
+                          {productBrands.map(b => (
+                            <option key={b} value={b}>{b}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
+
                     <div>
                       <label>Sort Order</label>
                       <input
@@ -645,7 +680,6 @@ export default function BrandsManager() {
                       </label>
                     </div>
 
-                    {/* Editable fields including description */}
                     {renderEditableFields(
                       brand,
                       (updated) => {
@@ -700,7 +734,6 @@ export default function BrandsManager() {
                     <p className="text-sm">
                       {brand.is_active ? 'Active' : 'Inactive'}
                     </p>
-                    {/* Optionally show description */}
                     {brand.description && (
                       <p className="text-sm text-ink-600 mt-1 line-clamp-2">{brand.description}</p>
                     )}

@@ -42,6 +42,7 @@ import { BusinessRegistrationScreen } from '@/screens/BusinessRegistrationScreen
 import { AuthScreen } from '@/screens/AuthScreen';
 import StoreScreen from '@/screens/StoreScreen';
 import { CategoryScreen } from '@/screens/CategoryScreen'; // <-- NEW IMPORT
+import { BrandScreen } from '@/screens/BrandScreen';
 
 import type {
   Category,

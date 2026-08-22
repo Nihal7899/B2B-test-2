@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Star, ShoppingCart } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { fetchBrandById, fetchProducts } from '@/services/catalog';
 import type { TrustedBrand, Product } from '@/types';
 import { ProductCarousel } from '@/components/ProductCard';
@@ -72,7 +72,7 @@ export function BrandScreen() {
         return;
       }
       setBrand(b);
-      // Fetch products with this brand name
+      // Fetch products with this brand name (case-insensitive)
       const { products: allProducts } = await fetchProducts();
       const filtered = allProducts.filter(p => p.brand.toLowerCase() === b.name.toLowerCase());
       setProducts(filtered);

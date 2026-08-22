@@ -74,7 +74,7 @@ export default function ProductsManager() {
   );
 }
 
-// ---- ProductForm with brand combobox ----
+// ---- ProductForm with custom brand combobox ----
 function ProductForm({
   initial,
   categories,
@@ -88,6 +88,9 @@ function ProductForm({
 }) {
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
+  const [brandInput, setBrandInput] = useState(initial?.brand ?? '');
+  const [showBrandSuggestions, setShowBrandSuggestions] = useState(false);
+  const [filteredBrands, setFilteredBrands] = useState<string[]>([]);
   const [form, setForm] = useState({
     category_id: initial?.category_id ?? categories[0]?.id ?? '',
     subcategory_id: initial?.subcategory_id ?? '',
@@ -122,6 +125,18 @@ function ProductForm({
     fetchDistinctBrands().then(setBrandSuggestions);
   }, []);
 
+  // Filter suggestions based on input
+  useEffect(() => {
+    if (brandInput.trim() === '') {
+      setFilteredBrands(brandSuggestions.slice(0, 10));
+    } else {
+      const lower = brandInput.toLowerCase();
+      setFilteredBrands(
+        brandSuggestions.filter(b => b.toLowerCase().includes(lower)).slice(0, 10)
+      );
+    }
+  }, [brandInput, brandSuggestions]);
+
   // Auto-generate slug from name
   useEffect(() => {
     if (!form.slug && form.name) {
@@ -131,6 +146,12 @@ function ProductForm({
       }));
     }
   }, [form.name]);
+
+  const handleBrandSelect = (brand: string) => {
+    setBrandInput(brand);
+    setForm({ ...form, brand });
+    setShowBrandSuggestions(false);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -178,20 +199,33 @@ function ProductForm({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div>
+        <div className="relative">
           <label className="block text-xs font-bold text-ink-600 mb-1">Brand *</label>
           <input
-            list="brand-suggestions"
-            value={form.brand}
-            onChange={(e) => setForm({ ...form, brand: e.target.value })}
+            value={brandInput}
+            onChange={(e) => {
+              setBrandInput(e.target.value);
+              setForm({ ...form, brand: e.target.value });
+              setShowBrandSuggestions(true);
+            }}
+            onFocus={() => setShowBrandSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowBrandSuggestions(false), 200)}
             placeholder="e.g. Fortune"
             className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
-          <datalist id="brand-suggestions">
-            {brandSuggestions.map(b => (
-              <option key={b} value={b} />
-            ))}
-          </datalist>
+          {showBrandSuggestions && filteredBrands.length > 0 && (
+            <div className="absolute z-50 mt-1 w-full max-h-40 overflow-y-auto bg-white border border-ink-200 rounded-xl shadow-lg">
+              {filteredBrands.map(b => (
+                <div
+                  key={b}
+                  onMouseDown={() => handleBrandSelect(b)}
+                  className="px-3 py-2 text-sm cursor-pointer hover:bg-brand-50"
+                >
+                  {b}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Name *</label>

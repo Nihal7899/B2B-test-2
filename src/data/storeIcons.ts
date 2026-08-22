@@ -38,7 +38,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-const map: Record<string, LucideIcon> = {
+const iconMap: Record<string, LucideIcon> = {
   Apple,
   Wheat,
   Flame,
@@ -76,8 +76,10 @@ const map: Record<string, LucideIcon> = {
   Beef,
 };
 
+export const iconNames = Object.keys(iconMap);
+
 export function getStoreIcon(name: string): LucideIcon {
-  return map[name] ?? Package;
+  return iconMap[name] ?? Package;
 }
 
 export function isCustomIcon(name: string): boolean {

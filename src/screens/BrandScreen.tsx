@@ -346,7 +346,10 @@ function BrandScreenContent() {
                     onAdd={() => cart.addToCart(p)}
                     onIncrement={() => cart.addToCart(p)}
                     onDecrement={() => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
-                    onClick={() => navigate(`/product?id=${p.id}&brandId=${brand.id}`)}
+                    onClick={() => {
+                      // FIX: ensure we navigate with both id and brandId
+                      navigate(`/product?id=${p.id}&brandId=${brand.id}`);
+                    }}
                     theme={productCardTheme}
                     isWishlisted={wishlist.includes(p.id)}
                     onWishlistToggle={handleWishlistToggle}

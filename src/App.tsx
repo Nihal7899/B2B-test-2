@@ -540,7 +540,7 @@ function App() {
           <ProductDetailScreen
             productId={productId}
             cart={cart}
-            onBack={() => goTo('home')}
+            onBack={() => navigate(-1)}   // <-- FIXED: go back to previous screen
             onProduct={openProduct}
           />
         );

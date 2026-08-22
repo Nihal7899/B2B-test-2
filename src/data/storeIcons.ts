@@ -35,6 +35,10 @@ import {
   Sprout,
   Utensils,
   Beef,
+  ChevronRight,
+  Clock3,
+  Store,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -74,6 +78,10 @@ const iconMap: Record<string, LucideIcon> = {
   Sprout,
   Utensils,
   Beef,
+  ChevronRight,
+  Clock3,
+  Store,
+  Sparkles,
 };
 
 export const iconNames = Object.keys(iconMap);

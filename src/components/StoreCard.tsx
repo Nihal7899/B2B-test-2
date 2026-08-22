@@ -1,6 +1,6 @@
 // components/StoreCard.tsx
 import { Store, FeatureItem, PremiumBadge } from '@/types';
-import { getStoreIcon, iconNames } from '@/data/storeIcons';
+import { getStoreIcon } from '@/data/storeIcons';
 import {
   ChevronRight,
   Star,

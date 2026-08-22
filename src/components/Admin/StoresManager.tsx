@@ -126,7 +126,6 @@ function StoreForm({
 }) {
   const initialConfig = initial?.config || {};
 
-  // Helper to get default features
   const defaultFeatures: FeatureItem[] = [
     { icon: 'ShieldCheck', title: 'Hygienic', subtitle: 'Packing' },
     { icon: 'Leaf', title: 'Fresh &', subtitle: 'Quality' },
@@ -144,14 +143,13 @@ function StoreForm({
     image_url: initial?.image_url ?? '',
     banner_image_url: initial?.banner_image_url ?? '',
     description: initial?.description ?? '',
-    brand_color: initial?.primary_color ?? '#10b981', // renamed from "tint color"
+    brand_color: initial?.primary_color ?? '#10b981',
     text_color: initial?.text_color ?? '#ffffff',
     badge_text: initialConfig?.badgeText ?? 'STORE',
     badge_color: initialConfig?.badgeColor ?? '#fbbf24',
     sort_order: initial?.sort_order ?? 0,
     is_active: initial?.is_active ?? true,
 
-    // NEW columns
     rating: initial?.rating ?? '4.8',
     orders: initial?.orders ?? '120+ Orders',
     store_icon: initial?.store_icon ?? 'Store',
@@ -161,7 +159,6 @@ function StoreForm({
 
   const [saving, setSaving] = useState(false);
 
-  // Sync when initial changes (edit)
   useEffect(() => {
     const config = initial?.config || {};
     setForm({
@@ -196,11 +193,9 @@ function StoreForm({
   const handleSave = async () => {
     setSaving(true);
 
-    // Build config object (still used for badgeText, badgeColor, and other store‑screen configs)
     const configData = {
       badgeText: form.badge_text,
       badgeColor: form.badge_color,
-      // any other config from initial can be preserved if needed – but we'll just keep these
     };
 
     const data = {
@@ -213,7 +208,6 @@ function StoreForm({
       sort_order: form.sort_order,
       is_active: form.is_active,
       config: configData,
-      // NEW columns
       rating: form.rating,
       orders: form.orders,
       store_icon: form.store_icon,
@@ -239,7 +233,6 @@ function StoreForm({
         </button>
       </div>
 
-      {/* Basic fields */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Store name *</label>
         <input
@@ -286,7 +279,6 @@ function StoreForm({
         />
       </div>
 
-      {/* Colors – brand color (renamed) and text color */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Brand Color</label>
@@ -326,7 +318,6 @@ function StoreForm({
         </div>
       </div>
 
-      {/* Badge */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Badge Text</label>
@@ -357,7 +348,6 @@ function StoreForm({
         </div>
       </div>
 
-      {/* Rating & Orders */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Rating</label>
@@ -381,7 +371,6 @@ function StoreForm({
         </div>
       </div>
 
-      {/* Store Icon (top‑right) */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Store Icon</label>
         <select
@@ -395,7 +384,6 @@ function StoreForm({
         </select>
       </div>
 
-      {/* Features (max 3) */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Features (max 3)</label>
         {form.features.map((feature, idx) => (
@@ -440,7 +428,6 @@ function StoreForm({
         )}
       </div>
 
-      {/* Premium Badge */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Premium Badge</label>
         <div className="grid grid-cols-3 gap-2">
@@ -470,7 +457,6 @@ function StoreForm({
         </div>
       </div>
 
-      {/* Sort order & Active */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Sort order</label>

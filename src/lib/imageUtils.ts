@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 export interface CompressionThreshold {
   minSizeMB: number;
   maxSizeMB: number | null;
-  quality: number;
+  quality: number; // 1 to 100
 }
 
 export interface CompressionConfig {
@@ -14,14 +14,17 @@ export interface CompressionConfig {
 
 const DEFAULT_CONFIG: CompressionConfig = {
   thresholds: [
-    { minSizeMB: 0, maxSizeMB: 2, quality: 90 },
-    { minSizeMB: 2, maxSizeMB: 4, quality: 80 },
-    { minSizeMB: 4, maxSizeMB: 6, quality: 70 },
-    { minSizeMB: 6, maxSizeMB: null, quality: 60 },
+    { minSizeMB: 0, maxSizeMB: 2, quality: 70 },
+    { minSizeMB: 2, maxSizeMB: 5, quality: 60 },
+    { minSizeMB: 5, maxSizeMB: null, quality: 50 },
   ],
 };
 
 let cachedConfig: CompressionConfig | null = null;
+
+export function clearCompressionCache(): void {
+  cachedConfig = null;
+}
 
 export async function getCompressionConfig(): Promise<CompressionConfig> {
   if (cachedConfig) return cachedConfig;
@@ -33,9 +36,9 @@ export async function getCompressionConfig(): Promise<CompressionConfig> {
       .eq('key', 'compression_config')
       .single();
 
-    if (error || !data) {
+    if (error || !data?.value?.thresholds) {
       cachedConfig = DEFAULT_CONFIG;
-      return cachedConfig;
+      return DEFAULT_CONFIG;
     }
 
     cachedConfig = data.value as CompressionConfig;
@@ -45,37 +48,47 @@ export async function getCompressionConfig(): Promise<CompressionConfig> {
   }
 }
 
-export function clearCompressionCache() {
-  cachedConfig = null;
-}
-
-async function getQualityForSize(fileSizeMB: number): Promise<number> {
-  const config = await getCompressionConfig();
-  const sorted = [...config.thresholds].sort((a, b) => a.minSizeMB - b.minSizeMB);
-  for (const t of sorted) {
-    if (fileSizeMB >= t.minSizeMB && (t.maxSizeMB === null || fileSizeMB <= t.maxSizeMB)) {
-      return t.quality / 100;
-    }
-  }
-  return 0.8;
-}
-
 export async function compressImage(file: File): Promise<File> {
-  const fileSizeMB = file.size / (1024 * 1024);
-  const quality = await getQualityForSize(fileSizeMB);
-  const targetMaxMB = Math.max(0.5, fileSizeMB * 0.8);
+  // If not an image or SVG/GIF (which lose animation/vector data), return original
+  if (!file.type.startsWith('image/') || file.type === 'image/svg+xml' || file.type === 'image/gif') {
+    return file;
+  }
 
+  const config = await getCompressionConfig();
+  const fileSizeMB = file.size / (1024 * 1024);
+
+  // Find matching threshold based on original file size
+  const matchedThreshold = config.thresholds.find((t) => {
+    const min = t.minSizeMB ?? 0;
+    const max = t.maxSizeMB ?? Infinity;
+    return fileSizeMB >= min && fileSizeMB < max;
+  }) ?? config.thresholds[0] ?? { quality: 70, minSizeMB: 0, maxSizeMB: null };
+
+  // 1. Convert quality integer (1-100) to library ratio (0.01 - 1.0)
+  const normalizedQuality = Math.min(Math.max((matchedThreshold.quality || 70) / 100, 0.05), 1.0);
+
+  // 2. Configure browser-image-compression
   const options = {
-    maxSizeMB: targetMaxMB,
+    maxSizeMB: matchedThreshold.maxSizeMB ?? 2,
     maxWidthOrHeight: 1920,
     useWebWorker: true,
-    fileType: 'image/webp',
-    quality,
+    initialQuality: normalizedQuality,
+    fileType: 'image/webp', // Converts PNG/JPEG to WebP so the quality rate takes effect
   };
 
   try {
-    return await imageCompression(file, options);
-  } catch {
-    return file; // fallback to original
+    const compressedBlob = await imageCompression(file, options);
+
+    // Swap original extension to .webp
+    const originalName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+    const outputFilename = `${originalName}.webp`;
+
+    return new File([compressedBlob], outputFilename, {
+      type: 'image/webp',
+      lastModified: Date.now(),
+    });
+  } catch (error) {
+    console.error('Image compression failed, proceeding with original file:', error);
+    return file;
   }
 }

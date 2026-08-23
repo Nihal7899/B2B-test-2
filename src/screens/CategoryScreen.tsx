@@ -1,6 +1,6 @@
 // screens/CategoryScreen.tsx
 import { useEffect, useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, SlidersHorizontal } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
 import { fetchCategories, fetchProductsBySubcategory } from '@/services/catalog';
@@ -15,6 +15,7 @@ interface CategoryScreenProps {
 export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps) {
   const [searchParams] = useSearchParams();
   const categoryId = searchParams.get('id');
+  const navigate = useNavigate();
 
   const [category, setCategory] = useState<Category | null>(null);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
@@ -52,6 +53,15 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
     if (!query) return products;
     return products.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
   }, [products, query]);
+
+  const categoryTheme = useMemo(() => {
+    if (!category) return undefined;
+    return {
+      primaryColor: category.gradient || '#10b981',
+      gradientFrom: category.gradient || '#10b981',
+      gradientTo: category.gradient || '#10b981',
+    };
+  }, [category]);
 
   if (loading || !category) {
     return <div className="flex items-center justify-center min-h-[50vh]"><div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" /></div>;
@@ -143,15 +153,16 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
           ) : (
             <div className="grid grid-cols-2 gap-3">
               {filteredProducts.map((p) => (
-                <div key={p.id} onClick={() => onProduct(p)} className="cursor-pointer">
+                <div key={p.id} className="cursor-pointer">
                   <ProductCard
                     product={p}
                     quantity={cart.getQuantity?.(p.id) || 0}
                     onAdd={() => cart.addToCart?.(p)}
                     onIncrement={() => cart.addToCart?.(p)}
                     onDecrement={() => cart.updateQuantity?.(p.id, (cart.getQuantity?.(p.id) || 0) - 1)}
-                    onClick={() => onProduct(p)}
+                    onClick={() => navigate(`/product?id=${p.id}&categoryId=${category.id}`)}
                     horizontal={false}
+                    theme={categoryTheme}
                   />
                 </div>
               ))}

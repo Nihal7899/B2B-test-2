@@ -14,6 +14,7 @@ import {
   fetchVolumePricing,
   fetchStoreConfig,
   fetchBrandById,
+  fetchCategories,
 } from '@/services/catalog';
 import { getStoreTheme, setStoreTheme } from '@/context/StoreContext';
 
@@ -39,6 +40,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
   const [searchParams] = useSearchParams();
   const storeId = searchParams.get('storeId');
   const brandId = searchParams.get('brandId');
+  const categoryId = searchParams.get('categoryId');
 
   // 🔥 Get theme – from store global map, or brand (fetched), or default
   const [theme, setTheme] = useState(() => {
@@ -87,7 +89,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     }
   }, [storeId]);
 
-  // Fetch product and brand (if brandId present)
+  // Fetch product and apply themes (brand, store, or category)
   useEffect(() => {
     void (async () => {
       setLoading(true);
@@ -118,11 +120,29 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
             // Store in global map for future visits
             setStoreTheme(`brand_${brandId}`, t);
           }
+        } 
+        // If categoryId is provided, apply category theme
+        else if (categoryId) {
+          const { categories } = await fetchCategories();
+          const category = categories.find(c => c.id === categoryId);
+          if (category) {
+            const t = {
+              primaryColor: category.gradient || '#10b981',
+              secondaryColor: category.gradient || '#059669',
+              textColor: '#1f2937',
+              borderColor: '#e5e7eb',
+              buttonStyle: 'brand' as const,
+              gradientFrom: category.gradient || '#065f46',
+              gradientTo: category.gradient || '#16a34a',
+            };
+            setTheme(t);
+            setStoreTheme(`category_${categoryId}`, t);
+          }
         }
       }
       setLoading(false);
     })();
-  }, [productId, brandId]);
+  }, [productId, brandId, categoryId]);
 
   if (loading) return <div className="flex items-center justify-center min-h-[50vh]"><div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" /></div>;
   if (!product) return <div className="flex flex-col items-center justify-center min-h-[50vh] text-center"><p className="text-sm text-ink-500">Product not found</p><button onClick={onBack} className="mt-3 text-sm font-bold text-brand-600">Go back</button></div>;
@@ -147,12 +167,13 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     setWishlistBusy(false);
   };
 
-  // Navigation for related products – preserve brandId
+  // Navigation for related products – preserve brandId, storeId, and categoryId
   const handleProductClick = (p: Product) => {
     const params = new URLSearchParams();
     params.set('id', p.id);
     if (brandId) params.set('brandId', brandId);
     if (storeId) params.set('storeId', storeId);
+    if (categoryId) params.set('categoryId', categoryId);
     navigate(`/product?${params.toString()}`);
   };
 

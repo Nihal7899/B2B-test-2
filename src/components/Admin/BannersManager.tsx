@@ -1,7 +1,7 @@
 // src/components/admin/BannersManager.tsx
 import { useEffect, useState, useCallback } from 'react';
 import {
-  Plus, Pencil, Trash2, X, Eye, Copy, ArrowUp, ArrowDown, ImageIcon, Loader2, Save, Upload
+  Plus, Pencil, Trash2, X, Eye, Copy, ArrowUp, ArrowDown, ImageIcon, Loader2, Save
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { HomeBanner, ActionType, DbCategory, DbProduct } from '@/types';
@@ -403,12 +403,6 @@ function BannerForm({
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
-    // Do not upload yet
-  };
-
-  const handleImageUpload = (file: File) => {
-    // Just preview, upload on save
-    handleFileSelect(file);
   };
 
   const setActionConfig = (key: string, value: unknown) => {
@@ -424,62 +418,82 @@ function BannerForm({
       addToast('Please upload an image for full‑screen banner.', 'warning');
       return;
     }
-  
+
     setSaving(true);
     let newImageUrl = form.image_url;
-  
+
     try {
       if (selectedFile) {
         setUploading(true);
         setUploadProgress(0);
         setUploadStatus('Compressing image...');
-  
-        // ---- Compression phase (simulate progress) ----
-        // Simulate compression progress from 0 to 30
-        const compressionSteps = 10;
+
+        // Simulate compression progress (0-30%)
+        const compressionSteps = 8;
         for (let i = 0; i <= compressionSteps; i++) {
           const progress = Math.min(30, (i / compressionSteps) * 30);
           setUploadProgress(progress);
           setUploadStatus(`Compressing... ${Math.round(progress)}%`);
-          await new Promise((resolve) => setTimeout(resolve, 150)); // simulate work
+          await new Promise((resolve) => setTimeout(resolve, 120));
         }
-  
-        // Actually compress
+
+        // Actual compression
         const compressed = await compressImage(selectedFile);
         setUploadStatus('Compression complete. Uploading...');
-  
-        // ---- Upload phase (progress 30-100) ----
         setUploadProgress(30);
+
+        // Upload with progress callback (30-100%)
         const uploadProgressCallback = (uploadPercent: number) => {
-          // Map upload percent (0-100) to overall 30-100
           const overall = 30 + (uploadPercent * 0.7);
           setUploadProgress(Math.min(100, overall));
           setUploadStatus(`Uploading... ${Math.round(overall)}%`);
         };
-  
+
         newImageUrl = await uploadBannerImage(compressed, uploadProgressCallback);
-  
-        // Ensure we reach 100%
+
         setUploadProgress(100);
         setUploadStatus('Upload complete!');
-  
+
         // Delete old image if different
         if (originalImageUrl && originalImageUrl !== newImageUrl) {
           await deleteBannerImage(originalImageUrl);
         }
       }
-  
-      // Build and save payload (same as before)
-      const payload = { ... };
+
+      // Build payload
+      const payload = {
+        badge: form.badge || null,
+        title: form.title,
+        description: form.description,
+        image_url: newImageUrl || null,
+        background_color: form.background_color,
+        button_text: form.button_text,
+        action_type: form.action_type,
+        action_config: form.action_config,
+        display_order: form.display_order,
+        is_active: form.is_active,
+        position: form.position,
+        start_at: form.start_at || null,
+        end_at: form.end_at || null,
+        bg_type: form.bg_type,
+        bg_color: form.bg_color,
+        bg_gradient: form.bg_gradient,
+        overlay_enabled: form.overlay_enabled,
+        overlay_color: form.overlay_color,
+        overlay_opacity: form.overlay_opacity,
+        show_cta: form.show_cta,
+      };
+
       if (initial) {
         await updateHomeBanner(initial.id, payload);
       } else {
         await createHomeBanner(payload);
       }
+
       onSaved();
     } catch (err) {
       console.error(err);
-      addToast('Failed to save banner. Check console.', 'error');
+      addToast('Failed to save banner. Check console for details.', 'error');
     } finally {
       setSaving(false);
       setUploading(false);
@@ -488,11 +502,18 @@ function BannerForm({
     }
   };
 
-  // Show upload progress overlay
+  // Show circular upload overlay
   if (uploading) {
-    return <UploadProgress progress={uploadProgress} statusText={uploadStatus} />;
+    return (
+      <UploadProgress
+        progress={uploadProgress}
+        statusText={uploadStatus}
+        isComplete={uploadProgress >= 100}
+      />
+    );
   }
 
+  // Render form (same as before, mobile friendly)
   const needsCategory = form.action_type === 'VIEW_CATEGORY' || form.action_type === 'FILTER_PRODUCTS';
   const needsProduct = form.action_type === 'VIEW_PRODUCT';
   const needsBrand = form.action_type === 'VIEW_BRAND' || form.action_type === 'FILTER_PRODUCTS';
@@ -511,7 +532,7 @@ function BannerForm({
         </button>
       </div>
 
-      {/* Basic fields - all full width for mobile */}
+      {/* Basic fields */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Badge</label>
         <input
@@ -552,14 +573,14 @@ function BannerForm({
             className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
           <label className="h-10 px-3 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer">
-            {uploading ? <Loader2 size={14} className="animate-spin" /> : <><ImageIcon size={14} /> Upload</>}
+            <ImageIcon size={14} /> Upload
             <input
               type="file"
               accept="image/*"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) handleImageUpload(f);
+                if (f) handleFileSelect(f);
               }}
             />
           </label>
@@ -576,7 +597,7 @@ function BannerForm({
         )}
       </div>
 
-      {/* Background Type */}
+      {/* Background type */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Background Type</label>
         <select

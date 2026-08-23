@@ -6,16 +6,13 @@ import {
   ShoppingCart,
   Plus,
   Minus,
-  CheckCircle2,
+  Leaf,
+  ShieldCheck,
   Package,
   Sparkles,
-  Truck,
 } from 'lucide-react';
 import type { Product } from '@/types';
 import { OfferBadge } from './OfferBadge';
-
-// Stable empty object
-const DEFAULT_THEME: ThemeProps = {};
 
 interface ThemeProps {
   primaryColor?: string;
@@ -28,6 +25,8 @@ interface ThemeProps {
   gradientFrom?: string;
   gradientTo?: string;
 }
+
+const DEFAULT_THEME: ThemeProps = {};
 
 interface ProductCardProps {
   product: Product;
@@ -59,14 +58,12 @@ export const ProductCard = React.memo(function ProductCard({
     secondaryColor = '#059669',
     textColor = '#172033',
     borderColor = '#e8edf0',
+    buttonStyle = 'brand',
   } = theme;
 
   const discount =
     product.mrp > 0
-      ? Math.max(
-          0,
-          Math.round(((product.mrp - product.price) / product.mrp) * 100)
-        )
+      ? Math.round(((product.mrp - product.price) / product.mrp) * 100)
       : 0;
 
   const [added, setAdded] = useState(false);
@@ -74,6 +71,7 @@ export const ProductCard = React.memo(function ProductCard({
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     onAdd(product);
+
     setAdded(true);
 
     setTimeout(() => {
@@ -100,36 +98,55 @@ export const ProductCard = React.memo(function ProductCard({
     [primaryColor, secondaryColor]
   );
 
+  /*
+   * Static for now.
+   * Later these can come from product.config / database.
+   */
+  const productTag =
+    discount >= 10 ? 'BEST DEAL' : 'FRESH';
+
+  const productQuality =
+    discount >= 10 ? 'Best Seller' : 'Farm Fresh';
+
+  const features = [
+    {
+      icon: Leaf,
+      label: 'Fresh',
+    },
+    {
+      icon: ShieldCheck,
+      label: 'Quality',
+    },
+    {
+      icon: Package,
+      label: 'Bulk',
+    },
+  ];
+
   return (
     <article
       onClick={() => onClick(product)}
       className={`
-        group relative flex shrink-0 cursor-pointer flex-col
-        overflow-hidden bg-white
+        group relative flex flex-col overflow-hidden
+        cursor-pointer bg-white
         border
-        rounded-[24px]
+        ${horizontal ? 'w-[168px] shrink-0' : 'w-full'}
+        rounded-[22px]
         transition-all duration-300
         hover:-translate-y-1
-        hover:shadow-[0_18px_40px_rgba(15,23,42,0.14)]
+        hover:shadow-[0_14px_35px_rgba(15,23,42,0.14)]
         active:scale-[0.985]
-        ${horizontal ? 'w-[158px]' : 'w-full'}
       `}
       style={{
         borderColor,
-        boxShadow: '0 7px 24px rgba(15, 23, 42, 0.08)',
+        boxShadow: '0 6px 20px rgba(15, 23, 42, 0.08)',
       }}
     >
-      {/* =========================================================
-          IMAGE AREA
-      ========================================================= */}
+      {/* =====================================================
+          PRODUCT IMAGE
+      ===================================================== */}
 
-      <div
-        className={`
-          relative overflow-hidden
-          bg-slate-100
-          ${horizontal ? 'h-[142px]' : 'h-[220px]'}
-        `}
-      >
+      <div className="relative h-[142px] overflow-hidden bg-slate-50">
         <img
           src={product.image}
           alt={product.name}
@@ -145,24 +162,56 @@ export const ProductCard = React.memo(function ProductCard({
         />
 
         {/* Soft image gradient */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/5" />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-25"
+          style={{
+            background: `linear-gradient(
+              145deg,
+              ${primaryColor}55,
+              transparent 55%,
+              ${secondaryColor}22
+            )`,
+          }}
+        />
 
-        {/* =====================================================
-            DISCOUNT BADGE
-        ===================================================== */}
+        {/* Bottom image fade */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/20 to-transparent" />
 
-        {discount > 0 && (
-          <div className="absolute left-2.5 top-2.5">
-            <OfferBadge
-              discountPercent={discount}
-              color={primaryColor}
-            />
-          </div>
-        )}
+        {/* =================================================
+            DEAL BADGE
+        ================================================= */}
 
-        {/* =====================================================
+        <div className="absolute left-2.5 top-2.5">
+          {discount > 0 ? (
+            <div
+              className="
+                flex items-center gap-1
+                rounded-full
+                px-2.5 py-1
+                text-[8px]
+                font-black
+                tracking-wide
+                text-white
+                shadow-md
+                backdrop-blur-sm
+              "
+              style={{
+                backgroundColor: primaryColor,
+              }}
+            >
+              <Sparkles size={9} strokeWidth={2.5} />
+              {discount}% OFF
+            </div>
+          ) : (
+            <div className="rounded-full bg-white/90 px-2.5 py-1 text-[8px] font-black tracking-wide text-slate-700 shadow-sm backdrop-blur-md">
+              {productTag}
+            </div>
+          )}
+        </div>
+
+        {/* =================================================
             WISHLIST
-        ===================================================== */}
+        ================================================= */}
 
         <button
           onClick={handleWishlistClick}
@@ -171,10 +220,10 @@ export const ProductCard = React.memo(function ProductCard({
             flex h-8 w-8
             items-center justify-center
             rounded-full
-            border border-white/60
+            border border-white/70
             bg-white/90
-            text-slate-700
-            shadow-lg
+            text-slate-500
+            shadow-md
             backdrop-blur-md
             transition-all
             hover:scale-105
@@ -187,258 +236,265 @@ export const ProductCard = React.memo(function ProductCard({
           }
         >
           <Heart
-            size={15}
+            size={14}
             strokeWidth={2.2}
             className={
               isWishlisted
                 ? 'fill-red-500 text-red-500'
-                : ''
+                : 'text-slate-600'
             }
           />
         </button>
 
-        {/* =====================================================
-            STATIC QUALITY BADGE
-            Later make dynamic
-        ===================================================== */}
+        {/* =================================================
+            QUALITY FLOATING BADGE
+        ================================================= */}
 
         <div
           className="
-            absolute bottom-2.5 left-2.5
-            flex items-center gap-1
+            absolute
+            bottom-2
+            right-2
+            flex
+            items-center
+            gap-1
             rounded-full
-            border border-white/50
-            bg-white/90
-            px-2 py-1
+            border
+            border-white
+            bg-white/95
+            px-2
+            py-1
             shadow-md
             backdrop-blur-md
           "
         >
-          <CheckCircle2
-            size={10}
-            strokeWidth={2.7}
+          <Leaf
+            size={9}
+            strokeWidth={2.5}
             style={{ color: primaryColor }}
           />
 
-          <span className="text-[7px] font-extrabold tracking-wide text-slate-700">
-            QUALITY
+          <span
+            className="text-[7px] font-extrabold"
+            style={{ color: primaryColor }}
+          >
+            {productQuality}
           </span>
-        </div>
-
-        {/* Decorative floating icon */}
-        <div
-          className="
-            absolute bottom-[-17px] right-[-12px]
-            flex h-[48px] w-[48px]
-            items-center justify-center
-            rounded-full
-            border-[3px] border-white
-            shadow-lg
-          "
-          style={{
-            backgroundColor: `${primaryColor}18`,
-          }}
-        >
-          <Package
-            size={18}
-            strokeWidth={2}
-            style={{ color: primaryColor }}
-          />
         </div>
       </div>
 
-      {/* =========================================================
-          CURVED CONTENT AREA
-      ========================================================= */}
+      {/* =====================================================
+          CURVED CONTENT TOP
+      ===================================================== */}
 
-      <div className="relative flex flex-1 flex-col px-3 pb-3 pt-3">
-        {/* Decorative curved accent */}
+      <div className="relative bg-white">
+        {/* Decorative accent curve */}
         <div
-          className="
-            pointer-events-none
-            absolute -top-[17px]
-            left-0
-            h-[30px]
-            w-[70%]
-            rounded-tr-[100%]
-          "
+          className="absolute -top-[17px] left-0 h-[25px] w-full"
           style={{
-            backgroundColor: `${primaryColor}18`,
+            backgroundColor: 'white',
+            clipPath: 'ellipse(70% 75% at 25% 100%)',
           }}
         />
 
-        {/* =====================================================
-            BRAND
-        ===================================================== */}
+        {/* Small accent line */}
+        <div
+          className="absolute -top-[3px] left-4 h-[3px] w-9 rounded-full opacity-80"
+          style={{
+            backgroundColor: primaryColor,
+          }}
+        />
 
-        <div className="relative flex items-center gap-1">
-          <span
-            className="
-              truncate
-              text-[9px]
-              font-black
-              uppercase
-              tracking-[0.05em]
-            "
-            style={{ color: primaryColor }}
-          >
-            {product.brand}
-          </span>
+        {/* =================================================
+            CONTENT
+        ================================================= */}
 
-          {/* Static verification */}
-          <CheckCircle2
-            size={10}
-            strokeWidth={2.8}
-            style={{ color: primaryColor }}
-          />
-        </div>
+        <div className="relative px-3 pb-3 pt-1.5">
+          {/* Brand */}
+          <div className="flex items-center gap-1">
+            <p
+              className="
+                max-w-[105px]
+                truncate
+                text-[9px]
+                font-black
+                uppercase
+                tracking-[0.04em]
+              "
+              style={{ color: primaryColor }}
+            >
+              {product.brand}
+            </p>
 
-        {/* =====================================================
-            PRODUCT NAME
-        ===================================================== */}
-
-        <h3
-          className="
-            mt-1
-            line-clamp-2
-            min-h-[30px]
-            text-[12px]
-            font-extrabold
-            leading-[1.15]
-            tracking-[-0.15px]
-          "
-          style={{ color: textColor }}
-        >
-          {product.name}
-        </h3>
-
-        {/* =====================================================
-            META PILLS
-        ===================================================== */}
-
-        <div className="mt-2 flex items-center gap-1 overflow-hidden">
-          <div className="flex shrink-0 items-center gap-1 rounded-full bg-slate-50 px-2 py-1">
-            <Package
-              size={9}
-              strokeWidth={2}
-              className="text-slate-400"
-            />
-
-            <span className="text-[8px] font-bold text-slate-500">
-              {product.packSize}
-            </span>
+            {/* Static verified mark */}
+            <div
+              className="flex h-3.5 w-3.5 items-center justify-center rounded-full"
+              style={{
+                backgroundColor: `${primaryColor}18`,
+              }}
+            >
+              <ShieldCheck
+                size={9}
+                strokeWidth={2.8}
+                style={{ color: primaryColor }}
+              />
+            </div>
           </div>
 
-          <div className="shrink-0 rounded-full bg-slate-50 px-2 py-1">
-            <span className="text-[8px] font-bold text-slate-500">
+          {/* Product name */}
+          <h3
+            className="
+              mt-1
+              line-clamp-2
+              min-h-[29px]
+              text-[12px]
+              font-extrabold
+              leading-[1.2]
+              tracking-[-0.15px]
+            "
+            style={{ color: textColor }}
+          >
+            {product.name}
+          </h3>
+
+          {/* =================================================
+              META
+          ================================================= */}
+
+          <div className="mt-1.5 flex items-center gap-1">
+            <span
+              className="
+                rounded-md
+                bg-slate-50
+                px-1.5
+                py-1
+                text-[8px]
+                font-bold
+                text-slate-500
+              "
+            >
+              {product.packSize}
+            </span>
+
+            <span className="text-[9px] text-slate-300">•</span>
+
+            <span
+              className="
+                rounded-md
+                bg-slate-50
+                px-1.5
+                py-1
+                text-[8px]
+                font-bold
+                text-slate-500
+              "
+            >
               MOQ {product.moq}
             </span>
           </div>
-        </div>
 
-        {/* =====================================================
-            RATING
-        ===================================================== */}
+          {/* =================================================
+              RATING
+          ================================================= */}
 
-        <div className="mt-2 flex items-center gap-1">
-          <div className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1">
-            <Star
-              size={10}
-              className="fill-amber-400 text-amber-400"
-            />
-
-            <span className="text-[8px] font-extrabold text-slate-700">
-              {product.rating}
-            </span>
-          </div>
-
-          {/* Static for now */}
-          <span className="text-[8px] font-medium text-slate-400">
-            Trusted
-          </span>
-        </div>
-
-        {/* =========================================================
-            STATIC FEATURE STRIP
-        ========================================================= */}
-
-        <div className="mt-2 flex items-center gap-1">
-          <div
-            className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg py-1.5"
-            style={{
-              backgroundColor: `${primaryColor}0d`,
-            }}
-          >
-            <Sparkles
-              size={9}
-              style={{ color: primaryColor }}
-            />
-
-            <span
-              className="truncate text-[7px] font-bold"
-              style={{ color: primaryColor }}
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <div
+              className="
+                flex items-center gap-1
+                rounded-full
+                bg-amber-50
+                px-1.5
+                py-0.5
+              "
             >
-              Fresh
+              <Star
+                size={9}
+                className="fill-amber-400 text-amber-400"
+              />
+
+              <span className="text-[9px] font-bold text-slate-700">
+                {product.rating}
+              </span>
+            </div>
+
+            <span className="text-[8px] text-slate-400">
+              Trusted
             </span>
           </div>
 
-          <div className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg bg-slate-50 py-1.5">
-            <Truck
-              size={9}
-              className="text-slate-500"
-            />
+          {/* =================================================
+              MINI FEATURES
+          ================================================= */}
 
-            <span className="truncate text-[7px] font-bold text-slate-500">
-              Delivery
-            </span>
+          <div className="mt-2 flex items-center gap-1">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+
+              return (
+                <div
+                  key={feature.label}
+                  className="
+                    flex
+                    min-w-0
+                    flex-1
+                    items-center
+                    justify-center
+                    gap-1
+                    rounded-lg
+                    bg-slate-50
+                    px-1
+                    py-1.5
+                  "
+                >
+                  <Icon
+                    size={9}
+                    strokeWidth={2.3}
+                    style={{ color: primaryColor }}
+                  />
+
+                  <span className="truncate text-[7px] font-bold text-slate-500">
+                    {feature.label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        </div>
 
-        {/* =========================================================
-            PRICE + ACTION
-        ========================================================= */}
+          {/* =================================================
+              PRICE + CART
+          ================================================= */}
 
-        <div className="mt-auto pt-3">
-          <div className="flex items-end justify-between gap-1">
-            {/* Price */}
+          <div className="mt-2.5 flex items-end justify-between gap-1">
             <div className="min-w-0">
               <div className="flex items-center gap-1">
-                {product.mrp > product.price && (
-                  <p className="truncate text-[8px] font-medium text-slate-400 line-through">
-                    MRP ₹{product.mrp}
-                  </p>
-                )}
+                <p className="text-[8px] font-medium text-slate-400 line-through">
+                  MRP ₹{product.mrp}
+                </p>
 
                 {discount > 0 && (
-                  <span
-                    className="rounded-full px-1.5 py-0.5 text-[7px] font-extrabold"
-                    style={{
-                      backgroundColor: `${primaryColor}12`,
-                      color: primaryColor,
-                    }}
-                  >
+                  <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[7px] font-extrabold text-red-500">
                     {discount}% OFF
                   </span>
                 )}
               </div>
 
-              <div className="flex items-baseline gap-0.5">
+              <div className="mt-0.5 flex items-baseline gap-0.5">
                 <span
-                  className="text-[19px] font-black leading-none tracking-[-0.5px]"
+                  className="text-[18px] font-black leading-none tracking-[-0.5px]"
                   style={{ color: primaryColor }}
                 >
                   ₹{product.price}
                 </span>
 
-                <span className="text-[8px] font-semibold text-slate-400">
-                  /{String(product.packSize).split(' ')[1] || ''}
+                <span className="text-[7px] font-semibold text-slate-400">
+                  /{product.packSize}
                 </span>
               </div>
             </div>
 
-            {/* ===================================================
-                ADD / QUANTITY
-            =================================================== */}
+            {/* =================================================
+                CART STATE
+            ================================================= */}
 
             {quantity > 0 ? (
               <QuantitySelector
@@ -448,10 +504,12 @@ export const ProductCard = React.memo(function ProductCard({
                 theme={quantityTheme}
               />
             ) : added ? (
-              <div
+              <span
                 className="
-                  flex h-8
-                  items-center gap-1
+                  flex
+                  h-8
+                  items-center
+                  gap-1
                   rounded-xl
                   px-2.5
                   text-[9px]
@@ -463,31 +521,44 @@ export const ProductCard = React.memo(function ProductCard({
                   backgroundColor: primaryColor,
                 }}
               >
-                <CheckCircle2 size={12} />
-                Added
-              </div>
+                ✓ Added
+              </span>
             ) : (
               <button
                 onClick={handleAdd}
                 className="
-                  flex h-9
-                  items-center gap-1.5
+                  flex
+                  h-8
+                  items-center
+                  gap-1
                   rounded-xl
-                  px-3
+                  px-2.5
                   text-[10px]
                   font-extrabold
-                  text-white
                   shadow-md
                   transition-all
-                  hover:shadow-lg
                   active:scale-95
                 "
-                style={{
-                  background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
-                }}
+                style={
+                  buttonStyle === 'outline'
+                    ? {
+                        backgroundColor: 'white',
+                        border: `1px solid ${primaryColor}`,
+                        color: primaryColor,
+                      }
+                    : buttonStyle === 'ghost'
+                    ? {
+                        backgroundColor: `${primaryColor}12`,
+                        color: primaryColor,
+                      }
+                    : {
+                        backgroundColor: primaryColor,
+                        color: 'white',
+                      }
+                }
               >
                 <ShoppingCart
-                  size={13}
+                  size={12}
                   strokeWidth={2.6}
                 />
 
@@ -501,9 +572,9 @@ export const ProductCard = React.memo(function ProductCard({
   );
 });
 
-// ================================================================
+// =============================================================
 // QUANTITY SELECTOR
-// ================================================================
+// =============================================================
 
 interface QuantitySelectorProps {
   quantity: number;
@@ -516,91 +587,98 @@ interface QuantitySelectorProps {
   };
 }
 
-export const QuantitySelector = React.memo(
-  function QuantitySelector({
-    quantity,
-    onIncrement,
-    onDecrement,
-    size = 'sm',
-    theme = DEFAULT_THEME,
-  }: QuantitySelectorProps) {
-    const {
-      primaryColor = '#10b981',
-    } = theme;
+export const QuantitySelector = React.memo(function QuantitySelector({
+  quantity,
+  onIncrement,
+  onDecrement,
+  size = 'sm',
+  theme = DEFAULT_THEME,
+}: QuantitySelectorProps) {
+  const {
+    primaryColor = '#10b981',
+  } = theme;
 
-    const isSmall = size === 'sm';
+  const buttonSize =
+    size === 'md'
+      ? 'h-7 w-7'
+      : 'h-6 w-6';
 
-    return (
-      <div
-        className="
-          flex items-center
-          gap-0.5
-          rounded-xl
-          p-1
-        "
-        style={{
-          backgroundColor: `${primaryColor}12`,
+  return (
+    <div
+      className="
+        flex
+        items-center
+        gap-0.5
+        rounded-xl
+        p-0.5
+        shadow-sm
+      "
+      style={{
+        backgroundColor: `${primaryColor}18`,
+      }}
+    >
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDecrement();
         }}
+        className={`
+          flex
+          ${buttonSize}
+          items-center
+          justify-center
+          rounded-lg
+          bg-white
+          shadow-sm
+          transition
+          active:scale-90
+        `}
+        style={{ color: primaryColor }}
+        aria-label="Decrease quantity"
       >
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDecrement();
-          }}
-          className={`
-            flex items-center justify-center
-            rounded-lg bg-white
-            shadow-sm
-            transition
-            hover:bg-slate-50
-            active:scale-90
-            ${isSmall ? 'h-6 w-6' : 'h-8 w-8'}
-          `}
-          style={{ color: primaryColor }}
-          aria-label="Decrease quantity"
-        >
-          <Minus size={isSmall ? 12 : 15} strokeWidth={2.5} />
-        </button>
+        <Minus size={12} />
+      </button>
 
-        <span
-          className={`
-            min-w-[17px]
-            text-center
-            font-black
-            ${isSmall ? 'text-[10px]' : 'text-sm'}
-          `}
-          style={{ color: primaryColor }}
-        >
-          {quantity}
-        </span>
+      <span
+        className="
+          min-w-[18px]
+          text-center
+          text-[10px]
+          font-black
+        "
+        style={{ color: primaryColor }}
+      >
+        {quantity}
+      </span>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onIncrement();
-          }}
-          className={`
-            flex items-center justify-center
-            rounded-lg bg-white
-            shadow-sm
-            transition
-            hover:bg-slate-50
-            active:scale-90
-            ${isSmall ? 'h-6 w-6' : 'h-8 w-8'}
-          `}
-          style={{ color: primaryColor }}
-          aria-label="Increase quantity"
-        >
-          <Plus size={isSmall ? 12 : 15} strokeWidth={2.5} />
-        </button>
-      </div>
-    );
-  }
-);
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onIncrement();
+        }}
+        className={`
+          flex
+          ${buttonSize}
+          items-center
+          justify-center
+          rounded-lg
+          bg-white
+          shadow-sm
+          transition
+          active:scale-90
+        `}
+        style={{ color: primaryColor }}
+        aria-label="Increase quantity"
+      >
+        <Plus size={12} />
+      </button>
+    </div>
+  );
+});
 
-// ================================================================
+// =============================================================
 // PRODUCT CAROUSEL
-// ================================================================
+// =============================================================
 
 interface ProductCarouselProps {
   title: string;
@@ -616,99 +694,93 @@ interface ProductCarouselProps {
   onWishlistToggle?: (id: string) => void;
 }
 
-export const ProductCarousel = React.memo(
-  function ProductCarousel({
-    title,
-    products,
-    getQuantity,
-    onAdd,
-    onIncrement,
-    onDecrement,
-    onProductClick,
-    onViewAll,
-    theme = DEFAULT_THEME,
-    wishlist = [],
-    onWishlistToggle,
-  }: ProductCarouselProps) {
-    return (
-      <section>
-        {/* =======================================================
-            SECTION HEADER
-        ======================================================= */}
+export const ProductCarousel = React.memo(function ProductCarousel({
+  title,
+  products,
+  getQuantity,
+  onAdd,
+  onIncrement,
+  onDecrement,
+  onProductClick,
+  onViewAll,
+  theme = DEFAULT_THEME,
+  wishlist = [],
+  onWishlistToggle,
+}: ProductCarouselProps) {
+  return (
+    <section>
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
 
-        <div className="mb-3 flex items-center justify-between px-4">
-          <div className="flex items-start gap-2">
-            <div
-              className="
-                mt-0.5
-                h-7
-                w-1
-                rounded-full
-              "
-              style={{
-                backgroundColor:
-                  theme.primaryColor || '#10b981',
-              }}
-            />
-
-            <div>
-              <h2 className="text-[17px] font-black tracking-[-0.4px] text-slate-900">
-                {title}
-              </h2>
-
-              {/* Static subtitle */}
-              <p className="mt-0.5 text-[9px] font-medium text-slate-400">
-                Fresh deals for your business
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={onViewAll}
-            className="
-              flex items-center gap-1
-              rounded-full
-              border
-              px-3
-              py-1.5
-              text-[10px]
-              font-extrabold
-              transition
-              active:scale-95
-            "
+      <div className="mb-3 flex items-center justify-between px-4">
+        <div className="flex items-center gap-2">
+          <div
+            className="h-6 w-1 rounded-full"
             style={{
-              borderColor: `${theme.primaryColor || '#10b981'}30`,
-              color: theme.primaryColor || '#10b981',
-              backgroundColor: `${theme.primaryColor || '#10b981'}08`,
+              backgroundColor:
+                theme.primaryColor || '#10b981',
             }}
-          >
-            View All
-            <span className="text-[12px]">→</span>
-          </button>
+          />
+
+          <div>
+            <h2 className="text-base font-black tracking-tight text-slate-900">
+              {title}
+            </h2>
+
+            <p className="text-[9px] font-medium text-slate-400">
+              Fresh deals for your business
+            </p>
+          </div>
         </div>
 
-        {/* =======================================================
-            PRODUCTS
-        ======================================================= */}
+        <button
+          onClick={onViewAll}
+          className="
+            flex
+            items-center
+            gap-1
+            rounded-full
+            border
+            px-3
+            py-1.5
+            text-[10px]
+            font-extrabold
+            transition
+            active:scale-95
+          "
+          style={{
+            color: theme.primaryColor || '#059669',
+            borderColor: `${theme.primaryColor || '#10b981'}35`,
+            backgroundColor: `${theme.primaryColor || '#10b981'}08`,
+          }}
+        >
+          View All
+          <span className="text-[12px]">→</span>
+        </button>
+      </div>
 
-        <div className="flex gap-3 overflow-x-auto px-4 pb-2 no-scrollbar scroll-touch transform-gpu">
-          {products.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              quantity={getQuantity(product.id)}
-              onAdd={onAdd}
-              onIncrement={onIncrement}
-              onDecrement={onDecrement}
-              onClick={onProductClick}
-              horizontal
-              theme={theme}
-              isWishlisted={wishlist.includes(product.id)}
-              onWishlistToggle={onWishlistToggle}
-            />
-          ))}
-        </div>
-      </section>
-    );
-  }
-);
+      {/* =====================================================
+          PRODUCTS
+      ===================================================== */}
+
+      <div className="flex gap-3 overflow-x-auto px-4 pb-2 no-scrollbar scroll-touch transform-gpu">
+        {products.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            quantity={getQuantity(product.id)}
+            onAdd={onAdd}
+            onIncrement={onIncrement}
+            onDecrement={onDecrement}
+            onClick={onProductClick}
+            horizontal
+            theme={theme}
+            isWishlisted={wishlist.includes(product.id)}
+            onWishlistToggle={onWishlistToggle}
+          />
+        ))}
+      </div>
+    </section>
+  );
+});

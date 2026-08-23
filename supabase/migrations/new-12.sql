@@ -134,3 +134,115 @@ ON CONFLICT (key) DO NOTHING;
 
 
 
+-- =========================================================
+-- CATEGORY-IMAGES STORAGE BUCKET
+-- =========================================================
+
+-- Create public bucket
+insert into storage.buckets (id, name, public)
+values ('category-images', 'category-images', true)
+on conflict (id) do nothing;
+
+
+-- Anyone can view/download category images
+create policy "Anyone can view category images"
+on storage.objects
+for select
+to public
+using (
+  bucket_id = 'category-images'
+);
+
+
+-- Admin can upload category images
+create policy "Admins can upload category images"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'category-images'
+  and auth_helpers.is_admin()
+);
+
+
+-- Admin can update category images
+create policy "Admins can update category images"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'category-images'
+  and auth_helpers.is_admin()
+)
+with check (
+  bucket_id = 'category-images'
+  and auth_helpers.is_admin()
+);
+
+
+-- Admin can delete category images
+create policy "Admins can delete category images"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'category-images'
+  and auth_helpers.is_admin()
+);
+
+
+-- =========================================================
+-- SUBCATEGORY-IMAGES STORAGE BUCKET
+-- =========================================================
+
+-- Create public bucket
+insert into storage.buckets (id, name, public)
+values ('subcategory-images', 'subcategory-images', true)
+on conflict (id) do nothing;
+
+
+-- Anyone can view/download subcategory images
+create policy "Anyone can view subcategory images"
+on storage.objects
+for select
+to public
+using (
+  bucket_id = 'subcategory-images'
+);
+
+
+-- Admin can upload subcategory images
+create policy "Admins can upload subcategory images"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'subcategory-images'
+  and auth_helpers.is_admin()
+);
+
+
+-- Admin can update subcategory images
+create policy "Admins can update subcategory images"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'subcategory-images'
+  and auth_helpers.is_admin()
+)
+with check (
+  bucket_id = 'subcategory-images'
+  and auth_helpers.is_admin()
+);
+
+
+-- Admin can delete subcategory images
+create policy "Admins can delete subcategory images"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'subcategory-images'
+  and auth_helpers.is_admin()
+);

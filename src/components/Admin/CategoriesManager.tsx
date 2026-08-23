@@ -1,16 +1,38 @@
 // src/components/admin/CategoriesManager.tsx
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Save, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Save, ChevronDown, ChevronRight, ImageIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DbCategory, Subcategory } from '@/types';
+import { uploadCategoryImage, deleteCategoryImage } from '@/services/catalog';
+import { Toast, ToastContainer } from '@/components/ui/Toast';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { UploadProgress } from '@/components/ui/UploadProgress';
+import { compressImage } from '@/lib/imageUtils';
 
 export default function CategoriesManager() {
   const [categories, setCategories] = useState<DbCategory[]>([]);
   const [subcategories, setSubcategories] = useState<Record<string, Subcategory[]>>({});
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<DbCategory | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+  const [editingCategory, setEditingCategory] = useState<DbCategory | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    categoryId?: string;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+  });
+
+  const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    const id = Date.now().toString();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+  };
 
   const load = useCallback(async () => {
     const [{ data: catData }, { data: subData }] = await Promise.all([
@@ -29,32 +51,85 @@ export default function CategoriesManager() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleDelete = async (id: string) => {
-    await supabase.from('categories').delete().eq('id', id);
+  const handleDeleteClick = (id: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      categoryId: id,
+      title: 'Delete Category',
+      message: 'Are you sure you want to delete this category? This action cannot be undone.',
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.categoryId) return;
+    // Fetch category to get image_url
+    const { data: cat } = await supabase
+      .from('categories')
+      .select('image_url')
+      .eq('id', confirmDialog.categoryId)
+      .single();
+    if (cat?.image_url) {
+      await deleteCategoryImage(cat.image_url);
+    }
+    await supabase.from('categories').delete().eq('id', confirmDialog.categoryId);
+    addToast('Category deleted', 'success');
     await load();
+    setConfirmDialog({ isOpen: false, categoryId: undefined, title: '', message: '' });
   };
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleEdit = (cat: DbCategory) => {
+    setEditingCategory(cat);
+    setViewMode('form');
+  };
+
+  const handleAddNew = () => {
+    setEditingCategory(null);
+    setViewMode('form');
+  };
+
+  const handleFormClose = () => {
+    setViewMode('list');
+    setEditingCategory(null);
+  };
+
+  const handleFormSaved = () => {
+    void load();
+    setViewMode('list');
+    addToast('Category saved successfully', 'success');
+  };
+
   if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
+
+  if (viewMode === 'form') {
+    return (
+      <CategoryForm
+        initial={editingCategory}
+        onClose={handleFormClose}
+        onSaved={handleFormSaved}
+        addToast={addToast}
+      />
+    );
+  }
 
   return (
     <div className="space-y-3">
+      <ToastContainer>
+        {toasts.map((t) => (
+          <Toast key={t.id} message={t.message} type={t.type} onClose={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))} />
+        ))}
+      </ToastContainer>
+
       <button
-        onClick={() => { setEditing(null); setShowForm(true); }}
+        onClick={handleAddNew}
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
       >
         <Plus size={16} /> Add category
       </button>
-      {showForm && (
-        <CategoryForm
-          initial={editing}
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); load(); }}
-        />
-      )}
+
       {categories.map((cat) => (
         <div key={cat.id} className="bg-white border border-ink-100 rounded-2xl overflow-hidden shadow-card">
           <div className="flex flex-wrap items-center gap-3 p-4">
@@ -79,12 +154,12 @@ export default function CategoriesManager() {
                 {expanded[cat.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               </button>
               <button
-                onClick={() => { setEditing(cat); setShowForm(true); }}
+                onClick={() => handleEdit(cat)}
                 className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
               >
                 <Pencil size={14} />
               </button>
-              <button onClick={() => handleDelete(cat.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
+              <button onClick={() => handleDeleteClick(cat.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
                 <Trash2 size={14} />
               </button>
             </div>
@@ -119,21 +194,30 @@ export default function CategoriesManager() {
           )}
         </div>
       ))}
+
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDialog({ isOpen: false, categoryId: undefined, title: '', message: '' })}
+      />
     </div>
   );
 }
 
-// ---- CategoryForm with mobile-friendly layout and color preview ----
+// ---- CategoryForm with pending upload ----
 function CategoryForm({
   initial,
   onClose,
   onSaved,
+  addToast,
 }: {
   initial: DbCategory | null;
   onClose: () => void;
   onSaved: () => void;
+  addToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }) {
-  // Parse existing gradient to determine type and colors
   const parseGradient = (g: string | undefined) => {
     if (!g) return { type: 'solid', solid: '#10b981', from: '#10b981', to: '#059669' };
     if (g.startsWith('linear-gradient')) {
@@ -162,24 +246,84 @@ function CategoryForm({
     is_active: initial?.is_active ?? true,
   });
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>(initial?.image_url ?? '');
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(initial?.image_url ?? null);
 
-  // Generate the CSS background string for preview
+  const handleFileSelect = (file: File) => {
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
   const previewStyle = bgType === 'solid'
     ? { backgroundColor: solidColor }
     : { background: `linear-gradient(to right, ${gradientFrom}, ${gradientTo})` };
 
   const handleSave = async () => {
-    setSaving(true);
-    const gradientValue = bgType === 'solid' ? solidColor : `linear-gradient(to right, ${gradientFrom}, ${gradientTo})`;
-    const payload = { ...form, gradient: gradientValue };
-    if (initial) {
-      await supabase.from('categories').update(payload).eq('id', initial.id);
-    } else {
-      await supabase.from('categories').insert(payload);
+    if (!form.name || !form.slug) {
+      addToast('Name and slug are required', 'warning');
+      return;
     }
-    setSaving(false);
-    onSaved();
+
+    setSaving(true);
+    let newImageUrl = form.image_url;
+
+    try {
+      if (selectedFile) {
+        setUploading(true);
+        setUploadProgress(0);
+        setUploadStatus('Compressing image...');
+        const steps = 6;
+        for (let i = 0; i <= steps; i++) {
+          const progress = Math.min(30, (i / steps) * 30);
+          setUploadProgress(progress);
+          setUploadStatus(`Compressing... ${Math.round(progress)}%`);
+          await new Promise((resolve) => setTimeout(resolve, 80));
+        }
+        const compressed = await compressImage(selectedFile);
+        setUploadStatus('Uploading...');
+        setUploadProgress(30);
+        const url = await uploadCategoryImage(compressed, (p) => {
+          const overall = 30 + (p * 0.7);
+          setUploadProgress(Math.min(100, overall));
+          setUploadStatus(`Uploading... ${Math.round(overall)}%`);
+        });
+        newImageUrl = url;
+        setUploadProgress(100);
+        setUploadStatus('Done');
+        if (originalImageUrl && originalImageUrl !== url) {
+          await deleteCategoryImage(originalImageUrl);
+        }
+        setSelectedFile(null);
+        setUploading(false);
+      }
+
+      const gradientValue = bgType === 'solid' ? solidColor : `linear-gradient(to right, ${gradientFrom}, ${gradientTo})`;
+      const payload = { ...form, gradient: gradientValue, image_url: newImageUrl };
+
+      if (initial) {
+        await supabase.from('categories').update(payload).eq('id', initial.id);
+      } else {
+        await supabase.from('categories').insert(payload);
+      }
+      onSaved();
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to save category', 'error');
+    } finally {
+      setSaving(false);
+      setUploading(false);
+      setUploadProgress(0);
+      setUploadStatus('');
+    }
   };
+
+  if (uploading) {
+    return <UploadProgress progress={uploadProgress} statusText={uploadStatus} isComplete={uploadProgress >= 100} />;
+  }
 
   return (
     <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-4 shadow-card">
@@ -188,7 +332,6 @@ function CategoryForm({
         <button onClick={onClose}><X size={16} className="text-ink-400" /></button>
       </div>
 
-      {/* Basic fields */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Category name *</label>
         <input
@@ -208,7 +351,45 @@ function CategoryForm({
         />
       </div>
 
-      {/* Color section with preview */}
+      {/* Image upload */}
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Image URL</label>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            value={form.image_url}
+            onChange={(e) => {
+              setForm({ ...form, image_url: e.target.value });
+              setPreviewUrl(e.target.value);
+            }}
+            placeholder="Image URL or upload"
+            className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+          <label className="h-10 px-3 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer">
+            <ImageIcon size={14} /> Upload
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFileSelect(f);
+              }}
+            />
+          </label>
+        </div>
+        {previewUrl && (
+          <div className="relative mt-2">
+            <img src={previewUrl} alt="Preview" className="h-20 w-full rounded-xl object-cover" />
+            {selectedFile && (
+              <span className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
+                New
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Background color section */}
       <div className="space-y-3 bg-ink-50 p-3 rounded-xl border border-ink-100">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-ink-600">Background</span>
@@ -232,7 +413,6 @@ function CategoryForm({
           </div>
         </div>
 
-        {/* Live preview (large and visible) */}
         <div
           className="rounded-xl h-16 w-full flex items-center justify-center border border-ink-200 transition-all duration-200"
           style={previewStyle}
@@ -242,7 +422,6 @@ function CategoryForm({
           </span>
         </div>
 
-        {/* Color inputs */}
         {bgType === 'solid' ? (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
             <label className="text-xs font-bold text-ink-600 min-w-[70px]">Color</label>
@@ -304,16 +483,6 @@ function CategoryForm({
         )}
       </div>
 
-      {/* Other fields */}
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Image URL</label>
-        <input
-          value={form.image_url}
-          onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-          placeholder="https://..."
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        />
-      </div>
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Description</label>
         <input

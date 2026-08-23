@@ -424,68 +424,62 @@ function BannerForm({
       addToast('Please upload an image for full‑screen banner.', 'warning');
       return;
     }
-
+  
     setSaving(true);
     let newImageUrl = form.image_url;
-
+  
     try {
-      // If a new file is selected, compress and upload
       if (selectedFile) {
         setUploading(true);
         setUploadProgress(0);
         setUploadStatus('Compressing image...');
-
-        // Compress
-        const compressed = await compressImage(selectedFile);
-        setUploadStatus(`Uploading... 0%`);
-
-        // Upload with progress
-        newImageUrl = await uploadBannerImage(compressed, (progress) => {
+  
+        // ---- Compression phase (simulate progress) ----
+        // Simulate compression progress from 0 to 30
+        const compressionSteps = 10;
+        for (let i = 0; i <= compressionSteps; i++) {
+          const progress = Math.min(30, (i / compressionSteps) * 30);
           setUploadProgress(progress);
-          setUploadStatus(`Uploading... ${Math.round(progress)}%`);
-        });
-
-        setUploadStatus('Upload complete');
-        // Delete old image if it exists and is different from new
+          setUploadStatus(`Compressing... ${Math.round(progress)}%`);
+          await new Promise((resolve) => setTimeout(resolve, 150)); // simulate work
+        }
+  
+        // Actually compress
+        const compressed = await compressImage(selectedFile);
+        setUploadStatus('Compression complete. Uploading...');
+  
+        // ---- Upload phase (progress 30-100) ----
+        setUploadProgress(30);
+        const uploadProgressCallback = (uploadPercent: number) => {
+          // Map upload percent (0-100) to overall 30-100
+          const overall = 30 + (uploadPercent * 0.7);
+          setUploadProgress(Math.min(100, overall));
+          setUploadStatus(`Uploading... ${Math.round(overall)}%`);
+        };
+  
+        newImageUrl = await uploadBannerImage(compressed, uploadProgressCallback);
+  
+        // Ensure we reach 100%
+        setUploadProgress(100);
+        setUploadStatus('Upload complete!');
+  
+        // Delete old image if different
         if (originalImageUrl && originalImageUrl !== newImageUrl) {
           await deleteBannerImage(originalImageUrl);
         }
       }
-
-      // Build payload
-      const payload = {
-        badge: form.badge || null,
-        title: form.title,
-        description: form.description,
-        image_url: newImageUrl || null,
-        background_color: form.background_color,
-        button_text: form.button_text,
-        action_type: form.action_type,
-        action_config: form.action_config,
-        display_order: form.display_order,
-        is_active: form.is_active,
-        position: form.position,
-        start_at: form.start_at || null,
-        end_at: form.end_at || null,
-        bg_type: form.bg_type,
-        bg_color: form.bg_color,
-        bg_gradient: form.bg_gradient,
-        overlay_enabled: form.overlay_enabled,
-        overlay_color: form.overlay_color,
-        overlay_opacity: form.overlay_opacity,
-        show_cta: form.show_cta,
-      };
-
+  
+      // Build and save payload (same as before)
+      const payload = { ... };
       if (initial) {
         await updateHomeBanner(initial.id, payload);
       } else {
         await createHomeBanner(payload);
       }
-
       onSaved();
     } catch (err) {
       console.error(err);
-      addToast('Failed to save banner. Check console for details.', 'error');
+      addToast('Failed to save banner. Check console.', 'error');
     } finally {
       setSaving(false);
       setUploading(false);

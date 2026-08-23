@@ -1449,24 +1449,46 @@ export async function fetchBrandById(id: string): Promise<TrustedBrand | null> {
 // UPLOAD AND DELETE BANNER IMAGE
 // ================================================================
 
+// services/catalog.ts
 export async function uploadBannerImage(file: File, onProgress?: (progress: number) => void): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'webp';
   const fileName = `banner-${Date.now()}.${ext}`;
-  const { data, error } = await supabase.storage
+
+  // 1. Get a signed upload URL (so we can use XHR)
+  const { data: signedData, error: signedError } = await supabase.storage
     .from('home-banners')
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: false,
-      onUploadProgress: (progress) => {
-        if (onProgress) {
-          const percent = (progress.loaded / progress.total) * 100;
-          onProgress(Math.min(100, percent));
-        }
-      },
-    });
-  if (error) throw error;
-  const { data: urlData } = supabase.storage.from('home-banners').getPublicUrl(fileName);
-  return urlData.publicUrl;
+    .createSignedUploadUrl(fileName);
+
+  if (signedError) throw signedError;
+
+  const uploadUrl = signedData.signedUrl;
+
+  // 2. Upload using XMLHttpRequest with progress
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        // Progress from 0 to 100 (upload only)
+        const percent = (event.loaded / event.total) * 100;
+        onProgress(Math.min(100, percent));
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status === 200) {
+        const { data: urlData } = supabase.storage.from('home-banners').getPublicUrl(fileName);
+        resolve(urlData.publicUrl);
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(file);
+  });
 }
 
 export async function deleteBannerImage(imageUrl: string): Promise<void> {

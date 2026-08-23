@@ -821,7 +821,23 @@ export async function updateStore(id: string, updates: Partial<Store>): Promise<
 }
 
 export async function deleteStore(id: string): Promise<void> {
-  await supabase.from('stores').delete().eq('id', id);
+  // 1. Fetch the store to get banner_image_url
+  const { data: store, error: fetchError } = await supabase
+    .from('stores')
+    .select('banner_image_url')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+
+  // 2. Delete the banner image from storage if it exists
+  if (store?.banner_image_url) {
+    await deleteStoreBannerImage(store.banner_image_url);
+  }
+
+  // 3. Delete the store record
+  const { error } = await supabase.from('stores').delete().eq('id', id);
+  if (error) throw error;
 }
 
 export async function fetchStoreById(id: string): Promise<Store> {
@@ -1299,48 +1315,82 @@ export async function updateStoreConfig(storeId: string, config: StoreConfig): P
 export async function uploadStoreImage(
   storeId: string,
   file: File,
-  folder: string = 'general'
+  folder: string = 'general',
+  onProgress?: (progress: number) => void
 ): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'webp';
   const fileName = `${Date.now()}_${file.name}`;
   const path = `stores/${storeId}/${folder}/${fileName}`;
-  const { data, error } = await supabase.storage
+
+  const { data: signedData, error: signedError } = await supabase.storage
     .from('store-images')
-    .upload(path, file);
-  if (error) throw error;
-  const { data: urlData } = supabase.storage
-    .from('store-images')
-    .getPublicUrl(path);
-  return urlData.publicUrl;
+    .createSignedUploadUrl(path);
+
+  if (signedError) throw signedError;
+
+  const uploadUrl = signedData.signedUrl;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percent = (event.loaded / event.total) * 100;
+        onProgress(Math.min(100, percent));
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status === 200) {
+        const { data: urlData } = supabase.storage.from('store-images').getPublicUrl(path);
+        resolve(urlData.publicUrl);
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(file);
+  });
 }
 
-export async function deleteStoreImage(
-  storeId: string,
-  imageUrl: string
-): Promise<void> {
+/**
+ * Delete an image from the store-images bucket.
+ * Only deletes if the path belongs to the given storeId (security).
+ */
+export async function deleteStoreImage(storeId: string, imageUrl: string): Promise<void> {
   if (!imageUrl) return;
-  const url = new URL(imageUrl);
-  const path = url.pathname.split('/').slice(2).join('/');
-  const { error } = await supabase.storage
-    .from('store-images')
-    .remove([path]);
-  if (error) console.error('Failed to delete image:', error);
+  if (!imageUrl.includes('/storage/v1/object/public/store-images/')) return;
+
+  const publicPrefix = '/storage/v1/object/public/store-images/';
+  const index = imageUrl.indexOf(publicPrefix);
+  if (index === -1) return;
+
+  const filePath = imageUrl.substring(index + publicPrefix.length);
+  if (!filePath) return;
+
+  // Security: ensure the path belongs to this store
+  if (!filePath.startsWith(`stores/${storeId}/`)) {
+    console.warn('Image path does not belong to this store:', filePath);
+    return;
+  }
+
+  const { error } = await supabase.storage.from('store-images').remove([filePath]);
+  if (error) throw error;
 }
 
+/**
+ * Alias for uploadStoreImage – used for icon uploads (highlights, categories, trending)
+ */
 export async function uploadIconImage(
   storeId: string,
   file: File,
-  folder: string = 'icons'
+  folder: string = 'icons',
+  onProgress?: (progress: number) => void
 ): Promise<string> {
-  const fileName = `${Date.now()}_${file.name}`;
-  const path = `stores/${storeId}/${folder}/${fileName}`;
-  const { data, error } = await supabase.storage
-    .from('store-images')
-    .upload(path, file);
-  if (error) throw error;
-  const { data: urlData } = supabase.storage
-    .from('store-images')
-    .getPublicUrl(path);
-  return urlData.publicUrl;
+  return uploadStoreImage(storeId, file, folder, onProgress);
 }
 
 // services/catalog.ts
@@ -1514,5 +1564,69 @@ export async function deleteHomeBanner(id: string): Promise<void> {
   }
 
   const { error } = await supabase.from('home_banners').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ================================================================
+// STORE BANNER IMAGE (for StoresManager – root-level uploads)
+// ================================================================
+
+/**
+ * Upload a store banner/icon image to the root of the store-images bucket.
+ * Used in StoresManager (not StoreConfigManager) to avoid conflicts.
+ */
+export async function uploadStoreBannerImage(file: File, onProgress?: (progress: number) => void): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'webp';
+  const fileName = `store-banner-${Date.now()}.${ext}`;
+
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from('store-images')
+    .createSignedUploadUrl(fileName);
+
+  if (signedError) throw signedError;
+
+  const uploadUrl = signedData.signedUrl;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percent = (event.loaded / event.total) * 100;
+        onProgress(Math.min(100, percent));
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status === 200) {
+        const { data: urlData } = supabase.storage.from('store-images').getPublicUrl(fileName);
+        resolve(urlData.publicUrl);
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(file);
+  });
+}
+
+/**
+ * Delete a store banner image from the root of the store-images bucket.
+ */
+export async function deleteStoreBannerImage(imageUrl: string): Promise<void> {
+  if (!imageUrl) return;
+  if (!imageUrl.includes('/storage/v1/object/public/store-images/')) return;
+
+  const publicPrefix = '/storage/v1/object/public/store-images/';
+  const index = imageUrl.indexOf(publicPrefix);
+  if (index === -1) return;
+
+  const filePath = imageUrl.substring(index + publicPrefix.length);
+  if (!filePath) return;
+
+  const { error } = await supabase.storage.from('store-images').remove([filePath]);
   if (error) throw error;
 }

@@ -1,66 +1,149 @@
 // src/components/admin/StoresManager.tsx
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Save } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon } from 'lucide-react';
 import type { Store, FeatureItem, PremiumBadge } from '@/types';
-import { fetchAllStores, createStore, updateStore, deleteStore } from '@/services/catalog';
+import {
+  fetchAllStores,
+  createStore,
+  updateStore,
+  deleteStore,
+  uploadStoreBannerImage,
+  deleteStoreBannerImage,
+} from '@/services/catalog';
 import { iconNames } from '@/data/storeIcons';
+import { Toast, ToastContainer } from '@/components/ui/Toast';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { UploadProgress } from '@/components/ui/UploadProgress';
+import { compressImage } from '@/lib/imageUtils';
 
 export default function StoresManager() {
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Store | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+  const [editingStore, setEditingStore] = useState<Store | null>(null);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    storeId?: string;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+  });
+
+  const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    const id = Date.now().toString();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+  };
 
   const load = useCallback(async () => {
-    const storesRes = await fetchAllStores();
-    setStores(storesRes);
-    setLoading(false);
+    try {
+      const data = await fetchAllStores();
+      setStores(data);
+    } catch {
+      addToast('Failed to load stores', 'error');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const handleDelete = async (id: string) => {
-    await deleteStore(id);
-    void load();
+  const handleDeleteClick = (id: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      storeId: id,
+      title: 'Delete Store',
+      message: 'Are you sure you want to delete this store? This action cannot be undone.',
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.storeId) return;
+    try {
+      await deleteStore(confirmDialog.storeId);
+      addToast('Store deleted successfully', 'success');
+      await load();
+    } catch {
+      addToast('Failed to delete store', 'error');
+    } finally {
+      setConfirmDialog({ isOpen: false, storeId: undefined, title: '', message: '' });
+    }
   };
 
   const handleToggle = async (store: Store) => {
-    await updateStore(store.id, { is_active: !store.is_active });
-    void load();
+    try {
+      await updateStore(store.id, { is_active: !store.is_active });
+      addToast(`Store ${!store.is_active ? 'activated' : 'deactivated'}`, 'success');
+      await load();
+    } catch {
+      addToast('Failed to update store', 'error');
+    }
   };
 
-  if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
+  const handleEdit = (store: Store) => {
+    setEditingStore(store);
+    setViewMode('form');
+  };
+
+  const handleAddNew = () => {
+    setEditingStore(null);
+    setViewMode('form');
+  };
+
+  const handleFormClose = () => {
+    setViewMode('list');
+    setEditingStore(null);
+  };
+
+  const handleFormSaved = () => {
+    void load();
+    setViewMode('list');
+    addToast('Store saved successfully', 'success');
+  };
+
+  if (loading) {
+    return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
+  }
+
+  if (viewMode === 'form') {
+    return (
+      <StoreForm
+        initial={editingStore}
+        onClose={handleFormClose}
+        onSaved={handleFormSaved}
+        addToast={addToast}
+      />
+    );
+  }
 
   return (
     <div className="space-y-3">
+      <ToastContainer>
+        {toasts.map((t) => (
+          <Toast key={t.id} message={t.message} type={t.type} onClose={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))} />
+        ))}
+      </ToastContainer>
+
       <button
-        onClick={() => {
-          setEditing(null);
-          setShowForm(true);
-        }}
+        onClick={handleAddNew}
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
       >
         <Plus size={16} /> Add store
       </button>
-      {showForm && (
-        <StoreForm
-          initial={editing}
-          onClose={() => setShowForm(false)}
-          onSaved={() => {
-            setShowForm(false);
-            void load();
-          }}
-        />
-      )}
+
       {stores.map((store) => (
         <div key={store.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3">
-                {store.image_url && (
-                  <img src={store.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                {store.banner_image_url && (
+                  <img src={store.banner_image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
                 )}
                 <div>
                   <p className="text-sm font-bold text-ink-800 truncate">{store.name}</p>
@@ -83,25 +166,24 @@ export default function StoresManager() {
                 </span>
               </div>
             </div>
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1.5">
               <button
                 onClick={() => void handleToggle(store)}
-                className="h-8 w-8 rounded-lg bg-ink-50 text-ink-600 flex items-center justify-center text-xs font-bold"
+                className={`h-9 px-3 rounded-xl text-xs font-bold ${
+                  store.is_active ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500'
+                }`}
               >
                 {store.is_active ? 'ON' : 'OFF'}
               </button>
               <button
-                onClick={() => {
-                  setEditing(store);
-                  setShowForm(true);
-                }}
-                className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
+                onClick={() => handleEdit(store)}
+                className="h-9 w-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center"
               >
                 <Pencil size={14} />
               </button>
               <button
-                onClick={() => void handleDelete(store.id)}
-                className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center"
+                onClick={() => handleDeleteClick(store.id)}
+                className="h-9 w-9 rounded-xl bg-red-50 text-red-500 flex items-center justify-center"
               >
                 <Trash2 size={14} />
               </button>
@@ -109,6 +191,14 @@ export default function StoresManager() {
           </div>
         </div>
       ))}
+
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDialog({ isOpen: false, storeId: undefined, title: '', message: '' })}
+      />
     </div>
   );
 }
@@ -118,10 +208,12 @@ function StoreForm({
   initial,
   onClose,
   onSaved,
+  addToast,
 }: {
   initial: Store | null;
   onClose: () => void;
   onSaved: () => void;
+  addToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }) {
   const defaultFeatures: FeatureItem[] = [
     { icon: 'ShieldCheck', title: 'Hygienic', subtitle: 'Packing' },
@@ -137,15 +229,12 @@ function StoreForm({
 
   const [form, setForm] = useState({
     name: initial?.name ?? '',
-    image_url: initial?.image_url ?? '',
     banner_image_url: initial?.banner_image_url ?? '',
     description: initial?.description ?? '',
     brand_color: initial?.primary_color ?? '#10b981',
     text_color: initial?.text_color ?? '#ffffff',
     sort_order: initial?.sort_order ?? 0,
     is_active: initial?.is_active ?? true,
-
-    // Card fields
     rating: initial?.rating ?? '4.8',
     orders: initial?.orders ?? '120+ Orders',
     store_icon: initial?.store_icon ?? 'Store',
@@ -156,27 +245,17 @@ function StoreForm({
   });
 
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>(initial?.banner_image_url ?? '');
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(initial?.banner_image_url ?? null);
 
-  // Sync on edit
-  useEffect(() => {
-    setForm({
-      name: initial?.name ?? '',
-      image_url: initial?.image_url ?? '',
-      banner_image_url: initial?.banner_image_url ?? '',
-      description: initial?.description ?? '',
-      brand_color: initial?.primary_color ?? '#10b981',
-      text_color: initial?.text_color ?? '#ffffff',
-      sort_order: initial?.sort_order ?? 0,
-      is_active: initial?.is_active ?? true,
-      rating: initial?.rating ?? '4.8',
-      orders: initial?.orders ?? '120+ Orders',
-      store_icon: initial?.store_icon ?? 'Store',
-      features: initial?.features?.length ? initial.features : defaultFeatures,
-      premium_badge: initial?.premium_badge ?? defaultPremium,
-      badge_text: initial?.badge_text ?? 'STORE',
-      badge_color: initial?.badge_color ?? '#fbbf24',
-    });
-  }, [initial]);
+  const handleFileSelect = (file: File) => {
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  };
 
   const handleFeatureChange = (index: number, field: keyof FeatureItem, value: string) => {
     const updated = [...form.features];
@@ -189,44 +268,143 @@ function StoreForm({
   };
 
   const handleSave = async () => {
-    setSaving(true);
-
-    const data = {
-      name: form.name,
-      image_url: form.image_url,
-      banner_image_url: form.banner_image_url,
-      description: form.description,
-      primary_color: form.brand_color,
-      text_color: form.text_color,
-      sort_order: form.sort_order,
-      is_active: form.is_active,
-      // ⚠️ config NOT included – it stays untouched
-      rating: form.rating,
-      orders: form.orders,
-      store_icon: form.store_icon,
-      features: form.features,
-      premium_badge: form.premium_badge,
-      badge_text: form.badge_text,
-      badge_color: form.badge_color,
-    };
-
-    if (initial) {
-      await updateStore(initial.id, data);
-    } else {
-      // For new store, pass an empty config (to be filled later by StoreConfigManager)
-      await createStore({ ...data, config: {} });
+    if (!form.name) {
+      addToast('Store name is required', 'warning');
+      return;
     }
-    setSaving(false);
-    onSaved();
+    if (!form.banner_image_url && !selectedFile) {
+      addToast('Please upload a store image', 'warning');
+      return;
+    }
+
+    setSaving(true);
+    let newImageUrl = form.banner_image_url;
+
+    try {
+      if (selectedFile) {
+        setUploading(true);
+        setUploadProgress(0);
+        setUploadStatus('Compressing image...');
+
+        const compressionSteps = 8;
+        for (let i = 0; i <= compressionSteps; i++) {
+          const progress = Math.min(30, (i / compressionSteps) * 30);
+          setUploadProgress(progress);
+          setUploadStatus(`Compressing... ${Math.round(progress)}%`);
+          await new Promise((resolve) => setTimeout(resolve, 120));
+        }
+
+        const compressed = await compressImage(selectedFile);
+        setUploadStatus('Compression complete. Uploading...');
+        setUploadProgress(30);
+
+        const uploadProgressCallback = (uploadPercent: number) => {
+          const overall = 30 + (uploadPercent * 0.7);
+          setUploadProgress(Math.min(100, overall));
+          setUploadStatus(`Uploading... ${Math.round(overall)}%`);
+        };
+
+        newImageUrl = await uploadStoreBannerImage(compressed, uploadProgressCallback);
+
+        setUploadProgress(100);
+        setUploadStatus('Upload complete!');
+
+        if (originalImageUrl && originalImageUrl !== newImageUrl) {
+          await deleteStoreBannerImage(originalImageUrl);
+        }
+      }
+
+      const data = {
+        name: form.name,
+        image_url: newImageUrl,
+        banner_image_url: newImageUrl,
+        description: form.description,
+        primary_color: form.brand_color,
+        text_color: form.text_color,
+        sort_order: form.sort_order,
+        is_active: form.is_active,
+        rating: form.rating,
+        orders: form.orders,
+        store_icon: form.store_icon,
+        features: form.features,
+        premium_badge: form.premium_badge,
+        badge_text: form.badge_text,
+        badge_color: form.badge_color,
+        config: initial?.config || {},
+      };
+
+      if (initial) {
+        await updateStore(initial.id, data);
+      } else {
+        await createStore(data);
+      }
+
+      onSaved();
+    } catch {
+      addToast('Failed to save store. Check console.', 'error');
+    } finally {
+      setSaving(false);
+      setUploading(false);
+      setUploadProgress(0);
+      setUploadStatus('');
+    }
   };
+
+  if (uploading) {
+    return (
+      <UploadProgress
+        progress={uploadProgress}
+        statusText={uploadStatus}
+        isComplete={uploadProgress >= 100}
+      />
+    );
+  }
 
   return (
     <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-4 shadow-card">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink-900">{initial ? 'Edit' : 'New'} store</h3>
-        <button onClick={onClose}>
+        <button onClick={onClose} className="h-10 w-10 flex items-center justify-center">
           <X size={16} className="text-ink-400" />
         </button>
+      </div>
+
+      {/* Store Image */}
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Store Image *</label>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            value={form.banner_image_url}
+            onChange={(e) => {
+              setForm({ ...form, banner_image_url: e.target.value });
+              setPreviewUrl(e.target.value);
+            }}
+            placeholder="Image URL or upload"
+            className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+          <label className="h-10 px-3 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer">
+            <ImageIcon size={14} /> Upload
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFileSelect(f);
+              }}
+            />
+          </label>
+        </div>
+        {previewUrl && (
+          <div className="relative mt-2">
+            <img src={previewUrl} alt="Preview" className="h-20 w-full rounded-xl object-cover" />
+            {selectedFile && (
+              <span className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
+                New
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Basic fields */}
@@ -238,32 +416,6 @@ function StoreForm({
           placeholder="e.g. Fresh Harvest"
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
-      </div>
-
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Image URL *</label>
-        <input
-          value={form.image_url}
-          onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-          placeholder="https://..."
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        />
-        {form.image_url && (
-          <img src={form.image_url} alt="" className="h-16 w-full rounded-xl object-cover mt-2" />
-        )}
-      </div>
-
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Cover/Banner Image URL</label>
-        <input
-          value={form.banner_image_url}
-          onChange={(e) => setForm({ ...form, banner_image_url: e.target.value })}
-          placeholder="https://..."
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        />
-        {form.banner_image_url && (
-          <img src={form.banner_image_url} alt="" className="h-20 w-full rounded-xl object-cover mt-2" />
-        )}
       </div>
 
       <div>
@@ -316,7 +468,7 @@ function StoreForm({
         </div>
       </div>
 
-      {/* Badge fields (now separate) */}
+      {/* Badge fields */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Badge Text</label>
@@ -385,7 +537,7 @@ function StoreForm({
         </select>
       </div>
 
-      {/* Features (max 3) */}
+      {/* Features */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Features (max 3)</label>
         {form.features.map((feature, idx) => (

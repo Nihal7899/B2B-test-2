@@ -43,6 +43,7 @@ export interface DbProduct {
   moq: number;
   stock_quantity: number;
   image_url: string;
+  image_urls?: string[]; // NEW
   description: string;
   rating: number;
   is_active: boolean;
@@ -131,6 +132,19 @@ export function mapCategory(db: DbCategory, index: number, productCount?: number
 }
 
 export function mapProduct(db: DbProduct, categoryId: string, subcategory?: Subcategory): Product {
+  // Build image list: image_url first, then image_urls (without duplicates)
+  const images: string[] = [];
+  if (db.image_url && db.image_url.trim()) {
+    images.push(db.image_url);
+  }
+  if (db.image_urls && db.image_urls.length) {
+    for (const url of db.image_urls) {
+      if (url && !images.includes(url)) {
+        images.push(url);
+      }
+    }
+  }
+  const finalImages = images.length ? images : [PLACEHOLDER_PRODUCT];
   return {
     id: db.id,
     brand: db.brand,
@@ -138,7 +152,8 @@ export function mapProduct(db: DbProduct, categoryId: string, subcategory?: Subc
     packSize: db.pack_size,
     mrp: Number(db.mrp),
     price: Number(db.wholesale_price),
-    image: db.image_url?.trim() ? db.image_url : PLACEHOLDER_PRODUCT,
+    image: finalImages[0],
+    image_urls: finalImages,
     category: categoryId,
     moq: db.moq,
     rating: Number(db.rating),
@@ -147,15 +162,9 @@ export function mapProduct(db: DbProduct, categoryId: string, subcategory?: Subc
     hsn_code: db.hsn_code || '',
     gst_percentage: db.gst_percentage || 0,
     subcategory_id: db.subcategory_id,
-    subcategory, // <-- added
+    subcategory,
   };
 }
-
-const bgMap: Record<string, string> = {
-  brand: 'bg-gradient-to-br from-brand-700 to-brand-900',
-  accent: 'bg-gradient-to-br from-accent-500 to-accent-700',
-  ink: 'bg-gradient-to-br from-ink-800 to-ink-900',
-};
 
 export function mapOrder(db: DbOrder, items: DbOrderItem[]): Order {
   const statusMap: Record<string, Order['status']> = {
@@ -1807,4 +1816,77 @@ export async function deleteSubcategoryImage(imageUrl: string): Promise<void> {
 
   const { error } = await supabase.storage.from('subcategory-images').remove([filePath]);
   if (error) throw error;
+}
+
+// ================================================================
+// PRODUCT IMAGE MANAGEMENT
+// ================================================================
+
+/**
+ * Upload a product image to the product-images bucket.
+ * Returns the public URL.
+ */
+export async function uploadProductImage(
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'webp';
+  const fileName = `product-${Date.now()}.${ext}`;
+
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from('product-images')
+    .createSignedUploadUrl(fileName);
+
+  if (signedError) throw signedError;
+
+  const uploadUrl = signedData.signedUrl;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percent = (event.loaded / event.total) * 100;
+        onProgress(Math.min(100, percent));
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status === 200) {
+        const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
+        resolve(urlData.publicUrl);
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(file);
+  });
+}
+
+/**
+ * Delete a product image from the product-images bucket.
+ * Only deletes if the URL points to this bucket.
+ */
+export async function deleteProductImage(imageUrl: string): Promise<void> {
+  if (!imageUrl) return;
+  if (!imageUrl.includes('/storage/v1/object/public/product-images/')) return;
+
+  const publicPrefix = '/storage/v1/object/public/product-images/';
+  const index = imageUrl.indexOf(publicPrefix);
+  if (index === -1) return;
+
+  const filePath = imageUrl.substring(index + publicPrefix.length);
+  if (!filePath) return;
+
+  const { error } = await supabase.storage.from('product-images').remove([filePath]);
+  if (error) throw error;
+}
+
+// Helper: delete multiple product images
+export async function deleteProductImages(urls: string[]): Promise<void> {
+  await Promise.all(urls.map(url => deleteProductImage(url).catch(console.error)));
 }

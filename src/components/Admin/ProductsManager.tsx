@@ -1,16 +1,38 @@
 // src/components/admin/ProductsManager.tsx
-import { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Save } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { fetchSubcategories, fetchDistinctBrands } from '@/services/catalog';
+import { fetchSubcategories, fetchDistinctBrands, deleteProductImage } from '@/services/catalog';
 import type { DbCategory, DbProduct, Subcategory } from '@/types';
+import { Toast, ToastContainer } from '@/components/ui/Toast';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { UploadProgress } from '@/components/ui/UploadProgress';
+import { compressImage } from '@/lib/imageUtils';
+import { uploadProductImage } from '@/services/catalog';
 
 export default function ProductsManager() {
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [categories, setCategories] = useState<DbCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<DbProduct | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+  const [editingProduct, setEditingProduct] = useState<DbProduct | null>(null);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    productId?: string;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+  });
+
+  const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    const id = Date.now().toString();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+  };
 
   const load = useCallback(async () => {
     const [{ data: prodData }, { data: catData }] = await Promise.all([
@@ -26,71 +48,155 @@ export default function ProductsManager() {
     void load();
   }, [load]);
 
-  const handleDelete = async (id: string) => {
-    await supabase.from('products').delete().eq('id', id);
+  const handleDeleteClick = (id: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      productId: id,
+      title: 'Delete Product',
+      message: 'Are you sure you want to delete this product? All images will be removed.',
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.productId) return;
+    const { data: prod } = await supabase
+      .from('products')
+      .select('image_urls')
+      .eq('id', confirmDialog.productId)
+      .single();
+    if (prod?.image_urls?.length) {
+      await Promise.all(prod.image_urls.map(url => deleteProductImage(url).catch(console.error)));
+    }
+    await supabase.from('products').delete().eq('id', confirmDialog.productId);
+    addToast('Product deleted', 'success');
+    await load();
+    setConfirmDialog({ isOpen: false, productId: undefined, title: '', message: '' });
+  };
+
+  const handleEdit = (prod: DbProduct) => {
+    setEditingProduct(prod);
+    setViewMode('form');
+  };
+
+  const handleAddNew = () => {
+    setEditingProduct(null);
+    setViewMode('form');
+  };
+
+  const handleFormClose = () => {
+    setViewMode('list');
+    setEditingProduct(null);
+  };
+
+  const handleFormSaved = () => {
     void load();
+    setViewMode('list');
+    addToast('Product saved successfully', 'success');
   };
 
   if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
 
+  if (viewMode === 'form') {
+    return (
+      <ProductForm
+        initial={editingProduct}
+        categories={categories}
+        onClose={handleFormClose}
+        onSaved={handleFormSaved}
+        addToast={addToast}
+      />
+    );
+  }
+
   return (
     <div className="space-y-3">
+      <ToastContainer>
+        {toasts.map((t) => (
+          <Toast key={t.id} message={t.message} type={t.type} onClose={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))} />
+        ))}
+      </ToastContainer>
+
       <button
-        onClick={() => { setEditing(null); setShowForm(true); }}
+        onClick={handleAddNew}
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
       >
         <Plus size={16} /> Add product
       </button>
-      {showForm && (
-        <ProductForm
-          initial={editing}
-          categories={categories}
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); void load(); }}
-        />
-      )}
+
       {products.map((prod) => (
         <div key={prod.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card flex items-center gap-3">
-          {prod.image_url && <img src={prod.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />}
+          {prod.image_urls?.[0] && <img src={prod.image_urls[0]} alt="" className="h-12 w-12 rounded-xl object-cover" />}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-ink-800 truncate">{prod.brand} {prod.name}</p>
             <p className="text-xs text-ink-500">{prod.pack_size} · ₹{prod.wholesale_price} · Stock: {prod.stock_quantity}</p>
             {prod.gst_percentage != null && prod.gst_percentage > 0 && (
               <span className="text-[10px] text-brand-600">GST: {prod.gst_percentage}%</span>
             )}
+            {prod.image_urls?.length > 1 && (
+              <span className="text-[10px] text-ink-400 ml-2">+{prod.image_urls.length - 1} more images</span>
+            )}
           </div>
           <button
-            onClick={() => { setEditing(prod); setShowForm(true); }}
+            onClick={() => handleEdit(prod)}
             className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
           >
             <Pencil size={14} />
           </button>
-          <button onClick={() => void handleDelete(prod.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
+          <button onClick={() => handleDeleteClick(prod.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
             <Trash2 size={14} />
           </button>
         </div>
       ))}
+
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDialog({ isOpen: false, productId: undefined, title: '', message: '' })}
+      />
     </div>
   );
 }
 
-// ---- ProductForm with custom brand combobox ----
+// ---- ProductForm ----
 function ProductForm({
   initial,
   categories,
   onClose,
   onSaved,
+  addToast,
 }: {
   initial: DbProduct | null;
   categories: DbCategory[];
   onClose: () => void;
   onSaved: () => void;
+  addToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }) {
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
   const [brandInput, setBrandInput] = useState(initial?.brand ?? '');
   const [showBrandSuggestions, setShowBrandSuggestions] = useState(false);
   const [filteredBrands, setFilteredBrands] = useState<string[]>([]);
+
+  const buildInitialImages = (): string[] => {
+    const urls: string[] = [];
+    if (initial?.image_url && initial.image_url.trim()) {
+      urls.push(initial.image_url);
+    }
+    if (initial?.image_urls && initial.image_urls.length) {
+      for (const url of initial.image_urls) {
+        if (url && !urls.includes(url)) {
+          urls.push(url);
+        }
+      }
+    }
+    return urls;
+  };
+
+  const initialImageUrls = buildInitialImages();
+  const originalImageUrlsRef = useRef<string[]>(initialImageUrls);
+
   const [form, setForm] = useState({
     category_id: initial?.category_id ?? categories[0]?.id ?? '',
     subcategory_id: initial?.subcategory_id ?? '',
@@ -102,16 +208,22 @@ function ProductForm({
     wholesale_price: initial?.wholesale_price ?? 0,
     moq: initial?.moq ?? 1,
     stock_quantity: initial?.stock_quantity ?? 0,
-    image_url: initial?.image_url ?? '',
     description: initial?.description ?? '',
     rating: initial?.rating ?? 0,
     is_active: initial?.is_active ?? true,
     hsn_code: initial?.hsn_code ?? '',
     gst_percentage: initial?.gst_percentage ?? 0,
   });
-  const [saving, setSaving] = useState(false);
 
-  // Fetch subcategories when category changes
+  const [imageUrls, setImageUrls] = useState<string[]>(initialImageUrls);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>(initialImageUrls);
+
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
+
   useEffect(() => {
     if (!form.category_id) {
       setSubcategories([]);
@@ -120,12 +232,10 @@ function ProductForm({
     fetchSubcategories(form.category_id).then(setSubcategories);
   }, [form.category_id]);
 
-  // Fetch brand suggestions on mount
   useEffect(() => {
     fetchDistinctBrands().then(setBrandSuggestions);
   }, []);
 
-  // Filter suggestions based on input
   useEffect(() => {
     if (brandInput.trim() === '') {
       setFilteredBrands(brandSuggestions.slice(0, 10));
@@ -137,7 +247,6 @@ function ProductForm({
     }
   }, [brandInput, brandSuggestions]);
 
-  // Auto-generate slug from name
   useEffect(() => {
     if (!form.slug && form.name) {
       setForm(prev => ({
@@ -153,16 +262,108 @@ function ProductForm({
     setShowBrandSuggestions(false);
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    if (initial) {
-      await supabase.from('products').update(form).eq('id', initial.id);
-    } else {
-      await supabase.from('products').insert(form);
+  const handleImageSelect = (files: FileList | null) => {
+    if (!files) return;
+    const fileArray = Array.from(files);
+    const total = imageUrls.length + pendingFiles.length + fileArray.length;
+    if (total > 5) {
+      addToast('Maximum 5 images allowed', 'warning');
+      return;
     }
-    setSaving(false);
-    onSaved();
+    setPendingFiles([...pendingFiles, ...fileArray]);
+    const newPreviews = fileArray.map(f => URL.createObjectURL(f));
+    setPreviewUrls([...previewUrls, ...newPreviews]);
   };
+
+  const removeImage = (index: number) => {
+    if (index < 0 || index >= previewUrls.length) return;
+    const isPending = index >= imageUrls.length;
+    if (isPending) {
+      const fileIndex = index - imageUrls.length;
+      setPendingFiles(pendingFiles.filter((_, i) => i !== fileIndex));
+      setPreviewUrls(previewUrls.filter((_, i) => i !== index));
+    } else {
+      const newUrls = imageUrls.filter((_, i) => i !== index);
+      setImageUrls(newUrls);
+      setPreviewUrls(previewUrls.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleSave = async () => {
+    if (!form.name || !form.slug || !form.brand || !form.category_id) {
+      addToast('Name, slug, brand, and category are required', 'warning');
+      return;
+    }
+
+    setSaving(true);
+    let finalImageUrls = [...imageUrls];
+    const originalUrls = originalImageUrlsRef.current;
+
+    try {
+      if (pendingFiles.length > 0) {
+        setUploading(true);
+        setUploadProgress(0);
+        setUploadStatus('Compressing images...');
+
+        const uploadedUrls: string[] = [];
+        for (let i = 0; i < pendingFiles.length; i++) {
+          const file = pendingFiles[i];
+          setUploadStatus(`Processing image ${i+1}/${pendingFiles.length}...`);
+          for (let j = 0; j <= 6; j++) {
+            const progress = Math.min(30, (j / 6) * 30);
+            setUploadProgress(progress);
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+          const compressed = await compressImage(file);
+          setUploadStatus(`Uploading image ${i+1}/${pendingFiles.length}...`);
+          setUploadProgress(30 + (i / pendingFiles.length) * 60);
+          const url = await uploadProductImage(compressed, (p) => {
+            const overall = 30 + (i / pendingFiles.length) * 60 + (p * 0.6 / pendingFiles.length);
+            setUploadProgress(Math.min(100, overall));
+            setUploadStatus(`Uploading ${i+1}/${pendingFiles.length}... ${Math.round(overall)}%`);
+          });
+          uploadedUrls.push(url);
+        }
+        setUploadProgress(100);
+        setUploadStatus('Upload complete!');
+        finalImageUrls = [...finalImageUrls, ...uploadedUrls];
+        setPendingFiles([]);
+        setUploading(false);
+      }
+
+      // Delete images that were removed
+      const removedUrls = originalUrls.filter(url => !finalImageUrls.includes(url));
+      for (const url of removedUrls) {
+        await deleteProductImage(url);
+      }
+
+      const mainImage = finalImageUrls.length ? finalImageUrls[0] : '';
+      const payload = {
+        ...form,
+        image_url: mainImage,
+        image_urls: finalImageUrls,
+      };
+
+      if (initial) {
+        await supabase.from('products').update(payload).eq('id', initial.id);
+      } else {
+        await supabase.from('products').insert(payload);
+      }
+      onSaved();
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to save product', 'error');
+    } finally {
+      setSaving(false);
+      setUploading(false);
+      setUploadProgress(0);
+      setUploadStatus('');
+    }
+  };
+
+  if (uploading) {
+    return <UploadProgress progress={uploadProgress} statusText={uploadStatus} isComplete={uploadProgress >= 100} />;
+  }
 
   return (
     <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-4 shadow-card">
@@ -171,6 +372,7 @@ function ProductForm({
         <button onClick={onClose}><X size={16} className="text-ink-400" /></button>
       </div>
 
+      {/* Category */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Category *</label>
         <select
@@ -184,6 +386,7 @@ function ProductForm({
         </select>
       </div>
 
+      {/* Subcategory */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Subcategory</label>
         <select
@@ -198,7 +401,8 @@ function ProductForm({
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* Brand + Name */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="relative">
           <label className="block text-xs font-bold text-ink-600 mb-1">Brand *</label>
           <input
@@ -238,7 +442,8 @@ function ProductForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* Slug + Pack Size */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Slug *</label>
           <input
@@ -259,7 +464,8 @@ function ProductForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      {/* Pricing */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">MRP</label>
           <input
@@ -289,7 +495,8 @@ function ProductForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* Stock + Rating */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Stock quantity</label>
           <input
@@ -311,7 +518,8 @@ function ProductForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* HSN + GST */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">HSN Code</label>
           <input
@@ -337,16 +545,41 @@ function ProductForm({
         </div>
       </div>
 
+      {/* Images */}
       <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Image URL</label>
-        <input
-          value={form.image_url}
-          onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-          placeholder="https://..."
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        />
+        <label className="block text-xs font-bold text-ink-600 mb-1">Images (max 5)</label>
+        <div className="flex flex-wrap gap-2 mt-1">
+          {previewUrls.map((url, idx) => (
+            <div key={idx} className="relative w-16 h-16 rounded-xl border border-ink-200 overflow-hidden group">
+              <img src={url} alt={`Product ${idx+1}`} className="w-full h-full object-cover" />
+              <button
+                onClick={() => removeImage(idx)}
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-80 hover:opacity-100 text-xs"
+              >
+                <X size={12} />
+              </button>
+              {idx < imageUrls.length && idx === 0 && (
+                <span className="absolute bottom-1 left-1 bg-brand-600 text-white text-[8px] px-1 rounded">Main</span>
+              )}
+            </div>
+          ))}
+          {previewUrls.length < 5 && (
+            <label className="w-16 h-16 rounded-xl border-2 border-dashed border-ink-200 flex items-center justify-center cursor-pointer hover:border-brand-500 transition-colors">
+              <ImageIcon size={20} className="text-ink-400" />
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => handleImageSelect(e.target.files)}
+              />
+            </label>
+          )}
+        </div>
+        <p className="text-[10px] text-ink-400 mt-1">Upload up to 5 images. The first image is the main product image.</p>
       </div>
 
+      {/* Description */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Description</label>
         <textarea
@@ -358,6 +591,7 @@ function ProductForm({
         />
       </div>
 
+      {/* Active */}
       <label className="flex items-center gap-2 text-sm text-ink-700">
         <input
           type="checkbox"

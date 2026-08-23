@@ -7,6 +7,7 @@ export interface Product {
   mrp: number;
   price: number;
   image: string;
+  image_urls?: string[]; // NEW – multiple images
   category: string;
   moq: number;
   rating: number;
@@ -15,7 +16,7 @@ export interface Product {
   hsn_code?: string;
   gst_percentage?: number;
   subcategory_id?: string;
-  subcategory?: Subcategory; // optional
+  subcategory?: Subcategory;
 }
 
 export interface VolumePricingTier {

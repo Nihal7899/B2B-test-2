@@ -1446,12 +1446,49 @@ export async function fetchBrandById(id: string): Promise<TrustedBrand | null> {
 // UPLOAD AND DELETE BANNER IMAGE
 // ================================================================
 
-// services/catalog.ts
+// ===== HOME BANNERS =====
+export async function deleteBannerImage(imageUrl: string): Promise<void> {
+  if (!imageUrl) {
+    console.log('[deleteBannerImage] No URL provided');
+    return;
+  }
+
+  if (!imageUrl.includes('/storage/v1/object/public/home-banners/')) {
+    console.log('[deleteBannerImage] Skipping – not a bucket URL:', imageUrl);
+    return;
+  }
+
+  try {
+    const publicPrefix = '/storage/v1/object/public/home-banners/';
+    const index = imageUrl.indexOf(publicPrefix);
+    if (index === -1) {
+      console.warn('[deleteBannerImage] Could not find public prefix in URL:', imageUrl);
+      return;
+    }
+
+    const filePath = imageUrl.substring(index + publicPrefix.length);
+    if (!filePath) {
+      console.warn('[deleteBannerImage] Empty file path extracted from:', imageUrl);
+      return;
+    }
+
+    console.log('[deleteBannerImage] Deleting file:', filePath);
+    const { error } = await supabase.storage.from('home-banners').remove([filePath]);
+    if (error) {
+      console.error('[deleteBannerImage] Supabase delete error:', error);
+    } else {
+      console.log('[deleteBannerImage] Successfully deleted:', filePath);
+    }
+  } catch (e) {
+    console.error('[deleteBannerImage] Unexpected error:', e);
+  }
+}
+
 export async function uploadBannerImage(file: File, onProgress?: (progress: number) => void): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'webp';
   const fileName = `banner-${Date.now()}.${ext}`;
 
-  // 1. Get a signed upload URL (so we can use XHR)
+  // Get signed upload URL
   const { data: signedData, error: signedError } = await supabase.storage
     .from('home-banners')
     .createSignedUploadUrl(fileName);
@@ -1460,7 +1497,6 @@ export async function uploadBannerImage(file: File, onProgress?: (progress: numb
 
   const uploadUrl = signedData.signedUrl;
 
-  // 2. Upload using XMLHttpRequest with progress
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', uploadUrl, true);
@@ -1468,7 +1504,6 @@ export async function uploadBannerImage(file: File, onProgress?: (progress: numb
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && onProgress) {
-        // Progress from 0 to 100 (upload only)
         const percent = (event.loaded / event.total) * 100;
         onProgress(Math.min(100, percent));
       }
@@ -1488,31 +1523,6 @@ export async function uploadBannerImage(file: File, onProgress?: (progress: numb
   });
 }
 
-// services/catalog.ts
-
-export async function deleteBannerImage(imageUrl: string): Promise<void> {
-  if (!imageUrl) return;
-  // Only delete if it's from our bucket
-  if (!imageUrl.includes('/storage/v1/object/public/home-banners/')) {
-    console.log('Skipping deletion – not a bucket URL:', imageUrl);
-    return;
-  }
-  try {
-    const url = new URL(imageUrl);
-    // Path after bucket name: e.g. "banner-123.webp"
-    const path = url.pathname.split('/').slice(2).join('/');
-    if (!path) {
-      console.warn('Could not extract path from:', imageUrl);
-      return;
-    }
-    const { error } = await supabase.storage.from('home-banners').remove([path]);
-    if (error) throw error;
-    console.log('Deleted banner image:', path);
-  } catch (e) {
-    console.error('Error deleting banner image:', e);
-  }
-}
-
 export async function deleteHomeBanner(id: string): Promise<void> {
   // 1. Fetch the banner to get image_url
   const { data: banner, error: fetchError } = await supabase
@@ -1522,7 +1532,7 @@ export async function deleteHomeBanner(id: string): Promise<void> {
     .maybeSingle();
 
   if (fetchError) {
-    console.error('Error fetching banner for deletion:', fetchError);
+    console.error('[deleteHomeBanner] Error fetching banner:', fetchError);
   }
 
   // 2. Delete the image from storage if exists

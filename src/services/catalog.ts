@@ -1671,3 +1671,139 @@ export async function uploadBrandIconImage(
     xhr.send(file);
   });
 }
+
+// ================================================================
+// CATEGORY IMAGE MANAGEMENT
+// ================================================================
+
+/**
+ * Upload a category image to the category-images bucket.
+ * Returns the public URL.
+ */
+export async function uploadCategoryImage(
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'webp';
+  const fileName = `category-${Date.now()}.${ext}`;
+
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from('category-images')
+    .createSignedUploadUrl(fileName);
+
+  if (signedError) throw signedError;
+
+  const uploadUrl = signedData.signedUrl;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percent = (event.loaded / event.total) * 100;
+        onProgress(Math.min(100, percent));
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status === 200) {
+        const { data: urlData } = supabase.storage.from('category-images').getPublicUrl(fileName);
+        resolve(urlData.publicUrl);
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(file);
+  });
+}
+
+/**
+ * Delete a category image from the category-images bucket.
+ * Only deletes if the URL points to this bucket.
+ */
+export async function deleteCategoryImage(imageUrl: string): Promise<void> {
+  if (!imageUrl) return;
+  if (!imageUrl.includes('/storage/v1/object/public/category-images/')) return;
+
+  const publicPrefix = '/storage/v1/object/public/category-images/';
+  const index = imageUrl.indexOf(publicPrefix);
+  if (index === -1) return;
+
+  const filePath = imageUrl.substring(index + publicPrefix.length);
+  if (!filePath) return;
+
+  const { error } = await supabase.storage.from('category-images').remove([filePath]);
+  if (error) throw error;
+}
+
+// ================================================================
+// SUBCATEGORY IMAGE MANAGEMENT
+// ================================================================
+
+/**
+ * Upload a subcategory image to the subcategory-images bucket.
+ * Returns the public URL.
+ */
+export async function uploadSubcategoryImage(
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'webp';
+  const fileName = `subcategory-${Date.now()}.${ext}`;
+
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from('subcategory-images')
+    .createSignedUploadUrl(fileName);
+
+  if (signedError) throw signedError;
+
+  const uploadUrl = signedData.signedUrl;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percent = (event.loaded / event.total) * 100;
+        onProgress(Math.min(100, percent));
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status === 200) {
+        const { data: urlData } = supabase.storage.from('subcategory-images').getPublicUrl(fileName);
+        resolve(urlData.publicUrl);
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(file);
+  });
+}
+
+/**
+ * Delete a subcategory image from the subcategory-images bucket.
+ * Only deletes if the URL points to this bucket.
+ */
+export async function deleteSubcategoryImage(imageUrl: string): Promise<void> {
+  if (!imageUrl) return;
+  if (!imageUrl.includes('/storage/v1/object/public/subcategory-images/')) return;
+
+  const publicPrefix = '/storage/v1/object/public/subcategory-images/';
+  const index = imageUrl.indexOf(publicPrefix);
+  if (index === -1) return;
+
+  const filePath = imageUrl.substring(index + publicPrefix.length);
+  if (!filePath) return;
+
+  const { error } = await supabase.storage.from('subcategory-images').remove([filePath]);
+  if (error) throw error;
+}

@@ -1491,16 +1491,49 @@ export async function uploadBannerImage(file: File, onProgress?: (progress: numb
   });
 }
 
+// services/catalog.ts
+
 export async function deleteBannerImage(imageUrl: string): Promise<void> {
   if (!imageUrl) return;
   // Only delete if it's from our bucket
-  if (!imageUrl.includes('/storage/v1/object/public/home-banners/')) return;
+  if (!imageUrl.includes('/storage/v1/object/public/home-banners/')) {
+    console.log('Skipping deletion – not a bucket URL:', imageUrl);
+    return;
+  }
   try {
     const url = new URL(imageUrl);
-    const path = url.pathname.split('/').slice(2).join('/'); // e.g. "banner-123.webp"
-    if (!path) return;
-    await supabase.storage.from('home-banners').remove([path]);
+    // Path after bucket name: e.g. "banner-123.webp"
+    const path = url.pathname.split('/').slice(2).join('/');
+    if (!path) {
+      console.warn('Could not extract path from:', imageUrl);
+      return;
+    }
+    const { error } = await supabase.storage.from('home-banners').remove([path]);
+    if (error) throw error;
+    console.log('Deleted banner image:', path);
   } catch (e) {
     console.error('Error deleting banner image:', e);
   }
+}
+
+export async function deleteHomeBanner(id: string): Promise<void> {
+  // 1. Fetch the banner to get image_url
+  const { data: banner, error: fetchError } = await supabase
+    .from('home_banners')
+    .select('image_url')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error('Error fetching banner for deletion:', fetchError);
+  }
+
+  // 2. Delete the image from storage if exists
+  if (banner?.image_url) {
+    await deleteBannerImage(banner.image_url);
+  }
+
+  // 3. Delete the record
+  const { error } = await supabase.from('home_banners').delete().eq('id', id);
+  if (error) throw error;
 }

@@ -21,7 +21,6 @@ const DEFAULT_CONFIG: CompressionConfig = {
   ],
 };
 
-// Fetch config from Supabase (cached)
 let cachedConfig: CompressionConfig | null = null;
 
 export async function getCompressionConfig(): Promise<CompressionConfig> {
@@ -48,6 +47,10 @@ export async function getCompressionConfig(): Promise<CompressionConfig> {
   }
 }
 
+export function clearCompressionCache() {
+  cachedConfig = null;
+}
+
 async function getQualityForSize(fileSizeMB: number): Promise<number> {
   const config = await getCompressionConfig();
   const sorted = [...config.thresholds].sort((a, b) => a.minSizeMB - b.minSizeMB);
@@ -56,15 +59,18 @@ async function getQualityForSize(fileSizeMB: number): Promise<number> {
       return t.quality / 100;
     }
   }
-  return 0.8; // fallback
+  return 0.8;
 }
 
 export async function compressImage(file: File): Promise<File> {
   const fileSizeMB = file.size / (1024 * 1024);
   const quality = await getQualityForSize(fileSizeMB);
 
+  // Force compression by targeting 80% of original size (minimum 0.5 MB)
+  const targetMaxMB = Math.max(0.5, fileSizeMB * 0.8);
+
   const options = {
-    maxSizeMB: fileSizeMB, // keep same size, but compress quality
+    maxSizeMB: targetMaxMB,
     maxWidthOrHeight: 1920,
     useWebWorker: true,
     fileType: 'image/webp',

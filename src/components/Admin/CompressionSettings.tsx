@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Save, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { CompressionConfig, CompressionThreshold } from '@/lib/imageUtils';
-import { getCompressionConfig } from '@/lib/imageUtils';
+import { getCompressionConfig, clearCompressionCache } from '@/lib/imageUtils';
 
 export default function CompressionSettings() {
   const [config, setConfig] = useState<CompressionConfig>({ thresholds: [] });
@@ -51,22 +51,23 @@ export default function CompressionSettings() {
     setConfig({ ...config, thresholds: newThresholds });
   };
 
-  const saveConfig = async () => {
-    setSaving(true);
-    setSaved(false);
-    try {
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({ key: 'compression_config', value: config }, { onConflict: 'key' });
-      if (error) throw error;
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (err) {
-      alert('Failed to save compression settings');
-    } finally {
-      setSaving(false);
-    }
-  };
+const saveConfig = async () => {
+  setSaving(true);
+  setSaved(false);
+  try {
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert({ key: 'compression_config', value: config }, { onConflict: 'key' });
+    if (error) throw error;
+    clearCompressionCache(); // <-- Invalidate cache
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  } catch (err) {
+    alert('Failed to save compression settings');
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) {
     return (

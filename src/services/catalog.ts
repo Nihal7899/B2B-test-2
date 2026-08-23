@@ -120,12 +120,13 @@ const PLACEHOLDER_PRODUCT = 'https://placehold.co/400x400/EEE/999?text=Product';
 
 export function mapCategory(db: DbCategory, index: number, productCount?: number): Category {
   return {
-    id: db.slug,
+    id: db.id,                         // ✅ use the actual UUID
+    slug: db.slug,                     // store the slug separately
     name: db.name,
     image: db.image_url?.trim() ? db.image_url : PLACEHOLDER_CATEGORY,
     count: productCount ?? 0,
     color: categoryColors[index % categoryColors.length],
-    gradient: db.gradient || 'from-brand-500 to-brand-700', // <-- added
+    gradient: db.gradient || 'from-brand-500 to-brand-700',
   };
 }
 

@@ -65,12 +65,13 @@ export interface DeliveryCharge {
 }
 
 export interface Category {
-  id: string;
+  id: string;          // UUID from database
+  slug: string;        // URL‑friendly slug
   name: string;
   image: string;
   count: number;
-  color: string;        // kept for compatibility
-  gradient?: string;    // new: Tailwind gradient e.g. 'from-emerald-500 to-green-600'
+  color: string;
+  gradient?: string;
   subcategories?: Subcategory[];
 }
 

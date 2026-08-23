@@ -2,9 +2,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { TrustedBrand } from '@/types';
-import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, X, Search } from 'lucide-react';
-import { uploadIconImage, updateTrustedBrand } from '@/services/catalog';
+import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, X, Search, Loader2 } from 'lucide-react';
+import { uploadIconImage, updateTrustedBrand, deleteBrandImage } from '@/services/catalog';
 import { getStoreIcon } from '@/data/storeIcons';
+import { Toast, ToastContainer } from '@/components/ui/Toast';
+import { UploadProgress } from '@/components/ui/UploadProgress';
+import { compressImage } from '@/lib/imageUtils';
 
 const ICON_OPTIONS = [
   'Apple', 'Wheat', 'Flame', 'Coffee', 'Cookie', 'Milk', 'Croissant',
@@ -38,16 +41,28 @@ function ColorInput({ value, onChange, label }: { value: string; onChange: (val:
   );
 }
 
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 export default function BrandConfigManager() {
   const [brands, setBrands] = useState<TrustedBrand[]>([]);
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
+
+  const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    const id = Date.now().toString();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+  };
 
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase.from('trusted_brands').select('*').order('name');
-      if (error) console.error(error);
-      else setBrands(data || []);
+      if (error) {
+        addToast('Failed to load brands', 'error');
+        console.error(error);
+      } else setBrands(data || []);
       setLoading(false);
     })();
   }, []);
@@ -56,6 +71,12 @@ export default function BrandConfigManager() {
 
   return (
     <div className="space-y-6">
+      <ToastContainer>
+        {toasts.map((t) => (
+          <Toast key={t.id} message={t.message} type={t.type} onClose={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))} />
+        ))}
+      </ToastContainer>
+
       <h2 className="text-xl font-bold">Brand Content Editor</h2>
       <div className="flex flex-wrap gap-2">
         {brands.map(brand => (
@@ -74,7 +95,7 @@ export default function BrandConfigManager() {
       </div>
       {selectedBrandId && (
         <div className="mt-4">
-          <BrandConfigEditor brandId={selectedBrandId} />
+          <BrandConfigEditor brandId={selectedBrandId} addToast={addToast} />
         </div>
       )}
     </div>
@@ -82,13 +103,22 @@ export default function BrandConfigManager() {
 }
 
 // ============================================================
-// EDITOR WITH TABS
+// EDITOR WITH DRAFT & SAVE
 // ============================================================
-function BrandConfigEditor({ brandId }: { brandId: string }) {
+function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (msg: string, type: any) => void }) {
   const [brand, setBrand] = useState<TrustedBrand | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'highlights' | 'categories' | 'bulkDeal' | 'trending'>('highlights');
 
+  // Draft state
+  const [draft, setDraft] = useState<any>(null);
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
+  const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [showUploadProgress, setShowUploadProgress] = useState(false);
+
+  // Load brand data
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
@@ -96,13 +126,176 @@ function BrandConfigEditor({ brandId }: { brandId: string }) {
         .select('*')
         .eq('id', brandId)
         .single();
-      if (error) console.error(error);
-      else setBrand(data);
+      if (error) {
+        console.error(error);
+        addToast('Failed to load brand', 'error');
+      } else {
+        setBrand(data);
+        // Initialize draft
+        const config = data.config || {};
+        setDraft({
+          highlights: config.highlights || [],
+          categories: config.categories || [],
+          bulkDeal: config.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
+          trending: config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
+        });
+        setPendingFiles({});
+      }
       setLoading(false);
     })();
   }, [brandId]);
 
+  const updateDraftSection = (section: string, value: any) => {
+    setDraft((prev: any) => ({ ...prev, [section]: value }));
+  };
+
+  const setPendingFile = (fieldPath: string, file: File) => {
+    setPendingFiles((prev) => ({ ...prev, [fieldPath]: file }));
+  };
+
+  const clearPendingFile = (fieldPath: string) => {
+    setPendingFiles((prev) => {
+      const newFiles = { ...prev };
+      delete newFiles[fieldPath];
+      return newFiles;
+    });
+  };
+
+  // Delete orphaned images (images that appear in original config but not in draft)
+  const deleteOrphanedImages = async (original: any, updated: any) => {
+    if (!original || !updated) return;
+
+    const checkAndDelete = (orig: any, upd: any) => {
+      if (typeof orig === 'string' && orig.includes('/storage/v1/object/public/brands/')) {
+        // Check if this URL still exists somewhere in updated
+        const urlExists = (obj: any): boolean => {
+          if (obj === orig) return true;
+          if (typeof obj === 'object' && obj !== null) {
+            for (const k of Object.keys(obj)) {
+              if (urlExists(obj[k])) return true;
+            }
+          }
+          if (Array.isArray(obj)) {
+            for (const item of obj) {
+              if (urlExists(item)) return true;
+            }
+          }
+          return false;
+        };
+        if (!urlExists(upd)) {
+          deleteBrandImage(orig).catch(console.error);
+        }
+      }
+      if (typeof orig === 'object' && orig !== null && typeof upd === 'object' && upd !== null) {
+        const keys = new Set([...Object.keys(orig), ...Object.keys(upd)]);
+        for (const key of keys) {
+          checkAndDelete(orig[key], upd[key]);
+        }
+      }
+    };
+    checkAndDelete(original, updated);
+  };
+
+  const handleSave = async () => {
+    if (!draft || !brand) return;
+    setSaving(true);
+    setShowUploadProgress(true);
+    setUploadProgress(0);
+    setUploadStatus('Preparing to save...');
+
+    try {
+      const finalDraft = JSON.parse(JSON.stringify(draft));
+
+      // 1. Delete orphaned images from original config
+      const originalConfig = brand.config || {};
+      await deleteOrphanedImages(originalConfig, finalDraft);
+
+      // 2. Process pending uploads (icons)
+      // 2.1 Highlights icons
+      for (let i = 0; i < finalDraft.highlights.length; i++) {
+        const key = `highlights.${i}.icon`;
+        if (pendingFiles[key]) {
+          const file = pendingFiles[key];
+          const oldUrl = draft.highlights[i]?.icon;
+          setUploadStatus(`Uploading highlight icon ${i+1}...`);
+          const compressed = await compressImage(file);
+          const url = await uploadIconImage(brandId, compressed, 'brand-highlights', (p) => {
+            const overall = 30 + (p * 0.7);
+            setUploadProgress(Math.min(100, overall));
+            setUploadStatus(`Uploading icon ${i+1}... ${Math.round(overall)}%`);
+          });
+          finalDraft.highlights[i].icon = url;
+          if (oldUrl && oldUrl !== url) {
+            await deleteBrandImage(oldUrl);
+          }
+        }
+      }
+
+      // 2.2 Categories icons
+      for (let i = 0; i < finalDraft.categories.length; i++) {
+        const key = `categories.${i}.icon`;
+        if (pendingFiles[key]) {
+          const file = pendingFiles[key];
+          const oldUrl = draft.categories[i]?.icon;
+          setUploadStatus(`Uploading category icon ${i+1}...`);
+          const compressed = await compressImage(file);
+          const url = await uploadIconImage(brandId, compressed, 'brand-categories', (p) => {
+            const overall = 30 + (p * 0.7);
+            setUploadProgress(Math.min(100, overall));
+            setUploadStatus(`Uploading icon ${i+1}... ${Math.round(overall)}%`);
+          });
+          finalDraft.categories[i].icon = url;
+          if (oldUrl && oldUrl !== url) {
+            await deleteBrandImage(oldUrl);
+          }
+        }
+      }
+
+      // 2.3 Trending icon buttons
+      for (let i = 0; i < finalDraft.trending.iconButtons.length; i++) {
+        const key = `trending.iconButtons.${i}.icon`;
+        if (pendingFiles[key]) {
+          const file = pendingFiles[key];
+          const oldUrl = draft.trending.iconButtons[i]?.icon;
+          setUploadStatus(`Uploading trending icon ${i+1}...`);
+          const compressed = await compressImage(file);
+          const url = await uploadIconImage(brandId, compressed, 'brand-trending', (p) => {
+            const overall = 30 + (p * 0.7);
+            setUploadProgress(Math.min(100, overall));
+            setUploadStatus(`Uploading icon ${i+1}... ${Math.round(overall)}%`);
+          });
+          finalDraft.trending.iconButtons[i].icon = url;
+          if (oldUrl && oldUrl !== url) {
+            await deleteBrandImage(oldUrl);
+          }
+        }
+      }
+
+      // 3. Update the brand with the new config
+      const updated = { ...brand, config: finalDraft };
+      await updateTrustedBrand(brandId, { config: finalDraft });
+      setBrand(updated);
+      addToast('Brand content saved successfully!', 'success');
+      setPendingFiles({});
+      setUploadProgress(100);
+      setUploadStatus('Save complete!');
+      setTimeout(() => setShowUploadProgress(false), 1000);
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to save. Check console.', 'error');
+    } finally {
+      setSaving(false);
+      setShowUploadProgress(false);
+      setUploadProgress(0);
+      setUploadStatus('');
+    }
+  };
+
   if (loading || !brand) return <div>Loading...</div>;
+
+  if (showUploadProgress) {
+    return <UploadProgress progress={uploadProgress} statusText={uploadStatus} isComplete={uploadProgress >= 100} />;
+  }
 
   const config = brand.config || {};
   const safeConfig = {
@@ -112,14 +305,21 @@ function BrandConfigEditor({ brandId }: { brandId: string }) {
     trending: config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
   };
 
-  const updateConfig = async (newConfig: any) => {
-    const updated = { ...brand, config: newConfig };
-    await updateTrustedBrand(brandId, { config: newConfig });
-    setBrand(updated);
-  };
-
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
+      {/* Save Button */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-700">Edit Brand Content</h3>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 px-6 py-2 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 transition disabled:opacity-60"
+        >
+          {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+
       <div className="flex flex-wrap gap-2 border-b pb-2 mb-4 overflow-x-auto">
         {['highlights', 'categories', 'bulkDeal', 'trending'].map(tab => (
           <button
@@ -137,24 +337,55 @@ function BrandConfigEditor({ brandId }: { brandId: string }) {
         ))}
       </div>
 
-      {activeTab === 'highlights' && <HighlightsEditor config={safeConfig} updateConfig={updateConfig} storeId={brandId} />}
-      {activeTab === 'categories' && <CategoriesEditor config={safeConfig} updateConfig={updateConfig} storeId={brandId} brandName={brand.name} />}
-      {activeTab === 'bulkDeal' && <BulkDealEditor config={safeConfig} updateConfig={updateConfig} />}
-      {activeTab === 'trending' && <TrendingEditor config={safeConfig} updateConfig={updateConfig} storeId={brandId} />}
+      {activeTab === 'highlights' && (
+        <HighlightsEditor
+          draft={draft}
+          setDraft={updateDraftSection}
+          setPendingFile={setPendingFile}
+          clearPendingFile={clearPendingFile}
+          pendingFiles={pendingFiles}
+        />
+      )}
+      {activeTab === 'categories' && (
+        <CategoriesEditor
+          draft={draft}
+          setDraft={updateDraftSection}
+          setPendingFile={setPendingFile}
+          clearPendingFile={clearPendingFile}
+          pendingFiles={pendingFiles}
+          brandName={brand.name}
+        />
+      )}
+      {activeTab === 'bulkDeal' && (
+        <BulkDealEditor draft={draft} setDraft={updateDraftSection} />
+      )}
+      {activeTab === 'trending' && (
+        <TrendingEditor
+          draft={draft}
+          setDraft={updateDraftSection}
+          setPendingFile={setPendingFile}
+          clearPendingFile={clearPendingFile}
+          pendingFiles={pendingFiles}
+        />
+      )}
     </div>
   );
 }
 
 // ============================================================
-// HIGHLIGHTS EDITOR
+// HIGHLIGHTS EDITOR (draft)
 // ============================================================
-function HighlightsEditor({ config, updateConfig, storeId }: { config: any; updateConfig: (newConfig: any) => void; storeId: string }) {
-  const { highlights = [], categories = [] } = config;
+function HighlightsEditor({ draft, setDraft, setPendingFile, clearPendingFile, pendingFiles }: {
+  draft: any;
+  setDraft: (section: string, value: any) => void;
+  setPendingFile: (path: string, file: File) => void;
+  clearPendingFile: (path: string) => void;
+  pendingFiles: Record<string, File>;
+}) {
+  const { highlights = [], categories = [] } = draft;
   const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
-  const updateHighlights = (newItems: any[]) => {
-    updateConfig({ ...config, highlights: newItems });
-  };
+  const updateHighlights = (newItems: any[]) => setDraft('highlights', newItems);
 
   const addItem = () => {
     const newItem = { id: Date.now().toString(), label: 'New Highlight', icon: 'Package', categoryId: categoryOptions.length > 0 ? categoryOptions[0].value : '' };
@@ -176,15 +407,28 @@ function HighlightsEditor({ config, updateConfig, storeId }: { config: any; upda
     updateHighlights(newItems);
   };
 
-  const handleIconUpload = async (index: number, file: File) => {
-    try {
-      const url = await uploadIconImage(storeId, file, 'brand-highlights');
-      const updated = [...highlights];
-      updated[index] = { ...updated[index], icon: url };
-      updateHighlights(updated);
-    } catch (err) {
-      console.error('Icon upload failed', err);
+  const handleIconSelect = (index: number, file: File) => {
+    const objectUrl = URL.createObjectURL(file);
+    const updated = [...highlights];
+    updated[index] = { ...updated[index], icon: objectUrl };
+    updateHighlights(updated);
+    setPendingFile(`highlights.${index}.icon`, file);
+  };
+
+  const handleIconOptionChange = (index: number, value: string) => {
+    if (value === '__custom') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) handleIconSelect(index, file);
+      };
+      input.click();
+      return;
     }
+    clearPendingFile(`highlights.${index}.icon`);
+    updateItem(index, 'icon', value);
   };
 
   return (
@@ -202,27 +446,15 @@ function HighlightsEditor({ config, updateConfig, storeId }: { config: any; upda
           <input value={h.label} onChange={e => updateItem(idx, 'label', e.target.value)} placeholder="Label" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
 
           <div className="flex items-center gap-1">
-            <select value={h.icon || 'Package'} onChange={e => updateItem(idx, 'icon', e.target.value)} className="w-36 rounded-lg border border-gray-200 px-2 py-1 text-sm">
+            <select value={h.icon || 'Package'} onChange={e => handleIconOptionChange(idx, e.target.value)} className="w-36 rounded-lg border border-gray-200 px-2 py-1 text-sm">
               {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
               <option value="__custom">Custom (upload)</option>
             </select>
-            <button
-              onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*, .svg';
-                input.onchange = async (e) => {
-                  const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file) handleIconUpload(idx, file);
-                };
-                input.click();
-              }}
-              className="px-2 py-1 rounded-lg bg-blue-500 text-white text-xs hover:bg-blue-600"
-            >
-              Upload
-            </button>
             {h.icon?.startsWith('http') && (
               <img src={h.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
+            )}
+            {pendingFiles[`highlights.${idx}.icon`] && (
+              <span className="text-xs text-green-600">Pending</span>
             )}
           </div>
 
@@ -244,10 +476,17 @@ function HighlightsEditor({ config, updateConfig, storeId }: { config: any; upda
 }
 
 // ============================================================
-// CATEGORIES EDITOR (with brand name filter)
+// CATEGORIES EDITOR (draft + brand filter)
 // ============================================================
-function CategoriesEditor({ config, updateConfig, storeId, brandName }: { config: any; updateConfig: (newConfig: any) => void; storeId: string; brandName: string }) {
-  const { categories = [] } = config;
+function CategoriesEditor({ draft, setDraft, setPendingFile, clearPendingFile, pendingFiles, brandName }: {
+  draft: any;
+  setDraft: (section: string, value: any) => void;
+  setPendingFile: (path: string, file: File) => void;
+  clearPendingFile: (path: string) => void;
+  pendingFiles: Record<string, File>;
+  brandName: string;
+}) {
+  const { categories = [] } = draft;
   const [allProducts, setAllProducts] = useState<{ id: string; name: string; brand: string }[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number | null>(null);
@@ -255,12 +494,11 @@ function CategoriesEditor({ config, updateConfig, storeId, brandName }: { config
 
   useEffect(() => {
     (async () => {
-      // 🔥 Filter by brand name
       const query = supabase
         .from('products')
         .select('id, name, brand')
         .eq('is_active', true)
-        .eq('brand', brandName)   // <-- only products matching the brand
+        .eq('brand', brandName)
         .order('name');
       const { data, error } = await query;
       if (!error && data) setAllProducts(data);
@@ -268,7 +506,7 @@ function CategoriesEditor({ config, updateConfig, storeId, brandName }: { config
     })();
   }, [brandName]);
 
-  const updateCategories = (newItems: any[]) => updateConfig({ ...config, categories: newItems });
+  const updateCategories = (newItems: any[]) => setDraft('categories', newItems);
 
   const addItem = () => {
     const newItem = { id: Date.now().toString(), title: 'New Category', icon: 'Package', description: 'Category description', productIds: [], color: '#10b981', textColor: '#ffffff' };
@@ -302,15 +540,28 @@ function CategoriesEditor({ config, updateConfig, storeId, brandName }: { config
     p.brand.toLowerCase().includes(productSearch.toLowerCase())
   );
 
-  const handleIconUpload = async (index: number, file: File) => {
-    try {
-      const url = await uploadIconImage(storeId, file, 'brand-categories');
-      const updated = [...categories];
-      updated[index] = { ...updated[index], icon: url };
-      updateCategories(updated);
-    } catch (err) {
-      console.error('Icon upload failed', err);
+  const handleIconSelect = (index: number, file: File) => {
+    const objectUrl = URL.createObjectURL(file);
+    const updated = [...categories];
+    updated[index] = { ...updated[index], icon: objectUrl };
+    updateCategories(updated);
+    setPendingFile(`categories.${index}.icon`, file);
+  };
+
+  const handleIconOptionChange = (index: number, value: string) => {
+    if (value === '__custom') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) handleIconSelect(index, file);
+      };
+      input.click();
+      return;
     }
+    clearPendingFile(`categories.${index}.icon`);
+    updateItem(index, 'icon', value);
   };
 
   return (
@@ -329,27 +580,15 @@ function CategoriesEditor({ config, updateConfig, storeId, brandName }: { config
           <input value={c.title} onChange={e => updateItem(idx, 'title', e.target.value)} placeholder="Title" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
 
           <div className="flex items-center gap-1">
-            <select value={c.icon || 'Package'} onChange={e => updateItem(idx, 'icon', e.target.value)} className="w-36 rounded-lg border border-gray-200 px-2 py-1 text-sm">
+            <select value={c.icon || 'Package'} onChange={e => handleIconOptionChange(idx, e.target.value)} className="w-36 rounded-lg border border-gray-200 px-2 py-1 text-sm">
               {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
               <option value="__custom">Custom (upload)</option>
             </select>
-            <button
-              onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*, .svg';
-                input.onchange = async (e) => {
-                  const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file) handleIconUpload(idx, file);
-                };
-                input.click();
-              }}
-              className="px-2 py-1 rounded-lg bg-blue-500 text-white text-xs hover:bg-blue-600"
-            >
-              Upload
-            </button>
             {c.icon?.startsWith('http') && (
               <img src={c.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
+            )}
+            {pendingFiles[`categories.${idx}.icon`] && (
+              <span className="text-xs text-green-600">Pending</span>
             )}
           </div>
 
@@ -377,7 +616,6 @@ function CategoriesEditor({ config, updateConfig, storeId, brandName }: { config
 
       <button onClick={addItem} className="flex items-center gap-1 text-sm text-green-600"><Plus size={16} /> Add Category</button>
 
-      {/* Product Picker Modal */}
       {showProductPicker && editingCategoryIndex !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col shadow-xl">
@@ -421,11 +659,11 @@ function CategoriesEditor({ config, updateConfig, storeId, brandName }: { config
 // ============================================================
 // BULK DEAL EDITOR
 // ============================================================
-function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (newConfig: any) => void }) {
-  const { bulkDeal } = config;
+function BulkDealEditor({ draft, setDraft }: { draft: any; setDraft: (section: string, value: any) => void }) {
+  const { bulkDeal } = draft;
 
   const updateBulkDeal = (field: string, value: any) => {
-    updateConfig({ ...config, bulkDeal: { ...bulkDeal, [field]: value } });
+    setDraft('bulkDeal', { ...bulkDeal, [field]: value });
   };
 
   return (
@@ -455,18 +693,23 @@ function BulkDealEditor({ config, updateConfig }: { config: any; updateConfig: (
 // ============================================================
 // TRENDING EDITOR
 // ============================================================
-function TrendingEditor({ config, updateConfig, storeId }: { config: any; updateConfig: (newConfig: any) => void; storeId: string }) {
-  const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [] } = config;
+function TrendingEditor({ draft, setDraft, setPendingFile, clearPendingFile, pendingFiles }: {
+  draft: any;
+  setDraft: (section: string, value: any) => void;
+  setPendingFile: (path: string, file: File) => void;
+  clearPendingFile: (path: string) => void;
+  pendingFiles: Record<string, File>;
+}) {
+  const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [] } = draft;
+  const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
   const updateTrending = (field: string, value: any) => {
-    updateConfig({ ...config, trending: { ...trending, [field]: value } });
+    setDraft('trending', { ...trending, [field]: value });
   };
 
   const updateIconButtons = (newItems: any[]) => {
-    updateConfig({ ...config, trending: { ...trending, iconButtons: newItems } });
+    setDraft('trending', { ...trending, iconButtons: newItems });
   };
-
-  const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
   const addIconButton = () => {
     const newItem = { id: Date.now().toString(), label: 'New Category', icon: 'Package', categoryId: categoryOptions.length > 0 ? categoryOptions[0].value : '' };
@@ -479,10 +722,7 @@ function TrendingEditor({ config, updateConfig, storeId }: { config: any; update
     updateIconButtons(updated);
   };
 
-  const removeIconButton = (index: number) => {
-    updateIconButtons(trending.iconButtons.filter((_, i) => i !== index));
-  };
-
+  const removeIconButton = (index: number) => updateIconButtons(trending.iconButtons.filter((_, i) => i !== index));
   const moveIconButton = (index: number, dir: 'up' | 'down') => {
     const newItems = [...trending.iconButtons];
     const swap = dir === 'up' ? index - 1 : index + 1;
@@ -491,15 +731,28 @@ function TrendingEditor({ config, updateConfig, storeId }: { config: any; update
     updateIconButtons(newItems);
   };
 
-  const handleIconUpload = async (index: number, file: File) => {
-    try {
-      const url = await uploadIconImage(storeId, file, 'brand-trending');
-      const updated = [...trending.iconButtons];
-      updated[index] = { ...updated[index], icon: url };
-      updateIconButtons(updated);
-    } catch (err) {
-      console.error('Icon upload failed', err);
+  const handleIconSelect = (index: number, file: File) => {
+    const objectUrl = URL.createObjectURL(file);
+    const updated = [...trending.iconButtons];
+    updated[index] = { ...updated[index], icon: objectUrl };
+    updateIconButtons(updated);
+    setPendingFile(`trending.iconButtons.${index}.icon`, file);
+  };
+
+  const handleIconOptionChange = (index: number, value: string) => {
+    if (value === '__custom') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) handleIconSelect(index, file);
+      };
+      input.click();
+      return;
     }
+    clearPendingFile(`trending.iconButtons.${index}.icon`);
+    updateIconButton(index, 'icon', value);
   };
 
   return (
@@ -528,27 +781,15 @@ function TrendingEditor({ config, updateConfig, storeId }: { config: any; update
             <input value={btn.label} onChange={e => updateIconButton(idx, 'label', e.target.value)} placeholder="Label" className="flex-1 min-w-[100px] rounded-lg border border-gray-200 px-2 py-1 text-sm" />
 
             <div className="flex items-center gap-1">
-              <select value={btn.icon || 'Package'} onChange={e => updateIconButton(idx, 'icon', e.target.value)} className="w-36 rounded-lg border border-gray-200 px-2 py-1 text-sm">
+              <select value={btn.icon || 'Package'} onChange={e => handleIconOptionChange(idx, e.target.value)} className="w-36 rounded-lg border border-gray-200 px-2 py-1 text-sm">
                 {ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}
                 <option value="__custom">Custom (upload)</option>
               </select>
-              <button
-                onClick={() => {
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.accept = 'image/*, .svg';
-                  input.onchange = async (e) => {
-                    const file = (e.target as HTMLInputElement).files?.[0];
-                    if (file) handleIconUpload(idx, file);
-                  };
-                  input.click();
-                }}
-                className="px-2 py-1 rounded-lg bg-blue-500 text-white text-xs hover:bg-blue-600"
-              >
-                Upload
-              </button>
               {btn.icon?.startsWith('http') && (
                 <img src={btn.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
+              )}
+              {pendingFiles[`trending.iconButtons.${idx}.icon`] && (
+                <span className="text-xs text-green-600">Pending</span>
               )}
             </div>
 

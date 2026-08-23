@@ -1395,75 +1395,65 @@ export async function uploadIconImage(
 
 // services/catalog.ts
 
-// Upload a brand image to Supabase Storage
 export async function uploadBrandImage(
   file: File,
-  brandId: string | null,  // null for new brand (will be created later)
-  field: 'logo_url' | 'product_images'
+  brandId: string | null,
+  field: 'logo_url' | 'product_images',
+  onProgress?: (progress: number) => void
 ): Promise<string> {
-  const bucket = 'brands';
   const folder = brandId ? `brand_${brandId}` : 'temp';
   const fileName = `${Date.now()}_${file.name}`;
   const path = `${folder}/${field}/${fileName}`;
 
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .upload(path, file);
-  if (error) throw error;
+  // Use signed URL to get progress events
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from('brands')
+    .createSignedUploadUrl(path);
 
-  const { data: urlData } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(path);
-  return urlData.publicUrl;
+  if (signedError) throw signedError;
+
+  const uploadUrl = signedData.signedUrl;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percent = (event.loaded / event.total) * 100;
+        onProgress(Math.min(100, percent));
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status === 200) {
+        const { data: urlData } = supabase.storage.from('brands').getPublicUrl(path);
+        resolve(urlData.publicUrl);
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(file);
+  });
 }
 
-// services/catalog.ts – add this function (place near other storage functions)
-
+// Enhanced deleteBrandImage (already exists but ensure it handles errors)
 export async function deleteBrandImage(imageUrl: string): Promise<void> {
-  if (!imageUrl) {
-    console.log('[deleteBrandImage] No URL provided');
-    return;
-  }
+  if (!imageUrl) return;
+  if (!imageUrl.includes('/storage/v1/object/public/brands/')) return;
 
-  // Skip placeholder images
-  if (imageUrl.includes('placeholder')) {
-    console.log('[deleteBrandImage] Skipping placeholder:', imageUrl);
-    return;
-  }
+  const publicPrefix = '/storage/v1/object/public/brands/';
+  const index = imageUrl.indexOf(publicPrefix);
+  if (index === -1) return;
 
-  // Only delete if it's from our bucket
-  if (!imageUrl.includes('/storage/v1/object/public/brands/')) {
-    console.log('[deleteBrandImage] URL not from brands bucket:', imageUrl);
-    return;
-  }
+  const filePath = imageUrl.substring(index + publicPrefix.length);
+  if (!filePath) return;
 
-  try {
-    const url = new URL(imageUrl);
-    const pathParts = url.pathname.split('/');
-    const brandsIndex = pathParts.indexOf('brands');
-    if (brandsIndex === -1) {
-      console.log('[deleteBrandImage] Could not find "brands" in path');
-      return;
-    }
-    // Path after 'brands': e.g., "brand_123/logo_url/12345_image.jpg"
-    const path = pathParts.slice(brandsIndex + 1).join('/');
-    if (!path) {
-      console.log('[deleteBrandImage] No path extracted');
-      return;
-    }
-
-    console.log('[deleteBrandImage] Deleting:', path);
-    const { error } = await supabase.storage
-      .from('brands')
-      .remove([path]);
-    if (error) {
-      console.error('[deleteBrandImage] Error deleting:', error);
-    } else {
-      console.log('[deleteBrandImage] Deleted successfully');
-    }
-  } catch (e) {
-    console.error('[deleteBrandImage] Exception:', e);
-  }
+  const { error } = await supabase.storage.from('brands').remove([filePath]);
+  if (error) throw error;
 }
 
 // ================================================================

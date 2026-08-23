@@ -39,6 +39,7 @@ import RolesManager from '@/components/Admin/RolesManager';
 import DeliveryRangesManager from '@/components/Admin/DeliveryRangesManager';
 import Reports from '@/components/Admin/Reports';
 import SubcategoriesManager from '@/components/Admin/SubcategoriesManager';
+import CompressionSettings from '@/components/Admin/CompressionSettings';
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -87,6 +88,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'deliveryRanges', label: 'Delivery Ranges', icon: MapPin },
     { id: 'push', label: 'Push Notifications', icon: Bell },
     { id: 'reports', label: 'Reports', icon: BarChart2 },
+    { id: 'compression', label: 'Compression', icon: Settings },
   ];
 
   return (
@@ -142,6 +144,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'invoiceSettings' && <InvoiceSettings />}
         {tab === 'deliveryRanges' && <DeliveryRangesManager />}
         {tab === 'push' && <PushNotificationSender />}
+        {tab === 'compression' && <CompressionSettings />}
         {tab === 'reports' && <Reports />}
       </div>
     </div>

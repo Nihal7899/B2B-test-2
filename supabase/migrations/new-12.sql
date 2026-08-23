@@ -108,3 +108,27 @@ ADD COLUMN IF NOT EXISTS badge_color TEXT DEFAULT '#fbbf24';
 
 -- Remove old tint_opacity if it exists
 ALTER TABLE stores DROP COLUMN IF EXISTS tint_opacity;
+
+-- SQL migration for compression settings
+CREATE TABLE IF NOT EXISTS public.app_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  key TEXT UNIQUE NOT NULL,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Insert default compression config
+INSERT INTO public.app_settings (key, value)
+VALUES (
+  'compression_config',
+  '{
+    "thresholds": [
+      {"minSizeMB": 0, "maxSizeMB": 2, "quality": 90},
+      {"minSizeMB": 2, "maxSizeMB": 4, "quality": 80},
+      {"minSizeMB": 4, "maxSizeMB": 6, "quality": 70},
+      {"minSizeMB": 6, "maxSizeMB": null, "quality": 60}
+    ]
+  }'::jsonb
+)
+ON CONFLICT (key) DO NOTHING;
+

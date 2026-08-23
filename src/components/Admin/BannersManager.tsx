@@ -1,7 +1,7 @@
 // src/components/admin/BannersManager.tsx
 import { useEffect, useState, useCallback } from 'react';
 import {
-  Plus, Pencil, Trash2, X, Eye, Copy, ArrowUp, ArrowDown, ImageIcon, Loader2, Save
+  Plus, Pencil, Trash2, X, Eye, Copy, ArrowUp, ArrowDown, ImageIcon, Loader2, Save, Upload
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { HomeBanner, ActionType, DbCategory, DbProduct } from '@/types';
@@ -11,9 +11,15 @@ import {
   updateHomeBanner,
   deleteHomeBanner,
   duplicateHomeBanner,
+  uploadBannerImage,
+  deleteBannerImage,
 } from '@/services/catalog';
 import { PromoBannerCard } from '@/components/PromoBanner';
 import type { PromoBanner } from '@/types';
+import { Toast, ToastContainer } from '@/components/ui/Toast';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { UploadProgress } from '@/components/ui/UploadProgress';
+import { compressImage } from '@/lib/imageUtils';
 
 const ACTION_TYPES: ActionType[] = [
   'VIEW_CATEGORY',
@@ -34,33 +40,82 @@ const ACTION_TYPES: ActionType[] = [
 export default function BannersManager() {
   const [banners, setBanners] = useState<HomeBanner[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<HomeBanner | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+  const [editingBanner, setEditingBanner] = useState<HomeBanner | null>(null);
   const [previewBanner, setPreviewBanner] = useState<HomeBanner | null>(null);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    bannerId?: string;
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+  });
+
+  const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    const id = Date.now().toString();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+  };
 
   const load = useCallback(async () => {
-    const data = await fetchAllHomeBanners();
-    setBanners(data);
-    setLoading(false);
+    try {
+      const data = await fetchAllHomeBanners();
+      setBanners(data);
+    } catch (err) {
+      addToast('Failed to load banners', 'error');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const handleDelete = async (id: string) => {
-    await deleteHomeBanner(id);
-    void load();
+  const handleDeleteClick = (id: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      bannerId: id,
+      title: 'Delete Banner',
+      message: 'Are you sure you want to delete this banner? This action cannot be undone.',
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.bannerId) return;
+    try {
+      await deleteHomeBanner(confirmDialog.bannerId);
+      addToast('Banner deleted successfully', 'success');
+      await load();
+    } catch (err) {
+      addToast('Failed to delete banner', 'error');
+    } finally {
+      setConfirmDialog({ isOpen: false, bannerId: undefined, title: '', message: '' });
+    }
   };
 
   const handleToggle = async (banner: HomeBanner) => {
-    await updateHomeBanner(banner.id, { is_active: !banner.is_active });
-    void load();
+    try {
+      await updateHomeBanner(banner.id, { is_active: !banner.is_active });
+      addToast(`Banner ${!banner.is_active ? 'activated' : 'deactivated'}`, 'success');
+      await load();
+    } catch (err) {
+      addToast('Failed to update banner', 'error');
+    }
   };
 
   const handleDuplicate = async (id: string) => {
-    await duplicateHomeBanner(id);
-    void load();
+    try {
+      await duplicateHomeBanner(id);
+      addToast('Banner duplicated', 'success');
+      await load();
+    } catch (err) {
+      addToast('Failed to duplicate banner', 'error');
+    }
   };
 
   const handleReorder = async (banner: HomeBanner, direction: 'up' | 'down') => {
@@ -69,11 +124,36 @@ export default function BannersManager() {
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= sorted.length) return;
     const swapBanner = sorted[swapIdx];
-    await Promise.all([
-      updateHomeBanner(banner.id, { display_order: swapBanner.display_order }),
-      updateHomeBanner(swapBanner.id, { display_order: banner.display_order }),
-    ]);
+    try {
+      await Promise.all([
+        updateHomeBanner(banner.id, { display_order: swapBanner.display_order }),
+        updateHomeBanner(swapBanner.id, { display_order: banner.display_order }),
+      ]);
+      await load();
+    } catch (err) {
+      addToast('Failed to reorder banners', 'error');
+    }
+  };
+
+  const handleEdit = (banner: HomeBanner) => {
+    setEditingBanner(banner);
+    setViewMode('form');
+  };
+
+  const handleAddNew = () => {
+    setEditingBanner(null);
+    setViewMode('form');
+  };
+
+  const handleFormClose = () => {
+    setViewMode('list');
+    setEditingBanner(null);
+  };
+
+  const handleFormSaved = () => {
     void load();
+    setViewMode('list');
+    addToast('Banner saved successfully', 'success');
   };
 
   const toPromoBanner = (b: HomeBanner): PromoBanner => {
@@ -104,29 +184,36 @@ export default function BannersManager() {
     };
   };
 
-  if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
+  if (loading) {
+    return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
+  }
+
+  if (viewMode === 'form') {
+    return (
+      <BannerForm
+        initial={editingBanner}
+        onClose={handleFormClose}
+        onSaved={handleFormSaved}
+        addToast={addToast}
+      />
+    );
+  }
 
   return (
     <div className="space-y-3">
+      <ToastContainer>
+        {toasts.map((t) => (
+          <Toast key={t.id} message={t.message} type={t.type} onClose={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))} />
+        ))}
+      </ToastContainer>
+
       <button
-        onClick={() => {
-          setEditing(null);
-          setShowForm(true);
-        }}
+        onClick={handleAddNew}
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
       >
         <Plus size={16} /> Add banner
       </button>
-      {showForm && (
-        <BannerForm
-          initial={editing}
-          onClose={() => setShowForm(false)}
-          onSaved={() => {
-            setShowForm(false);
-            void load();
-          }}
-        />
-      )}
+
       {banners.map((banner, i) => (
         <div key={banner.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
@@ -171,51 +258,52 @@ export default function BannersManager() {
                 )}
               </div>
             </div>
-            <div className="flex gap-1 flex-wrap">
+            <div className="flex flex-wrap gap-1.5">
               <button
                 onClick={() => setPreviewBanner(banner)}
-                className="h-8 w-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center"
+                className="h-9 w-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center"
               >
                 <Eye size={14} />
               </button>
               <button
                 onClick={() => void handleReorder(banner, 'up')}
                 disabled={i === 0}
-                className="h-8 w-8 rounded-lg bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-40"
+                className="h-9 w-9 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-40"
               >
                 <ArrowUp size={14} />
               </button>
               <button
                 onClick={() => void handleReorder(banner, 'down')}
                 disabled={i === banners.length - 1}
-                className="h-8 w-8 rounded-lg bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-40"
+                className="h-9 w-9 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-40"
               >
                 <ArrowDown size={14} />
               </button>
               <button
                 onClick={() => void handleToggle(banner)}
-                className="h-8 w-8 rounded-lg bg-ink-50 text-ink-600 flex items-center justify-center text-xs font-bold"
+                className={`h-9 px-3 rounded-xl text-xs font-bold ${
+                  banner.is_active
+                    ? 'bg-brand-100 text-brand-700'
+                    : 'bg-ink-100 text-ink-500'
+                }`}
               >
                 {banner.is_active ? 'ON' : 'OFF'}
               </button>
               <button
                 onClick={() => void handleDuplicate(banner.id)}
-                className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
+                className="h-9 w-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center"
               >
                 <Copy size={14} />
               </button>
               <button
-                onClick={() => {
-                  setEditing(banner);
-                  setShowForm(true);
-                }}
-                className="h-8 w-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"
+                onClick={() => handleEdit(banner)}
+                className="h-9 w-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center"
               >
                 <Pencil size={14} />
               </button>
               <button
-                onClick={() => void handleDelete(banner.id)}
-                className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center"
+                onClick={() => handleDeleteClick(banner.id)}
+                className="h-9 w-9 rounded-xl bg-red-50 text-red-500 flex items-center justify-center"
               >
                 <Trash2 size={14} />
               </button>
@@ -223,6 +311,7 @@ export default function BannersManager() {
           </div>
         </div>
       ))}
+
       {previewBanner && (
         <div
           className="fixed inset-0 z-[300] bg-black/40 flex items-center justify-center p-4"
@@ -239,19 +328,29 @@ export default function BannersManager() {
           </div>
         </div>
       )}
+
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDialog({ isOpen: false, bannerId: undefined, title: '', message: '' })}
+      />
     </div>
   );
 }
 
-// ---- BannerForm (used only here) ----
+// ========== BannerForm (refactored) ==========
 function BannerForm({
   initial,
   onClose,
   onSaved,
+  addToast,
 }: {
   initial: HomeBanner | null;
   onClose: () => void;
   onSaved: () => void;
+  addToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }) {
   const [form, setForm] = useState({
     badge: initial?.badge ?? '',
@@ -277,6 +376,11 @@ function BannerForm({
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>(initial?.image_url ?? '');
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(initial?.image_url ?? null);
   const [categories, setCategories] = useState<DbCategory[]>([]);
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
@@ -296,20 +400,15 @@ function BannerForm({
     })();
   }, []);
 
-  const handleImageUpload = async (file: File) => {
-    setUploading(true);
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
-    const fileName = `banner-${Date.now()}.${ext}`;
-    const { error: uploadErr } = await supabase.storage
-      .from('home-banners')
-      .upload(fileName, file, { cacheControl: '3600', upsert: false });
-    if (uploadErr) {
-      setUploading(false);
-      return;
-    }
-    const { data: urlData } = supabase.storage.from('home-banners').getPublicUrl(fileName);
-    setForm((f) => ({ ...f, image_url: urlData.publicUrl }));
-    setUploading(false);
+  const handleFileSelect = (file: File) => {
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    // Do not upload yet
+  };
+
+  const handleImageUpload = (file: File) => {
+    // Just preview, upload on save
+    handleFileSelect(file);
   };
 
   const setActionConfig = (key: string, value: unknown) => {
@@ -317,47 +416,88 @@ function BannerForm({
   };
 
   const handleSave = async () => {
-    if (!form.title) return;
-    if (form.bg_type === 'image' && !form.image_url) {
-      alert('Please upload an image for full‑screen banner.');
+    if (!form.title) {
+      addToast('Title is required', 'warning');
       return;
     }
+    if (form.bg_type === 'image' && !form.image_url && !selectedFile) {
+      addToast('Please upload an image for full‑screen banner.', 'warning');
+      return;
+    }
+
     setSaving(true);
-    const payload = {
-      badge: form.badge || null,
-      title: form.title,
-      description: form.description,
-      image_url: form.image_url || null,
-      background_color: form.background_color,
-      button_text: form.button_text,
-      action_type: form.action_type,
-      action_config: form.action_config,
-      display_order: form.display_order,
-      is_active: form.is_active,
-      position: form.position,
-      start_at: form.start_at || null,
-      end_at: form.end_at || null,
-      bg_type: form.bg_type,
-      bg_color: form.bg_color,
-      bg_gradient: form.bg_gradient,
-      overlay_enabled: form.overlay_enabled,
-      overlay_color: form.overlay_color,
-      overlay_opacity: form.overlay_opacity,
-      show_cta: form.show_cta,
-    };
+    let newImageUrl = form.image_url;
+
     try {
+      // If a new file is selected, compress and upload
+      if (selectedFile) {
+        setUploading(true);
+        setUploadProgress(0);
+        setUploadStatus('Compressing image...');
+
+        // Compress
+        const compressed = await compressImage(selectedFile);
+        setUploadStatus(`Uploading... 0%`);
+
+        // Upload with progress
+        newImageUrl = await uploadBannerImage(compressed, (progress) => {
+          setUploadProgress(progress);
+          setUploadStatus(`Uploading... ${Math.round(progress)}%`);
+        });
+
+        setUploadStatus('Upload complete');
+        // Delete old image if it exists and is different from new
+        if (originalImageUrl && originalImageUrl !== newImageUrl) {
+          await deleteBannerImage(originalImageUrl);
+        }
+      }
+
+      // Build payload
+      const payload = {
+        badge: form.badge || null,
+        title: form.title,
+        description: form.description,
+        image_url: newImageUrl || null,
+        background_color: form.background_color,
+        button_text: form.button_text,
+        action_type: form.action_type,
+        action_config: form.action_config,
+        display_order: form.display_order,
+        is_active: form.is_active,
+        position: form.position,
+        start_at: form.start_at || null,
+        end_at: form.end_at || null,
+        bg_type: form.bg_type,
+        bg_color: form.bg_color,
+        bg_gradient: form.bg_gradient,
+        overlay_enabled: form.overlay_enabled,
+        overlay_color: form.overlay_color,
+        overlay_opacity: form.overlay_opacity,
+        show_cta: form.show_cta,
+      };
+
       if (initial) {
         await updateHomeBanner(initial.id, payload);
       } else {
         await createHomeBanner(payload);
       }
+
       onSaved();
     } catch (err) {
       console.error(err);
-      alert('Failed to save banner. Check console for details.');
+      addToast('Failed to save banner. Check console for details.', 'error');
+    } finally {
+      setSaving(false);
+      setUploading(false);
+      setUploadProgress(0);
+      setUploadStatus('');
     }
-    setSaving(false);
   };
+
+  // Show upload progress overlay
+  if (uploading) {
+    return <UploadProgress progress={uploadProgress} statusText={uploadStatus} />;
+  }
 
   const needsCategory = form.action_type === 'VIEW_CATEGORY' || form.action_type === 'FILTER_PRODUCTS';
   const needsProduct = form.action_type === 'VIEW_PRODUCT';
@@ -372,12 +512,12 @@ function BannerForm({
     <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-4 shadow-card">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink-900">{initial ? 'Edit' : 'New'} banner</h3>
-        <button onClick={onClose}>
+        <button onClick={onClose} className="h-10 w-10 flex items-center justify-center">
           <X size={16} className="text-ink-400" />
         </button>
       </div>
 
-      {/* Basic fields */}
+      {/* Basic fields - all full width for mobile */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Badge</label>
         <input
@@ -407,14 +547,17 @@ function BannerForm({
       </div>
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Image URL {form.bg_type === 'image' && '*'}</label>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             value={form.image_url}
-            onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+            onChange={(e) => {
+              setForm({ ...form, image_url: e.target.value });
+              setPreviewUrl(e.target.value);
+            }}
             placeholder="Image URL or upload"
             className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
-          <label className="h-10 px-3 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+          <label className="h-10 px-3 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer">
             {uploading ? <Loader2 size={14} className="animate-spin" /> : <><ImageIcon size={14} /> Upload</>}
             <input
               type="file"
@@ -422,13 +565,20 @@ function BannerForm({
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) void handleImageUpload(f);
+                if (f) handleImageUpload(f);
               }}
             />
           </label>
         </div>
-        {form.image_url && (
-          <img src={form.image_url} alt="" className="h-20 w-full rounded-xl object-cover mt-2" />
+        {previewUrl && (
+          <div className="relative mt-2">
+            <img src={previewUrl} alt="Preview" className="h-20 w-full rounded-xl object-cover" />
+            {selectedFile && (
+              <span className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
+                New
+              </span>
+            )}
+          </div>
         )}
       </div>
 
@@ -449,7 +599,7 @@ function BannerForm({
       {form.bg_type === 'color' && (
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Background Colour</label>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               type="color"
               value={form.bg_color}
@@ -461,7 +611,7 @@ function BannerForm({
               value={form.bg_color}
               onChange={(e) => setForm({ ...form, bg_color: e.target.value })}
               placeholder="#hex"
-              className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+              className="flex-1 min-w-[120px] h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
             />
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
@@ -498,7 +648,7 @@ function BannerForm({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Legacy Color (for carousel)</label>
           <select
@@ -777,7 +927,7 @@ function BannerForm({
         <div className="space-y-2 border border-ink-100 rounded-xl p-3 bg-ink-50">
           <div>
             <label className="block text-xs font-bold text-ink-600 mb-1">Tint Colour</label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="color"
                 value={form.overlay_color}
@@ -788,7 +938,7 @@ function BannerForm({
                 type="text"
                 value={form.overlay_color}
                 onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
-                className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+                className="flex-1 min-w-[120px] h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
               />
             </div>
           </div>
@@ -818,7 +968,7 @@ function BannerForm({
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Start date</label>
           <input
@@ -838,7 +988,7 @@ function BannerForm({
           />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Display order</label>
           <input
@@ -863,7 +1013,7 @@ function BannerForm({
 
       <button
         onClick={handleSave}
-        disabled={saving || !form.title || (form.bg_type === 'image' && !form.image_url)}
+        disabled={saving || !form.title || (form.bg_type === 'image' && !form.image_url && !selectedFile)}
         className="w-full h-11 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
       >
         {saving ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save banner</>}

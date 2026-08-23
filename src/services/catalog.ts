@@ -1444,3 +1444,41 @@ export async function fetchBrandById(id: string): Promise<TrustedBrand | null> {
   if (error) return null;
   return data as TrustedBrand;
 }
+
+// ================================================================
+// UPLOAD AND DELETE BANNER IMAGE
+// ================================================================
+
+export async function uploadBannerImage(file: File, onProgress?: (progress: number) => void): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'webp';
+  const fileName = `banner-${Date.now()}.${ext}`;
+  const { data, error } = await supabase.storage
+    .from('home-banners')
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: false,
+      onUploadProgress: (progress) => {
+        if (onProgress) {
+          const percent = (progress.loaded / progress.total) * 100;
+          onProgress(Math.min(100, percent));
+        }
+      },
+    });
+  if (error) throw error;
+  const { data: urlData } = supabase.storage.from('home-banners').getPublicUrl(fileName);
+  return urlData.publicUrl;
+}
+
+export async function deleteBannerImage(imageUrl: string): Promise<void> {
+  if (!imageUrl) return;
+  // Only delete if it's from our bucket
+  if (!imageUrl.includes('/storage/v1/object/public/home-banners/')) return;
+  try {
+    const url = new URL(imageUrl);
+    const path = url.pathname.split('/').slice(2).join('/'); // e.g. "banner-123.webp"
+    if (!path) return;
+    await supabase.storage.from('home-banners').remove([path]);
+  } catch (e) {
+    console.error('Error deleting banner image:', e);
+  }
+}

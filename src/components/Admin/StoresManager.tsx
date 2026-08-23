@@ -308,10 +308,11 @@ function StoreForm({
 
         setUploadProgress(100);
         setUploadStatus('Upload complete!');
+      }
 
-        if (originalImageUrl && originalImageUrl !== newImageUrl) {
-          await deleteStoreBannerImage(originalImageUrl);
-        }
+      // === FIX: Delete old image if the URL changed, regardless of how ===
+      if (originalImageUrl && originalImageUrl !== newImageUrl) {
+        await deleteStoreBannerImage(originalImageUrl);
       }
 
       const data = {
@@ -340,7 +341,8 @@ function StoreForm({
       }
 
       onSaved();
-    } catch {
+    } catch (err) {
+      console.error(err);
       addToast('Failed to save store. Check console.', 'error');
     } finally {
       setSaving(false);
@@ -406,6 +408,7 @@ function StoreForm({
           </div>
         )}
       </div>
+
 
       {/* Basic fields */}
       <div>

@@ -113,17 +113,13 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
   const { config, updateConfig, storeId } = useStore();
   const [activeTab, setActiveTab] = useState<'hero' | 'highlights' | 'categories' | 'bulkDeal' | 'trending'>('hero');
 
-  // Draft state – deep copy of current config
   const [draft, setDraft] = useState<any>(null);
-  // Pending file uploads: { fieldPath: File }
   const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
-  // Loading state during save
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState('');
   const [showUploadProgress, setShowUploadProgress] = useState(false);
 
-  // Initialize draft when config loads
   useEffect(() => {
     if (config) {
       setDraft({
@@ -137,17 +133,14 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
     }
   }, [config]);
 
-  // Update draft section
   const updateDraftSection = (section: string, value: any) => {
     setDraft((prev: any) => ({ ...prev, [section]: value }));
   };
 
-  // Track a pending file for a specific field path (e.g., "hero.image")
   const setPendingFile = (fieldPath: string, file: File) => {
     setPendingFiles((prev) => ({ ...prev, [fieldPath]: file }));
   };
 
-  // Clear a pending file
   const clearPendingFile = (fieldPath: string) => {
     setPendingFiles((prev) => {
       const newFiles = { ...prev };
@@ -156,56 +149,42 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
     });
   };
 
-  // Helper: delete any image URL that appears in the draft but not in the original config
-  const deleteOrphanedImages = async (original: any, updated: any, path: string[] = []) => {
+  const deleteOrphanedImages = async (original: any, updated: any) => {
     if (!original || !updated) return;
 
-    // If we're at a leaf that could be a URL
-    if (typeof original === 'string' && typeof updated === 'string') {
-      // If original is a storage URL and updated is different (empty, or a different string)
-      if (original.startsWith('http') && original.includes('/storage/v1/object/public/store-images/') && original !== updated) {
-        await deleteStoreImage(storeId, original);
-      }
-      return;
-    }
-
-    // If both are objects/arrays, recurse
-    if (typeof original === 'object' && typeof updated === 'object') {
-      const keys = new Set([...Object.keys(original), ...Object.keys(updated)]);
-      for (const key of keys) {
-        const origVal = original[key];
-        const updVal = updated[key];
-        // If original has a value that is a storage URL and updated doesn't have it, delete
-        if (typeof origVal === 'string' && origVal.startsWith('http') && origVal.includes('/storage/v1/object/public/store-images/')) {
-          // Check if this value still exists somewhere in the updated object
-          // We'll use a recursive check – if not found, delete.
-          const valueExists = (obj: any, val: string): boolean => {
-            if (obj === val) return true;
-            if (typeof obj === 'object' && obj !== null) {
-              for (const k of Object.keys(obj)) {
-                if (valueExists(obj[k], val)) return true;
-              }
+    // Simple recursive check to delete URLs that exist in original but not in updated
+    const checkAndDelete = (orig: any, upd: any) => {
+      if (typeof orig === 'string' && orig.includes('/storage/v1/object/public/store-images/')) {
+        // Check if this URL still exists somewhere in updated
+        const urlExists = (obj: any): boolean => {
+          if (obj === orig) return true;
+          if (typeof obj === 'object' && obj !== null) {
+            for (const k of Object.keys(obj)) {
+              if (urlExists(obj[k])) return true;
             }
-            if (Array.isArray(obj)) {
-              for (const item of obj) {
-                if (valueExists(item, val)) return true;
-              }
-            }
-            return false;
-          };
-          if (!valueExists(updated, origVal)) {
-            await deleteStoreImage(storeId, origVal);
           }
-        }
-        // Recurse for nested objects/arrays
-        if (typeof origVal === 'object' && origVal !== null && typeof updVal === 'object' && updVal !== null) {
-          await deleteOrphanedImages(origVal, updVal, [...path, key]);
+          if (Array.isArray(obj)) {
+            for (const item of obj) {
+              if (urlExists(item)) return true;
+            }
+          }
+          return false;
+        };
+        if (!urlExists(upd)) {
+          // Delete the image
+          deleteStoreImage(storeId, orig).catch(console.error);
         }
       }
-    }
+      if (typeof orig === 'object' && orig !== null && typeof upd === 'object' && upd !== null) {
+        const keys = new Set([...Object.keys(orig), ...Object.keys(upd)]);
+        for (const key of keys) {
+          checkAndDelete(orig[key], upd[key]);
+        }
+      }
+    };
+    checkAndDelete(original, updated);
   };
 
-  // Handle save: process pending uploads, delete orphaned images, update config
   const handleSave = async () => {
     if (!draft) return;
     setSaving(true);
@@ -214,10 +193,9 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
     setUploadStatus('Preparing to save...');
 
     try {
-      // We'll collect final values
-      const finalDraft = JSON.parse(JSON.stringify(draft)); // deep copy
+      const finalDraft = JSON.parse(JSON.stringify(draft));
 
-      // 1. Delete orphaned images (images that were removed or changed to a non‑URL)
+      // 1. Delete orphaned images
       const originalConfig = {
         hero: config.hero || { image: '' },
         highlights: config.highlights || [],
@@ -226,8 +204,7 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
       };
       await deleteOrphanedImages(originalConfig, finalDraft);
 
-      // 2. Process pending file uploads (new images)
-      // 2.1 Hero image
+      // 2. Process pending uploads
       if (pendingFiles['hero.image']) {
         const file = pendingFiles['hero.image'];
         const oldUrl = draft.hero.image;
@@ -239,15 +216,11 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
           setUploadStatus(`Uploading hero image... ${Math.round(overall)}%`);
         });
         finalDraft.hero.image = url;
-        // Delete old URL if it exists and is different
         if (oldUrl && oldUrl !== url) {
           await deleteStoreImage(storeId, oldUrl);
         }
-        setUploadProgress(100);
-        setUploadStatus('Hero image uploaded.');
       }
 
-      // 2.2 Highlights icons
       for (let i = 0; i < finalDraft.highlights.length; i++) {
         const key = `highlights.${i}.icon`;
         if (pendingFiles[key]) {
@@ -267,7 +240,6 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
         }
       }
 
-      // 2.3 Categories icons
       for (let i = 0; i < finalDraft.categories.length; i++) {
         const key = `categories.${i}.icon`;
         if (pendingFiles[key]) {
@@ -287,7 +259,6 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
         }
       }
 
-      // 2.4 Trending icon buttons
       for (let i = 0; i < finalDraft.trending.iconButtons.length; i++) {
         const key = `trending.iconButtons.${i}.icon`;
         if (pendingFiles[key]) {
@@ -307,12 +278,9 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
         }
       }
 
-      // Update the config with final draft
       await updateConfig(finalDraft);
       addToast('Store content saved successfully!', 'success');
-      // Clear pending files after successful save
       setPendingFiles({});
-      // Reset upload progress
       setUploadProgress(100);
       setUploadStatus('Save complete!');
       setTimeout(() => setShowUploadProgress(false), 1000);
@@ -327,7 +295,6 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
     }
   };
 
-  // If no draft, loading
   if (!draft) return <div className="p-4 text-center">Loading editor...</div>;
 
   if (showUploadProgress) {
@@ -336,7 +303,6 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
-      {/* Save Button */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-700">Edit Store Content</h3>
         <button
@@ -367,11 +333,45 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
         ))}
       </div>
 
-      {activeTab === 'hero' && <HeroEditor draft={draft} setDraft={updateDraftSection} setPendingFile={setPendingFile} clearPendingFile={clearPendingFile} />}
-      {activeTab === 'highlights' && <HighlightsEditor draft={draft} setDraft={updateDraftSection} setPendingFile={setPendingFile} clearPendingFile={clearPendingFile} />}
-      {activeTab === 'categories' && <CategoriesEditor draft={draft} setDraft={updateDraftSection} setPendingFile={setPendingFile} clearPendingFile={clearPendingFile} />}
-      {activeTab === 'bulkDeal' && <BulkDealEditor draft={draft} setDraft={updateDraftSection} />}
-      {activeTab === 'trending' && <TrendingEditor draft={draft} setDraft={updateDraftSection} setPendingFile={setPendingFile} clearPendingFile={clearPendingFile} />}
+      {activeTab === 'hero' && (
+        <HeroEditor
+          draft={draft}
+          setDraft={updateDraftSection}
+          setPendingFile={setPendingFile}
+          clearPendingFile={clearPendingFile}
+          pendingFiles={pendingFiles}
+        />
+      )}
+      {activeTab === 'highlights' && (
+        <HighlightsEditor
+          draft={draft}
+          setDraft={updateDraftSection}
+          setPendingFile={setPendingFile}
+          clearPendingFile={clearPendingFile}
+          pendingFiles={pendingFiles}
+        />
+      )}
+      {activeTab === 'categories' && (
+        <CategoriesEditor
+          draft={draft}
+          setDraft={updateDraftSection}
+          setPendingFile={setPendingFile}
+          clearPendingFile={clearPendingFile}
+          pendingFiles={pendingFiles}
+        />
+      )}
+      {activeTab === 'bulkDeal' && (
+        <BulkDealEditor draft={draft} setDraft={updateDraftSection} />
+      )}
+      {activeTab === 'trending' && (
+        <TrendingEditor
+          draft={draft}
+          setDraft={updateDraftSection}
+          setPendingFile={setPendingFile}
+          clearPendingFile={clearPendingFile}
+          pendingFiles={pendingFiles}
+        />
+      )}
     </div>
   );
 }
@@ -379,7 +379,13 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
 // ============================================================
 // HERO EDITOR (draft mode, no immediate save)
 // ============================================================
-function HeroEditor({ draft, setDraft, setPendingFile, clearPendingFile }: { draft: any; setDraft: (section: string, value: any) => void; setPendingFile: (path: string, file: File) => void; clearPendingFile: (path: string) => void }) {
+function HeroEditor({ draft, setDraft, setPendingFile, clearPendingFile, pendingFiles }: {
+  draft: any;
+  setDraft: (section: string, value: any) => void;
+  setPendingFile: (path: string, file: File) => void;
+  clearPendingFile: (path: string) => void;
+  pendingFiles: Record<string, File>;
+}) {
   const { hero } = draft;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState(hero.image || '');
@@ -459,7 +465,13 @@ function HeroEditor({ draft, setDraft, setPendingFile, clearPendingFile }: { dra
 // ============================================================
 // HIGHLIGHTS EDITOR (draft mode)
 // ============================================================
-function HighlightsEditor({ draft, setDraft, setPendingFile, clearPendingFile }: { draft: any; setDraft: (section: string, value: any) => void; setPendingFile: (path: string, file: File) => void; clearPendingFile: (path: string) => void }) {
+function HighlightsEditor({ draft, setDraft, setPendingFile, clearPendingFile, pendingFiles }: {
+  draft: any;
+  setDraft: (section: string, value: any) => void;
+  setPendingFile: (path: string, file: File) => void;
+  clearPendingFile: (path: string) => void;
+  pendingFiles: Record<string, File>;
+}) {
   const { highlights = [], categories = [] } = draft;
   const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
@@ -561,7 +573,13 @@ function HighlightsEditor({ draft, setDraft, setPendingFile, clearPendingFile }:
 // ============================================================
 // CATEGORIES EDITOR (draft mode)
 // ============================================================
-function CategoriesEditor({ draft, setDraft, setPendingFile, clearPendingFile }: { draft: any; setDraft: (section: string, value: any) => void; setPendingFile: (path: string, file: File) => void; clearPendingFile: (path: string) => void }) {
+function CategoriesEditor({ draft, setDraft, setPendingFile, clearPendingFile, pendingFiles }: {
+  draft: any;
+  setDraft: (section: string, value: any) => void;
+  setPendingFile: (path: string, file: File) => void;
+  clearPendingFile: (path: string) => void;
+  pendingFiles: Record<string, File>;
+}) {
   const { categories = [] } = draft;
   const [allProducts, setAllProducts] = useState<{ id: string; name: string; brand: string }[]>([]);
   const [productSearch, setProductSearch] = useState('');
@@ -729,7 +747,10 @@ function CategoriesEditor({ draft, setDraft, setPendingFile, clearPendingFile }:
 // ============================================================
 // BULK DEAL EDITOR (draft mode)
 // ============================================================
-function BulkDealEditor({ draft, setDraft }: { draft: any; setDraft: (section: string, value: any) => void }) {
+function BulkDealEditor({ draft, setDraft }: {
+  draft: any;
+  setDraft: (section: string, value: any) => void;
+}) {
   const { bulkDeal } = draft;
 
   const updateBulkDeal = (field: string, value: any) => {
@@ -763,7 +784,13 @@ function BulkDealEditor({ draft, setDraft }: { draft: any; setDraft: (section: s
 // ============================================================
 // TRENDING EDITOR (draft mode)
 // ============================================================
-function TrendingEditor({ draft, setDraft, setPendingFile, clearPendingFile }: { draft: any; setDraft: (section: string, value: any) => void; setPendingFile: (path: string, file: File) => void; clearPendingFile: (path: string) => void }) {
+function TrendingEditor({ draft, setDraft, setPendingFile, clearPendingFile, pendingFiles }: {
+  draft: any;
+  setDraft: (section: string, value: any) => void;
+  setPendingFile: (path: string, file: File) => void;
+  clearPendingFile: (path: string) => void;
+  pendingFiles: Record<string, File>;
+}) {
   const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [] } = draft;
   const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import type { CompressionConfig, CompressionThreshold } from '@/lib/imageUtils';
 import { getCompressionConfig, clearCompressionCache } from '@/lib/imageUtils';
 
-export function CompressionSettings() {
+export default function CompressionSettings() {
   const [config, setConfig] = useState<CompressionConfig>({ thresholds: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

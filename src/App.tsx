@@ -588,7 +588,7 @@ function App() {
       // CATEGORY DETAIL SCREEN (NEW)
       // ============================================================
       case 'categoryDetail':
-        return <CategoryScreen onBack={() => goTo('home')} onProduct={openProduct} cart={cart} />;
+        return <CategoryScreen onBack={() => navigate(-1)} onProduct={openProduct} cart={cart} />;
 
       case 'businessRegistration':
         return (

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import type { CompressionConfig, CompressionThreshold } from '@/lib/imageUtils';
 import { getCompressionConfig, clearCompressionCache } from '@/lib/imageUtils';
 
-export default function CompressionSettings() {
+export function CompressionSettings() {
   const [config, setConfig] = useState<CompressionConfig>({ thresholds: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,7 +43,6 @@ export default function CompressionSettings() {
   const removeThreshold = (index: number) => {
     if (config.thresholds.length <= 1) return;
     const newThresholds = config.thresholds.filter((_, i) => i !== index);
-    // Ensure first min is 0 and last max is null
     if (newThresholds.length > 0) {
       newThresholds[0].minSizeMB = 0;
       newThresholds[newThresholds.length - 1].maxSizeMB = null;
@@ -51,23 +50,23 @@ export default function CompressionSettings() {
     setConfig({ ...config, thresholds: newThresholds });
   };
 
-const saveConfig = async () => {
-  setSaving(true);
-  setSaved(false);
-  try {
-    const { error } = await supabase
-      .from('app_settings')
-      .upsert({ key: 'compression_config', value: config }, { onConflict: 'key' });
-    if (error) throw error;
-    clearCompressionCache(); // <-- Invalidate cache
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  } catch (err) {
-    alert('Failed to save compression settings');
-  } finally {
-    setSaving(false);
-  }
-};
+  const saveConfig = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({ key: 'compression_config', value: config }, { onConflict: 'key' });
+      if (error) throw error;
+      clearCompressionCache();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      alert('Failed to save compression settings');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -112,7 +111,7 @@ const saveConfig = async () => {
             />
           </div>
           <div className="flex-1 min-w-[100px]">
-            <label className="block text-xs font-bold text-ink-600 mb-0.5">Quality (%)</label>
+            <label className="block text-xs font-bold text-ink-600 mb-0.5">Quality (higher = better)</label>
             <input
               type="number"
               min="1"

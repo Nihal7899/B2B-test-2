@@ -1446,49 +1446,11 @@ export async function fetchBrandById(id: string): Promise<TrustedBrand | null> {
 // UPLOAD AND DELETE BANNER IMAGE
 // ================================================================
 
-// ===== HOME BANNERS =====
-export async function deleteBannerImage(imageUrl: string): Promise<void> {
-  if (!imageUrl) {
-    console.log('[deleteBannerImage] No URL provided');
-    return;
-  }
-
-  if (!imageUrl.includes('/storage/v1/object/public/home-banners/')) {
-    console.log('[deleteBannerImage] Skipping – not a bucket URL:', imageUrl);
-    return;
-  }
-
-  try {
-    const publicPrefix = '/storage/v1/object/public/home-banners/';
-    const index = imageUrl.indexOf(publicPrefix);
-    if (index === -1) {
-      console.warn('[deleteBannerImage] Could not find public prefix in URL:', imageUrl);
-      return;
-    }
-
-    const filePath = imageUrl.substring(index + publicPrefix.length);
-    if (!filePath) {
-      console.warn('[deleteBannerImage] Empty file path extracted from:', imageUrl);
-      return;
-    }
-
-    console.log('[deleteBannerImage] Deleting file:', filePath);
-    const { error } = await supabase.storage.from('home-banners').remove([filePath]);
-    if (error) {
-      console.error('[deleteBannerImage] Supabase delete error:', error);
-    } else {
-      console.log('[deleteBannerImage] Successfully deleted:', filePath);
-    }
-  } catch (e) {
-    console.error('[deleteBannerImage] Unexpected error:', e);
-  }
-}
 
 export async function uploadBannerImage(file: File, onProgress?: (progress: number) => void): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'webp';
   const fileName = `banner-${Date.now()}.${ext}`;
 
-  // Get signed upload URL
   const { data: signedData, error: signedError } = await supabase.storage
     .from('home-banners')
     .createSignedUploadUrl(fileName);
@@ -1523,24 +1485,34 @@ export async function uploadBannerImage(file: File, onProgress?: (progress: numb
   });
 }
 
+export async function deleteBannerImage(imageUrl: string): Promise<void> {
+  if (!imageUrl) return;
+  if (!imageUrl.includes('/storage/v1/object/public/home-banners/')) return;
+
+  const publicPrefix = '/storage/v1/object/public/home-banners/';
+  const index = imageUrl.indexOf(publicPrefix);
+  if (index === -1) return;
+
+  const filePath = imageUrl.substring(index + publicPrefix.length);
+  if (!filePath) return;
+
+  const { error } = await supabase.storage.from('home-banners').remove([filePath]);
+  if (error) throw error;
+}
+
 export async function deleteHomeBanner(id: string): Promise<void> {
-  // 1. Fetch the banner to get image_url
   const { data: banner, error: fetchError } = await supabase
     .from('home_banners')
     .select('image_url')
     .eq('id', id)
     .maybeSingle();
 
-  if (fetchError) {
-    console.error('[deleteHomeBanner] Error fetching banner:', fetchError);
-  }
+  if (fetchError) throw fetchError;
 
-  // 2. Delete the image from storage if exists
   if (banner?.image_url) {
     await deleteBannerImage(banner.image_url);
   }
 
-  // 3. Delete the record
   const { error } = await supabase.from('home_banners').delete().eq('id', id);
   if (error) throw error;
 }

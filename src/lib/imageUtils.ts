@@ -34,15 +34,13 @@ export async function getCompressionConfig(): Promise<CompressionConfig> {
       .single();
 
     if (error || !data) {
-      console.warn('Using default compression config');
       cachedConfig = DEFAULT_CONFIG;
       return cachedConfig;
     }
 
-    const config = data.value as CompressionConfig;
-    cachedConfig = config;
-    return config;
-  } catch (_) {
+    cachedConfig = data.value as CompressionConfig;
+    return cachedConfig;
+  } catch {
     return DEFAULT_CONFIG;
   }
 }
@@ -65,8 +63,6 @@ async function getQualityForSize(fileSizeMB: number): Promise<number> {
 export async function compressImage(file: File): Promise<File> {
   const fileSizeMB = file.size / (1024 * 1024);
   const quality = await getQualityForSize(fileSizeMB);
-
-  // Force compression by targeting 80% of original size (minimum 0.5 MB)
   const targetMaxMB = Math.max(0.5, fileSizeMB * 0.8);
 
   const options = {
@@ -78,10 +74,8 @@ export async function compressImage(file: File): Promise<File> {
   };
 
   try {
-    const compressedFile = await imageCompression(file, options);
-    return compressedFile;
-  } catch (error) {
-    console.error('Compression failed:', error);
+    return await imageCompression(file, options);
+  } catch {
     return file; // fallback to original
   }
 }

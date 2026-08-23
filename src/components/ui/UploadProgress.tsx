@@ -3,7 +3,7 @@ import { Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface UploadProgressProps {
-  progress: number; // 0-100
+  progress: number;
   statusText: string;
   isComplete?: boolean;
 }

@@ -119,6 +119,13 @@ const categoryColors = [
 const PLACEHOLDER_CATEGORY = 'https://placehold.co/600x400/EEE/999?text=Category';
 const PLACEHOLDER_PRODUCT = 'https://placehold.co/400x400/EEE/999?text=Product';
 
+// ⬇️ ADD THIS
+const bgMap: Record<string, string> = {
+  brand: 'bg-gradient-to-br from-brand-700 to-brand-900',
+  accent: 'bg-gradient-to-br from-accent-500 to-accent-700',
+  ink: 'bg-gradient-to-br from-ink-800 to-ink-900',
+};
+
 export function mapCategory(db: DbCategory, index: number, productCount?: number): Category {
   return {
     id: db.id,                         // ✅ use the actual UUID
@@ -955,7 +962,26 @@ export async function updateTrustedBrand(id: string, updates: Partial<TrustedBra
 
 
 export async function deleteTrustedBrand(id: string): Promise<void> {
-  await supabase.from('trusted_brands').delete().eq('id', id);
+  const { data: brand, error: fetchError } = await supabase
+    .from('trusted_brands')
+    .select('logo_url, product_images')
+    .eq('id', id)
+    .maybeSingle();
+  if (fetchError) throw fetchError;
+  if (brand) {
+    if (brand.logo_url && !brand.logo_url.includes('placeholder')) {
+      await deleteBrandImage(brand.logo_url);
+    }
+    if (brand.product_images && brand.product_images.length) {
+      for (const img of brand.product_images) {
+        if (img && !img.includes('placeholder')) {
+          await deleteBrandImage(img);
+        }
+      }
+    }
+  }
+  const { error } = await supabase.from('trusted_brands').delete().eq('id', id);
+  if (error) throw error;
 }
 
 // ----- SMART COLLECTIONS -----

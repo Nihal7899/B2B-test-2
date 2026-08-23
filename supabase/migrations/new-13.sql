@@ -60,3 +60,5 @@ using (
   bucket_id = 'product-images'
   and auth_helpers.is_admin()
 );
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS image_urls TEXT[] DEFAULT '{}';

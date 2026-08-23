@@ -167,7 +167,7 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
               <p className="text-xs text-gray-400">Try a different subcategory or search</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {filteredProducts.map((p) => (
                 <div key={p.id} className="cursor-pointer">
                   <ProductCard

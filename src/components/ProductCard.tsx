@@ -130,7 +130,7 @@ export const ProductCard = React.memo(function ProductCard({
         group relative flex flex-col overflow-hidden
         cursor-pointer bg-white
         border
-        ${horizontal ? 'w-[168px] shrink-0' : 'w-full'}
+        ${horizontal ? 'w-[184px] shrink-0' : 'w-full'}
         rounded-[22px]
         transition-all duration-300
         hover:-translate-y-1
@@ -146,7 +146,7 @@ export const ProductCard = React.memo(function ProductCard({
           PRODUCT IMAGE
       ===================================================== */}
 
-      <div className="relative h-[142px] overflow-hidden bg-slate-50">
+      <div className="relative h-[124px] overflow-hidden bg-slate-50">
         <img
           src={product.image}
           alt={product.name}
@@ -571,6 +571,8 @@ export const ProductCard = React.memo(function ProductCard({
     </article>
   );
 });
+
+// ... (Rest of QuantitySelector and ProductCarousel components remain exactly the same)
 
 // =============================================================
 // QUANTITY SELECTOR

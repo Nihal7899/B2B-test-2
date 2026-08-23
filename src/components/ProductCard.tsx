@@ -146,7 +146,8 @@ export const ProductCard = React.memo(function ProductCard({
           PRODUCT IMAGE
       ===================================================== */}
 
-      <div className="relative h-[124px] overflow-hidden bg-slate-50">
+      {/* Increased image container height to h-[144px] */}
+      <div className="relative h-[144px] overflow-hidden bg-slate-50">
         <img
           src={product.image}
           alt={product.name}
@@ -308,8 +309,9 @@ export const ProductCard = React.memo(function ProductCard({
         {/* =================================================
             CONTENT
         ================================================= */}
-
-        <div className="relative px-3 pb-3 pt-1.5">
+        
+        {/* Reduced top and bottom padding slightly */}
+        <div className="relative px-3 pb-2 pt-1">
           {/* Brand */}
           <div className="flex items-center gap-1">
             <p
@@ -341,10 +343,10 @@ export const ProductCard = React.memo(function ProductCard({
             </div>
           </div>
 
-          {/* Product name */}
+          {/* Product name - reduced margin top */}
           <h3
             className="
-              mt-1
+              mt-0.5
               line-clamp-2
               min-h-[29px]
               text-[12px]
@@ -361,7 +363,8 @@ export const ProductCard = React.memo(function ProductCard({
               META
           ================================================= */}
 
-          <div className="mt-1.5 flex items-center gap-1">
+          {/* Reduced margin top from mt-1.5 to mt-1 */}
+          <div className="mt-1 flex items-center gap-1">
             <span
               className="
                 rounded-md
@@ -397,7 +400,8 @@ export const ProductCard = React.memo(function ProductCard({
               RATING
           ================================================= */}
 
-          <div className="mt-1.5 flex items-center gap-1.5">
+          {/* Reduced margin top from mt-1.5 to mt-1 */}
+          <div className="mt-1 flex items-center gap-1.5">
             <div
               className="
                 flex items-center gap-1
@@ -426,7 +430,8 @@ export const ProductCard = React.memo(function ProductCard({
               MINI FEATURES
           ================================================= */}
 
-          <div className="mt-2 flex items-center gap-1">
+          {/* Reduced margin top from mt-2 to mt-1 */}
+          <div className="mt-1 flex items-center gap-1">
             {features.map((feature) => {
               const Icon = feature.icon;
 
@@ -464,7 +469,8 @@ export const ProductCard = React.memo(function ProductCard({
               PRICE + CART
           ================================================= */}
 
-          <div className="mt-2.5 flex items-end justify-between gap-1">
+          {/* Reduced margin top from mt-2.5 to mt-1.5 */}
+          <div className="mt-1.5 flex items-end justify-between gap-1">
             <div className="min-w-0">
               <div className="flex items-center gap-1">
                 <p className="text-[8px] font-medium text-slate-400 line-through">
@@ -571,8 +577,6 @@ export const ProductCard = React.memo(function ProductCard({
     </article>
   );
 });
-
-// ... (Rest of QuantitySelector and ProductCarousel components remain exactly the same)
 
 // =============================================================
 // QUANTITY SELECTOR

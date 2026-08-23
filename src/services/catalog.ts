@@ -1620,3 +1620,54 @@ export async function deleteStoreBannerImage(imageUrl: string): Promise<void> {
   const { error } = await supabase.storage.from('store-images').remove([filePath]);
   if (error) throw error;
 }
+
+
+// services/catalog.ts
+
+/**
+ * Upload a brand config icon (highlight, category, trending) to the brands bucket.
+ * Uses the same path structure as other brand images: brand_${brandId}/${folder}/
+ */
+export async function uploadBrandIconImage(
+  brandId: string,
+  file: File,
+  folder: string = 'brand-icons',
+  onProgress?: (progress: number) => void
+): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'webp';
+  const fileName = `${Date.now()}_${file.name}`;
+  const path = `brand_${brandId}/${folder}/${fileName}`;
+
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from('brands')
+    .createSignedUploadUrl(path);
+
+  if (signedError) throw signedError;
+
+  const uploadUrl = signedData.signedUrl;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percent = (event.loaded / event.total) * 100;
+        onProgress(Math.min(100, percent));
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status === 200) {
+        const { data: urlData } = supabase.storage.from('brands').getPublicUrl(path);
+        resolve(urlData.publicUrl);
+      } else {
+        reject(new Error(`Upload failed: ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(file);
+  });
+}

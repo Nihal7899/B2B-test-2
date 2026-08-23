@@ -3,8 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { TrustedBrand } from '@/types';
 import { Plus, Trash2, ChevronUp, ChevronDown, Save, Upload, X, Search, Loader2 } from 'lucide-react';
-import { uploadIconImage, updateTrustedBrand, deleteBrandImage } from '@/services/catalog';
-import { getStoreIcon } from '@/data/storeIcons';
+import { uploadBrandIconImage, updateTrustedBrand, deleteBrandImage } from '@/services/catalog';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
@@ -110,7 +109,6 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'highlights' | 'categories' | 'bulkDeal' | 'trending'>('highlights');
 
-  // Draft state
   const [draft, setDraft] = useState<any>(null);
   const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
   const [saving, setSaving] = useState(false);
@@ -118,7 +116,6 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
   const [uploadStatus, setUploadStatus] = useState('');
   const [showUploadProgress, setShowUploadProgress] = useState(false);
 
-  // Load brand data
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
@@ -131,7 +128,6 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
         addToast('Failed to load brand', 'error');
       } else {
         setBrand(data);
-        // Initialize draft
         const config = data.config || {};
         setDraft({
           highlights: config.highlights || [],
@@ -161,13 +157,11 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
     });
   };
 
-  // Delete orphaned images (images that appear in original config but not in draft)
   const deleteOrphanedImages = async (original: any, updated: any) => {
     if (!original || !updated) return;
 
     const checkAndDelete = (orig: any, upd: any) => {
       if (typeof orig === 'string' && orig.includes('/storage/v1/object/public/brands/')) {
-        // Check if this URL still exists somewhere in updated
         const urlExists = (obj: any): boolean => {
           if (obj === orig) return true;
           if (typeof obj === 'object' && obj !== null) {
@@ -205,13 +199,10 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
 
     try {
       const finalDraft = JSON.parse(JSON.stringify(draft));
-
-      // 1. Delete orphaned images from original config
       const originalConfig = brand.config || {};
       await deleteOrphanedImages(originalConfig, finalDraft);
 
-      // 2. Process pending uploads (icons)
-      // 2.1 Highlights icons
+      // Highlights icons
       for (let i = 0; i < finalDraft.highlights.length; i++) {
         const key = `highlights.${i}.icon`;
         if (pendingFiles[key]) {
@@ -219,7 +210,7 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
           const oldUrl = draft.highlights[i]?.icon;
           setUploadStatus(`Uploading highlight icon ${i+1}...`);
           const compressed = await compressImage(file);
-          const url = await uploadIconImage(brandId, compressed, 'brand-highlights', (p) => {
+          const url = await uploadBrandIconImage(brandId, compressed, 'brand-highlights', (p) => {
             const overall = 30 + (p * 0.7);
             setUploadProgress(Math.min(100, overall));
             setUploadStatus(`Uploading icon ${i+1}... ${Math.round(overall)}%`);
@@ -231,7 +222,7 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
         }
       }
 
-      // 2.2 Categories icons
+      // Categories icons
       for (let i = 0; i < finalDraft.categories.length; i++) {
         const key = `categories.${i}.icon`;
         if (pendingFiles[key]) {
@@ -239,7 +230,7 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
           const oldUrl = draft.categories[i]?.icon;
           setUploadStatus(`Uploading category icon ${i+1}...`);
           const compressed = await compressImage(file);
-          const url = await uploadIconImage(brandId, compressed, 'brand-categories', (p) => {
+          const url = await uploadBrandIconImage(brandId, compressed, 'brand-categories', (p) => {
             const overall = 30 + (p * 0.7);
             setUploadProgress(Math.min(100, overall));
             setUploadStatus(`Uploading icon ${i+1}... ${Math.round(overall)}%`);
@@ -251,7 +242,7 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
         }
       }
 
-      // 2.3 Trending icon buttons
+      // Trending icon buttons
       for (let i = 0; i < finalDraft.trending.iconButtons.length; i++) {
         const key = `trending.iconButtons.${i}.icon`;
         if (pendingFiles[key]) {
@@ -259,7 +250,7 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
           const oldUrl = draft.trending.iconButtons[i]?.icon;
           setUploadStatus(`Uploading trending icon ${i+1}...`);
           const compressed = await compressImage(file);
-          const url = await uploadIconImage(brandId, compressed, 'brand-trending', (p) => {
+          const url = await uploadBrandIconImage(brandId, compressed, 'brand-trending', (p) => {
             const overall = 30 + (p * 0.7);
             setUploadProgress(Math.min(100, overall));
             setUploadStatus(`Uploading icon ${i+1}... ${Math.round(overall)}%`);
@@ -271,10 +262,8 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
         }
       }
 
-      // 3. Update the brand with the new config
-      const updated = { ...brand, config: finalDraft };
       await updateTrustedBrand(brandId, { config: finalDraft });
-      setBrand(updated);
+      setBrand({ ...brand, config: finalDraft });
       addToast('Brand content saved successfully!', 'success');
       setPendingFiles({});
       setUploadProgress(100);
@@ -307,7 +296,6 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
-      {/* Save Button */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-700">Edit Brand Content</h3>
         <button

@@ -602,9 +602,6 @@ export async function updateHomeBanner(id: string, updates: Partial<HomeBanner>)
   if (error) throw error;
 }
 
-export async function deleteHomeBanner(id: string): Promise<void> {
-  await supabase.from('home_banners').delete().eq('id', id);
-}
 
 export async function duplicateHomeBanner(id: string): Promise<HomeBanner | null> {
   const { data: original } = await supabase

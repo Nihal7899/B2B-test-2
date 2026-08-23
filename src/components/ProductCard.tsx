@@ -98,15 +98,10 @@ export const ProductCard = React.memo(function ProductCard({
     [primaryColor, secondaryColor]
   );
 
-  /*
-   * Static for now.
-   * Later these can come from product.config / database.
-   */
-  const productTag =
-    discount >= 10 ? 'BEST DEAL' : 'FRESH';
-
-  const productQuality =
-    discount >= 10 ? 'Best Seller' : 'Farm Fresh';
+  const productTag = discount >= 10 ? 'BEST DEAL' : 'FRESH';
+  
+  // 🔥 Using brand name instead of 'Farm Fresh'
+  const productQuality = product.brand;
 
   const features = [
     {
@@ -146,7 +141,6 @@ export const ProductCard = React.memo(function ProductCard({
           PRODUCT IMAGE
       ===================================================== */}
 
-      {/* Increased image container height to h-[144px] */}
       <div className="relative h-[144px] overflow-hidden bg-slate-50">
         <img
           src={product.image}
@@ -248,7 +242,7 @@ export const ProductCard = React.memo(function ProductCard({
         </button>
 
         {/* =================================================
-            QUALITY FLOATING BADGE
+            QUALITY FLOATING BADGE (Brand Name)
         ================================================= */}
 
         <div
@@ -269,14 +263,15 @@ export const ProductCard = React.memo(function ProductCard({
             backdrop-blur-md
           "
         >
-          <Leaf
+          {/* Changed icon from Leaf to ShieldCheck for brands */}
+          <ShieldCheck
             size={9}
             strokeWidth={2.5}
             style={{ color: primaryColor }}
           />
 
           <span
-            className="text-[7px] font-extrabold"
+            className="text-[7px] font-extrabold uppercase max-w-[80px] truncate"
             style={{ color: primaryColor }}
           >
             {productQuality}
@@ -310,7 +305,6 @@ export const ProductCard = React.memo(function ProductCard({
             CONTENT
         ================================================= */}
         
-        {/* Reduced top and bottom padding slightly */}
         <div className="relative px-3 pb-2 pt-1">
           {/* Brand */}
           <div className="flex items-center gap-1">
@@ -343,7 +337,7 @@ export const ProductCard = React.memo(function ProductCard({
             </div>
           </div>
 
-          {/* Product name - reduced margin top */}
+          {/* Product name */}
           <h3
             className="
               mt-0.5
@@ -363,7 +357,6 @@ export const ProductCard = React.memo(function ProductCard({
               META
           ================================================= */}
 
-          {/* Reduced margin top from mt-1.5 to mt-1 */}
           <div className="mt-1 flex items-center gap-1">
             <span
               className="
@@ -400,7 +393,6 @@ export const ProductCard = React.memo(function ProductCard({
               RATING
           ================================================= */}
 
-          {/* Reduced margin top from mt-1.5 to mt-1 */}
           <div className="mt-1 flex items-center gap-1.5">
             <div
               className="
@@ -430,7 +422,6 @@ export const ProductCard = React.memo(function ProductCard({
               MINI FEATURES
           ================================================= */}
 
-          {/* Reduced margin top from mt-2 to mt-1 */}
           <div className="mt-1 flex items-center gap-1">
             {features.map((feature) => {
               const Icon = feature.icon;
@@ -469,7 +460,6 @@ export const ProductCard = React.memo(function ProductCard({
               PRICE + CART
           ================================================= */}
 
-          {/* Reduced margin top from mt-2.5 to mt-1.5 */}
           <div className="mt-1.5 flex items-end justify-between gap-1">
             <div className="min-w-0">
               <div className="flex items-center gap-1">

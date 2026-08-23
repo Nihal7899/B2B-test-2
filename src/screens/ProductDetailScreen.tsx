@@ -188,14 +188,12 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
 
   return (
     <div className="pb-6 space-y-5">
-      {/* Image header with theme gradient overlay */}
+      {/* Image header without colored theme gradient overlay */}
       <div className="relative h-[270px] bg-ink-50 overflow-hidden">
         <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
-        <div
-          className="absolute inset-0 bg-gradient-to-t opacity-30 pointer-events-none"
-          style={{ background: `linear-gradient(to top, ${gradientFrom}, ${gradientTo})` }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+        {/* Soft bottom fade to ensure top and bottom buttons stay clearly visible */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+        
         <button onClick={onBack} className="absolute top-4 left-4 h-9 w-9 rounded-xl bg-white/90 text-ink-700 flex items-center justify-center shadow-soft">
           <ArrowLeft size={18} />
         </button>

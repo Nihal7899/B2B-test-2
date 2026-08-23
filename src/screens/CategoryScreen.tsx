@@ -54,12 +54,28 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
     return products.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
   }, [products, query]);
 
+  // 🔥 Safely extract hex colors from the gradient string
   const categoryTheme = useMemo(() => {
     if (!category) return undefined;
+    
+    const gradient = category.gradient || '#10b981';
+    const hexes = gradient.match(/#(?:[0-9a-fA-F]{3}){1,2}/g);
+    
+    // Convert 3-char hexes to 6-char so opacity string concatenation works
+    const expandHex = (hex: string) => 
+      hex.length === 4 ? '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3] : hex;
+      
+    const primaryColor = hexes ? expandHex(hexes[0]) : '#10b981';
+    const secondaryColor = hexes && hexes.length > 1 ? expandHex(hexes[1]) : primaryColor;
+
     return {
-      primaryColor: category.gradient || '#10b981',
-      gradientFrom: category.gradient || '#10b981',
-      gradientTo: category.gradient || '#10b981',
+      primaryColor,
+      secondaryColor,
+      textColor: '#172033',
+      borderColor: '#e8edf0',
+      buttonStyle: 'brand' as const,
+      gradientFrom: primaryColor,
+      gradientTo: secondaryColor,
     };
   }, [category]);
 

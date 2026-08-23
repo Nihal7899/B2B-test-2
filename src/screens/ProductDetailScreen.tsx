@@ -117,23 +117,32 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
               gradientTo: brand.secondary_color || '#16a34a',
             };
             setTheme(t);
-            // Store in global map for future visits
             setStoreTheme(`brand_${brandId}`, t);
           }
         } 
-        // If categoryId is provided, apply category theme
+        // 🔥 If categoryId is provided, safely extract hexes and apply category theme
         else if (categoryId) {
           const { categories } = await fetchCategories();
           const category = categories.find(c => c.id === categoryId);
           if (category) {
+            const gradient = category.gradient || '#10b981';
+            const hexes = gradient.match(/#(?:[0-9a-fA-F]{3}){1,2}/g);
+            
+            // Expand 3-char hex to 6-char hex
+            const expandHex = (hex: string) => 
+              hex.length === 4 ? '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3] : hex;
+            
+            const pColor = hexes ? expandHex(hexes[0]) : '#10b981';
+            const sColor = hexes && hexes.length > 1 ? expandHex(hexes[1]) : pColor;
+
             const t = {
-              primaryColor: category.gradient || '#10b981',
-              secondaryColor: category.gradient || '#059669',
+              primaryColor: pColor,
+              secondaryColor: sColor,
               textColor: '#1f2937',
               borderColor: '#e5e7eb',
               buttonStyle: 'brand' as const,
-              gradientFrom: category.gradient || '#065f46',
-              gradientTo: category.gradient || '#16a34a',
+              gradientFrom: pColor,
+              gradientTo: sColor,
             };
             setTheme(t);
             setStoreTheme(`category_${categoryId}`, t);

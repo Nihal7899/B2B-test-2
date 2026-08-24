@@ -38,19 +38,89 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-// ─── Download helper ──────────────────────────────────────────────
-const downloadExcel = (wb: XLSX.WorkBook, filename: string) => {
-  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${filename}.xlsx`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  toast.success('Excel downloaded!');
+// ─── Universal Download Helper (Web + Capacitor iOS / Android) ────────
+const downloadExcel = async (wb: XLSX.WorkBook, filename: string) => {
+  try {
+    const isCapacitorNative =
+      typeof (window as any).Capacitor !== 'undefined' &&
+      (window as any).Capacitor?.isNativePlatform?.();
+
+    if (isCapacitorNative) {
+      // 1. Generate Base64 string for Capacitor Filesystem
+      const wboutBase64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+      const fileName = `${filename}.xlsx`;
+
+      // Try reading plugins from window or dynamic imports
+      let Filesystem = (window as any).Capacitor?.Plugins?.Filesystem;
+      let Directory = (window as any).Capacitor?.Plugins?.Directory || { Cache: 'CACHE' };
+      let Share = (window as any).Capacitor?.Plugins?.Share;
+
+      if (!Filesystem) {
+        try {
+          const fsModule = await import('@capacitor/filesystem');
+          Filesystem = fsModule.Filesystem;
+          Directory = fsModule.Directory;
+        } catch (e) {}
+      }
+
+      if (!Share) {
+        try {
+          const shareModule = await import('@capacitor/share');
+          Share = shareModule.Share;
+        } catch (e) {}
+      }
+
+      if (Filesystem) {
+        const fileResult = await Filesystem.writeFile({
+          path: fileName,
+          data: wboutBase64,
+          directory: Directory.Cache,
+          recursive: true,
+        });
+
+        if (Share) {
+          await Share.share({
+            title: fileName,
+            url: fileResult.uri,
+            dialogTitle: 'Export Excel Report',
+          });
+          toast.success('Report ready to open/share!');
+          return;
+        }
+      }
+    }
+
+    // 2. Standard Web Browser Fallback
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filename}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success('Excel downloaded!');
+  } catch (err) {
+    console.error('Download error:', err);
+    // Ultimate fallback for browser
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filename}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success('Excel downloaded!');
+  }
 };
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -88,9 +158,9 @@ interface GSTReport {
   customer_name: string;
   customer_phone?: string;
   customer_gst?: string;
+  subtotal: number;
   discount: number;
   delivery_fee: number;
-  subtotal: number;
   taxable_value: number;
   cgst: number;
   sgst: number;
@@ -127,7 +197,16 @@ export default function Reports() {
 
   // GST
   const [gstReport, setGstReport] = useState<GSTReport[]>([]);
-  const [gstSummary, setGstSummary] = useState({ taxableValue: 0, totalCGST: 0, totalSGST: 0, totalGST: 0, grandTotal: 0 });
+  const [gstSummary, setGstSummary] = useState({
+    grossSubtotal: 0,
+    totalDiscount: 0,
+    totalDelivery: 0,
+    taxableValue: 0,
+    totalCGST: 0,
+    totalSGST: 0,
+    totalGST: 0,
+    grandTotal: 0,
+  });
 
   // Stock
   const [stockData, setStockData] = useState<StockItem[]>([]);
@@ -196,7 +275,7 @@ export default function Reports() {
       const { data: orders, error } = await query;
       if (error) throw error;
 
-      // Daily Stats
+      // Daily stats
       const byDate: Record<string, { count: number; total: number }> = {};
       orders?.forEach((order) => {
         const istDateStr = getISTDateStr(new Date(order.updated_at));
@@ -215,7 +294,7 @@ export default function Reports() {
         productsSold: 0,
       });
 
-      // Product Sales
+      // Product sales
       const orderIds = orders?.map((o) => o.id) || [];
       if (orderIds.length > 0) {
         const { data: items, error: itemsErr } = await supabase
@@ -316,13 +395,25 @@ export default function Reports() {
       setGstReport(gstData);
       const gstSum = gstData.reduce(
         (s, i) => ({
+          grossSubtotal: s.grossSubtotal + i.subtotal,
+          totalDiscount: s.totalDiscount + i.discount,
+          totalDelivery: s.totalDelivery + i.delivery_fee,
           taxableValue: s.taxableValue + i.taxable_value,
           totalCGST: s.totalCGST + i.cgst,
           totalSGST: s.totalSGST + i.sgst,
           totalGST: s.totalGST + i.total_gst,
           grandTotal: s.grandTotal + i.grand_total,
         }),
-        { taxableValue: 0, totalCGST: 0, totalSGST: 0, totalGST: 0, grandTotal: 0 }
+        {
+          grossSubtotal: 0,
+          totalDiscount: 0,
+          totalDelivery: 0,
+          taxableValue: 0,
+          totalCGST: 0,
+          totalSGST: 0,
+          totalGST: 0,
+          grandTotal: 0,
+        }
       );
       setGstSummary(gstSum);
 
@@ -384,7 +475,7 @@ export default function Reports() {
     }
   };
 
-  const exportStockToExcel = () => {
+  const exportStockToExcel = async () => {
     if (stockData.length === 0) {
       toast.error('No stock data to export');
       return;
@@ -400,48 +491,50 @@ export default function Reports() {
       }))
     );
     XLSX.utils.book_append_sheet(wb, ws, 'Stock Report');
-    downloadExcel(wb, `Stock_Report_${dateFilterLabel()}`);
+    await downloadExcel(wb, `Stock_Report_${dateFilterLabel()}`);
   };
 
-  // ─── Pro-Rata Compliant GST Excel Export ──────────────────────────────
+  // ─── Executive GST Excel Export (Summary + Bill-Like Details) ────────
   const exportGSTToExcel = async () => {
     if (gstReport.length === 0) {
       toast.error('No GST data to export');
       return;
     }
 
-    // 1. Build Summary Sheet
+    // ─── 1. GST Summary Sheet ──────────────────────────────
     const summaryData = gstReport.map((g) => ({
-      'Invoice Number': g.invoice_number,
-      'Date': new Date(g.created_at).toLocaleDateString('en-IN'),
-      'Customer': g.customer_name,
+      'Invoice No': g.invoice_number,
+      'Invoice Date': new Date(g.created_at).toLocaleDateString('en-IN'),
+      'Customer Name': g.customer_name,
       'Customer Phone': g.customer_phone || '-',
       'Customer GSTIN': g.customer_gst || '-',
-      'Gross Subtotal': g.subtotal,
-      'Discount': g.discount > 0 ? -g.discount : 0,
-      'Taxable Value': g.taxable_value,
-      'CGST': g.cgst,
-      'SGST': g.sgst,
-      'Total GST': g.total_gst,
-      'Grand Total': g.grand_total,
+      'Gross Total (₹)': Number(g.subtotal.toFixed(2)),
+      'Discount (₹)': g.discount > 0 ? -Number(g.discount.toFixed(2)) : 0,
+      'Delivery Fee (₹)': Number(g.delivery_fee.toFixed(2)),
+      'Assessable Taxable (₹)': Number(g.taxable_value.toFixed(2)),
+      'CGST (₹)': Number(g.cgst.toFixed(2)),
+      'SGST (₹)': Number(g.sgst.toFixed(2)),
+      'Total GST (₹)': Number(g.total_gst.toFixed(2)),
+      'Invoice Grand Total (₹)': Number(g.grand_total.toFixed(2)),
     }));
 
     summaryData.push({
-      'Invoice Number': 'TOTAL',
-      'Date': '',
-      'Customer': '',
+      'Invoice No': 'TOTAL RECONCILIATION',
+      'Invoice Date': '',
+      'Customer Name': '',
       'Customer Phone': '',
       'Customer GSTIN': '',
-      'Gross Subtotal': gstReport.reduce((s, i) => s + i.subtotal, 0),
-      'Discount': -gstReport.reduce((s, i) => s + i.discount, 0),
-      'Taxable Value': gstSummary.taxableValue,
-      'CGST': gstSummary.totalCGST,
-      'SGST': gstSummary.totalSGST,
-      'Total GST': gstSummary.totalGST,
-      'Grand Total': gstSummary.grandTotal,
+      'Gross Total (₹)': Number(gstSummary.grossSubtotal.toFixed(2)),
+      'Discount (₹)': -Number(gstSummary.totalDiscount.toFixed(2)),
+      'Delivery Fee (₹)': Number(gstSummary.totalDelivery.toFixed(2)),
+      'Assessable Taxable (₹)': Number(gstSummary.taxableValue.toFixed(2)),
+      'CGST (₹)': Number(gstSummary.totalCGST.toFixed(2)),
+      'SGST (₹)': Number(gstSummary.totalSGST.toFixed(2)),
+      'Total GST (₹)': Number(gstSummary.totalGST.toFixed(2)),
+      'Invoice Grand Total (₹)': Number(gstSummary.grandTotal.toFixed(2)),
     });
 
-    // 2. Build Itemized Details Sheet
+    // ─── 2. GST Details Sheet (Structured Executive Bill Format) ──────
     const orderIds = gstReport.map((g) => g.id);
     let detailsData: any[] = [];
 
@@ -462,27 +555,28 @@ export default function Reports() {
           const invItems = itemsByOrder[g.id] || [];
           const rawSubtotal = invItems.reduce((sum, it) => sum + Number(it.line_total || 0), 0);
 
-          // Invoice Header Row
+          // ─ Bill Header Block ─
           detailsData.push({
-            'Invoice Number': g.invoice_number,
+            'Record Type': 'INVOICE HEADER',
+            'Invoice No': g.invoice_number,
             'Date': new Date(g.created_at).toLocaleDateString('en-IN'),
-            'Customer': g.customer_name,
-            'Customer GSTIN': g.customer_gst || '-',
-            'Item Description': '',
-            'HSN': '',
+            'Customer / Consignee': g.customer_name,
+            'GSTIN': g.customer_gst || 'Unregistered',
+            'Item Description': '--- TAX INVOICE DETAILS ---',
+            'HSN/SAC': '',
             'Qty': '',
-            'Rate': '',
-            'Discount': '',
-            'Taxable Value': '',
-            'GST Rate': '',
-            'CGST': '',
-            'SGST': '',
-            'Row Total': '',
-            'Invoice Total': g.grand_total,
+            'Unit Rate (₹)': '',
+            'Gross Amount (₹)': '',
+            'Discount (₹)': '',
+            'Taxable Value (₹)': '',
+            'GST%': '',
+            'CGST (₹)': '',
+            'SGST (₹)': '',
+            'Row Total (₹)': '',
           });
 
-          // Itemized Product Rows with Pro-Rata Discount
-          invItems.forEach((item) => {
+          // ─ Itemized Line Items ─
+          invItems.forEach((item, idx) => {
             const lineTotal = Number(item.line_total || 0);
             const unitPrice = Number(item.unit_price || 0);
             const gstRate = Number(item.gst_percentage || 0);
@@ -494,65 +588,88 @@ export default function Reports() {
             const sgst = gstAmount / 2;
 
             detailsData.push({
-              'Invoice Number': '',
+              'Record Type': `Item #${idx + 1}`,
+              'Invoice No': g.invoice_number,
               'Date': '',
-              'Customer': '',
-              'Customer GSTIN': '',
+              'Customer / Consignee': '',
+              'GSTIN': '',
               'Item Description': item.product_name,
-              'HSN': item.hsn_code || '-',
+              'HSN/SAC': item.hsn_code || '-',
               'Qty': item.quantity,
-              'Rate': unitPrice,
-              'Discount': itemDiscount > 0 ? -Number(itemDiscount.toFixed(2)) : 0,
-              'Taxable Value': Number(taxableValue.toFixed(2)),
-              'GST Rate': `${gstRate}%`,
-              'CGST': Number(cgst.toFixed(2)),
-              'SGST': Number(sgst.toFixed(2)),
-              'Row Total': Number((taxableValue + gstAmount).toFixed(2)),
-              'Invoice Total': '',
+              'Unit Rate (₹)': Number(unitPrice.toFixed(2)),
+              'Gross Amount (₹)': Number(lineTotal.toFixed(2)),
+              'Discount (₹)': itemDiscount > 0 ? -Number(itemDiscount.toFixed(2)) : 0,
+              'Taxable Value (₹)': Number(taxableValue.toFixed(2)),
+              'GST%': `${gstRate}%`,
+              'CGST (₹)': Number(cgst.toFixed(2)),
+              'SGST (₹)': Number(sgst.toFixed(2)),
+              'Row Total (₹)': Number((taxableValue + gstAmount).toFixed(2)),
             });
           });
 
-          // Delivery Row (SAC 9968)
+          // ─ Delivery & Fulfillment Service Row ─
           if (g.delivery_fee > 0) {
             const delTaxable = g.delivery_fee / 1.18;
             const delGst = g.delivery_fee - delTaxable;
 
             detailsData.push({
-              'Invoice Number': '',
+              'Record Type': 'Service',
+              'Invoice No': g.invoice_number,
               'Date': '',
-              'Customer': '',
-              'Customer GSTIN': '',
+              'Customer / Consignee': '',
+              'GSTIN': '',
               'Item Description': 'Delivery & Fulfillment Service',
-              'HSN': '9968',
+              'HSN/SAC': '9968',
               'Qty': 1,
-              'Rate': Number(delTaxable.toFixed(2)),
-              'Discount': 0,
-              'Taxable Value': Number(delTaxable.toFixed(2)),
-              'GST Rate': '18%',
-              'CGST': Number((delGst / 2).toFixed(2)),
-              'SGST': Number((delGst / 2).toFixed(2)),
-              'Row Total': g.delivery_fee,
-              'Invoice Total': '',
+              'Unit Rate (₹)': Number(delTaxable.toFixed(2)),
+              'Gross Amount (₹)': Number(delTaxable.toFixed(2)),
+              'Discount (₹)': 0,
+              'Taxable Value (₹)': Number(delTaxable.toFixed(2)),
+              'GST%': '18%',
+              'CGST (₹)': Number((delGst / 2).toFixed(2)),
+              'SGST (₹)': Number((delGst / 2).toFixed(2)),
+              'Row Total (₹)': Number(g.delivery_fee.toFixed(2)),
             });
           }
 
-          // Spacer row
+          // ─ Bill Summary Row ─
           detailsData.push({
-            'Invoice Number': '',
+            'Record Type': 'BILL SUMMARY',
+            'Invoice No': g.invoice_number,
             'Date': '',
-            'Customer': '',
-            'Customer GSTIN': '',
+            'Customer / Consignee': 'TOTALS FOR INVOICE',
+            'GSTIN': '',
             'Item Description': '',
-            'HSN': '',
+            'HSN/SAC': '',
             'Qty': '',
-            'Rate': '',
-            'Discount': '',
-            'Taxable Value': '',
-            'GST Rate': '',
-            'CGST': '',
-            'SGST': '',
-            'Row Total': '',
-            'Invoice Total': '',
+            'Unit Rate (₹)': '',
+            'Gross Amount (₹)': Number(g.subtotal.toFixed(2)),
+            'Discount (₹)': g.discount > 0 ? -Number(g.discount.toFixed(2)) : 0,
+            'Taxable Value (₹)': Number(g.taxable_value.toFixed(2)),
+            'GST%': '',
+            'CGST (₹)': Number(g.cgst.toFixed(2)),
+            'SGST (₹)': Number(g.sgst.toFixed(2)),
+            'Row Total (₹)': Number(g.grand_total.toFixed(2)),
+          });
+
+          // ─ Separator Spacer ─
+          detailsData.push({
+            'Record Type': '',
+            'Invoice No': '',
+            'Date': '',
+            'Customer / Consignee': '',
+            'GSTIN': '',
+            'Item Description': '',
+            'HSN/SAC': '',
+            'Qty': '',
+            'Unit Rate (₹)': '',
+            'Gross Amount (₹)': '',
+            'Discount (₹)': '',
+            'Taxable Value (₹)': '',
+            'GST%': '',
+            'CGST (₹)': '',
+            'SGST (₹)': '',
+            'Row Total (₹)': '',
           });
         });
       }
@@ -562,20 +679,21 @@ export default function Reports() {
     const ws1 = XLSX.utils.json_to_sheet(summaryData);
     const ws2 = XLSX.utils.json_to_sheet(detailsData);
 
+    // Optimized Column Widths
     ws1['!cols'] = [
-      { wch: 16 }, { wch: 14 }, { wch: 25 }, { wch: 15 }, { wch: 18 },
-      { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
+      { wch: 18 }, { wch: 14 }, { wch: 25 }, { wch: 16 }, { wch: 18 },
+      { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 22 },
     ];
     ws2['!cols'] = [
-      { wch: 16 }, { wch: 14 }, { wch: 25 }, { wch: 18 },
-      { wch: 30 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 10 },
-      { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 },
+      { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 25 }, { wch: 18 },
+      { wch: 34 }, { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 16 },
+      { wch: 14 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 16 },
     ];
 
     XLSX.utils.book_append_sheet(wb, ws1, 'GST Summary');
     XLSX.utils.book_append_sheet(wb, ws2, 'GST Details');
 
-    downloadExcel(wb, `GST_Report_${dateFilterLabel()}`);
+    await downloadExcel(wb, `GST_Report_${dateFilterLabel()}`);
   };
 
   const dateFilterLabel = () => {
@@ -985,14 +1103,15 @@ export default function Reports() {
                   <p className="text-sm mt-2">No GST invoices</p>
                 </div>
               ) : (
-                <table className="w-full text-sm min-w-[750px]">
+                <table className="w-full text-sm min-w-[850px]">
                   <thead>
                     <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
                       <th className="pb-2 font-semibold min-w-[110px]">Invoice</th>
                       <th className="pb-2 font-semibold min-w-[90px]">Date</th>
-                      <th className="pb-2 font-semibold min-w-[140px]">Customer</th>
-                      <th className="pb-2 font-semibold text-right min-w-[90px]">Subtotal</th>
+                      <th className="pb-2 font-semibold min-w-[130px]">Customer</th>
+                      <th className="pb-2 font-semibold text-right min-w-[80px]">Gross</th>
                       <th className="pb-2 font-semibold text-right min-w-[80px]">Discount</th>
+                      <th className="pb-2 font-semibold text-right min-w-[70px]">Delivery</th>
                       <th className="pb-2 font-semibold text-right min-w-[90px]">Taxable</th>
                       <th className="pb-2 font-semibold text-right min-w-[70px]">CGST</th>
                       <th className="pb-2 font-semibold text-right min-w-[70px]">SGST</th>
@@ -1004,11 +1123,12 @@ export default function Reports() {
                       <tr key={inv.invoice_number} className="border-b border-ink-50 last:border-0">
                         <td className="py-2 font-mono text-xs">{inv.invoice_number}</td>
                         <td className="py-2 text-ink-600">{new Date(inv.created_at).toLocaleDateString('en-IN')}</td>
-                        <td className="py-2 text-ink-600 truncate max-w-[140px]" title={inv.customer_name}>
+                        <td className="py-2 text-ink-600 truncate max-w-[130px]" title={inv.customer_name}>
                           {inv.customer_name}
                         </td>
                         <td className="py-2 text-right text-ink-600">{formatCurrency(inv.subtotal)}</td>
                         <td className="py-2 text-right text-brand-600">{inv.discount > 0 ? `-${formatCurrency(inv.discount)}` : '₹0'}</td>
+                        <td className="py-2 text-right text-ink-600">{formatCurrency(inv.delivery_fee)}</td>
                         <td className="py-2 text-right text-ink-600 font-semibold">{formatCurrency(inv.taxable_value)}</td>
                         <td className="py-2 text-right text-ink-600">{formatCurrency(inv.cgst)}</td>
                         <td className="py-2 text-right text-ink-600">{formatCurrency(inv.sgst)}</td>
@@ -1019,8 +1139,9 @@ export default function Reports() {
                   <tfoot className="border-t-2 border-ink-200">
                     <tr>
                       <td colSpan={3} className="py-2 font-bold text-right">Total</td>
-                      <td className="py-2 text-right font-bold">{formatCurrency(gstReport.reduce((s, i) => s + i.subtotal, 0))}</td>
-                      <td className="py-2 text-right font-bold text-brand-600">-{formatCurrency(gstReport.reduce((s, i) => s + i.discount, 0))}</td>
+                      <td className="py-2 text-right font-bold">{formatCurrency(gstSummary.grossSubtotal)}</td>
+                      <td className="py-2 text-right font-bold text-brand-600">-{formatCurrency(gstSummary.totalDiscount)}</td>
+                      <td className="py-2 text-right font-bold">{formatCurrency(gstSummary.totalDelivery)}</td>
                       <td className="py-2 text-right font-bold">{formatCurrency(gstSummary.taxableValue)}</td>
                       <td className="py-2 text-right font-bold">{formatCurrency(gstSummary.totalCGST)}</td>
                       <td className="py-2 text-right font-bold">{formatCurrency(gstSummary.totalSGST)}</td>
@@ -1104,7 +1225,17 @@ export default function Reports() {
 }
 
 // ─── StatCard ──────────────────────────────────────────────────────────
-function StatCard({ label, value, icon, gradient }: { label: string; value: string; icon?: React.ReactNode; gradient: string }) {
+function StatCard({
+  label,
+  value,
+  icon,
+  gradient,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+  gradient: string;
+}) {
   return (
     <div
       className="rounded-2xl p-4 text-white transition-all hover:-translate-y-0.5 hover:shadow-lg cursor-default"

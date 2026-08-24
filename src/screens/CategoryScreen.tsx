@@ -8,8 +8,12 @@ import {
   Sparkles,
   ArrowUpDown,
   Star,
-  Tag,
   X,
+  Check,
+  ChevronDown,
+  TrendingDown,
+  TrendingUp,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
 import { fetchCategories, fetchProductsBySubcategory } from '@/services/catalog';
@@ -17,13 +21,28 @@ import type { Category, Subcategory, Product } from '@/types';
 
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'rating' | 'discount';
 
+interface SortItem {
+  id: SortOption;
+  label: string;
+  subLabel: string;
+  icon: typeof Sparkles;
+}
+
+const SORT_OPTIONS: SortItem[] = [
+  { id: 'default', label: 'Relevancy', subLabel: 'Best match for everyday restocking', icon: SlidersHorizontal },
+  { id: 'price-asc', label: 'Price: Low to High', subLabel: 'Budget-friendly wholesale items first', icon: TrendingDown },
+  { id: 'price-desc', label: 'Price: High to Low', subLabel: 'Premium & bulk inventory first', icon: TrendingUp },
+  { id: 'rating', label: 'Top Rated', subLabel: 'Highest customer satisfaction (4★+)', icon: Star },
+  { id: 'discount', label: 'Best Discounts', subLabel: 'Biggest savings and promotional deals', icon: Sparkles },
+];
+
 interface CategoryScreenProps {
   onBack: () => void;
-  onProduct: (product: Product) => void;
+  onProduct?: (product: Product) => void;
   cart: any;
 }
 
-export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps) {
+export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
   const [searchParams] = useSearchParams();
   const categoryId = searchParams.get('id');
   const navigate = useNavigate();
@@ -36,8 +55,9 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
   const [productsLoading, setProductsLoading] = useState(false);
   const [query, setQuery] = useState('');
 
-  // Advanced Filter States
+  // Advanced Filter & Modal States
   const [sortBy, setSortBy] = useState<SortOption>('default');
+  const [isSortSheetOpen, setIsSortSheetOpen] = useState(false);
   const [dealsOnly, setDealsOnly] = useState(false);
   const [highRatingOnly, setHighRatingOnly] = useState(false);
 
@@ -73,7 +93,6 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
           const prodsArray = await Promise.all(
             subs.map((s) => fetchProductsBySubcategory(s.id))
           );
-          // Deduplicate products across subcategories
           const merged = Array.from(
             new Map(prodsArray.flat().map((p) => [p.id, p])).values()
           );
@@ -89,11 +108,10 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
     })();
   }, [category, activeSubId]);
 
-  // Advanced Filtration and Sorting logic
+  // Advanced Filtration & Sorting
   const filteredAndSortedProducts = useMemo(() => {
     let result = [...products];
 
-    // Search Query
     if (query.trim()) {
       const q = query.toLowerCase();
       result = result.filter(
@@ -103,7 +121,6 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
       );
     }
 
-    // Filter toggles
     if (dealsOnly) {
       result = result.filter((p) => p.mrp > p.price);
     }
@@ -111,7 +128,6 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
       result = result.filter((p) => (p.rating || 0) >= 4.0);
     }
 
-    // Sorting
     switch (sortBy) {
       case 'price-asc':
         result.sort((a, b) => a.price - b.price);
@@ -136,6 +152,7 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
     return result;
   }, [products, query, dealsOnly, highRatingOnly, sortBy]);
 
+  // Category Theme
   const categoryTheme = useMemo(() => {
     if (!category) return undefined;
     const gradient = category.gradient || '#10b981';
@@ -157,16 +174,21 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
     };
   }, [category]);
 
-  const activeFiltersCount =
-    (sortBy !== 'default' ? 1 : 0) +
-    (dealsOnly ? 1 : 0) +
-    (highRatingOnly ? 1 : 0);
+  const primaryCol = categoryTheme?.primaryColor || '#10b981';
 
   const resetFilters = () => {
     setSortBy('default');
     setDealsOnly(false);
     setHighRatingOnly(false);
   };
+
+  const handleProductSelect = (product: Product) => {
+    // Passes categoryId in URL params to inherit theme on ProductDetailScreen
+    navigate(`/product?id=${product.id}&categoryId=${category?.id}`);
+  };
+
+  const currentSortLabel =
+    SORT_OPTIONS.find((s) => s.id === sortBy)?.label || 'Relevancy';
 
   if (loading || !category) {
     return (
@@ -176,17 +198,15 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
     );
   }
 
-  const primaryCol = categoryTheme?.primaryColor || '#10b981';
-
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-slate-50">
-      {/* Header Container */}
+      {/* Category Header */}
       <header
         className="shrink-0 shadow-md transition-all"
         style={{ background: category.gradient || primaryCol }}
       >
         <div className="mx-auto max-w-[720px] px-4 pt-3 pb-2 text-white">
-          {/* Top Bar with Cart Button & Badge */}
+          {/* Header Bar */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <button
@@ -205,7 +225,7 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
               </div>
             </div>
 
-            {/* Cart Button with Counter Badge */}
+            {/* Cart Button with Count Badge */}
             <button
               onClick={() => navigate('/cart')}
               className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md shadow-sm transition active:scale-95"
@@ -213,14 +233,14 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
             >
               <ShoppingBag size={18} className="text-white" />
               {cart?.totalItems > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white animate-pulse">
+                <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white">
                   {cart.totalItems}
                 </span>
               )}
             </button>
           </div>
 
-          {/* Search Bar */}
+          {/* Search Input */}
           <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-inner">
             <Search size={15} className="text-slate-400 shrink-0" />
             <input
@@ -236,31 +256,26 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
             )}
           </div>
 
-          {/* Modern Horizontal Filter Strip */}
+          {/* Horizontal Filter & Sort Strip */}
           <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {/* Sort Options dropdown/cycle pill */}
-            <div className="relative shrink-0">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition outline-none cursor-pointer ${
-                  sortBy !== 'default'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
-                }`}
-              >
-                <option value="default" className="text-slate-800">⚡ Relevancy</option>
-                <option value="price-asc" className="text-slate-800">₹ Price: Low to High</option>
-                <option value="price-desc" className="text-slate-800">₹ Price: High to Low</option>
-                <option value="rating" className="text-slate-800">★ Top Rated</option>
-                <option value="discount" className="text-slate-800">🔥 Best Discounts</option>
-              </select>
-            </div>
+            {/* Custom Bottom Sheet Sort Trigger */}
+            <button
+              onClick={() => setIsSortSheetOpen(true)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
+                sortBy !== 'default'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
+              }`}
+            >
+              <ArrowUpDown size={12} />
+              <span>{currentSortLabel}</span>
+              <ChevronDown size={11} className="opacity-70" />
+            </button>
 
-            {/* Deals Pill */}
+            {/* Deals Filter Pill */}
             <button
               onClick={() => setDealsOnly(!dealsOnly)}
-              className={`flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
+              className={`flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
                 dealsOnly
                   ? 'bg-white text-amber-600 shadow-sm'
                   : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
@@ -270,10 +285,10 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
               Best Deals
             </button>
 
-            {/* Top Rated Pill */}
+            {/* Top Rating Pill */}
             <button
               onClick={() => setHighRatingOnly(!highRatingOnly)}
-              className={`flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
+              className={`flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
                 highRatingOnly
                   ? 'bg-white text-amber-500 shadow-sm'
                   : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
@@ -283,11 +298,10 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
               4.0+ Rated
             </button>
 
-            {/* Clear Filters indicator */}
-            {activeFiltersCount > 0 && (
+            {(sortBy !== 'default' || dealsOnly || highRatingOnly) && (
               <button
                 onClick={resetFilters}
-                className="flex shrink-0 items-center gap-0.5 rounded-lg bg-black/25 px-2 py-1 text-[10px] font-bold text-white backdrop-blur-md"
+                className="flex shrink-0 items-center gap-0.5 rounded-xl bg-black/30 px-2 py-1 text-[10px] font-bold text-white backdrop-blur-md"
               >
                 <X size={10} />
                 Reset
@@ -297,11 +311,11 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
         </div>
       </header>
 
-      {/* Main Independent Scroll Layout */}
+      {/* Dual Independent Scroll Panes */}
       <div className="mx-auto flex h-[calc(100vh-140px)] w-full max-w-[720px] flex-1 overflow-hidden">
-        {/* Left Subcategory Strip (Fixed Height, Independent Scroll) */}
+        {/* Left Subcategory Strip */}
         <aside className="w-20 md:w-24 shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white py-2 scrollbar-none">
-          {/* Default "All" Subcategory Option */}
+          {/* Default 'All Items' Tab */}
           <button
             onClick={() => setActiveSubId('all')}
             className={`relative flex w-full flex-col items-center gap-1.5 px-1 py-2.5 transition ${
@@ -310,9 +324,7 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
           >
             <div
               className={`relative flex h-12 w-12 items-center justify-center rounded-2xl border-2 transition ${
-                activeSubId === 'all'
-                  ? 'border-emerald-500 shadow-sm'
-                  : 'border-slate-100 bg-slate-50'
+                activeSubId === 'all' ? 'shadow-sm' : 'border-slate-100 bg-slate-50'
               }`}
               style={{
                 borderColor: activeSubId === 'all' ? primaryCol : '#f1f5f9',
@@ -365,8 +377,7 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
                     className="h-full w-full object-cover"
                     loading="lazy"
                     onError={(e) => {
-                      e.currentTarget.src =
-                        'https://placehold.co/120x120/EEE/999?text=Item';
+                      e.currentTarget.src = 'https://placehold.co/120x120/EEE/999?text=Item';
                     }}
                   />
                 </div>
@@ -389,9 +400,8 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
           })}
         </aside>
 
-        {/* Right Products Container (Independent Scroll) */}
+        {/* Right Products Feed */}
         <main className="flex-1 overflow-y-auto px-3 py-3 scrollbar-none">
-          {/* Header Title */}
           <div className="mb-2.5 flex items-center justify-between">
             <h2 className="text-xs font-black uppercase tracking-wider text-slate-700">
               {activeSubId === 'all'
@@ -416,14 +426,6 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
               <p className="mt-0.5 text-[10px] text-slate-400">
                 Try clearing filters or changing search keywords
               </p>
-              {activeFiltersCount > 0 && (
-                <button
-                  onClick={resetFilters}
-                  className="mt-3 rounded-xl bg-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700 active:scale-95"
-                >
-                  Clear Filters
-                </button>
-              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-8">
@@ -440,7 +442,7 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
                       (cart?.getQuantity?.(p.id) || 0) - 1
                     )
                   }
-                  onClick={() => onProduct(p)}
+                  onClick={() => handleProductSelect(p)}
                   horizontal={false}
                   theme={categoryTheme}
                 />
@@ -449,6 +451,99 @@ export function CategoryScreen({ onBack, onProduct, cart }: CategoryScreenProps)
           )}
         </main>
       </div>
+
+      {/* Slide-in Half-Screen Bottom Sheet for Relevancy / Sorting */}
+      {isSortSheetOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+          {/* Backdrop dismiss */}
+          <div
+            className="absolute inset-0"
+            onClick={() => setIsSortSheetOpen(false)}
+          />
+
+          {/* Bottom Sheet Container */}
+          <div className="relative z-10 w-full max-w-[720px] rounded-t-[32px] bg-white p-5 pb-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
+            {/* Grab Handle */}
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
+                  Sort & Filter Order
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Choose how products are presented
+                </p>
+              </div>
+              <button
+                onClick={() => setIsSortSheetOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 active:scale-95"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Options List */}
+            <div className="mt-3 space-y-1.5">
+              {SORT_OPTIONS.map((opt) => {
+                const isSelected = sortBy === opt.id;
+                const Icon = opt.icon;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => {
+                      setSortBy(opt.id);
+                      setIsSortSheetOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-2xl p-3.5 text-left transition ${
+                      isSelected
+                        ? 'bg-slate-50 ring-1.5'
+                        : 'hover:bg-slate-50/70'
+                    }`}
+                    style={{
+                      borderColor: isSelected ? primaryCol : undefined,
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-10 w-10 items-center justify-center rounded-xl"
+                        style={{
+                          backgroundColor: isSelected ? `${primaryCol}18` : '#f1f5f9',
+                          color: isSelected ? primaryCol : '#64748b',
+                        }}
+                      >
+                        <Icon size={18} />
+                      </div>
+                      <div>
+                        <p
+                          className={`text-xs font-bold leading-none ${
+                            isSelected ? 'text-slate-900' : 'text-slate-700'
+                          }`}
+                        >
+                          {opt.label}
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          {opt.subLabel}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isSelected && (
+                      <div
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-white shadow-sm"
+                        style={{ backgroundColor: primaryCol }}
+                      >
+                        <Check size={14} strokeWidth={3} />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

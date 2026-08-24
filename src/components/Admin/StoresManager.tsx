@@ -1,6 +1,6 @@
 // src/components/admin/StoresManager.tsx
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon, Search } from 'lucide-react';
 import type { Store, FeatureItem, PremiumBadge } from '@/types';
 import {
   fetchAllStores,
@@ -32,6 +32,8 @@ export default function StoresManager() {
     title: '',
     message: '',
   });
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
     const id = Date.now().toString();
@@ -107,6 +109,10 @@ export default function StoresManager() {
     addToast('Store saved successfully', 'success');
   };
 
+  const filteredStores = stores.filter(store =>
+    store.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) {
     return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
   }
@@ -130,6 +136,18 @@ export default function StoresManager() {
         ))}
       </ToastContainer>
 
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
+        <input
+          type="text"
+          placeholder="Search stores..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full h-10 rounded-xl border border-ink-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500"
+        />
+      </div>
+
       <button
         onClick={handleAddNew}
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
@@ -137,7 +155,7 @@ export default function StoresManager() {
         <Plus size={16} /> Add store
       </button>
 
-      {stores.map((store) => (
+      {filteredStores.map((store) => (
         <div key={store.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
             <div className="flex-1 min-w-0">

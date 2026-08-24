@@ -1,6 +1,6 @@
 // src/components/admin/VolumePricingManager.tsx
-import { useEffect, useState } from 'react';
-import { Pencil, Trash2, Loader2, Save } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Pencil, Trash2, Loader2, Save, Search, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { VolumePricingTier } from '@/types';
 import {
@@ -11,8 +11,8 @@ import {
 } from '@/services/catalog';
 
 export default function VolumePricingManager() {
-  const [products, setProducts] = useState<{ id: string; brand: string; name: string }[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [products, setProducts] = useState<{ id: string; brand: string; name: string; wholesale_price: number }[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<{ id: string; brand: string; name: string; wholesale_price: number } | null>(null);
   const [tiers, setTiers] = useState<VolumePricingTier[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<VolumePricingTier | null>(null);
@@ -24,36 +24,69 @@ export default function VolumePricingManager() {
   });
   const [saving, setSaving] = useState(false);
 
-  // Fetch products
+  // Search/combobox state
+  const [searchProductQuery, setSearchProductQuery] = useState('');
+  const [filteredProducts, setFilteredProducts] = useState<typeof products>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const comboboxRef = useRef<HTMLDivElement>(null);
+
+  // Fetch products (including wholesale_price)
   useEffect(() => {
     async function fetchProducts() {
-      const { data } = await supabase.from('products').select('id, brand, name').order('name');
+      const { data } = await supabase
+        .from('products')
+        .select('id, brand, name, wholesale_price')
+        .order('name');
       if (data && data.length > 0) {
         setProducts(data);
-        setSelectedProductId(data[0].id);
+        // Select first product by default
+        setSelectedProduct(data[0]);
+        setFilteredProducts(data);
       }
       setLoading(false);
     }
     fetchProducts();
   }, []);
 
-  // Fetch tiers when product changes
+  // Filter products based on search query
   useEffect(() => {
-    if (!selectedProductId) return;
+    if (!searchProductQuery.trim()) {
+      setFilteredProducts(products.slice(0, 10));
+    } else {
+      const q = searchProductQuery.toLowerCase();
+      setFilteredProducts(
+        products
+          .filter(p => (p.brand + ' ' + p.name).toLowerCase().includes(q))
+          .slice(0, 10)
+      );
+    }
+  }, [searchProductQuery, products]);
+
+  // Fetch tiers when selected product changes
+  useEffect(() => {
+    if (!selectedProduct) return;
     async function loadTiers() {
       setLoading(true);
-      const tiersData = await fetchVolumePricing(selectedProductId);
+      const tiersData = await fetchVolumePricing(selectedProduct.id);
       setTiers(tiersData);
       setLoading(false);
     }
     loadTiers();
-  }, [selectedProductId]);
+  }, [selectedProduct]);
 
+  // Handle product selection
+  const handleSelectProduct = (product: typeof products[0]) => {
+    setSelectedProduct(product);
+    setSearchProductQuery(product.brand + ' ' + product.name);
+    setShowSuggestions(false);
+  };
+
+  // Handle save tier
   const handleSaveTier = async () => {
-    if (!selectedProductId) return;
+    if (!selectedProduct) return;
     setSaving(true);
     const payload = {
-      product_id: selectedProductId,
+      product_id: selectedProduct.id,
       min_quantity: form.min_quantity,
       max_quantity: form.max_quantity ? parseInt(form.max_quantity) : null,
       unit_price: form.unit_price,
@@ -64,7 +97,7 @@ export default function VolumePricingManager() {
     } else {
       await createVolumePricingTier(payload);
     }
-    const tiersData = await fetchVolumePricing(selectedProductId);
+    const tiersData = await fetchVolumePricing(selectedProduct.id);
     setTiers(tiersData);
     setEditing(null);
     setForm({ min_quantity: 1, max_quantity: '', unit_price: 0, discount_percent: '' });
@@ -72,30 +105,84 @@ export default function VolumePricingManager() {
   };
 
   const handleDeleteTier = async (id: string) => {
+    if (!selectedProduct) return;
     await deleteVolumePricingTier(id);
-    const tiersData = await fetchVolumePricing(selectedProductId);
+    const tiersData = await fetchVolumePricing(selectedProduct.id);
     setTiers(tiersData);
   };
+
+  // Click outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (loading && products.length === 0) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
 
   return (
     <div className="space-y-4">
-      <div>
+      {/* Product Search Combobox */}
+      <div className="relative" ref={comboboxRef}>
         <label className="block text-xs font-bold text-ink-600 mb-1">Select Product</label>
-        <select
-          value={selectedProductId}
-          onChange={(e) => setSelectedProductId(e.target.value)}
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        >
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.brand} {p.name}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
+          <input
+            type="text"
+            placeholder="Search by brand or name..."
+            value={searchProductQuery}
+            onChange={(e) => {
+              setSearchProductQuery(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            className="w-full h-10 rounded-xl border border-ink-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500"
+          />
+          {searchProductQuery && (
+            <button
+              onClick={() => {
+                setSearchProductQuery('');
+                setSelectedProduct(null);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Suggestions dropdown */}
+        {showSuggestions && filteredProducts.length > 0 && (
+          <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-ink-200 rounded-xl shadow-lg">
+            {filteredProducts.map((p) => (
+              <div
+                key={p.id}
+                onClick={() => handleSelectProduct(p)}
+                className="px-3 py-2 cursor-pointer hover:bg-brand-50 flex justify-between items-center"
+              >
+                <span className="text-sm">{p.brand} {p.name}</span>
+                <span className="text-xs text-ink-400">₹{p.wholesale_price}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* Selected product details - show wholesale price */}
+      {selectedProduct && (
+        <div className="bg-ink-50 border border-ink-100 rounded-xl p-3 flex justify-between items-center">
+          <span className="text-sm font-medium text-ink-700">
+            Selected: <span className="font-bold">{selectedProduct.brand} {selectedProduct.name}</span>
+          </span>
+          <span className="text-sm text-brand-600 font-bold">Wholesale Price: ₹{selectedProduct.wholesale_price}</span>
+        </div>
+      )}
+
+      {/* Add / Edit Tier Form */}
       <div className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-3">
         <h3 className="text-sm font-bold text-ink-900">{editing ? 'Edit' : 'Add'} Volume Tier</h3>
         <div className="grid grid-cols-2 gap-3">
@@ -143,7 +230,7 @@ export default function VolumePricingManager() {
         </div>
         <button
           onClick={handleSaveTier}
-          disabled={saving || !form.unit_price}
+          disabled={saving || !form.unit_price || !selectedProduct}
           className="w-full h-10 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
         >
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
@@ -151,6 +238,7 @@ export default function VolumePricingManager() {
         </button>
       </div>
 
+      {/* Existing Tiers */}
       <div className="space-y-2">
         <p className="text-xs font-bold text-ink-600">Existing Tiers</p>
         {tiers.length === 0 ? (

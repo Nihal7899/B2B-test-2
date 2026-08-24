@@ -1,6 +1,6 @@
 // src/components/admin/ProductsManager.tsx
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchSubcategories, fetchDistinctBrands, deleteProductImage } from '@/services/catalog';
 import type { DbCategory, DbProduct, Subcategory } from '@/types';
@@ -27,6 +27,8 @@ export default function ProductsManager() {
     title: '',
     message: '',
   });
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
     const id = Date.now().toString();
@@ -94,6 +96,11 @@ export default function ProductsManager() {
     addToast('Product saved successfully', 'success');
   };
 
+  // Filter products: by brand or name
+  const filteredProducts = products.filter(prod =>
+    (prod.brand + ' ' + prod.name).toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
 
   if (viewMode === 'form') {
@@ -116,6 +123,18 @@ export default function ProductsManager() {
         ))}
       </ToastContainer>
 
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
+        <input
+          type="text"
+          placeholder="Search products by brand or name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full h-10 rounded-xl border border-ink-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500"
+        />
+      </div>
+
       <button
         onClick={handleAddNew}
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
@@ -123,7 +142,7 @@ export default function ProductsManager() {
         <Plus size={16} /> Add product
       </button>
 
-      {products.map((prod) => (
+      {filteredProducts.map((prod) => (
         <div key={prod.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card flex items-center gap-3">
           {prod.image_urls?.[0] && <img src={prod.image_urls[0]} alt="" className="h-12 w-12 rounded-xl object-cover" />}
           <div className="flex-1 min-w-0">
@@ -158,6 +177,8 @@ export default function ProductsManager() {
     </div>
   );
 }
+
+
 
 // ---- ProductForm ----
 function ProductForm({

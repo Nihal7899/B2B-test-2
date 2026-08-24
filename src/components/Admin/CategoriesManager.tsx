@@ -1,6 +1,6 @@
 // src/components/admin/CategoriesManager.tsx
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Save, ChevronDown, ChevronRight, ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Save, ChevronDown, ChevronRight, ImageIcon, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DbCategory, Subcategory } from '@/types';
 import { uploadCategoryImage, deleteCategoryImage } from '@/services/catalog';
@@ -27,6 +27,8 @@ export default function CategoriesManager() {
     title: '',
     message: '',
   });
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
     const id = Date.now().toString();
@@ -62,7 +64,6 @@ export default function CategoriesManager() {
 
   const handleConfirmDelete = async () => {
     if (!confirmDialog.categoryId) return;
-    // Fetch category to get image_url
     const { data: cat } = await supabase
       .from('categories')
       .select('image_url')
@@ -102,6 +103,11 @@ export default function CategoriesManager() {
     addToast('Category saved successfully', 'success');
   };
 
+  // Filter categories based on search query
+  const filteredCategories = categories.filter(cat =>
+    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
 
   if (viewMode === 'form') {
@@ -123,6 +129,18 @@ export default function CategoriesManager() {
         ))}
       </ToastContainer>
 
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
+        <input
+          type="text"
+          placeholder="Search categories..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full h-10 rounded-xl border border-ink-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500"
+        />
+      </div>
+
       <button
         onClick={handleAddNew}
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
@@ -130,7 +148,7 @@ export default function CategoriesManager() {
         <Plus size={16} /> Add category
       </button>
 
-      {categories.map((cat) => (
+      {filteredCategories.map((cat) => (
         <div key={cat.id} className="bg-white border border-ink-100 rounded-2xl overflow-hidden shadow-card">
           <div className="flex flex-wrap items-center gap-3 p-4">
             {cat.image_url && <img src={cat.image_url} alt="" className="h-12 w-12 rounded-xl object-cover flex-shrink-0" />}

@@ -1,6 +1,6 @@
-// components/admin/BrandsManager.tsx
+// src/components/admin/BrandsManager.tsx
 import React, { useEffect, useState } from 'react';
-import { Plus, Trash2, Save, Loader2, Upload, Copy, X } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, Upload, Copy, X, Search } from 'lucide-react';
 import { BrandCard } from '@/components/BrandCard';
 import {
   fetchAllTrustedBrands,
@@ -30,7 +30,7 @@ interface BrandWithColors extends TrustedBrand {
 }
 
 // ============================================================
-// EDIT FORM (separate component to keep hooks at top level)
+// EDIT FORM (separate component) - unchanged
 // ============================================================
 function BrandEditForm({
   brand,
@@ -371,8 +371,9 @@ export default function BrandsManager() {
     title: '',
     message: '',
   });
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Upload progress state (for the overlay)
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState('');
@@ -721,9 +722,13 @@ export default function BrandsManager() {
     </>
   );
 
+  // Filter brands by name
+  const filteredBrands = brands.filter(b =>
+    b.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) return <Loader2 className="animate-spin mx-auto" />;
 
-  // Show upload progress overlay if uploading
   if (uploading) {
     return <UploadProgress progress={uploadProgress} statusText={uploadStatus} isComplete={uploadProgress >= 100} />;
   }
@@ -735,6 +740,18 @@ export default function BrandsManager() {
           <Toast key={t.id} message={t.message} type={t.type} onClose={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))} />
         ))}
       </ToastContainer>
+
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
+        <input
+          type="text"
+          placeholder="Search brands..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full h-10 rounded-xl border border-ink-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500"
+        />
+      </div>
 
       {/* Add Brand Button */}
       <button
@@ -971,17 +988,13 @@ export default function BrandsManager() {
         </div>
       )}
 
-      {/* ---- List of existing brands ---- */}
+      {/* ---- List of existing brands (filtered) ---- */}
       <div className="space-y-4">
-        {brands.map((brand) => {
+        {filteredBrands.map((brand) => {
           const isEditing = editingId === brand.id;
           return (
-            <div
-              key={brand.id}
-              className="bg-white border rounded-2xl p-4 shadow-card"
-            >
+            <div key={brand.id} className="bg-white border rounded-2xl p-4 shadow-card">
               {isEditing ? (
-                // ---- EDIT MODE (uses separate BrandEditForm) ----
                 <BrandEditForm
                   brand={brand}
                   onSave={handleSaveEdit}
@@ -989,7 +1002,6 @@ export default function BrandsManager() {
                   productBrands={productBrands}
                 />
               ) : (
-                // ---- VIEW MODE ----
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="flex-1">
                     <h3 className="font-bold text-lg">{brand.name}</h3>

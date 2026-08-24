@@ -1,6 +1,6 @@
 // src/components/admin/SubcategoriesManager.tsx
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchCategories } from '@/services/catalog';
 import { uploadSubcategoryImage, deleteSubcategoryImage } from '@/services/catalog';
@@ -27,6 +27,8 @@ export default function SubcategoriesManager() {
     title: '',
     message: '',
   });
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
     const id = Date.now().toString();
@@ -90,6 +92,10 @@ export default function SubcategoriesManager() {
     addToast('Subcategory saved successfully', 'success');
   };
 
+  const filteredSubcategories = subcategories.filter(s =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
 
   if (viewMode === 'form') {
@@ -112,6 +118,18 @@ export default function SubcategoriesManager() {
         ))}
       </ToastContainer>
 
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
+        <input
+          type="text"
+          placeholder="Search subcategories..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full h-10 rounded-xl border border-ink-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500"
+        />
+      </div>
+
       <button
         onClick={handleAddNew}
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
@@ -119,7 +137,7 @@ export default function SubcategoriesManager() {
         <Plus size={16} /> Add subcategory
       </button>
 
-      {subcategories.map((s) => (
+      {filteredSubcategories.map((s) => (
         <div key={s.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card flex items-center gap-3">
           {s.image_url && <img src={s.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />}
           <div className="flex-1 min-w-0">

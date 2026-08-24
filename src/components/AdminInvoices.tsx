@@ -1,5 +1,6 @@
+// src/components/AdminInvoices.tsx
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Printer, Loader2, Search, X, Calendar, ChevronDown } from 'lucide-react';
+import { Printer, Loader2, Search, X, Calendar } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { buildGstBillHtml } from '@/services/gstBill';
 import { printHtml } from '@/utils/printHtml';
@@ -88,10 +89,8 @@ export default function AdminInvoices() {
         if (customStart && customEnd) {
           start = new Date(customStart);
           end = new Date(customEnd);
-          // Set end to end of day
           end.setHours(23, 59, 59, 999);
         } else {
-          // fallback to today
           start = today;
           end = tomorrow;
         }
@@ -120,10 +119,8 @@ export default function AdminInvoices() {
     const { start, end } = getDateRange();
 
     try {
-      // Step 1: get user_ids if searching by customer name
       let userIds: string[] | null = null;
       if (search) {
-        // Try to find profiles matching the search term
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id')
@@ -131,12 +128,10 @@ export default function AdminInvoices() {
         if (profiles && profiles.length > 0) {
           userIds = profiles.map(p => p.id);
         } else {
-          // No matching profiles – we'll still search order_number
           userIds = [];
         }
       }
 
-      // Step 2: build orders query
       let query = supabase
         .from('orders')
         .select('*', { count: 'exact' })
@@ -145,18 +140,14 @@ export default function AdminInvoices() {
         .lt('created_at', end.toISOString())
         .order('created_at', { ascending: false });
 
-      // Apply search filters
       if (search) {
         if (userIds && userIds.length > 0) {
-          // Search by order_number OR user_id in matched profiles
           query = query.or(`order_number.ilike.%${search}%, user_id.in.(${userIds.join(',')})`);
         } else {
-          // Only search by order_number
           query = query.ilike('order_number', `%${search}%`);
         }
       }
 
-      // Add pagination
       const { data, count, error } = await query.range(offset, offset + LIMIT - 1);
 
       if (error) throw error;
@@ -169,7 +160,6 @@ export default function AdminInvoices() {
         return;
       }
 
-      // Step 3: fetch profiles for customer names
       const userIdsFromOrders = data.map(o => o.user_id);
       const { data: profiles } = await supabase
         .from('profiles')
@@ -202,16 +192,13 @@ export default function AdminInvoices() {
         setLoadingMore(false);
       }
     }
-  }, [debouncedSearch, filterType, customStart, customEnd, page, LIMIT, orders.length]);
+  }, [debouncedSearch, filterType, customStart, customEnd, page, LIMIT, orders.length, getDateRange]);
 
-  // --- Effects ---
   useEffect(() => {
-    // Reset page and fetch when search or filters change
     setPage(0);
     fetchOrders(true);
   }, [debouncedSearch, filterType, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // --- Infinite scroll observer ---
   useEffect(() => {
     if (!sentinelRef.current || !hasMore || listLoading) return;
     const observer = new IntersectionObserver(
@@ -226,20 +213,19 @@ export default function AdminInvoices() {
     return () => observer.disconnect();
   }, [hasMore, listLoading, fetchOrders]);
 
-  // --- Print handler ---
-  const handlePrint = async (orderId: string) => {
+  const handlePrint = async (orderId: string, orderNumber?: string) => {
     setPrinting(orderId);
     try {
       const html = await buildGstBillHtml(orderId);
-      printHtml(html);
+      await printHtml(html, orderNumber || `Invoice_${orderId.slice(0, 8)}`);
     } catch (err) {
+      console.error('Print Error:', err);
       alert('Failed to generate bill.');
     } finally {
       setPrinting(null);
     }
   };
 
-  // --- UI helpers ---
   const statusColors: Record<string, string> = {
     confirmed: 'bg-blue-100 text-blue-700',
     packed: 'bg-amber-100 text-amber-700',
@@ -248,14 +234,11 @@ export default function AdminInvoices() {
     delivered: 'bg-green-100 text-green-700',
   };
 
-  // --- Render ---
   const showSkeletons = initialLoading || listLoading;
 
   return (
     <div className="space-y-4">
-      {/* Search and Filters */}
       <div className="space-y-3">
-        {/* Search Bar */}
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search size={16} className="text-ink-400" />
@@ -277,7 +260,6 @@ export default function AdminInvoices() {
           )}
         </div>
 
-        {/* Filter buttons */}
         <div className="flex flex-wrap items-center gap-2">
           {['today', 'yesterday', 'week', 'month'].map((type) => (
             <button
@@ -322,7 +304,6 @@ export default function AdminInvoices() {
         </div>
       </div>
 
-      {/* Metadata */}
       <div className="flex items-center justify-between text-xs text-ink-500">
         <span>
           {totalCount !== null && `${totalCount} invoice${totalCount !== 1 ? 's' : ''}`}
@@ -331,7 +312,6 @@ export default function AdminInvoices() {
         {loadingMore && <Loader2 size={14} className="animate-spin text-brand-500" />}
       </div>
 
-      {/* Invoice list */}
       <div className="space-y-3">
         {showSkeletons
           ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
@@ -358,7 +338,7 @@ export default function AdminInvoices() {
                     </p>
                   </div>
                   <button
-                    onClick={() => void handlePrint(order.id)}
+                    onClick={() => void handlePrint(order.id, order.order_number)}
                     disabled={printing === order.id}
                     className="h-9 px-4 rounded-lg bg-brand-600 text-white text-xs font-bold flex items-center gap-2 disabled:opacity-60 hover:bg-brand-700 transition"
                   >
@@ -374,7 +354,6 @@ export default function AdminInvoices() {
             })}
       </div>
 
-      {/* Sentinel for infinite scroll */}
       {hasMore && !showSkeletons && (
         <div ref={sentinelRef} className="h-8 flex items-center justify-center">
           {loadingMore && <Loader2 size={18} className="animate-spin text-brand-500" />}

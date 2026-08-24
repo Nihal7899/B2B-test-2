@@ -1,3 +1,4 @@
+// src/components/WarehouseScreen.tsx
 import { useEffect, useState, useCallback } from 'react';
 import { ArrowLeft, Package, Truck, CheckCircle2, Loader2, Search, ClipboardList, Boxes, Printer } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -215,13 +216,13 @@ function OrdersTab() {
     }
   };
 
-  const handlePrintBill = async (orderId: string) => {
+  const handlePrintBill = async (orderId: string, orderNumber?: string) => {
     try {
       setPrintingId(orderId);
       const html = await buildGstBillHtml(orderId);
-      printHtml(html);
+      await printHtml(html, orderNumber || `Invoice_${orderId.slice(0, 8)}`);
     } catch (err) {
-      console.error(err);
+      console.error('Warehouse Print Error:', err);
       alert('Failed to generate bill.');
     } finally {
       setPrintingId(null);
@@ -337,11 +338,10 @@ function OrdersTab() {
                   </button>
                 )}
 
-                {/* Print Bill only when order is confirmed at the warehouse packing station */}
                 {order.status === 'confirmed' && (
                   <button
                     disabled={printingId === order.id}
-                    onClick={() => void handlePrintBill(order.id)}
+                    onClick={() => void handlePrintBill(order.id, order.order_number)}
                     className="flex-1 h-9 rounded-lg bg-blue-600 disabled:bg-blue-400 text-white text-xs font-bold flex items-center justify-center gap-1 hover:bg-blue-700 transition-colors"
                   >
                     {printingId === order.id ? (

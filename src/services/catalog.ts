@@ -1102,28 +1102,50 @@ export function computeGST(
   gstBreakdown: Record<number, number>;
   cgstTotal: number;
   sgstTotal: number;
+  taxableSubtotal: number;
 } {
   const breakdown: Record<number, number> = {};
   let total = 0;
   let cgst = 0;
   let sgst = 0;
 
-  const totalTaxable = items.reduce((sum, item) => sum + item.effectiveUnitPrice * item.quantity, 0);
-  const discountRatio = promoDiscount > 0 && totalTaxable > 0 ? promoDiscount / totalTaxable : 0;
+  // 1. Calculate raw subtotal based on effective unit prices
+  const totalGross = items.reduce(
+    (sum, item) => sum + (Number(item.effectiveUnitPrice) || Number(item.product.price)) * item.quantity,
+    0
+  );
 
+  // 2. Pro-rata discount distribution ratio
+  const discountRatio = promoDiscount > 0 && totalGross > 0 ? Math.min(1, promoDiscount / totalGross) : 0;
+  let taxableSubtotal = 0;
+
+  // 3. Compute assessable value and exact GST per line item
   for (const item of items) {
-    const rate = item.product.gst_percentage || 0;
-    const taxableBeforeDiscount = item.effectiveUnitPrice * item.quantity;
-    const itemDiscount = taxableBeforeDiscount * discountRatio;
-    const taxableAfterDiscount = taxableBeforeDiscount - itemDiscount;
-    const gst = taxableAfterDiscount * (rate / 100);
-    breakdown[rate] = (breakdown[rate] || 0) + gst;
-    total += gst;
-    cgst += gst / 2;
-    sgst += gst / 2;
+    const unitPrice = Number(item.effectiveUnitPrice) || Number(item.product.price);
+    const lineTotal = unitPrice * item.quantity;
+    const itemDiscount = lineTotal * discountRatio;
+    const taxableValue = Math.max(0, lineTotal - itemDiscount);
+    taxableSubtotal += taxableValue;
+
+    const rate = Number(item.product.gst_percentage || 0);
+    if (rate > 0) {
+      const gst = (taxableValue * rate) / 100;
+      breakdown[rate] = (breakdown[rate] || 0) + gst;
+      total += gst;
+      cgst += gst / 2;
+      sgst += gst / 2;
+    }
   }
-  return { gstTotal: total, gstBreakdown: breakdown, cgstTotal: cgst, sgstTotal: sgst };
+
+  return {
+    gstTotal: total,
+    gstBreakdown: breakdown,
+    cgstTotal: cgst,
+    sgstTotal: sgst,
+    taxableSubtotal,
+  };
 }
+
 
 // ================================================================
 // PROMO CODES

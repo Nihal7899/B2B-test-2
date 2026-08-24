@@ -55,6 +55,8 @@ const DEFAULT_DESIGN: InvoiceDesignSettings = {
 let cachedConfig: InvoiceConfig | null = null;
 let cachedDesign: InvoiceDesignSettings | null = null;
 
+const isBrowser = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+
 export async function getInvoiceConfig(): Promise<InvoiceConfig | null> {
   if (cachedConfig) return cachedConfig;
   const { data, error } = await supabase
@@ -62,6 +64,7 @@ export async function getInvoiceConfig(): Promise<InvoiceConfig | null> {
     .select('*')
     .limit(1)
     .maybeSingle();
+
   if (error || !data) {
     cachedConfig = null;
     return null;
@@ -75,7 +78,6 @@ export async function saveInvoiceConfig(config: Partial<InvoiceConfig>): Promise
   if (existing) {
     await supabase.from('invoice_config').update(config).eq('id', existing.id);
   } else {
-    // Insert without id – let Supabase generate UUID
     const { id, ...rest } = config;
     await supabase.from('invoice_config').insert(rest);
   }
@@ -84,24 +86,31 @@ export async function saveInvoiceConfig(config: Partial<InvoiceConfig>): Promise
 
 export async function getInvoiceDesign(): Promise<InvoiceDesignSettings> {
   if (cachedDesign) return cachedDesign;
-  const stored = localStorage.getItem('invoice_design');
-  if (stored) {
-    try {
-      cachedDesign = JSON.parse(stored);
-      return cachedDesign;
-    } catch {}
+  if (isBrowser) {
+    const stored = localStorage.getItem('invoice_design');
+    if (stored) {
+      try {
+        cachedDesign = JSON.parse(stored);
+        return cachedDesign!;
+      } catch {}
+    }
   }
+
   const { data, error } = await supabase
     .from('invoice_design')
     .select('settings')
     .limit(1)
     .maybeSingle();
+
   if (error || !data) {
     cachedDesign = { ...DEFAULT_DESIGN };
   } else {
     cachedDesign = { ...DEFAULT_DESIGN, ...(data.settings as InvoiceDesignSettings) };
   }
-  localStorage.setItem('invoice_design', JSON.stringify(cachedDesign));
+
+  if (isBrowser) {
+    localStorage.setItem('invoice_design', JSON.stringify(cachedDesign));
+  }
   return cachedDesign;
 }
 
@@ -118,5 +127,7 @@ export async function saveInvoiceDesign(settings: InvoiceDesignSettings): Promis
     await supabase.from('invoice_design').insert({ settings });
   }
   cachedDesign = settings;
-  localStorage.setItem('invoice_design', JSON.stringify(settings));
+  if (isBrowser) {
+    localStorage.setItem('invoice_design', JSON.stringify(settings));
+  }
 }

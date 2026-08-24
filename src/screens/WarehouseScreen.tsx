@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ArrowLeft, Package, Truck, CheckCircle2, Loader2, Search, ClipboardList, Boxes,Printer } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle2, Loader2, Search, ClipboardList, Boxes, Printer } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DbProduct, DbOrder, DbOrderItem } from '@/services/catalog';
 import { buildGstBillHtml } from '@/services/gstBill';
@@ -12,6 +12,7 @@ type Tab = 'orders' | 'stock' | 'invoices';
 
 export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   const [tab, setTab] = useState<Tab>('orders');
+
   return (
     <div className="px-4 pb-6 space-y-4">
       <div className="flex items-center gap-3">
@@ -23,10 +24,11 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
           <p className="text-xs text-ink-500 mt-0.5">Manage stock and fulfill orders</p>
         </div>
       </div>
+
       <div className="flex gap-2">
         <button
           onClick={() => setTab('orders')}
-          className={`flex-1 h-10 rounded-xl text-sm font-bold ${
+          className={`flex-1 h-10 rounded-xl text-sm font-bold transition-colors ${
             tab === 'orders' ? 'bg-brand-600 text-white' : 'bg-white border border-ink-200 text-ink-600'
           }`}
         >
@@ -34,17 +36,24 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         </button>
         <button
           onClick={() => setTab('stock')}
-          className={`flex-1 h-10 rounded-xl text-sm font-bold ${
+          className={`flex-1 h-10 rounded-xl text-sm font-bold transition-colors ${
             tab === 'stock' ? 'bg-brand-600 text-white' : 'bg-white border border-ink-200 text-ink-600'
           }`}
         >
           Stock
         </button>
-        <button onClick={() => setTab('invoices')} className={`flex-1 h-10 rounded-xl text-sm font-bold ${
-            tab === 'stock' ? 'bg-brand-600 text-white' : 'bg-white border border-ink-200 text-ink-600'
-          }`}>Invoices</button>
+        <button
+          onClick={() => setTab('invoices')}
+          className={`flex-1 h-10 rounded-xl text-sm font-bold transition-colors ${
+            tab === 'invoices' ? 'bg-brand-600 text-white' : 'bg-white border border-ink-200 text-ink-600'
+          }`}
+        >
+          Invoices
+        </button>
       </div>
-      {tab === 'orders' ? <OrdersTab /> : <StockTab />}
+
+      {tab === 'orders' && <OrdersTab />}
+      {tab === 'stock' && <StockTab />}
       {tab === 'invoices' && <AdminInvoices />}
     </div>
   );
@@ -54,13 +63,13 @@ function OrdersTab() {
   const [orders, setOrders] = useState<(DbOrder & { customer_name: string; payment?: { status: string; provider: string } })[]>([]);
   const [items, setItems] = useState<Record<string, DbOrderItem[]>>({});
   const [loading, setLoading] = useState(true);
+  const [printingId, setPrintingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [partners, setPartners] = useState<{ user_id: string; name: string }[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'packed' | 'ready_for_pickup' | 'out_for_delivery' | 'delivered' | 'cancelled'>('all');
 
   const load = useCallback(async () => {
     try {
-      // 1. Fetch all orders
       const { data: ordersData, error: orderError } = await supabase
         .from('orders')
         .select('*')
@@ -72,7 +81,6 @@ function OrdersTab() {
         return;
       }
 
-      // 2. Fetch payments for these orders
       const orderIds = (ordersData || []).map((o) => o.id);
       let paymentsByOrder: Record<string, any> = {};
       if (orderIds.length > 0) {
@@ -88,7 +96,6 @@ function OrdersTab() {
         }
       }
 
-      // 3. Merge and filter actionable orders
       const actionable = (ordersData || [])
         .map((order) => ({
           ...order,
@@ -100,9 +107,6 @@ function OrdersTab() {
           return p && (p.status === 'paid' || p.provider === 'cod');
         });
 
-      console.log(`Actionable orders: ${actionable.length}`);
-
-      // 4. Get delivery partners
       const { data: partnerRoles } = await supabase
         .from('user_roles')
         .select('user_id')
@@ -128,7 +132,6 @@ function OrdersTab() {
         }
       }
 
-      // 5. Fetch order items for actionable orders
       const actionableIds = actionable.map((o) => o.id);
       let itemsMap: Record<string, DbOrderItem[]> = {};
       if (actionableIds.length > 0) {
@@ -146,7 +149,6 @@ function OrdersTab() {
       }
       setItems(itemsMap);
 
-      // 6. Fetch customer names
       const ordersWithNames = await Promise.all(
         actionable.map(async (o) => {
           const { data: profile } = await supabase
@@ -172,20 +174,16 @@ function OrdersTab() {
     void load();
   }, [load]);
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       if (!loading) void load();
     }, 30000);
     return () => clearInterval(interval);
-  }, [load]);
-
-  // --- RPC Functions (bypass RLS) ---
+  }, [load, loading]);
 
   const confirmOrder = async (orderId: string) => {
     const { error } = await supabase.rpc('confirm_order', { p_order_id: orderId });
     if (error) {
-      console.error('Error confirming order:', error);
       alert('Could not confirm order: ' + error.message);
     } else {
       void load();
@@ -198,7 +196,6 @@ function OrdersTab() {
       p_status: status,
     });
     if (error) {
-      console.error('Error updating order status:', error);
       alert('Could not update status: ' + error.message);
     } else {
       void load();
@@ -212,14 +209,24 @@ function OrdersTab() {
       p_partner_id: partnerId,
     });
     if (error) {
-      console.error('Error assigning partner:', error);
       alert('Could not assign partner: ' + error.message);
     } else {
       void load();
     }
   };
 
-  // --- Filtering ---
+  const handlePrintBill = async (orderId: string) => {
+    try {
+      setPrintingId(orderId);
+      const html = await buildGstBillHtml(orderId);
+      printHtml(html);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to generate bill.');
+    } finally {
+      setPrintingId(null);
+    }
+  };
 
   const filtered = orders
     .filter((o) =>
@@ -231,15 +238,6 @@ function OrdersTab() {
   const statusOptions = ['all', 'pending', 'confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'cancelled'];
 
   if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
-  
-    const handlePrintBill = async (orderId: string) => {
-      try {
-        const html = await buildGstBillHtml(orderId);
-        printHtml(html);
-      } catch (err) {
-        alert('Failed to generate bill.');
-      }
-    };
 
   return (
     <div className="space-y-3">
@@ -326,7 +324,7 @@ function OrdersTab() {
                 <p className="text-sm font-extrabold text-brand-700">₹{Number(order.total).toLocaleString('en-IN')}</p>
               </div>
 
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-2 flex-wrap">
                 {order.status === 'pending' && (
                   <button
                     onClick={() => void confirmOrder(order.id)}
@@ -338,22 +336,32 @@ function OrdersTab() {
                     Confirm
                   </button>
                 )}
+
+                {/* Print Bill only when order is confirmed at the warehouse packing station */}
                 {order.status === 'confirmed' && (
                   <button
+                    disabled={printingId === order.id}
                     onClick={() => void handlePrintBill(order.id)}
-                    className="flex-1 h-9 rounded-lg bg-blue-600 text-white text-xs font-bold flex items-center justify-center gap-1"
+                    className="flex-1 h-9 rounded-lg bg-blue-600 disabled:bg-blue-400 text-white text-xs font-bold flex items-center justify-center gap-1 hover:bg-blue-700 transition-colors"
                   >
-                    <Printer size={14} /> Print Bill
+                    {printingId === order.id ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Printer size={13} />
+                    )}
+                    Print Bill
                   </button>
-                )}               
+                )}
+
                 {order.status === 'confirmed' && (
                   <button
                     onClick={() => void updateStatus(order.id, 'packed')}
-                    className="flex-1 h-9 rounded-lg bg-brand-600 text-white text-xs font-bold"
+                    className="flex-1 h-9 rounded-lg bg-brand-600 text-white text-xs font-bold hover:bg-brand-700 transition-colors"
                   >
                     Mark packed
                   </button>
                 )}
+
                 {order.status === 'packed' && (
                   <select
                     onChange={(e) => void assignPartner(order.id, e.target.value)}
@@ -365,6 +373,7 @@ function OrdersTab() {
                     ))}
                   </select>
                 )}
+
                 {order.status !== 'cancelled' && order.status !== 'delivered' && (
                   <button
                     onClick={() => void updateStatus(order.id, 'cancelled')}

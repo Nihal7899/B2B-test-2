@@ -36,7 +36,7 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     address = addr as DbAddress | null;
   }
 
-  // Fetch business (prefer verified, but fallback to any)
+  // Fetch business profile if available
   const { data: business } = await supabase
     .from('businesses')
     .select('business_name, gstin')
@@ -48,24 +48,23 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
   let customerPhone = '';
 
   if (!customerName) {
-    // Fallback to profile
     const { data: profile } = await supabase
       .from('profiles')
       .select('full_name, phone')
       .eq('id', order.user_id)
       .maybeSingle();
     if (profile) {
-      customerName = profile.full_name || 'Customer';
-      customerPhone = profile.phone || '';
+      customerName = profile.full_name || address?.recipient_name || 'Customer';
+      customerPhone = profile.phone || address?.phone || '';
     }
   }
 
   return {
     order: order as DbOrder,
-    items: items as (DbOrderItem & { hsn_code?: string; gst_percentage?: number })[],
+    items: (items || []) as (DbOrderItem & { hsn_code?: string; gst_percentage?: number })[],
     address,
-    customerName: customerName || 'Customer',
-    customerPhone: customerPhone || '',
+    customerName: customerName || address?.recipient_name || 'Customer',
+    customerPhone: customerPhone || address?.phone || '',
     customerGst: customerGst || '',
   };
 }
@@ -85,18 +84,71 @@ function buildA4InvoiceHtml(
 ): string {
   const { order, items, address, customerName, customerPhone, customerGst } = data;
 
-  // Compute totals
-  const subtotal = items.reduce((sum, i) => sum + i.line_total, 0);
-  const gstTotal = items.reduce((sum, i) => sum + (i.gst_percentage || 0) * i.line_total / 100, 0);
-  const cgstTotal = gstTotal / 2;
-  const sgstTotal = gstTotal / 2;
-  const grandTotal = subtotal + gstTotal;
-  const outstandingCredit = 0;
-  const finalGrand = grandTotal + outstandingCredit;
+  const totalDiscount = Number(order.discount || 0);
+  const deliveryFee = Number(order.delivery_fee || 0);
+  const rawSubtotal = items.reduce((sum, item) => sum + Number(item.line_total || 0), 0);
+
+  // 1. Pro-rata discount distribution per item (Section 15(3) CGST Act)
+  const itemsWithDetails = items.map((item, idx) => {
+    const lineTotal = Number(item.line_total || 0);
+    const unitPrice = Number(item.unit_price || 0);
+    const gstRate = Number(item.gst_percentage || 0);
+
+    const itemDiscount = rawSubtotal > 0 ? (lineTotal / rawSubtotal) * totalDiscount : 0;
+    const taxableValue = Math.max(0, lineTotal - itemDiscount);
+
+    const gstAmount = (gstRate * taxableValue) / 100;
+    const cgst = gstAmount / 2;
+    const sgst = gstAmount / 2;
+
+    return {
+      serial: idx + 1,
+      product_name: `${item.brand ? `${item.brand} ` : ''}${item.product_name}`,
+      hsn: item.hsn_code || '-',
+      quantity: Number(item.quantity || 1),
+      unit_price: unitPrice,
+      taxable_value: taxableValue,
+      gst_rate: gstRate,
+      cgst,
+      sgst,
+      gst_amount: gstAmount,
+      line_total: lineTotal,
+      row_total: taxableValue + gstAmount,
+      is_delivery: false,
+    };
+  });
+
+  // 2. Add Delivery Fee as a taxable service row (SAC 9968 @ 18% GST) if present
+  if (deliveryFee > 0) {
+    const deliveryTaxable = deliveryFee / 1.18;
+    const deliveryGst = deliveryFee - deliveryTaxable;
+    itemsWithDetails.push({
+      serial: itemsWithDetails.length + 1,
+      product_name: 'Delivery & Fulfillment Charge',
+      hsn: '9968',
+      quantity: 1,
+      unit_price: deliveryTaxable,
+      taxable_value: deliveryTaxable,
+      gst_rate: 18,
+      cgst: deliveryGst / 2,
+      sgst: deliveryGst / 2,
+      gst_amount: deliveryGst,
+      line_total: deliveryTaxable,
+      row_total: deliveryFee,
+      is_delivery: true,
+    });
+  }
+
+  // 3. Overall Totals
+  const overallTaxable = itemsWithDetails.reduce((sum, i) => sum + i.taxable_value, 0);
+  const overallCgst = itemsWithDetails.reduce((sum, i) => sum + i.cgst, 0);
+  const overallSgst = itemsWithDetails.reduce((sum, i) => sum + i.sgst, 0);
+  const overallGst = overallCgst + overallSgst;
+  const overallGrand = Number(order.total) || (overallTaxable + overallGst);
 
   const invoiceNumber = order.order_number || `INV-${order.id.slice(0, 8)}`;
   const paymentType = 'cash';
-  const isGst = gstTotal > 0;
+  const isGst = overallGst > 0;
   const template = design.gstTemplate || 'template1';
   const fontSize = design.gstFont === 'small' ? 10 : design.gstFont === 'large' ? 14 : 12;
   const isCompact = design.invoiceLayout === 'compact';
@@ -105,23 +157,16 @@ function buildA4InvoiceHtml(
   const colorOpacity = design.colorOpacity ?? 1;
   const printMode = design.gstPrintMode || 'sliced';
 
-  const itemsWithDetails = items.map((item) => ({
-    product_name: `${item.brand} ${item.product_name}`,
-    hsn: item.hsn_code || '',
-    gst_rate: item.gst_percentage || 0,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    line_total: item.line_total,
-    gst_amount: (item.gst_percentage || 0) * item.line_total / 100,
-  }));
+  const hexToRgba = (hex: string, opacity: number) => {
+    const cleanHex = hex.replace('#', '');
+    const r = parseInt(cleanHex.substring(0, 2), 16) || 29;
+    const g = parseInt(cleanHex.substring(2, 4), 16) || 78;
+    const b = parseInt(cleanHex.substring(4, 6), 16) || 216;
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  };
+  const primaryRgba = hexToRgba(primaryColor, colorOpacity);
 
-  const overallSubtotal = subtotal;
-  const overallGst = gstTotal;
-  const overallCgst = cgstTotal;
-  const overallSgst = sgstTotal;
-  const overallGrand = grandTotal;
-
-  // Page slicing helpers
+  // 4. Page Slicing Helpers
   const computePageSlices = (totalItems: number, firstCapacity: number, nextCapacity: number) => {
     const slices: { start: number; end: number }[] = [];
     let start = 0;
@@ -129,7 +174,6 @@ function buildA4InvoiceHtml(
     const firstPageRows = Math.min(firstCapacity, totalItems);
     slices.push({ start: 0, end: firstPageRows });
     start = firstPageRows;
-    if (start >= totalItems) return slices;
     while (start < totalItems) {
       const end = Math.min(start + nextCapacity, totalItems);
       slices.push({ start, end });
@@ -138,166 +182,148 @@ function buildA4InvoiceHtml(
     return slices;
   };
 
-  const getPageRowCounts = (template: string, fontSize: string, layout: string, customFirst?: number, customNext?: number) => {
-    let defaultFirst = 22, defaultNext = 25;
-    switch (template) {
-      case 'template1': defaultFirst = 22; defaultNext = 25; break;
-      case 'template2': defaultFirst = 21; defaultNext = 24; break;
-      case 'template3': defaultFirst = 23; defaultNext = 26; break;
-      case 'template4': defaultFirst = 20; defaultNext = 23; break;
-      case 'template5': defaultFirst = 45; defaultNext = 50; break;
-      default: defaultFirst = 22; defaultNext = 25;
+  const getPageRowCounts = (tmpl: string, fSize: string, layout: string, customFirst?: number, customNext?: number) => {
+    let defaultFirst = 20, defaultNext = 24;
+    switch (tmpl) {
+      case 'template1': defaultFirst = 20; defaultNext = 24; break;
+      case 'template2': defaultFirst = 18; defaultNext = 22; break;
+      case 'template3': defaultFirst = 22; defaultNext = 25; break;
+      case 'template4': defaultFirst = 17; defaultNext = 20; break;
+      case 'template5': defaultFirst = 38; defaultNext = 44; break;
+      default: defaultFirst = 20; defaultNext = 24;
     }
-    if (fontSize === 'small') { defaultFirst += 3; defaultNext += 4; }
-    else if (fontSize === 'large') { defaultFirst -= 3; defaultNext -= 4; }
+    if (fSize === 'small') { defaultFirst += 3; defaultNext += 4; }
+    else if (fSize === 'large') { defaultFirst -= 3; defaultNext -= 4; }
     if (layout === 'compact') { defaultFirst += 2; defaultNext += 3; }
     else if (layout === 'professional') { defaultFirst -= 2; defaultNext -= 2; }
     return {
-      first: (customFirst && customFirst > 0) ? customFirst : defaultFirst,
-      next: (customNext && customNext > 0) ? customNext : defaultNext,
+      first: customFirst && customFirst > 0 ? customFirst : defaultFirst,
+      next: customNext && customNext > 0 ? customNext : defaultNext,
     };
   };
 
-  let slices: { start: number; end: number }[] = [];
-  if (printMode === 'sliced') {
-    const { first, next } = getPageRowCounts(
-      template,
-      design.gstFont,
-      design.invoiceLayout,
-      design.firstPageRows,
-      design.nextPageRows
-    );
-    slices = computePageSlices(itemsWithDetails.length, first, next);
-  } else {
-    slices = [{ start: 0, end: itemsWithDetails.length }];
-  }
+  const { first, next } = getPageRowCounts(template, design.gstFont, design.invoiceLayout, design.firstPageRows, design.nextPageRows);
+  const slices = printMode === 'sliced' ? computePageSlices(itemsWithDetails.length, first, next) : [{ start: 0, end: itemsWithDetails.length }];
 
-  const hexToRgba = (hex: string, opacity: number) => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-  };
-  const primaryRgba = hexToRgba(primaryColor, colorOpacity);
-
-  // Common sections
+  // 5. Common Component Sections
   const logoSection = config?.company_logo
     ? `<img src="${config.company_logo}" style="max-height:60px;margin-bottom:8px;">`
     : config?.company_name && design.showLogo
-      ? `<h1 style="font-size:24px;margin:0 0 4px 0;">${config.company_name}</h1>`
+      ? `<h1 style="font-size:22px;margin:0 0 4px 0;font-weight:700;">${config.company_name}</h1>`
       : '';
 
-  const companyInfo = config?.company_name && design.showLogo ? `
+  const companyInfo = (config?.company_name || config?.company_logo) && design.showLogo ? `
       <div style="text-align:center;margin-bottom:12px;">
         ${logoSection}
-        ${config.company_address ? `<div style="font-size:11px">${config.company_address}</div>` : ''}
-        ${config.company_phone ? `<div style="font-size:11px">Phone: ${config.company_phone}</div>` : ''}
-        ${config.company_gst ? `<div style="font-size:11px;font-weight:600">GSTIN: ${config.company_gst}</div>` : ''}
+        ${config?.company_address ? `<div style="font-size:11px;color:#4b5563;">${config.company_address}</div>` : ''}
+        ${config?.company_phone ? `<div style="font-size:11px;color:#4b5563;">Phone: ${config.company_phone}</div>` : ''}
+        ${config?.company_gst ? `<div style="font-size:11px;font-weight:600;color:#111827;">GSTIN: ${config.company_gst}</div>` : ''}
       </div>` : '';
 
-  const bankSection = design.showBankDetails && config?.bank_name ? `
-      <div style="margin-top:16px;padding:8px;border:1px solid #ddd;border-radius:4px;">
-        <div style="font-weight:600;margin-bottom:4px">Bank Details</div>
-        <div style="font-size:11px">Bank: ${config.bank_name}</div>
-        <div style="font-size:11px">A/c: ${config.bank_account || '-'}</div>
-        <div style="font-size:11px">IFSC: ${config.bank_ifsc || '-'}</div>
-      </div>` : '';
-
-  const termsSection = config?.terms_conditions ? `
-      <div style="margin-top:12px;font-size:10px;color:#666;">
-        <div style="font-weight:600;margin-bottom:4px">Terms & Conditions:</div>
-        <div style="white-space:pre-wrap">${config.terms_conditions}</div>
-      </div>` : '';
-
-  let signatureHtml = '';
-  if (design.showAuthorisedSignature || design.showReceiverSignature) {
-    signatureHtml = `
-        <div style="margin-top:24px;display:flex;justify-content:space-between;font-size:12px;">
-          ${design.showReceiverSignature ? `
-            <div style="border-top:1px solid #000;padding-top:4px;width:40%;">
-              <span style="font-weight:400;">Receiver's Signature</span>
-            </div>` : ''
-          }
-          ${design.showAuthorisedSignature ? `
-            <div style="border-top:1px solid #000;padding-top:4px;width:40%;">
-              <span style="font-weight:400;">Authorised Signatory</span>
-            </div>` : ''
-          }
-        </div>
-      `;
-  }
-
-  const displayInvoiceNumber = invoiceNumber;
-  const customerNameDisplay = customerName || 'Walk-in';
+  const customerNameDisplay = customerName || 'Walk-in Customer';
   const customerPhoneDisplay = customerPhone || '';
   const customerGstDisplay = customerGst || '';
   const currentDate = new Date(order.created_at).toLocaleDateString('en-IN', {
     day: 'numeric', month: 'short', year: 'numeric'
   });
 
-  // ─── Build page table ────────────────────────────────────────────
+  const addressBlock = `
+    <div style="margin-bottom:12px;padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;font-size:11px;display:flex;justify-content:space-between;">
+      <div>
+        <strong style="color:#111827;">Billed & Shipped To:</strong>
+        <div style="font-weight:600;color:#1f2937;margin-top:2px;">${customerNameDisplay}</div>
+        ${address ? `<div style="color:#4b5563;max-width:320px;margin-top:2px;">${address.line1}${address.line2 ? `, ${address.line2}` : ''}, ${address.city}, ${address.state} - ${address.postal_code}</div>` : ''}
+        ${customerPhoneDisplay ? `<div style="color:#4b5563;margin-top:2px;">Phone: ${customerPhoneDisplay}</div>` : ''}
+      </div>
+      <div style="text-align:right;">
+        ${customerGstDisplay ? `<div><strong style="color:#111827;">Customer GST:</strong> ${customerGstDisplay}</div>` : ''}
+        <div><strong style="color:#111827;">Invoice:</strong> ${invoiceNumber}</div>
+        <div><strong style="color:#111827;">Date:</strong> ${currentDate}</div>
+      </div>
+    </div>
+  `;
+
+  const bankSection = design.showBankDetails && config?.bank_name ? `
+      <div style="margin-top:14px;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:11px;">
+        <div style="font-weight:600;margin-bottom:2px;color:#111827;">Bank Details</div>
+        <div>Bank: ${config.bank_name}</div>
+        <div>A/c: ${config.bank_account || '-'}</div>
+        <div>IFSC: ${config.bank_ifsc || '-'}</div>
+      </div>` : '';
+
+  const termsSection = config?.terms_conditions ? `
+      <div style="margin-top:10px;font-size:10px;color:#6b7280;">
+        <div style="font-weight:600;margin-bottom:2px;color:#374151;">Terms & Conditions:</div>
+        <div style="white-space:pre-wrap;">${config.terms_conditions}</div>
+      </div>` : '';
+
+  const signatureHtml = (design.showAuthorisedSignature || design.showReceiverSignature) ? `
+      <div style="margin-top:28px;display:flex;justify-content:space-between;font-size:11px;">
+        ${design.showReceiverSignature ? `<div style="border-top:1px solid #000;padding-top:4px;width:35%;text-align:center;">Receiver's Signature</div>` : '<div></div>'}
+        ${design.showAuthorisedSignature ? `<div style="border-top:1px solid #000;padding-top:4px;width:35%;text-align:center;">Authorised Signatory</div>` : '<div></div>'}
+      </div>` : '';
+
+  // 6. Multi-Page Table Builders
   const buildPageTable = (startIdx: number, endIdx: number, pageNum: number, totalPages: number) => {
     const pageItems = itemsWithDetails.slice(startIdx, endIdx);
-    const pageSubtotal = pageItems.reduce((s, i) => s + i.line_total, 0);
-    const pageGst = pageItems.reduce((s, i) => s + i.gst_amount, 0);
-    const pageCgst = pageGst / 2;
-    const pageSgst = pageGst / 2;
+    const pageTaxable = pageItems.reduce((s, i) => s + i.taxable_value, 0);
+    const pageCgst = pageItems.reduce((s, i) => s + i.cgst, 0);
+    const pageSgst = pageItems.reduce((s, i) => s + i.sgst, 0);
+    const pageTotal = pageItems.reduce((s, i) => s + i.row_total, 0);
 
-    const rows = pageItems.map((item, idx) => {
-      const serial = startIdx + idx + 1;
-      const cgst = item.gst_amount / 2;
-      const sgst = item.gst_amount / 2;
-      return `<tr>
-        <td style="text-align:center">${serial}</td>
-        <td>${item.product_name}</td>
-        <td style="text-align:center">${item.hsn || '-'}</td>
-        ${isGst ? `<td style="text-align:center">${item.gst_rate}%</td>` : ''}
+    const rows = pageItems.map((item) => `
+      <tr style="${item.is_delivery ? 'background:#fafafa;' : ''}">
+        <td style="text-align:center">${item.serial}</td>
+        <td style="text-align:left">${item.product_name}</td>
+        <td style="text-align:center">${item.hsn}</td>
         <td style="text-align:center">${item.quantity}</td>
         <td style="text-align:right">₹${item.unit_price.toFixed(2)}</td>
+        <td style="text-align:right">₹${item.taxable_value.toFixed(2)}</td>
+        ${isGst ? `<td style="text-align:center">${item.gst_rate}%</td>` : ''}
         ${isGst ? `
-          <td style="text-align:right">₹${cgst.toFixed(2)}</td>
-          <td style="text-align:right">₹${sgst.toFixed(2)}</td>
+          <td style="text-align:right">₹${item.cgst.toFixed(2)}</td>
+          <td style="text-align:right">₹${item.sgst.toFixed(2)}</td>
         ` : ''}
-        <td style="text-align:right">₹${(item.line_total + item.gst_amount).toFixed(2)}</td>
-      </tr>`;
-    }).join('');
+        <td style="text-align:right;font-weight:600;">₹${item.row_total.toFixed(2)}</td>
+      </tr>
+    `).join('');
 
-    const pageFooter = `
-      <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td colspan="${isGst ? 2 : 1}">Page Subtotal</td><td>₹${pageSubtotal.toFixed(2)}</td></tr>
-      ${isGst ? `
-        <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td>Page CGST</td><td>₹${pageCgst.toFixed(2)}</td><td></td></tr>
-        <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td>Page SGST</td><td>₹${pageSgst.toFixed(2)}</td><td></td></tr>
-      ` : ''}
-      <tr class="total-row"><td colspan="${isGst ? 6 : 4}"></td><td colspan="${isGst ? 2 : 1}">Page Total</td><td>₹${(pageSubtotal + pageGst).toFixed(2)}</td></tr>
-    `;
+    const pageFooter = printMode === 'sliced' && totalPages > 1 ? `
+      <tr class="total-row" style="font-weight:600;background:#f9fafb;">
+        <td colspan="${isGst ? 5 : 4}" style="text-align:right;">Page ${pageNum} Subtotal:</td>
+        <td style="text-align:right;">₹${pageTaxable.toFixed(2)}</td>
+        ${isGst ? `<td></td><td style="text-align:right;">₹${pageCgst.toFixed(2)}</td><td style="text-align:right;">₹${pageSgst.toFixed(2)}</td>` : ''}
+        <td style="text-align:right;">₹${pageTotal.toFixed(2)}</td>
+      </tr>
+    ` : '';
 
-    const colCount = isGst ? 9 : 7;
-    const metaRowHtml = `
-      <tr style="background:#f0f0f0; font-weight:600;">
-        <td colspan="${colCount}" style="border:none; padding:4px 8px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:${fontSize}px;">
-            <div style="text-align:left;">
-              <div><strong>${customerNameDisplay}</strong></div>
-              ${customerGstDisplay ? `<div style="font-weight:400;">GST: ${customerGstDisplay}</div>` : ''}
-            </div>
-            <div style="text-align:center; font-weight:400;">
-              Page ${pageNum} of ${totalPages}
-            </div>
-            <div style="text-align:right;">
-              <div><strong>Invoice:</strong> ${displayInvoiceNumber}</div>
-              <div style="font-weight:400;">${currentDate}</div>
-            </div>
+    const colSpanTotal = isGst ? 10 : 7;
+    const metaRowHtml = totalPages > 1 ? `
+      <tr style="background:#f3f4f6;font-weight:600;">
+        <td colspan="${colSpanTotal}" style="border:none;padding:4px 8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;">
+            <span>${customerNameDisplay}</span>
+            <span>Page ${pageNum} of ${totalPages}</span>
+            <span>${invoiceNumber}</span>
           </div>
         </td>
       </tr>
-    `;
+    ` : '';
 
     return `
       <table>
         <thead>
           ${metaRowHtml}
           <tr>
-            <th>S.No</th><th>Product</th><th>HSN</th>${isGst ? '<th>GST%</th>' : ''}<th>Qty</th><th>Rate</th>${isGst ? '<th>CGST</th><th>SGST</th>' : ''}<th>Amount</th>
+            <th style="width:30px;">#</th>
+            <th>Description</th>
+            <th style="width:45px;">HSN</th>
+            <th style="width:35px;">Qty</th>
+            <th style="width:60px;">Rate</th>
+            <th style="width:65px;">Taxable</th>
+            ${isGst ? '<th style="width:40px;">GST</th>' : ''}
+            ${isGst ? '<th style="width:55px;">CGST</th><th style="width:55px;">SGST</th>' : ''}
+            <th style="width:70px;">Amount</th>
           </tr>
         </thead>
         <tbody>
@@ -308,75 +334,37 @@ function buildA4InvoiceHtml(
     `;
   };
 
-  // ─── Build compact table (template5) ──────────────────────────────
   const buildCompactTable = (startIdx: number, endIdx: number, pageNum: number, totalPages: number) => {
     const pageItems = itemsWithDetails.slice(startIdx, endIdx);
-    const pageSubtotal = pageItems.reduce((s, i) => s + i.line_total, 0);
-    const pageGst = pageItems.reduce((s, i) => s + i.gst_amount, 0);
-    const pageCgst = pageGst / 2;
-    const pageSgst = pageGst / 2;
-
-    const rows = pageItems.map((item, idx) => {
-      const serial = startIdx + idx + 1;
-      const cgst = item.gst_amount / 2;
-      const sgst = item.gst_amount / 2;
-      return `<tr>
-        <td>${serial}</td>
+    const rows = pageItems.map((item) => `
+      <tr style="${item.is_delivery ? 'background:#fafafa;' : ''}">
+        <td>${item.serial}</td>
         <td style="text-align:left">${item.product_name}</td>
-        <td>${item.hsn || '-'}</td>
-        <td>${item.gst_rate}%</td>
+        <td>${item.hsn}</td>
         <td>${item.quantity}</td>
-        <td>₹${item.unit_price.toFixed(2)}</td>
-        <td>₹${cgst.toFixed(2)}</td>
-        <td>₹${sgst.toFixed(2)}</td>
-        <td>₹${(item.line_total + item.gst_amount).toFixed(2)}</td>
-      </tr>`;
-    }).join('');
-
-    const pageFooter = `
-      <tr class="total-row"><td colspan="6"></td><td>Page Subtotal</td><td>₹${pageSubtotal.toFixed(2)}</td></tr>
-      <tr class="total-row"><td colspan="6"></td><td>Page CGST</td><td>₹${pageCgst.toFixed(2)}</td><td></td></tr>
-      <tr class="total-row"><td colspan="6"></td><td>Page SGST</td><td>₹${pageSgst.toFixed(2)}</td><td></td></tr>
-      <tr class="total-row"><td colspan="6"></td><td>Page Total</td><td>₹${(pageSubtotal + pageGst).toFixed(2)}</td></tr>
-    `;
-
-    const metaRowCompact = `
-      <tr style="background:#f3f4f6; font-weight:600;">
-        <td colspan="9" style="border:none; padding:2px 4px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:${Math.min(fontSize,10)}px;">
-            <div style="text-align:left;">
-              <div><strong>${customerNameDisplay}</strong></div>
-              ${customerGstDisplay ? `<div style="font-weight:400;">GST: ${customerGstDisplay}</div>` : ''}
-            </div>
-            <div style="text-align:center; font-weight:400;">
-              Page ${pageNum} of ${totalPages}
-            </div>
-            <div style="text-align:right;">
-              <div><strong>Invoice:</strong> ${displayInvoiceNumber}</div>
-              <div style="font-weight:400;">${currentDate}</div>
-            </div>
-          </div>
-        </td>
+        <td>₹${item.taxable_value.toFixed(2)}</td>
+        <td>${item.gst_rate}%</td>
+        <td>₹${item.cgst.toFixed(2)}</td>
+        <td>₹${item.sgst.toFixed(2)}</td>
+        <td>₹${item.row_total.toFixed(2)}</td>
       </tr>
-    `;
+    `).join('');
 
     return `
       <table>
         <thead>
-          ${metaRowCompact}
+          ${totalPages > 1 ? `<tr><td colspan="9" style="text-align:right;font-size:9px;padding:2px;">Page ${pageNum} of ${totalPages}</td></tr>` : ''}
           <tr>
-            <th>S.No</th><th>Product</th><th>HSN</th><th>GST%</th><th>Qty</th><th>Rate</th><th>CGST</th><th>SGST</th><th>Amount</th>
+            <th>#</th><th>Description</th><th>HSN</th><th>Qty</th><th>Taxable</th><th>GST%</th><th>CGST</th><th>SGST</th><th>Total</th>
           </tr>
         </thead>
         <tbody>
           ${rows}
-          ${pageFooter}
         </tbody>
       </table>
     `;
   };
 
-  // ─── Build all pages ──────────────────────────────────────────────
   let allTablesHtml = '';
   const isCompactTemplate = template === 'template5';
   slices.forEach((slice, idx) => {
@@ -390,35 +378,35 @@ function buildA4InvoiceHtml(
     }
   });
 
-  // ─── Summary ──────────────────────────────────────────────────────
+  // 7. Summary Box
   const summaryHtml = `
-    <div class="summary" style="margin-top:24px;border-top:3px double #000;padding-top:16px;">
-      <div style="display:flex;justify-content:space-between;font-weight:700;padding:4px 0;">
-        <span>Total Subtotal</span><span>₹${overallSubtotal.toFixed(2)}</span>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+      <div style="width:280px;font-size:${fontSize}px;line-height:1.7;">
+        <div style="display:flex;justify-content:space-between;">
+          <span>Gross Value:</span><span>₹${rawSubtotal.toFixed(2)}</span>
+        </div>
+        ${totalDiscount > 0 ? `
+          <div style="display:flex;justify-content:space-between;color:#16a34a;">
+            <span>Total Discount:</span><span>- ₹${totalDiscount.toFixed(2)}</span>
+          </div>` : ''}
+        <div style="display:flex;justify-content:space-between;border-top:1px dashed #e5e7eb;padding-top:2px;">
+          <span>Net Taxable Value:</span><span>₹${overallTaxable.toFixed(2)}</span>
+        </div>
+        ${isGst ? `
+          <div style="display:flex;justify-content:space-between;color:#4b5563;">
+            <span>Total CGST:</span><span>₹${overallCgst.toFixed(2)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;color:#4b5563;">
+            <span>Total SGST:</span><span>₹${overallSgst.toFixed(2)}</span>
+          </div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.15em;border-top:2px solid #111827;padding-top:4px;margin-top:4px;">
+          <span>GRAND TOTAL:</span><span>₹${overallGrand.toFixed(2)}</span>
+        </div>
       </div>
-      ${isGst ? `
-        <div style="display:flex;justify-content:space-between;font-weight:700;padding:4px 0;">
-          <span>Total CGST</span><span>₹${overallCgst.toFixed(2)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-weight:700;padding:4px 0;">
-          <span>Total SGST</span><span>₹${overallSgst.toFixed(2)}</span>
-        </div>
-      ` : ''}
-      <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.2em;padding:8px 0;border-top:2px solid #000;">
-        <span>GRAND TOTAL</span><span>₹${overallGrand.toFixed(2)}</span>
-      </div>
-      ${outstandingCredit > 0 ? `
-        <div style="display:flex;justify-content:space-between;color:#dc2626;padding:4px 0;">
-          <span>Previous Credit</span><span>₹${outstandingCredit.toFixed(2)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.3em;color:#dc2626;padding:8px 0;border-top:2px solid #dc2626;">
-          <span>FINAL GRAND TOTAL</span><span>₹${finalGrand.toFixed(2)}</span>
-        </div>
-      ` : ''}
     </div>
   `;
 
-  // ─── Template-specific styles & body ────────────────────────────
+  // ─── 8. Template Styles & Body Assembly ────────────────────────────
   let templateStyles = '';
   let templateBody = '';
 
@@ -426,32 +414,30 @@ function buildA4InvoiceHtml(
     case 'template1':
       templateStyles = `
         body { font-family: Arial, sans-serif; font-size: ${fontSize}px; color: #000; padding: 20px; margin: 0; }
-        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 12px; }
-        .header h1 { font-size: ${isCompact ? 16 : 20}px; font-weight: 700; }
-        .payment-type { display: inline-block; padding: 4px 12px; background: ${paymentType === 'cash' ? '#dcfce7' : '#fef3c7'}; border-radius: 4px; font-weight: 600; margin-bottom: 12px; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 12px; }
+        .header h1 { font-size: ${isCompact ? 16 : 20}px; font-weight: 700; margin: 0; }
+        .payment-type { display: inline-block; padding: 3px 10px; background: #dcfce7; border-radius: 4px; font-weight: 600; margin-bottom: 10px; font-size: 11px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
         th, td { border: 1px solid #ccc; padding: ${isCompact ? '4px 6px' : '6px 8px'}; text-align: right; }
-        th { background: #f5f5f5; text-align: center; }
-        td:nth-child(2), td:nth-child(3) { text-align: left; }
-        .footer { text-align: center; margin-top: ${isCompact ? 12 : 20}px; font-size: ${isCompact ? 10 : 11}px; color: #666; }
-        ${isProfessional ? '.signature { margin-top:30px;display:flex;justify-content:space-between; }' : ''}
+        th { background: #f5f5f5; text-align: center; font-weight: 600; }
+        td:nth-child(2) { text-align: left; }
+        .footer { text-align: center; margin-top: 20px; font-size: 11px; color: #666; }
         .payment-type, th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-        .summary > div { padding: 2px 0; }
-        .summary > div:last-child { border-top: 2px solid #000; }
         tr { page-break-inside: avoid; }
         thead { display: table-header-group; }
-        @page { margin: 15mm 10mm 15mm 10mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 9px; color: #555; } }
+        @page { margin: 12mm 10mm; }
       `;
       templateBody = `
         ${companyInfo}
         <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
-        <div class="payment-type">${paymentType === 'cash' ? 'CASH' : 'CREDIT'}</div>
+        <div class="payment-type">${paymentType.toUpperCase()}</div>
+        ${addressBlock}
         ${allTablesHtml}
         ${summaryHtml}
         ${signatureHtml}
         ${bankSection}
         ${termsSection}
-        ${isProfessional ? `<div class="signature"><div>Receiver's Signature</div><div>For ${config?.company_name || 'Company'}</div></div>` : ''}
+        ${isProfessional ? `<div style="margin-top:30px;display:flex;justify-content:space-between;font-size:11px;"><div>Receiver's Signature</div><div>For ${config?.company_name || 'Company'}</div></div>` : ''}
         <div class="footer"><p>${design.footerText || 'Thank You for your business!'}</p></div>
       `;
       break;
@@ -464,26 +450,25 @@ function buildA4InvoiceHtml(
           .invoice-container { background: none !important; box-shadow: none !important; padding: 0 !important; }
           body { background: #fff !important; }
         }
-        .header { background: ${primaryRgba}; color: #ffffff; padding: 12px 16px; border-radius: 8px; text-align: center; margin-bottom: 16px; }
+        .header { background: ${primaryRgba}; color: #ffffff; padding: 10px 14px; border-radius: 8px; text-align: center; margin-bottom: 12px; }
         .header h1 { font-size: ${isCompact ? 16 : 20}px; font-weight: 700; margin: 0; }
-        .payment-type { display: inline-block; padding: 4px 16px; background: ${primaryRgba}; color: #ffffff; border-radius: 20px; font-weight: 600; margin-bottom: 12px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        .payment-type { display: inline-block; padding: 3px 12px; background: ${primaryRgba}; color: #ffffff; border-radius: 16px; font-weight: 600; margin-bottom: 10px; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
         th { background: ${primaryRgba}; color: #fff; padding: 6px 8px; text-align: center; font-weight: 600; }
         td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; }
-        td:nth-child(2), td:nth-child(3) { text-align: left; }
+        td:nth-child(2) { text-align: left; }
         .footer { text-align: center; margin-top: 16px; color: #64748b; font-size: 11px; }
         .header, .payment-type, th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-        .summary > div { padding: 4px 0; }
-        .summary > div:last-child { border-top: 2px solid #000; }
         tr { page-break-inside: avoid; }
         thead { display: table-header-group; }
-        @page { margin: 15mm 10mm 15mm 10mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 9px; color: #555; } }
+        @page { margin: 12mm 10mm; }
       `;
       templateBody = `
         <div class="invoice-container">
-          ${companyInfo ? `<div style="text-align:center;margin-bottom:12px;">${companyInfo}</div>` : ''}
+          ${companyInfo}
           <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
-          <div class="payment-type">${paymentType === 'cash' ? 'CASH' : 'CREDIT'}</div>
+          <div class="payment-type">${paymentType.toUpperCase()}</div>
+          ${addressBlock}
           ${allTablesHtml}
           ${summaryHtml}
           ${signatureHtml}
@@ -499,24 +484,23 @@ function buildA4InvoiceHtml(
         body { font-family: Arial, sans-serif; font-size: ${fontSize}px; padding: 20px; margin: 0; }
         .header { text-align: center; border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; margin-bottom: 12px; }
         .header h1 { font-size: ${isCompact ? 16 : 20}px; font-weight: 300; letter-spacing: 2px; }
-        .payment-type { display: inline-block; padding: 2px 12px; background: #f3f4f6; border-radius: 20px; font-weight: 500; margin-bottom: 10px; }
+        .payment-type { display: inline-block; padding: 2px 12px; background: #f3f4f6; border-radius: 20px; font-weight: 500; margin-bottom: 10px; font-size: 11px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         th, td { border: none; padding: 6px 4px; text-align: right; }
-        th { background: transparent; font-weight: 500; color: #6b7280; border-bottom: 1px solid #e5e7eb; text-align: center; }
+        th { background: transparent; font-weight: 600; color: #4b5563; border-bottom: 2px solid #e5e7eb; text-align: center; }
         td { border-bottom: 1px solid #f3f4f6; }
-        td:nth-child(2), td:nth-child(3) { text-align: left; }
-        .footer { text-align: center; margin-top: 12px; color: #9ca3af; font-size: 10px; }
+        td:nth-child(2) { text-align: left; }
+        .footer { text-align: center; margin-top: 14px; color: #9ca3af; font-size: 10px; }
         .payment-type, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-        .summary > div { padding: 2px 0; }
-        .summary > div:last-child { border-top: 1px solid #000; }
         tr { page-break-inside: avoid; }
         thead { display: table-header-group; }
-        @page { margin: 15mm 10mm 15mm 10mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 9px; color: #555; } }
+        @page { margin: 12mm 10mm; }
       `;
       templateBody = `
         ${companyInfo}
         <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
-        <div class="payment-type">${paymentType === 'cash' ? 'CASH' : 'CREDIT'}</div>
+        <div class="payment-type">${paymentType.toUpperCase()}</div>
+        ${addressBlock}
         ${allTablesHtml}
         ${summaryHtml}
         ${signatureHtml}
@@ -529,24 +513,22 @@ function buildA4InvoiceHtml(
     case 'template4':
       templateStyles = `
         body { font-family: 'Georgia', serif; font-size: ${fontSize}px; padding: 20px; margin: 0; }
-        .company-header { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; border-bottom: 2px solid ${primaryColor}; padding-bottom: 16px; }
-        .company-logo { max-height: 70px; }
-        .company-details { font-size: 13px; color: #374151; }
-        .company-name { font-size: 26px; font-weight: 700; margin: 0; color: ${primaryColor}; }
-        .header { text-align: center; margin-bottom: 14px; }
-        .header h1 { font-size: ${isCompact ? 18 : 24}px; font-weight: 700; letter-spacing: 3px; color: ${primaryColor}; }
-        .payment-type { display: inline-block; padding: 4px 16px; background: ${primaryRgba}; color: #fff; border-radius: 4px; font-weight: 600; margin-bottom: 12px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+        .company-header { display: flex; align-items: center; gap: 20px; margin-bottom: 18px; border-bottom: 2px solid ${primaryColor}; padding-bottom: 14px; }
+        .company-logo { max-height: 65px; }
+        .company-details { font-size: 12px; color: #374151; }
+        .company-name { font-size: 24px; font-weight: 700; margin: 0; color: ${primaryColor}; }
+        .header { text-align: center; margin-bottom: 12px; }
+        .header h1 { font-size: ${isCompact ? 16 : 22}px; font-weight: 700; letter-spacing: 2px; color: ${primaryColor}; margin: 0; }
+        .payment-type { display: inline-block; padding: 3px 12px; background: ${primaryRgba}; color: #fff; border-radius: 4px; font-weight: 600; margin-bottom: 10px; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
         th { background: ${primaryRgba}; color: #fff; padding: 6px 8px; text-align: center; }
         td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: right; }
-        td:nth-child(2), td:nth-child(3) { text-align: left; }
-        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+        td:nth-child(2) { text-align: left; }
+        .footer { text-align: center; margin-top: 16px; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; }
         .payment-type, th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-        .summary > div { padding: 4px 0; }
-        .summary > div:last-child { border-top: 2px solid ${primaryColor}; }
         tr { page-break-inside: avoid; }
         thead { display: table-header-group; }
-        @page { margin: 15mm 10mm 15mm 10mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 9px; color: #555; } }
+        @page { margin: 12mm 10mm; }
       `;
       templateBody = `
         <div class="company-header">
@@ -558,7 +540,8 @@ function buildA4InvoiceHtml(
           </div>
         </div>
         <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
-        <div class="payment-type">${paymentType === 'cash' ? 'CASH' : 'CREDIT'}</div>
+        <div class="payment-type">${paymentType.toUpperCase()}</div>
+        ${addressBlock}
         ${allTablesHtml}
         ${summaryHtml}
         ${signatureHtml}
@@ -569,28 +552,26 @@ function buildA4InvoiceHtml(
       break;
 
     case 'template5':
-      // Compact template already handled above
-      const compactStyles = `
+      templateStyles = `
         body { font-family: Arial, sans-serif; font-size: ${Math.min(fontSize, 10)}px; padding: 8px; margin: 0; }
         .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
         .header h1 { font-size: 14px; font-weight: 700; margin: 0; }
         .payment-type { display: inline-block; padding: 2px 8px; background: #f3f4f6; border-radius: 4px; font-weight: 600; font-size: 9px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-        th, td { padding: 2px 4px; border: 1px solid #ccc; text-align: center; }
+        th, td { padding: 2px 4px; border: 1px solid #ccc; text-align: center; font-size: 9px; }
         th { background: #f3f4f6; font-weight: 600; }
         td:nth-child(2) { text-align: left; }
         .footer { text-align: center; margin-top: 6px; font-size: 9px; color: #666; }
         .payment-type, th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-        .summary > div { padding: 1px 0; }
-        .summary > div:last-child { border-top: 1px solid #000; }
         tr { page-break-inside: avoid; }
         thead { display: table-header-group; }
-        @page { margin: 12mm 8mm 12mm 8mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 8px; color: #555; } }
+        @page { margin: 8mm 6mm; }
       `;
-      const compactBody = `
+      templateBody = `
         ${companyInfo}
         <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
-        <div class="payment-type">${paymentType === 'cash' ? 'CASH' : 'CREDIT'}</div>
+        <div class="payment-type">${paymentType.toUpperCase()}</div>
+        ${addressBlock}
         ${allTablesHtml}
         ${summaryHtml}
         ${signatureHtml}
@@ -598,30 +579,28 @@ function buildA4InvoiceHtml(
         ${termsSection}
         <div class="footer"><p>${design.footerText || 'Thank You'}</p></div>
       `;
-      return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${displayInvoiceNumber}</title>
-        <style>${compactStyles}</style>
-      </head><body>${compactBody}</body></html>`;
+      break;
 
     default:
       templateStyles = `
         body { font-family: Arial, sans-serif; font-size: ${fontSize}px; padding: 20px; }
-        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 12px; }
-        .header h1 { font-size: 20px; }
-        table { width: 100%; border-collapse: collapse; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; }
+        .header h1 { font-size: 20px; margin: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
         th { background: #f5f5f5; }
+        td:nth-child(2) { text-align: left; }
         .footer { text-align: center; margin-top: 20px; color: #666; }
         .payment-type, th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-        .summary > div { padding: 2px 0; }
-        .summary > div:last-child { border-top: 2px solid #000; }
         tr { page-break-inside: avoid; }
         thead { display: table-header-group; }
-        @page { @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 9px; color: #555; } }
+        @page { margin: 12mm 10mm; }
       `;
       templateBody = `
         ${companyInfo}
         <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
-        <div class="payment-type">${paymentType === 'cash' ? 'CASH' : 'CREDIT'}</div>
+        <div class="payment-type">${paymentType.toUpperCase()}</div>
+        ${addressBlock}
         ${allTablesHtml}
         ${summaryHtml}
         ${signatureHtml}
@@ -631,8 +610,5 @@ function buildA4InvoiceHtml(
       `;
   }
 
-  // For templates 1-4, return the full HTML
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${displayInvoiceNumber}</title>
-    <style>${templateStyles}</style>
-  </head><body>${templateBody}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${templateStyles}</style></head><body>${templateBody}</body></html>`;
 }

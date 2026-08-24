@@ -1,5 +1,5 @@
 // screens/CartScreen.tsx
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -39,7 +39,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
   const [gstTotal, setGstTotal] = useState(0);
   const [gstBreakdown, setGstBreakdown] = useState<Record<number, number>>({});
 
-  // Load default address
   useEffect(() => {
     async function loadDefaultAddress() {
       const addresses = await fetchAddresses();
@@ -49,16 +48,16 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
     loadDefaultAddress();
   }, []);
 
-  // Recompute delivery and GST when items, subtotal, promo, or address changes
+  // Recompute delivery and GST with pro-rated promo discount
   useEffect(() => {
     async function compute() {
-      // GST
-      const { gstTotal, gstBreakdown } = computeGST(cart.items);
-      setGstTotal(gstTotal);
-      setGstBreakdown(gstBreakdown);
+      const promoDiscount = cart.appliedPromo?.discount || 0;
+      
+      const { gstTotal: computedGst, gstBreakdown: computedBreakdown } = computeGST(cart.items, promoDiscount);
+      setGstTotal(computedGst);
+      setGstBreakdown(computedBreakdown);
 
-      // Delivery – only if we have a postal code
-      const subtotalAfterPromo = cart.subtotal - (cart.appliedPromo?.discount || 0);
+      const subtotalAfterPromo = Math.max(0, cart.subtotal - promoDiscount);
       if (defaultAddress?.postal_code) {
         setDeliveryLoading(true);
         const { charge } = await getDeliveryCharge(defaultAddress.postal_code, subtotalAfterPromo);
@@ -88,10 +87,9 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
     cart.clearPromo();
   };
 
-  // Derived values
-  const subtotalAfterDiscount = cart.subtotal - (cart.appliedPromo?.discount || 0);
-  const displayDelivery = deliveryCharge !== null ? deliveryCharge : null;
-  const total = subtotalAfterDiscount + gstTotal + (displayDelivery ?? 0);
+  const subtotalAfterDiscount = Math.max(0, cart.subtotal - (cart.appliedPromo?.discount || 0));
+  const displayDelivery = deliveryCharge !== null ? deliveryCharge : 0;
+  const total = subtotalAfterDiscount + gstTotal + displayDelivery;
 
   if (cart.items.length === 0) {
     return (
@@ -115,7 +113,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
 
   return (
     <div className="px-4 pb-6 space-y-4">
-      {/* Header */}
       <div>
         <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">
           Your cart{' '}
@@ -126,7 +123,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
         <p className="text-xs text-ink-500 mt-1">Review your wholesale order</p>
       </div>
 
-      {/* Delivery info bar */}
       <div className="flex items-center gap-2 rounded-xl bg-brand-50 border border-brand-100 p-3">
         <Truck size={17} className="text-brand-600 shrink-0" />
         <div className="flex-1">
@@ -154,7 +150,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
         </div>
       </div>
 
-      {/* Cart items */}
       <div className="space-y-2.5">
         {cart.items.map((item) => (
           <CartItem
@@ -168,7 +163,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
         ))}
       </div>
 
-      {/* Promo Code */}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
         <h2 className="text-sm font-bold text-ink-900 mb-2">Promo Code</h2>
         {cart.appliedPromo ? (
@@ -215,7 +209,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
         {promoError && <p className="text-xs text-red-500 mt-1">{promoError}</p>}
       </section>
 
-      {/* Order Summary */}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-3">
         <h2 className="text-sm font-bold text-ink-900">Order summary</h2>
         <div className="space-y-1.5">
@@ -238,38 +231,34 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
         </div>
         <div className="border-t border-dashed border-ink-200 pt-3 space-y-1.5">
           <div className="flex justify-between text-xs text-ink-500">
-            <span>MRP total</span>
-            <span>₹{cart.totalMrp.toLocaleString('en-IN')}</span>
-          </div>
-          <div className="flex justify-between text-xs text-brand-600">
-            <span className="flex items-center gap-1">
-              <Tag size={13} /> Discounts (wholesale + volume)
-            </span>
-            <span>- ₹{cart.discount.toLocaleString('en-IN')}</span>
+            <span>Subtotal</span>
+            <span>₹{cart.subtotal.toLocaleString('en-IN')}</span>
           </div>
           {cart.appliedPromo && (
             <div className="flex justify-between text-xs text-brand-600">
-              <span>Promo discount</span>
+              <span className="flex items-center gap-1">
+                <Tag size={13} /> Promo discount ({cart.appliedPromo.code})
+              </span>
               <span>- ₹{cart.appliedPromo.discount.toLocaleString('en-IN')}</span>
             </div>
           )}
           {Object.entries(gstBreakdown).map(([rate, amount]) => {
             const half = amount / 2;
             return (
-              <div key={rate}>
+              <div key={rate} className="space-y-1">
                 <div className="flex justify-between text-xs text-ink-500">
                   <span>CGST @{(Number(rate) / 2).toFixed(1)}%</span>
-                  <span>₹{half.toLocaleString('en-IN')}</span>
+                  <span>₹{half.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-xs text-ink-500">
                   <span>SGST @{(Number(rate) / 2).toFixed(1)}%</span>
-                  <span>₹{half.toLocaleString('en-IN')}</span>
+                  <span>₹{half.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             );
           })}
           <div className="flex justify-between text-xs text-ink-500">
-            <span>Delivery</span>
+            <span>Delivery fee</span>
             <span className="font-semibold">
               {deliveryLoading ? (
                 <Loader2 size={14} className="animate-spin inline" />
@@ -287,12 +276,11 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
           <div className="border-t border-dashed border-ink-200 pt-2 flex justify-between">
             <span className="text-sm font-bold text-ink-800">Total payable</span>
             <span className="text-xl font-extrabold text-brand-700">
-              ₹{total.toLocaleString('en-IN')}
+              ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
 
-        {/* Checkout button – always enabled */}
         <button
           onClick={onCheckout}
           className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft tap-highlight active:scale-[.98] transition-transform"
@@ -300,7 +288,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
           Proceed to Checkout <ArrowRight size={17} />
         </button>
 
-        {/* Non-blocking hint if no address */}
         {!defaultAddress && (
           <p className="text-center text-[10px] text-amber-600">
             You can add a delivery address in the next step.
@@ -312,7 +299,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
         </p>
       </section>
 
-      {/* Continue shopping */}
       <button
         onClick={onShop}
         className="w-full flex items-center justify-center gap-2 text-xs font-bold text-brand-600"

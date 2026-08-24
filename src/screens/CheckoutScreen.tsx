@@ -1,5 +1,4 @@
 // screens/CheckoutScreen.tsx
-
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { ArrowLeft, MapPin, Tag, Truck, Loader2, CheckCircle2, CreditCard, Banknote, AlertCircle, X, Gift } from 'lucide-react';
 import type { useCart } from '@/store';
@@ -34,14 +33,12 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   const keepAliveIntervalRef = useRef<number | null>(null);
   const isSubmittingRef = useRef(false);
 
-  // Compute derived values
-  const effectiveSubtotal = cart.subtotal; // already volume-discounted
+  const effectiveSubtotal = cart.subtotal;
   const promoDiscount = cart.appliedPromo?.discount || 0;
-  const taxableAmount = effectiveSubtotal - promoDiscount;
+  const taxableAmount = Math.max(0, effectiveSubtotal - promoDiscount);
   const totalWithGST = taxableAmount + gstTotal;
   const total = totalWithGST + deliveryCharge;
 
-  // Load addresses and calculate delivery/GST
   const loadData = useCallback(async () => {
     const addrData = await fetchAddresses();
     setAddresses(addrData);
@@ -56,26 +53,27 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     void loadData();
   }, [loadData]);
 
-  // When address or subtotal changes, recalculate delivery and GST
+  // Recalculate delivery and GST with pro-rated promo discount
   useEffect(() => {
     async function recalc() {
+      const promoDisc = cart.appliedPromo?.discount || 0;
+      
+      const { gstTotal: computedGst, gstBreakdown: computedBreakdown } = computeGST(cart.items, promoDisc);
+      setGstTotal(computedGst);
+      setGstBreakdown(computedBreakdown);
+
       if (!selectedAddr) return;
-      const addr = addresses.find(a => a.id === selectedAddr);
+      const addr = addresses.find((a) => a.id === selectedAddr);
       if (!addr) return;
-      // Delivery
-      const { charge, zoneId } = await getDeliveryCharge(addr.postal_code, effectiveSubtotal);
+
+      const subtotalAfterPromo = Math.max(0, effectiveSubtotal - promoDisc);
+      const { charge, zoneId } = await getDeliveryCharge(addr.postal_code, subtotalAfterPromo);
       setDeliveryCharge(charge);
       setDeliveryZoneId(zoneId || null);
-
-      // GST
-      const { gstTotal, gstBreakdown } = computeGST(cart.items, promoDiscount);
-      setGstTotal(gstTotal);
-      setGstBreakdown(gstBreakdown);
     }
     void recalc();
-  }, [selectedAddr, addresses, effectiveSubtotal, cart.items]);
+  }, [selectedAddr, addresses, effectiveSubtotal, cart.items, cart.appliedPromo]);
 
-  // beforeunload handler (same as before)
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (sessionStorage.getItem('active_checkout') === 'true') {
@@ -103,7 +101,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         await supabase.functions.invoke('razorpay', {
           body: { action: 'keep_alive', order_id: orderId },
         });
-      } catch (e) { /* silent */ }
+      } catch (e) {}
     }, 5 * 60 * 1000);
   };
 
@@ -121,8 +119,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     const result = await cart.applyPromo(promoInput.trim());
     if (result.success) {
       setPromoInput('');
-      // Recalculate delivery and GST (subtotal changed)
-      // Will happen via useEffect
     } else {
       setPromoError(result.error || 'Invalid promo code');
     }
@@ -146,7 +142,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         quantity: i.quantity,
       }));
 
-      // Call the new create_order with promo and delivery zone
       const { data: orderId, error: orderError } = await supabase.rpc('create_order', {
         p_address_id: selectedAddr,
         p_items: items,
@@ -163,7 +158,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
       sessionStorage.setItem('checkout_start_time', Date.now().toString());
 
       if (paymentMethod === 'razorpay') {
-        // ... (same Razorpay flow as before, but use orderId)
         const { data: payData, error: payErr } = await supabase.functions.invoke('razorpay', {
           body: { action: 'create_order', order_id: orderId, amount: total },
         });
@@ -258,7 +252,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         });
         rzp.open();
       } else {
-        // COD – create payment record
         const { error: codPayError } = await supabase.functions.invoke('razorpay', {
           body: { action: 'create_cod_payment', order_id: orderId, amount: total },
         });
@@ -295,7 +288,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
   return (
     <div className="px-4 pb-6 space-y-4">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center">
           <ArrowLeft size={18} />
@@ -306,7 +298,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         </div>
       </div>
 
-      {/* Address section (unchanged) */}
       <section>
         <h2 className="text-sm font-bold text-ink-900 mb-2">Delivery address</h2>
         {addresses.length === 0 ? (
@@ -347,7 +338,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         )}
       </section>
 
-      {/* Promo Code */}
       <section>
         <h2 className="text-sm font-bold text-ink-900 mb-2">Promo Code</h2>
         <div className="flex gap-2">
@@ -378,7 +368,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         )}
       </section>
 
-      {/* Payment method (unchanged) */}
       <section>
         <h2 className="text-sm font-bold text-ink-900 mb-2">Payment method</h2>
         <div className="grid grid-cols-2 gap-2">
@@ -399,7 +388,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         </div>
       </section>
 
-      {/* Order summary (with GST and delivery) */}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-3">
         <h2 className="text-sm font-bold text-ink-900">Order summary</h2>
         <div className="space-y-1.5">
@@ -409,14 +397,14 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                 {item.product.brand} {item.product.name} × {item.quantity}
               </span>
               <span className="font-semibold text-ink-800 ml-2">
-                ₹{(item.effectiveUnitPrice * item.quantity).toLocaleString('en-IN')}
+                ₹{((Number(item.effectiveUnitPrice) || Number(item.product.price)) * item.quantity).toLocaleString('en-IN')}
               </span>
             </div>
           ))}
         </div>
         <div className="border-t border-dashed border-ink-200 pt-3 space-y-1.5">
           <div className="flex justify-between text-xs text-ink-500">
-            <span>Subtotal (after volume discount)</span>
+            <span>Subtotal</span>
             <span>₹{effectiveSubtotal.toLocaleString('en-IN')}</span>
           </div>
           {cart.appliedPromo && (
@@ -428,27 +416,29 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
           {Object.entries(gstBreakdown).map(([rate, amount]) => {
             const half = amount / 2;
             return (
-              <div key={rate}>
+              <div key={rate} className="space-y-1">
                 <div className="flex justify-between text-xs text-ink-500">
                   <span>CGST @{(Number(rate) / 2).toFixed(1)}%</span>
-                  <span>₹{half.toLocaleString('en-IN')}</span>
+                  <span>₹{half.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-xs text-ink-500">
                   <span>SGST @{(Number(rate) / 2).toFixed(1)}%</span>
-                  <span>₹{half.toLocaleString('en-IN')}</span>
+                  <span>₹{half.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             );
           })}
           <div className="flex justify-between text-xs text-ink-500">
-            <span>Delivery</span>
+            <span>Delivery fee</span>
             <span className="font-semibold text-brand-600">
               {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}
             </span>
           </div>
           <div className="border-t border-dashed border-ink-200 pt-2 flex justify-between">
             <span className="text-sm font-bold text-ink-800">Total</span>
-            <span className="text-xl font-extrabold text-brand-700">₹{total.toLocaleString('en-IN')}</span>
+            <span className="text-xl font-extrabold text-brand-700">
+              ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </div>
         </div>
       </section>
@@ -463,11 +453,10 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         {placing ? (
           <><Loader2 size={17} className="animate-spin" /> Placing order...</>
         ) : (
-          <>Place order · ₹{total.toLocaleString('en-IN')}</>
+          <>Place order · ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
         )}
       </button>
 
-      {/* Payment alert modal (unchanged) */}
       {showPaymentAlert && (
         <div className="fixed inset-0 z-[300] bg-black/40 flex items-end sm:items-center justify-center p-4" onClick={() => setShowPaymentAlert(false)}>
           <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-3 shadow-xl" onClick={(e) => e.stopPropagation()}>

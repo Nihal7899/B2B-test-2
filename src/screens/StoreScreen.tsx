@@ -3,14 +3,12 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { useCart } from '@/store';
-import { fetchProductsByIds, fetchStores, toggleWishlist, fetchWishlist } from '@/services/catalog';
-import type { Product as AppProduct, Store } from '@/types';
+import { fetchProductsByIds, toggleWishlist, fetchWishlist } from '@/services/catalog';
+import type { Product as AppProduct } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { getStoreIcon } from '@/data/storeIcons';
 import {
-  ChevronLeft,
   Search,
-  ShoppingCart,
   ChevronRight,
   X,
   ArrowLeft,
@@ -26,7 +24,6 @@ interface StoreScreenProps {
   goTo: (screen: string) => void;
 }
 
-// Helper to render either a Lucide icon or a custom image
 function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {
   if (iconName?.startsWith('http') || iconName?.startsWith('data:')) {
     return <img src={iconName} alt="icon" className={className + " object-contain"} />;
@@ -35,43 +32,64 @@ function renderIcon(iconName: string, className: string = "h-6 w-6", color?: str
   return <Icon className={className} style={{ color: color }} />;
 }
 
-function StoreScreenContent({ goTo }: StoreScreenProps) {
-  const { config, loading, theme, storeId } = useStore();
+function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
+  const { config, loading, storeId } = useStore();
   const navigate = useNavigate();
   const cart = useCart();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [wishlist, setWishlist] = useState<string[]>([]);
 
-  if (!config) return <StoreSkeleton />;
-
-  const {
-    hero = { enabled: true, image: '', gradientFrom: '#065f46', gradientTo: '#16a34a', title: '', subtitle: '', ctaText: 'Shop Now', ctaLink: '/categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
-    highlights = [],
-    categories = [],
-    bulkDeal = { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
-    trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
-  } = config;
-
-  // State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Get all product IDs from all categories
+  const hero = config?.hero ?? {
+    enabled: true,
+    image: '',
+    gradientFrom: '#065f46',
+    gradientTo: '#16a34a',
+    title: '',
+    subtitle: '',
+    ctaText: 'Shop Now',
+    ctaLink: '/categories',
+    ctaBgColor: '#ffffff',
+    ctaTextColor: '#065f46',
+  };
+  const highlights = config?.highlights ?? [];
+  const categories = config?.categories ?? [];
+  const bulkDeal = config?.bulkDeal ?? {
+    enabled: false,
+    tag: '',
+    title: '',
+    subtitle: '',
+    cta: '',
+    icon: 'Package',
+    ctaBgColor: '#ffffff',
+    ctaTextColor: '#065f46',
+  };
+  const trending = config?.trending ?? {
+    enabled: false,
+    title: 'Top categories',
+    subtitle: 'Jump straight to what customers are buying most',
+    iconButtons: [],
+    ctaText: 'Browse all categories',
+    ctaBgColor: '#ffffff',
+    ctaTextColor: '#065f46',
+  };
+
   const allProductIds = useMemo(() => {
     const ids: string[] = [];
     categories.forEach((cat: any) => {
-      cat.productIds.forEach((id: string) => {
+      cat.productIds?.forEach((id: string) => {
         if (!ids.includes(id)) ids.push(id);
       });
     });
     return ids;
   }, [categories]);
 
-  // 🔥 Fetch products whenever allProductIds changes (no guard)
   useEffect(() => {
     if (allProductIds.length === 0) {
       setProducts([]);
@@ -80,39 +98,37 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     }
     setProductsLoading(true);
     fetchProductsByIds(allProductIds)
-      .then(data => {
+      .then((data) => {
         setProducts(data);
       })
       .catch(console.error)
       .finally(() => setProductsLoading(false));
   }, [allProductIds]);
 
-  // Fetch wishlist
   useEffect(() => {
     fetchWishlist().then(setWishlist).catch(() => {});
   }, []);
 
-  // Filter logic
   const filteredProducts = useMemo(() => {
     let result = products;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      result = result.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.brand.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.brand.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q)
       );
     }
     if (selectedCategoryId) {
       const cat = categories.find((c: any) => c.id === selectedCategoryId);
       if (cat) {
-        result = result.filter(p => cat.productIds.includes(p.id));
+        result = result.filter((p) => cat.productIds.includes(p.id));
       }
     }
     return result;
   }, [products, searchQuery, selectedCategoryId, categories]);
 
-  // Scroll to category
   const scrollToCategory = (categoryId: string) => {
     const el = categoryRefs.current[categoryId];
     if (el) {
@@ -147,7 +163,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   const heroCtaBg = hero.ctaBgColor || '#ffffff';
   const heroCtaText = hero.ctaTextColor || '#065f46';
 
-  // Theme for product cards
   const productCardTheme = {
     primaryColor: themeFrom,
     secondaryColor: themeTo,
@@ -164,25 +179,24 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
     const isWishlisted = wishlist.includes(productId);
     await toggleWishlist(productId, isWishlisted);
     if (isWishlisted) {
-      setWishlist(wishlist.filter(id => id !== productId));
+      setWishlist(wishlist.filter((id) => id !== productId));
     } else {
       setWishlist([...wishlist, productId]);
     }
   };
 
-  if (loading) return <StoreSkeleton />;
+  if (loading || !config) return <StoreSkeleton />;
   if (productsLoading) return <StoreSkeleton />;
 
-  // Filter categories that have at least one product
   const activeCategories = categories.filter((cat: any) =>
-    products.some(p => cat.productIds.includes(p.id))
+    products.some((p) => cat.productIds.includes(p.id))
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
       {/* Hero header */}
       <div
-        className="relative overflow-hidden px-4 pb-6 pt-4 text-white shadow-xl"
+        className="relative overflow-hidden px-4 pb-6 pt-4 safe-top text-white shadow-xl"
         style={{ background: `linear-gradient(135deg, ${themeFrom}, ${themeTo})` }}
       >
         <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
@@ -191,7 +205,10 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
 
         <div className="relative mx-auto max-w-md">
           <div className="flex items-center justify-between">
-            <button onClick={() => navigate(-1)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur transition hover:bg-white/30">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur transition hover:bg-white/30"
+            >
               <ArrowLeft size={18} />
             </button>
             <span className="rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold tracking-wider backdrop-blur">
@@ -239,7 +256,9 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
       {highlights.length > 0 && (
         <div className="mx-auto max-w-md px-4 mt-4">
           <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-lg">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">What's in this store</p>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+              What's in this store
+            </p>
             <div className="grid grid-cols-4 gap-2">
               {highlights.map((h: any) => (
                 <button
@@ -253,7 +272,9 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                   >
                     {renderIcon(h.icon, "h-6 w-6", themeFrom)}
                   </div>
-                  <span className="text-center text-[9px] font-semibold leading-tight text-gray-600">{h.label}</span>
+                  <span className="text-center text-[9px] font-semibold leading-tight text-gray-600">
+                    {h.label}
+                  </span>
                 </button>
               ))}
             </div>
@@ -261,8 +282,8 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         </div>
       )}
 
-      {/* Sticky search bar */}
-      <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg">
+      {/* Sticky search bar with safe-top */}
+      <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg safe-top">
         <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-white p-2 shadow-md ring-1 ring-black/5">
           <div className="flex flex-1 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
             <Search size={16} className="text-gray-400" />
@@ -312,7 +333,9 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
         {/* Search results or categories */}
         {hasActiveFilter ? (
           <div className="mt-4">
-            <h3 className="mb-3 text-sm font-bold text-gray-800">Search results ({filteredProducts.length})</h3>
+            <h3 className="mb-3 text-sm font-bold text-gray-800">
+              Search results ({filteredProducts.length})
+            </h3>
             {filteredProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Search size={32} className="mb-2 text-gray-300" />
@@ -339,15 +362,16 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
           </div>
         ) : (
           <div className="mt-4 space-y-6">
-            {/* Categories - with trending banner after 3rd category */}
             {activeCategories.map((category: any, index: number) => {
-              const categoryProducts = products.filter(p => category.productIds.includes(p.id));
+              const categoryProducts = products.filter((p) => category.productIds.includes(p.id));
               if (categoryProducts.length === 0) return null;
 
               const categoryElement = (
                 <div
                   key={category.id}
-                  ref={(el) => { categoryRefs.current[category.id] = el; }}
+                  ref={(el) => {
+                    categoryRefs.current[category.id] = el;
+                  }}
                 >
                   <div className="mb-2.5 flex items-center gap-2">
                     <div
@@ -381,7 +405,6 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
                 </div>
               );
 
-              // Insert Trending Banner after 3rd category (index === 2)
               if (index === 2 && trending.enabled) {
                 return (
                   <React.Fragment key={`group-${category.id}`}>
@@ -420,11 +443,10 @@ function StoreScreenContent({ goTo }: StoreScreenProps) {
   );
 }
 
-// ---- Helpers ----
 function StoreSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="h-64 bg-gray-200 animate-pulse" />
+    <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
+      <div className="h-64 bg-gray-200 animate-pulse safe-top" />
       <div className="px-4 py-4">
         <div className="h-20 bg-white rounded-2xl animate-pulse" />
       </div>
@@ -452,7 +474,7 @@ function BulkDealBanner({
   icon,
   ctaBgColor,
   ctaTextColor,
-  renderIcon,
+  renderIcon: renderBannerIcon,
 }: {
   themeFrom: string;
   themeTo: string;
@@ -474,10 +496,8 @@ function BulkDealBanner({
       <div className="pointer-events-none absolute -bottom-8 right-8 h-16 w-16 rounded-full bg-white/5" />
 
       <div className="relative flex items-center gap-3">
-        <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-inner bg-white/20 text-white"
-        >
-          {renderIcon(icon, "h-6 w-6", "#ffffff")}
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-inner bg-white/20 text-white">
+          {renderBannerIcon(icon, "h-6 w-6", "#ffffff")}
         </div>
         <div className="flex-1 text-white">
           <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">
@@ -507,7 +527,7 @@ function TrendingBanner({
   ctaBgColor,
   ctaTextColor,
   onIconClick,
-  renderIcon,
+  renderIcon: renderTrendingIcon,
 }: {
   themeFrom: string;
   themeTo: string;
@@ -553,9 +573,11 @@ function TrendingBanner({
                 className="group flex flex-col items-center gap-1.5 rounded-2xl bg-white/15 p-2.5 backdrop-blur transition hover:bg-white/25"
               >
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 transition group-hover:scale-110">
-                  {renderIcon(btn.icon, "h-5 w-5", "#ffffff")}
+                  {renderTrendingIcon(btn.icon, "h-5 w-5", "#ffffff")}
                 </div>
-                <span className="text-center text-[9px] font-semibold leading-tight text-white">{btn.label}</span>
+                <span className="text-center text-[9px] font-semibold leading-tight text-white">
+                  {btn.label}
+                </span>
               </button>
             ))}
           </div>
@@ -582,21 +604,18 @@ function TrustItem({ icon: Icon, label, sub }: { icon: any; label: string; sub: 
   );
 }
 
-// 🔥 Memoize the entire component to prevent re-mount on navigation
 export default React.memo(function StoreScreen(props: StoreScreenProps) {
   const [searchParams] = useSearchParams();
-  
-  // 🔥 Freeze the storeId on initial mount so it doesn't become null when 
-  // navigating to other screens and unmount the cached DOM.
   const [storeId] = useState(() => searchParams.get('storeId'));
-  
   const navigate = useNavigate();
 
   if (!storeId) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-4">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-4 safe-top safe-bottom">
         <p className="text-ink-600">Store ID missing</p>
-        <button onClick={() => navigate(-1)} className="text-brand-600 font-bold">Go back</button>
+        <button onClick={() => navigate(-1)} className="text-brand-600 font-bold">
+          Go back
+        </button>
       </div>
     );
   }

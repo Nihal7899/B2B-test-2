@@ -8,7 +8,6 @@ import { ProductCard } from '@/components/ProductCard';
 import { useCart } from '@/store';
 import { getStoreIcon } from '@/data/storeIcons';
 
-// Helper: render icon (Lucide or custom image)
 function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {
   if (iconName?.startsWith('http') || iconName?.startsWith('data:')) {
     return <img src={iconName} alt="icon" className={className + " object-contain"} />;
@@ -17,7 +16,6 @@ function renderIcon(iconName: string, className: string = "h-6 w-6", color?: str
   return <Icon className={className} style={{ color }} />;
 }
 
-// Bottom icon (shield, crown, leaf)
 function BottomIcon({ type }: { type: 'shield' | 'crown' | 'leaf' }) {
   if (type === 'crown') {
     return (
@@ -43,7 +41,6 @@ function BottomIcon({ type }: { type: 'shield' | 'crown' | 'leaf' }) {
   );
 }
 
-// Color helpers
 const hexToRgb = (hex: string) => {
   const clean = hex.replace('#', '');
   if (clean.length !== 6) return { r: 59, g: 130, b: 246 };
@@ -63,7 +60,6 @@ const getLuminance = (hex: string) => {
   return 0.2126 * values[0] + 0.7152 * values[1] + 0.0722 * values[2];
 };
 
-// Trust item component
 function TrustItem({ icon: Icon, label, sub }: { icon: any; label: string; sub: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
@@ -74,7 +70,6 @@ function TrustItem({ icon: Icon, label, sub }: { icon: any; label: string; sub: 
   );
 }
 
-// Main component
 function BrandScreenContent({ brandId }: { brandId: string }) {
   const navigate = useNavigate();
   const cart = useCart();
@@ -85,7 +80,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Search state
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -102,7 +96,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         return;
       }
       setBrand(b);
-      // Fetch products with this brand name (case-insensitive)
       const { products: allProducts } = await fetchProducts();
       const filtered = allProducts.filter(p => p.brand.toLowerCase() === b.name.toLowerCase());
       setProducts(filtered);
@@ -122,7 +115,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
     }
   };
 
-  // Filter logic for search
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
     const q = searchQuery.toLowerCase().trim();
@@ -148,7 +140,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   if (loading || !brand) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="flex items-center justify-center min-h-[50vh] safe-top safe-bottom">
         <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
       </div>
     );
@@ -171,13 +163,11 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
   const isLightBackground = getLuminance(primary_color) > 0.68;
   const textColor = isLightBackground ? '#111827' : '#ffffff';
 
-  // Brand config sections
   const highlights = config.highlights || [];
   const categories = config.categories || [];
   const bulkDeal = config.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' };
   const trending = config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' };
 
-  // Product card theme
   const productCardTheme = {
     primaryColor: primary_color,
     secondaryColor: secondary_color,
@@ -198,16 +188,14 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
     }
   };
 
-  // Filter active categories (those with at least one product)
   const activeCategories = categories.filter((cat: any) =>
     products.some(p => cat.productIds?.includes(p.id))
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {/* ===== HERO (same as BrandCard design) ===== */}
-      <div className="relative overflow-hidden pt-12 pb-8 px-4 isolate">
-        {/* Background */}
+    <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
+      {/* HERO with safe-top */}
+      <div className="relative overflow-hidden pt-12 pb-8 px-4 isolate safe-top">
         <div
           className="absolute inset-0"
           style={{
@@ -308,8 +296,8 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         </div>
       )}
 
-      {/* Sticky search bar */}
-      <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg mt-2">
+      {/* Sticky search bar with safe-top */}
+      <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg safe-top">
         <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-white p-2 shadow-md ring-1 ring-black/5">
           <div className="flex flex-1 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
             <Search size={16} className="text-gray-400" />
@@ -440,7 +428,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
                 </div>
               );
 
-              // Insert Trending Banner after 3rd category (index === 2)
               if (index === 2 && trending.enabled) {
                 return (
                   <React.Fragment key={`group-${category.id}`}>
@@ -467,7 +454,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
                             </div>
                           </div>
 
-                          <p className="mt-2 text-[12px] text-white/80">{trending.subtitle}</p>
+                          <p className="mt-2 text-[12px] text-white/80">{subtitle}</p>
 
                           <div className="mt-4 grid grid-cols-4 gap-2.5">
                             {trending.iconButtons.map((btn: any) => (
@@ -517,16 +504,14 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
   );
 }
 
-// Wrap with React.memo to prevent re-mount on navigation
 export const BrandScreen = React.memo(() => {
   const [searchParams] = useSearchParams();
-  // 🔥 Freeze the brandId on initial mount so it doesn't become null when navigating away
   const [brandId] = useState(() => searchParams.get('id'));
   const navigate = useNavigate();
 
   if (!brandId) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-4">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-4 safe-top safe-bottom">
         <p className="text-ink-600">Brand ID missing</p>
         <button onClick={() => navigate(-1)} className="text-brand-600 font-bold">Go back</button>
       </div>

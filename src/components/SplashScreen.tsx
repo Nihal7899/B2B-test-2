@@ -11,7 +11,10 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
   useEffect(() => {
     const exitTimer = setTimeout(() => setExiting(true), 2300);
     const doneTimer = setTimeout(onFinish, 2900);
-    return () => { clearTimeout(exitTimer); clearTimeout(doneTimer); };
+    return () => {
+      clearTimeout(exitTimer);
+      clearTimeout(doneTimer);
+    };
   }, [onFinish]);
 
   return (
@@ -28,14 +31,27 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       {/* Expanding rings behind logo */}
       <div className="pointer-events-none absolute">
         <div className="splash-ring h-28 w-28 rounded-full border-2 border-brand-300/40" />
-        <div className="splash-ring h-28 w-28 rounded-full border-2 border-brand-300/40" style={{ animationDelay: '0.7s' }} />
+        <div
+          className="splash-ring h-28 w-28 rounded-full border-2 border-brand-300/40"
+          style={{ animationDelay: '0.7s' }}
+        />
       </div>
 
       {/* Logo mark */}
       <div className="splash-logo-in relative">
         <div className="splash-float flex items-center justify-center h-20 w-20 rounded-3xl bg-white shadow-2xl shadow-brand-950/50 relative overflow-hidden">
           <div className="absolute inset-0 splash-shimmer" />
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#0f7760" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="relative z-10">
+          <svg
+            width="40"
+            height="40"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#0f7760"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="relative z-10"
+          >
             <path d="M3 7l9-4 9 4-9 4-9-4z" />
             <path d="M3 12l9 4 9-4" />
             <path d="M3 17l9 4 9-4" />
@@ -69,14 +85,16 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       </div>
 
       {/* Progress bar */}
-      <div className="absolute bottom-16 w-44 h-1 rounded-full bg-white/15 overflow-hidden">
+      <div className="absolute bottom-20 w-44 h-1 rounded-full bg-white/15 overflow-hidden">
         <div className="splash-bar h-full rounded-full bg-gradient-to-r from-brand-300 to-white" />
       </div>
 
-      {/* Footer */}
-      <div className="absolute bottom-7 flex items-center gap-1.5 text-brand-300">
+      {/* Footer text with safe area padding */}
+      <div className="absolute bottom-6 flex items-center gap-1.5 text-brand-300">
         <ShoppingBag size={12} strokeWidth={2.2} />
-        <span className="text-[10px] font-medium tracking-wide">Built for growing businesses</span>
+        <span className="text-[10px] font-medium tracking-wide">
+          Built for growing businesses
+        </span>
       </div>
     </div>
   );

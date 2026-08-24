@@ -211,9 +211,9 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-slate-50">
-      {/* Category Header */}
+      {/* Category Header with safe-top for gradient status bar */}
       <header
-        className="shrink-0 shadow-md transition-all z-20"
+        className="shrink-0 shadow-md transition-all z-20 safe-top"
         style={{ background: category.gradient || primaryCol }}
       >
         <div className="mx-auto max-w-[720px] px-4 pt-3 pb-2.5 text-white">
@@ -336,8 +336,8 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
         </div>
       </header>
 
-      {/* Dual Independent Scroll Panes */}
-      <div className="mx-auto flex flex-1 min-h-0 w-full max-w-[720px] overflow-hidden">
+      {/* Dual Independent Scroll Panes with safe-bottom */}
+      <div className="mx-auto flex flex-1 min-h-0 w-full max-w-[720px] overflow-hidden safe-bottom">
         {/* Left Subcategory Strip */}
         <aside className="w-20 md:w-24 shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white py-2 scrollbar-none">
           {/* Default 'All Items' Tab */}
@@ -486,7 +486,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
         </main>
       </div>
 
-      {/* Slide-in Half-Screen Bottom Sheet for Relevancy / Sorting */}
+      {/* Sort Sheet Modal with safe-bottom */}
       {isSortSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
           <div
@@ -494,7 +494,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
             onClick={() => setIsSortSheetOpen(false)}
           />
 
-          <div className="relative z-10 w-full max-w-[720px] rounded-t-[32px] bg-white p-5 pb-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <div className="relative z-10 w-full max-w-[720px] rounded-t-[32px] bg-white p-5 pb-8 safe-bottom shadow-2xl animate-in slide-in-from-bottom duration-300">
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200" />
 
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -514,7 +514,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
               </button>
             </div>
 
-            <div className="mt-3 space-y-1.5">
+            <div className="mt-3 space-y-1.5 max-h-[60vh] overflow-y-auto">
               {SORT_OPTIONS.map((opt) => {
                 const isSelected = sortBy === opt.id;
                 const Icon = opt.icon;

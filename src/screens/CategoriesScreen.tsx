@@ -25,8 +25,9 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
   if (loading) return <div className="flex items-center justify-center min-h-[50vh]"><div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" /></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="sticky top-0 z-40 border-b border-gray-100 bg-white px-4 py-4 shadow-sm">
+    <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
+      {/* Sticky top with safe-top */}
+      <div className="sticky top-0 z-40 border-b border-gray-100 bg-white px-4 py-4 shadow-sm safe-top">
         <div className="mx-auto flex max-w-md items-center gap-3">
           <button onClick={onBack} className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100">
             <ArrowLeft size={18} className="text-gray-700" />

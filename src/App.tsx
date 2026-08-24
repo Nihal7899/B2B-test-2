@@ -18,6 +18,7 @@ import { Header } from '@/components/Header';
 import { BottomNavigation } from '@/components/BottomNavigation';
 import { SplashScreen } from '@/components/SplashScreen';
 import { KeepAliveRenderer } from '@/components/KeepAliveRenderer';
+import { setFullScreenSystemBars } from '@/hooks/useSystemBars';
 
 import { HomeScreen } from '@/screens/HomeScreen';
 import { CategoriesScreen } from '@/screens/CategoriesScreen';
@@ -183,7 +184,6 @@ function App() {
 
   const { screen } = useMemo(() => parseRoute(location.pathname), [location.pathname]);
 
-  // STABLE ROUTE KEY: Prevents unmounting/re-fetching home screen on scroll or navigation
   const key = useMemo(() => {
     if (screen === 'store') {
       const searchParams = new URLSearchParams(location.search);
@@ -206,6 +206,25 @@ function App() {
     }
     return location.pathname;
   }, [screen, location.pathname, location.search]);
+
+  const isFullBleed = 
+    screen === 'store' || 
+    screen === 'categories' || 
+    screen === 'categoryDetail' || 
+    screen === 'brand' ||
+    screen === 'banner';
+
+  // Apply transparent edge-to-edge system bars
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const darkHeaderScreens = ['store', 'brand', 'categoryDetail'];
+    const isDarkBg = showSplash || darkHeaderScreens.includes(screen);
+
+    // true = Dark icons (for light backgrounds)
+    // false = White icons (for dark/gradient backgrounds)
+    setFullScreenSystemBars(!isDarkBg);
+  }, [screen, showSplash]);
 
   const initPushRef = useRef(false);
 
@@ -509,46 +528,38 @@ function App() {
     }
   };
 
-  const isFullBleed = 
-    screen === 'store' || 
-    screen === 'categories' || 
-    screen === 'categoryDetail' || 
-    screen === 'brand' ||
-    screen === 'banner';
-
-  // Inside App.tsx return block
   return (
-    <div className="min-h-screen bg-ink-100">
+    <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-  
-      <div className="mx-auto min-h-screen max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50">
+
+      <div className="mx-auto flex-1 w-full max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col">
         {!isFullBleed && (
           <Header
             cartCount={cart.totalItems}
             onCartClick={() => goTo('cart')}
           />
         )}
-  
-        <main className={`${isFullBleed ? 'pb-0 pt-0' : 'py-4 pb-24'}`}>
+
+        <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'py-4 pb-24'}`}>
           <BackButtonHandler />
           <KeepAliveRenderer
             currentKey={key}
             render={renderScreen}
           />
         </main>
-  
-        {/* Hide BottomNavigation on Subcategory screen */}
+
         {screen !== 'categoryDetail' && (
-          <BottomNavigation
-            active={screen}
-            cartCount={cart.totalItems}
-            onNavigate={goTo}
-          />
+          <div className="safe-bottom bg-white border-t border-gray-100">
+            <BottomNavigation
+              active={screen}
+              cartCount={cart.totalItems}
+              onNavigate={goTo}
+            />
+          </div>
         )}
       </div>
     </div>
   );
-
 }
 
 export default function RootApp() {

@@ -14,6 +14,8 @@ import {
   TrendingDown,
   TrendingUp,
   SlidersHorizontal,
+  RotateCcw,
+  Filter,
 } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
 import { fetchCategories, fetchProductsBySubcategory } from '@/services/catalog';
@@ -176,14 +178,23 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
 
   const primaryCol = categoryTheme?.primaryColor || '#10b981';
 
+  // Count active filters
+  const activeFiltersCount =
+    (sortBy !== 'default' ? 1 : 0) +
+    (dealsOnly ? 1 : 0) +
+    (highRatingOnly ? 1 : 0) +
+    (query.trim() !== '' ? 1 : 0);
+
+  const hasActiveFilters = activeFiltersCount > 0;
+
   const resetFilters = () => {
     setSortBy('default');
     setDealsOnly(false);
     setHighRatingOnly(false);
+    setQuery('');
   };
 
   const handleProductSelect = (product: Product) => {
-    // Passes categoryId in URL params to inherit theme on ProductDetailScreen
     navigate(`/product?id=${product.id}&categoryId=${category?.id}`);
   };
 
@@ -202,10 +213,10 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
     <div className="flex h-screen w-full flex-col overflow-hidden bg-slate-50">
       {/* Category Header */}
       <header
-        className="shrink-0 shadow-md transition-all"
+        className="shrink-0 shadow-md transition-all z-20"
         style={{ background: category.gradient || primaryCol }}
       >
-        <div className="mx-auto max-w-[720px] px-4 pt-3 pb-2 text-white">
+        <div className="mx-auto max-w-[720px] px-4 pt-3 pb-2.5 text-white">
           {/* Header Bar */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -233,7 +244,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
             >
               <ShoppingBag size={18} className="text-white" />
               {cart?.totalItems > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white">
+                <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white animate-pulse">
                   {cart.totalItems}
                 </span>
               )}
@@ -256,8 +267,8 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
             )}
           </div>
 
-          {/* Horizontal Filter & Sort Strip */}
-          <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {/* Horizontal Filter Bar */}
+          <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
             {/* Custom Bottom Sheet Sort Trigger */}
             <button
               onClick={() => setIsSortSheetOpen(true)}
@@ -297,22 +308,36 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
               <Star size={11} className={highRatingOnly ? 'fill-amber-400' : ''} />
               4.0+ Rated
             </button>
+          </div>
+        </div>
 
-            {(sortBy !== 'default' || dealsOnly || highRatingOnly) && (
-              <button
-                onClick={resetFilters}
-                className="flex shrink-0 items-center gap-0.5 rounded-xl bg-black/30 px-2 py-1 text-[10px] font-bold text-white backdrop-blur-md"
-              >
-                <X size={10} />
-                Reset
-              </button>
-            )}
+        {/* Slide-Down Reset Banner Strip */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            hasActiveFilters ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
+          }`}
+        >
+          <div className="mx-auto flex max-w-[720px] items-center justify-between border-t border-white/15 bg-black/20 px-4 py-2 backdrop-blur-md">
+            <div className="flex items-center gap-1.5 text-white/90">
+              <Filter size={13} className="text-white" />
+              <span className="text-[11px] font-bold">
+                {activeFiltersCount} {activeFiltersCount === 1 ? 'filter' : 'filters'} applied
+              </span>
+            </div>
+
+            <button
+              onClick={resetFilters}
+              className="flex items-center gap-1.5 rounded-lg bg-white/95 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-rose-600 shadow-sm transition active:scale-95 hover:bg-white"
+            >
+              <RotateCcw size={11} strokeWidth={2.5} />
+              Reset All
+            </button>
           </div>
         </div>
       </header>
 
       {/* Dual Independent Scroll Panes */}
-      <div className="mx-auto flex h-[calc(100vh-140px)] w-full max-w-[720px] flex-1 overflow-hidden">
+      <div className="mx-auto flex flex-1 min-h-0 w-full max-w-[720px] overflow-hidden">
         {/* Left Subcategory Strip */}
         <aside className="w-20 md:w-24 shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white py-2 scrollbar-none">
           {/* Default 'All Items' Tab */}
@@ -426,6 +451,15 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
               <p className="mt-0.5 text-[10px] text-slate-400">
                 Try clearing filters or changing search keywords
               </p>
+              {hasActiveFilters && (
+                <button
+                  onClick={resetFilters}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700 active:scale-95"
+                >
+                  <RotateCcw size={12} />
+                  Reset All Filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-8">
@@ -455,18 +489,14 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
       {/* Slide-in Half-Screen Bottom Sheet for Relevancy / Sorting */}
       {isSortSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
-          {/* Backdrop dismiss */}
           <div
             className="absolute inset-0"
             onClick={() => setIsSortSheetOpen(false)}
           />
 
-          {/* Bottom Sheet Container */}
           <div className="relative z-10 w-full max-w-[720px] rounded-t-[32px] bg-white p-5 pb-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
-            {/* Grab Handle */}
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200" />
 
-            {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
@@ -484,7 +514,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
               </button>
             </div>
 
-            {/* Options List */}
             <div className="mt-3 space-y-1.5">
               {SORT_OPTIONS.map((opt) => {
                 const isSelected = sortBy === opt.id;

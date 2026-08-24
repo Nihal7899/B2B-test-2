@@ -454,7 +454,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
                             </div>
                           </div>
 
-                          <p className="mt-2 text-[12px] text-white/80">{subtitle}</p>
+                          <p className="mt-2 text-[12px] text-white/80">{trending.subtitle}</p>
 
                           <div className="mt-4 grid grid-cols-4 gap-2.5">
                             {trending.iconButtons.map((btn: any) => (

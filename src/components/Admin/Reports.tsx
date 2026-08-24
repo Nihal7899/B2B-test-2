@@ -33,8 +33,8 @@ function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 
@@ -82,12 +82,16 @@ interface IndividualProductSale {
 }
 
 interface GSTReport {
+  id: string;
   invoice_number: string;
   created_at: string;
   customer_name: string;
   customer_phone?: string;
   customer_gst?: string;
+  discount: number;
+  delivery_fee: number;
   subtotal: number;
+  taxable_value: number;
   cgst: number;
   sgst: number;
   total_gst: number;
@@ -123,13 +127,12 @@ export default function Reports() {
 
   // GST
   const [gstReport, setGstReport] = useState<GSTReport[]>([]);
-  const [gstSummary, setGstSummary] = useState({ subtotal: 0, totalCGST: 0, totalSGST: 0, totalGST: 0, grandTotal: 0 });
+  const [gstSummary, setGstSummary] = useState({ taxableValue: 0, totalCGST: 0, totalSGST: 0, totalGST: 0, grandTotal: 0 });
 
   // Stock
   const [stockData, setStockData] = useState<StockItem[]>([]);
   const [stockLoading, setStockLoading] = useState(false);
 
-  // ─── Load products for search ──────────────────────────────────
   useEffect(() => {
     supabase
       .from('products')
@@ -141,12 +144,10 @@ export default function Reports() {
       });
   }, []);
 
-  // ─── Reload on filter change (including individual product) ──
   useEffect(() => {
     load();
   }, [period, customDate, rangeStart, rangeEnd, activeTab, individualProductId]);
 
-  // ─── Date range helpers ──────────────────────────────────────
   const getDateRange = () => {
     const now = new Date();
     let from: Date, to: Date | null = null;
@@ -179,14 +180,13 @@ export default function Reports() {
     return { fromUTC: from.toISOString(), toUTC: to ? to.toISOString() : null };
   };
 
-  // ─── Main load function ──────────────────────────────────────
   const load = async () => {
     setLoading(true);
     try {
       const { fromUTC, toUTC } = getDateRange();
       let query = supabase
         .from('orders')
-        .select('id, total, created_at, updated_at, user_id, order_number, subtotal, gst_amount, cgst_amount, sgst_amount')
+        .select('id, total, created_at, updated_at, user_id, order_number, subtotal, discount, delivery_fee, gst_amount, cgst_amount, sgst_amount')
         .eq('status', 'delivered')
         .gte('updated_at', fromUTC)
         .order('updated_at', { ascending: true });
@@ -196,7 +196,7 @@ export default function Reports() {
       const { data: orders, error } = await query;
       if (error) throw error;
 
-      // Daily
+      // Daily Stats
       const byDate: Record<string, { count: number; total: number }> = {};
       orders?.forEach((order) => {
         const istDateStr = getISTDateStr(new Date(order.updated_at));
@@ -215,7 +215,7 @@ export default function Reports() {
         productsSold: 0,
       });
 
-      // Product sales
+      // Product Sales
       const orderIds = orders?.map((o) => o.id) || [];
       if (orderIds.length > 0) {
         const { data: items, error: itemsErr } = await supabase
@@ -237,7 +237,7 @@ export default function Reports() {
                 invoice_count: 0,
               };
             }
-            byProduct[id].total_qty += item.quantity;
+            byProduct[id].total_qty += Number(item.quantity);
             byProduct[id].total_revenue += Number(item.line_total);
             byProduct[id].invoice_count++;
           });
@@ -249,20 +249,36 @@ export default function Reports() {
         setProductSales([]);
       }
 
-      // GST
-      const gstOrders = orders?.filter((o) => (o.gst_amount || 0) > 0) || [];
-      let gstData: GSTReport[] = gstOrders.map((o) => ({
-        invoice_number: o.order_number,
-        created_at: o.created_at,
-        customer_name: '',
-        subtotal: o.subtotal || 0,
-        cgst: o.cgst_amount || 0,
-        sgst: o.sgst_amount || 0,
-        total_gst: o.gst_amount || 0,
-        grand_total: o.total || 0,
-      }));
+      // GST Reports with Pro-Rata and Delivery Fee alignment
+      const gstOrders = orders || [];
+      let gstData: GSTReport[] = gstOrders.map((o) => {
+        const subtotal = Number(o.subtotal || 0);
+        const discount = Number(o.discount || 0);
+        const deliveryFee = Number(o.delivery_fee || 0);
+        const deliveryTaxable = deliveryFee > 0 ? deliveryFee / 1.18 : 0;
+        const deliveryCgst = deliveryFee > 0 ? (deliveryFee - deliveryTaxable) / 2 : 0;
 
-      // Fetch customer details
+        const netTaxableValue = Math.max(0, subtotal - discount) + deliveryTaxable;
+        const cgst = Number(o.cgst_amount || 0) + deliveryCgst;
+        const sgst = Number(o.sgst_amount || 0) + deliveryCgst;
+        const totalGst = cgst + sgst;
+
+        return {
+          id: o.id,
+          invoice_number: o.order_number,
+          created_at: o.created_at,
+          customer_name: '',
+          subtotal,
+          discount,
+          delivery_fee: deliveryFee,
+          taxable_value: netTaxableValue,
+          cgst,
+          sgst,
+          total_gst: totalGst,
+          grand_total: Number(o.total || 0),
+        };
+      });
+
       if (orders?.length) {
         const userIds = orders.map((o) => o.user_id);
         const { data: profiles } = await supabase
@@ -273,6 +289,7 @@ export default function Reports() {
           .from('businesses')
           .select('owner_user_id, business_name, gstin')
           .in('owner_user_id', userIds);
+
         const nameMap = new Map();
         const phoneMap = new Map();
         const gstMap = new Map();
@@ -284,8 +301,9 @@ export default function Reports() {
           nameMap.set(b.owner_user_id, b.business_name);
           gstMap.set(b.owner_user_id, b.gstin || '');
         });
+
         gstData = gstData.map((g) => {
-          const order = orders.find((o) => o.order_number === g.invoice_number);
+          const order = orders.find((o) => o.id === g.id);
           if (order) {
             g.customer_name = nameMap.get(order.user_id) || 'Customer';
             g.customer_phone = phoneMap.get(order.user_id) || '';
@@ -294,20 +312,21 @@ export default function Reports() {
           return g;
         });
       }
+
       setGstReport(gstData);
       const gstSum = gstData.reduce(
         (s, i) => ({
-          subtotal: s.subtotal + i.subtotal,
+          taxableValue: s.taxableValue + i.taxable_value,
           totalCGST: s.totalCGST + i.cgst,
           totalSGST: s.totalSGST + i.sgst,
           totalGST: s.totalGST + i.total_gst,
           grandTotal: s.grandTotal + i.grand_total,
         }),
-        { subtotal: 0, totalCGST: 0, totalSGST: 0, totalGST: 0, grandTotal: 0 }
+        { taxableValue: 0, totalCGST: 0, totalSGST: 0, totalGST: 0, grandTotal: 0 }
       );
       setGstSummary(gstSum);
 
-      // Individual product sales (uses the same orderIds)
+      // Individual product sales
       if (individualProductId && orderIds.length > 0) {
         const { data: indItems, error: indErr } = await supabase
           .from('order_items')
@@ -320,9 +339,9 @@ export default function Reports() {
             invoice_number: (item.orders as any)?.order_number || '',
             created_at: (item.orders as any)?.created_at || '',
             customer_name: '',
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total: item.line_total,
+            quantity: Number(item.quantity),
+            unit_price: Number(item.unit_price),
+            total: Number(item.line_total),
           }));
           setIndividualSales(indSales);
         } else {
@@ -339,7 +358,6 @@ export default function Reports() {
     }
   };
 
-  // ─── Stock report ─────────────────────────────────────────────
   const loadStockReport = async () => {
     setStockLoading(true);
     try {
@@ -366,7 +384,6 @@ export default function Reports() {
     }
   };
 
-  // ─── Exports ──────────────────────────────────────────────────
   const exportStockToExcel = () => {
     if (stockData.length === 0) {
       toast.error('No stock data to export');
@@ -386,126 +403,155 @@ export default function Reports() {
     downloadExcel(wb, `Stock_Report_${dateFilterLabel()}`);
   };
 
+  // ─── Pro-Rata Compliant GST Excel Export ──────────────────────────────
   const exportGSTToExcel = async () => {
     if (gstReport.length === 0) {
       toast.error('No GST data to export');
       return;
     }
 
-    // ─── 1. Build Summary Sheet ──────────────────────────────
+    // 1. Build Summary Sheet
     const summaryData = gstReport.map((g) => ({
       'Invoice Number': g.invoice_number,
       'Date': new Date(g.created_at).toLocaleDateString('en-IN'),
       'Customer': g.customer_name,
       'Customer Phone': g.customer_phone || '-',
       'Customer GSTIN': g.customer_gst || '-',
-      'Taxable Value': g.subtotal,
+      'Gross Subtotal': g.subtotal,
+      'Discount': g.discount > 0 ? -g.discount : 0,
+      'Taxable Value': g.taxable_value,
       'CGST': g.cgst,
       'SGST': g.sgst,
       'Total GST': g.total_gst,
       'Grand Total': g.grand_total,
     }));
+
     summaryData.push({
       'Invoice Number': 'TOTAL',
       'Date': '',
       'Customer': '',
       'Customer Phone': '',
       'Customer GSTIN': '',
-      'Taxable Value': gstSummary.subtotal,
+      'Gross Subtotal': gstReport.reduce((s, i) => s + i.subtotal, 0),
+      'Discount': -gstReport.reduce((s, i) => s + i.discount, 0),
+      'Taxable Value': gstSummary.taxableValue,
       'CGST': gstSummary.totalCGST,
       'SGST': gstSummary.totalSGST,
       'Total GST': gstSummary.totalGST,
       'Grand Total': gstSummary.grandTotal,
     });
 
-    // ─── 2. Build Details Sheet ──────────────────────────────
-    const gstInvoiceNumbers = gstReport.map((g) => g.invoice_number);
-    const { data: ordersWithIds } = await supabase
-      .from('orders')
-      .select('id, order_number')
-      .in('order_number', gstInvoiceNumbers);
-    const invoiceIdMap = new Map(ordersWithIds?.map((o) => [o.order_number, o.id]) || []);
-    const invoiceIds = gstInvoiceNumbers.map((inv) => invoiceIdMap.get(inv)).filter(Boolean) as string[];
-
+    // 2. Build Itemized Details Sheet
+    const orderIds = gstReport.map((g) => g.id);
     let detailsData: any[] = [];
 
-    if (invoiceIds.length > 0) {
+    if (orderIds.length > 0) {
       const { data: items, error } = await supabase
         .from('order_items')
         .select('order_id, product_code, product_name, hsn_code, gst_percentage, quantity, unit_price, line_total')
-        .in('order_id', invoiceIds);
+        .in('order_id', orderIds);
 
       if (!error && items) {
-        const itemsByInvoice: Record<string, any[]> = {};
+        const itemsByOrder: Record<string, any[]> = {};
         items.forEach((item) => {
-          const orderNumber = gstReport.find((g) => invoiceIdMap.get(g.invoice_number) === item.order_id)?.invoice_number;
-          if (orderNumber) {
-            if (!itemsByInvoice[orderNumber]) itemsByInvoice[orderNumber] = [];
-            itemsByInvoice[orderNumber].push({
-              ...item,
-              cgst: (item.gst_percentage || 0) * item.line_total / 200,
-              sgst: (item.gst_percentage || 0) * item.line_total / 200,
-              line_total_with_gst: item.line_total + (item.gst_percentage || 0) * item.line_total / 100,
-            });
-          }
+          if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+          itemsByOrder[item.order_id].push(item);
         });
 
         gstReport.forEach((g) => {
-          const invItems = itemsByInvoice[g.invoice_number] || [];
-          // Header row
+          const invItems = itemsByOrder[g.id] || [];
+          const rawSubtotal = invItems.reduce((sum, it) => sum + Number(it.line_total || 0), 0);
+
+          // Invoice Header Row
           detailsData.push({
             'Invoice Number': g.invoice_number,
             'Date': new Date(g.created_at).toLocaleDateString('en-IN'),
             'Customer': g.customer_name,
-            'Customer Phone': g.customer_phone || '-',
             'Customer GSTIN': g.customer_gst || '-',
-            'Product Code': '',
-            'Product Name': '',
+            'Item Description': '',
             'HSN': '',
-            'GST Rate': '',
             'Qty': '',
             'Rate': '',
+            'Discount': '',
+            'Taxable Value': '',
+            'GST Rate': '',
             'CGST': '',
             'SGST': '',
-            'Line Total': '',
+            'Row Total': '',
             'Invoice Total': g.grand_total,
           });
 
+          // Itemized Product Rows with Pro-Rata Discount
           invItems.forEach((item) => {
+            const lineTotal = Number(item.line_total || 0);
+            const unitPrice = Number(item.unit_price || 0);
+            const gstRate = Number(item.gst_percentage || 0);
+
+            const itemDiscount = rawSubtotal > 0 ? (lineTotal / rawSubtotal) * g.discount : 0;
+            const taxableValue = Math.max(0, lineTotal - itemDiscount);
+            const gstAmount = (gstRate * taxableValue) / 100;
+            const cgst = gstAmount / 2;
+            const sgst = gstAmount / 2;
+
             detailsData.push({
               'Invoice Number': '',
               'Date': '',
               'Customer': '',
-              'Customer Phone': '',
               'Customer GSTIN': '',
-              'Product Code': item.product_code || '',
-              'Product Name': item.product_name,
-              'HSN': item.hsn_code || '',
-              'GST Rate': `${item.gst_percentage || 0}%`,
+              'Item Description': item.product_name,
+              'HSN': item.hsn_code || '-',
               'Qty': item.quantity,
-              'Rate': item.unit_price,
-              'CGST': item.cgst,
-              'SGST': item.sgst,
-              'Line Total': item.line_total_with_gst,
+              'Rate': unitPrice,
+              'Discount': itemDiscount > 0 ? -Number(itemDiscount.toFixed(2)) : 0,
+              'Taxable Value': Number(taxableValue.toFixed(2)),
+              'GST Rate': `${gstRate}%`,
+              'CGST': Number(cgst.toFixed(2)),
+              'SGST': Number(sgst.toFixed(2)),
+              'Row Total': Number((taxableValue + gstAmount).toFixed(2)),
               'Invoice Total': '',
             });
           });
 
+          // Delivery Row (SAC 9968)
+          if (g.delivery_fee > 0) {
+            const delTaxable = g.delivery_fee / 1.18;
+            const delGst = g.delivery_fee - delTaxable;
+
+            detailsData.push({
+              'Invoice Number': '',
+              'Date': '',
+              'Customer': '',
+              'Customer GSTIN': '',
+              'Item Description': 'Delivery & Fulfillment Service',
+              'HSN': '9968',
+              'Qty': 1,
+              'Rate': Number(delTaxable.toFixed(2)),
+              'Discount': 0,
+              'Taxable Value': Number(delTaxable.toFixed(2)),
+              'GST Rate': '18%',
+              'CGST': Number((delGst / 2).toFixed(2)),
+              'SGST': Number((delGst / 2).toFixed(2)),
+              'Row Total': g.delivery_fee,
+              'Invoice Total': '',
+            });
+          }
+
+          // Spacer row
           detailsData.push({
             'Invoice Number': '',
             'Date': '',
             'Customer': '',
-            'Customer Phone': '',
             'Customer GSTIN': '',
-            'Product Code': '',
-            'Product Name': '',
+            'Item Description': '',
             'HSN': '',
-            'GST Rate': '',
             'Qty': '',
             'Rate': '',
+            'Discount': '',
+            'Taxable Value': '',
+            'GST Rate': '',
             'CGST': '',
             'SGST': '',
-            'Line Total': '',
+            'Row Total': '',
             'Invoice Total': '',
           });
         });
@@ -517,13 +563,13 @@ export default function Reports() {
     const ws2 = XLSX.utils.json_to_sheet(detailsData);
 
     ws1['!cols'] = [
-      { wch: 16 }, { wch: 14 }, { wch: 25 }, { wch: 15 }, { wch: 20 },
-      { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
+      { wch: 16 }, { wch: 14 }, { wch: 25 }, { wch: 15 }, { wch: 18 },
+      { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
     ];
     ws2['!cols'] = [
-      { wch: 16 }, { wch: 14 }, { wch: 25 }, { wch: 15 }, { wch: 20 },
-      { wch: 12 }, { wch: 30 }, { wch: 10 }, { wch: 10 },
-      { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 },
+      { wch: 16 }, { wch: 14 }, { wch: 25 }, { wch: 18 },
+      { wch: 30 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 10 },
+      { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 14 },
     ];
 
     XLSX.utils.book_append_sheet(wb, ws1, 'GST Summary');
@@ -552,10 +598,8 @@ export default function Reports() {
       )
     : allProducts.slice(0, 20);
 
-  // ─── Render ──────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
@@ -563,7 +607,7 @@ export default function Reports() {
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Reports</h1>
-            <p className="text-xs text-ink-500 mt-0.5">Sales analytics & insights</p>
+            <p className="text-xs text-ink-500 mt-0.5">Sales analytics & GST compliance</p>
           </div>
         </div>
         <span className="text-xs bg-ink-100 px-3 py-1.5 rounded-full text-ink-600 font-medium">
@@ -571,7 +615,6 @@ export default function Reports() {
         </span>
       </div>
 
-      {/* Date Filter Pills */}
       <div className="flex flex-wrap gap-1.5">
         {(['today', 'yesterday', 'week', 'month'] as const).map((f) => (
           <button
@@ -623,7 +666,6 @@ export default function Reports() {
         </button>
       </div>
 
-      {/* Date picker */}
       {showDatePicker && (period === 'custom' || period === 'range') && (
         <div className="bg-white border border-ink-200 rounded-xl p-3 flex flex-wrap items-center gap-2">
           {period === 'custom' && (
@@ -663,7 +705,6 @@ export default function Reports() {
         </div>
       )}
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
           label="Total Sales"
@@ -691,7 +732,6 @@ export default function Reports() {
         />
       </div>
 
-      {/* Tabs */}
       <div className="flex flex-wrap gap-1.5 border-b border-ink-100 pb-1">
         {(['daily', 'products', 'individual', 'gst', 'stock'] as const).map((tab) => (
           <button
@@ -711,7 +751,7 @@ export default function Reports() {
         ))}
       </div>
 
-      {/* ─── Daily Tab ────────────────────────────────────────────── */}
+      {/* Daily Tab */}
       {activeTab === 'daily' && (
         <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-ink-100 flex items-center justify-between">
@@ -752,7 +792,7 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ─── Products Tab ──────────────────────────────────────────── */}
+      {/* Products Tab */}
       {activeTab === 'products' && (
         <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-ink-100 flex items-center justify-between">
@@ -799,7 +839,7 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ─── Individual Tab ────────────────────────────────────────── */}
+      {/* Individual Product Tab */}
       {activeTab === 'individual' && (
         <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-ink-100">
@@ -895,13 +935,13 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ─── GST Tab ────────────────────────────────────────────────── */}
+      {/* GST Tab */}
       {activeTab === 'gst' && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <StatCard
               label="Taxable Value"
-              value={formatCurrency(gstSummary.subtotal)}
+              value={formatCurrency(gstSummary.taxableValue)}
               gradient="linear-gradient(135deg, #1d4ed8, #8b5cf6)"
             />
             <StatCard
@@ -945,16 +985,18 @@ export default function Reports() {
                   <p className="text-sm mt-2">No GST invoices</p>
                 </div>
               ) : (
-                <table className="w-full text-sm min-w-[700px]">
+                <table className="w-full text-sm min-w-[750px]">
                   <thead>
                     <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
                       <th className="pb-2 font-semibold min-w-[110px]">Invoice</th>
-                      <th className="pb-2 font-semibold min-w-[100px]">Date</th>
-                      <th className="pb-2 font-semibold min-w-[150px]">Customer</th>
-                      <th className="pb-2 font-semibold text-right min-w-[100px]">Taxable</th>
-                      <th className="pb-2 font-semibold text-right min-w-[80px]">CGST</th>
-                      <th className="pb-2 font-semibold text-right min-w-[80px]">SGST</th>
-                      <th className="pb-2 font-semibold text-right min-w-[100px]">Total</th>
+                      <th className="pb-2 font-semibold min-w-[90px]">Date</th>
+                      <th className="pb-2 font-semibold min-w-[140px]">Customer</th>
+                      <th className="pb-2 font-semibold text-right min-w-[90px]">Subtotal</th>
+                      <th className="pb-2 font-semibold text-right min-w-[80px]">Discount</th>
+                      <th className="pb-2 font-semibold text-right min-w-[90px]">Taxable</th>
+                      <th className="pb-2 font-semibold text-right min-w-[70px]">CGST</th>
+                      <th className="pb-2 font-semibold text-right min-w-[70px]">SGST</th>
+                      <th className="pb-2 font-semibold text-right min-w-[90px]">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -962,10 +1004,12 @@ export default function Reports() {
                       <tr key={inv.invoice_number} className="border-b border-ink-50 last:border-0">
                         <td className="py-2 font-mono text-xs">{inv.invoice_number}</td>
                         <td className="py-2 text-ink-600">{new Date(inv.created_at).toLocaleDateString('en-IN')}</td>
-                        <td className="py-2 text-ink-600 truncate max-w-[150px]" title={inv.customer_name}>
+                        <td className="py-2 text-ink-600 truncate max-w-[140px]" title={inv.customer_name}>
                           {inv.customer_name}
                         </td>
                         <td className="py-2 text-right text-ink-600">{formatCurrency(inv.subtotal)}</td>
+                        <td className="py-2 text-right text-brand-600">{inv.discount > 0 ? `-${formatCurrency(inv.discount)}` : '₹0'}</td>
+                        <td className="py-2 text-right text-ink-600 font-semibold">{formatCurrency(inv.taxable_value)}</td>
                         <td className="py-2 text-right text-ink-600">{formatCurrency(inv.cgst)}</td>
                         <td className="py-2 text-right text-ink-600">{formatCurrency(inv.sgst)}</td>
                         <td className="py-2 text-right font-bold text-ink-900">{formatCurrency(inv.grand_total)}</td>
@@ -975,7 +1019,9 @@ export default function Reports() {
                   <tfoot className="border-t-2 border-ink-200">
                     <tr>
                       <td colSpan={3} className="py-2 font-bold text-right">Total</td>
-                      <td className="py-2 text-right font-bold">{formatCurrency(gstSummary.subtotal)}</td>
+                      <td className="py-2 text-right font-bold">{formatCurrency(gstReport.reduce((s, i) => s + i.subtotal, 0))}</td>
+                      <td className="py-2 text-right font-bold text-brand-600">-{formatCurrency(gstReport.reduce((s, i) => s + i.discount, 0))}</td>
+                      <td className="py-2 text-right font-bold">{formatCurrency(gstSummary.taxableValue)}</td>
                       <td className="py-2 text-right font-bold">{formatCurrency(gstSummary.totalCGST)}</td>
                       <td className="py-2 text-right font-bold">{formatCurrency(gstSummary.totalSGST)}</td>
                       <td className="py-2 text-right font-bold">{formatCurrency(gstSummary.grandTotal)}</td>
@@ -988,7 +1034,7 @@ export default function Reports() {
         </>
       )}
 
-      {/* ─── Stock Tab ────────────────────────────────────────────────── */}
+      {/* Stock Tab */}
       {activeTab === 'stock' && (
         <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-ink-100 flex items-center justify-between">
@@ -1058,7 +1104,7 @@ export default function Reports() {
 }
 
 // ─── StatCard ──────────────────────────────────────────────────────────
-function StatCard({ label, value, icon, gradient }: { label: string; value: string; icon: React.ReactNode; gradient: string }) {
+function StatCard({ label, value, icon, gradient }: { label: string; value: string; icon?: React.ReactNode; gradient: string }) {
   return (
     <div
       className="rounded-2xl p-4 text-white transition-all hover:-translate-y-0.5 hover:shadow-lg cursor-default"
@@ -1066,7 +1112,7 @@ function StatCard({ label, value, icon, gradient }: { label: string; value: stri
     >
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold opacity-85 uppercase tracking-wider">{label}</span>
-        <div className="opacity-70">{icon}</div>
+        {icon && <div className="opacity-70">{icon}</div>}
       </div>
       <div className="text-xl font-extrabold mt-1.5 tracking-tight">{value}</div>
     </div>

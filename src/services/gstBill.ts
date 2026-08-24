@@ -150,8 +150,6 @@ function buildA4InvoiceHtml(
   const overallGrand = Number(order.total) || (overallTaxable + overallGst);
 
   const invoiceNumber = order.order_number || `INV-${order.id.slice(0, 8)}`;
-  const paymentType = 'CASH / PREPAID';
-  const isGst = overallGst > 0;
   const template = design.gstTemplate || 'template1';
   const fontSize = design.gstFont === 'small' ? 9.5 : design.gstFont === 'large' ? 13 : 11;
   const isCompact = design.invoiceLayout === 'compact';
@@ -187,14 +185,14 @@ function buildA4InvoiceHtml(
   };
 
   const getPageRowCounts = (tmpl: string, fSize: string, layout: string, customFirst?: number, customNext?: number) => {
-    let defaultFirst = 20, defaultNext = 24;
+    let defaultFirst = 18, defaultNext = 22;
     switch (tmpl) {
-      case 'template1': defaultFirst = 20; defaultNext = 24; break;
-      case 'template2': defaultFirst = 18; defaultNext = 22; break;
-      case 'template3': defaultFirst = 22; defaultNext = 25; break;
-      case 'template4': defaultFirst = 17; defaultNext = 20; break;
-      case 'template5': defaultFirst = 38; defaultNext = 44; break;
-      default: defaultFirst = 20; defaultNext = 24;
+      case 'template1': defaultFirst = 18; defaultNext = 22; break;
+      case 'template2': defaultFirst = 17; defaultNext = 21; break;
+      case 'template3': defaultFirst = 19; defaultNext = 23; break;
+      case 'template4': defaultFirst = 16; defaultNext = 20; break;
+      case 'template5': defaultFirst = 34; defaultNext = 40; break;
+      default: defaultFirst = 18; defaultNext = 22;
     }
     if (fSize === 'small') { defaultFirst += 3; defaultNext += 4; }
     else if (fSize === 'large') { defaultFirst -= 3; defaultNext -= 4; }
@@ -209,23 +207,46 @@ function buildA4InvoiceHtml(
   const { first, next } = getPageRowCounts(template, design.gstFont, design.invoiceLayout, design.firstPageRows, design.nextPageRows);
   const slices = printMode === 'sliced' ? computePageSlices(itemsWithDetails.length, first, next) : [{ start: 0, end: itemsWithDetails.length }];
 
-  // 5. Company Branding Header
-  const logoSection = config?.company_logo
-    ? `<img src="${config.company_logo}" style="max-height:55px;margin-bottom:6px;object-fit:contain;">`
-    : config?.company_name && design.showLogo
-      ? `<h1 style="font-size:20px;margin:0 0 2px 0;font-weight:800;letter-spacing:-0.3px;color:#0f172a;">${config.company_name}</h1>`
-      : '';
+  // 5. Executive Enterprise Top Header (Split Brand & Title Layout)
+  const logoElement = config?.company_logo
+    ? `<img src="${config.company_logo}" style="max-height:58px;max-width:160px;object-fit:contain;" alt="Company Logo" />`
+    : '';
 
-  const companyInfo = (config?.company_name || config?.company_logo) && design.showLogo ? `
-      <div style="text-align:center;margin-bottom:10px;">
-        ${logoSection}
-        ${config?.company_address ? `<div style="font-size:10.5px;color:#475569;">${config.company_address}</div>` : ''}
-        <div style="font-size:10.5px;color:#475569;margin-top:2px;">
-          ${config?.company_phone ? `<span><strong>Phone:</strong> ${config.company_phone}</span>` : ''}
-          ${config?.company_email ? `<span style="margin-left:8px;"><strong>Email:</strong> ${config.company_email}</span>` : ''}
-          ${config?.company_gst ? `<span style="margin-left:8px;font-weight:700;color:#0f172a;">GSTIN: ${config.company_gst}</span>` : ''}
+  const companyBrandingHeader = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;margin-bottom:12px;border-bottom:2px solid ${primaryColor};">
+      <!-- Left: Logo & Company Credentials -->
+      <div style="display:flex;align-items:center;gap:14px;max-width:65%;">
+        ${logoElement}
+        <div>
+          <h1 style="font-size:20px;font-weight:900;margin:0;color:#0f172a;letter-spacing:-0.4px;line-height:1.2;">
+            ${config?.company_name || 'Tax Invoice'}
+          </h1>
+          ${config?.company_address ? `<div style="font-size:10px;color:#475569;margin-top:3px;line-height:1.35;">${config.company_address}</div>` : ''}
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px;font-size:10px;color:#334155;">
+            ${config?.company_phone ? `<span><strong>Tel:</strong> ${config.company_phone}</span>` : ''}
+            ${config?.company_email ? `<span>• <strong>Email:</strong> ${config.company_email}</span>` : ''}
+            ${config?.company_gst ? `
+              <span style="background:#f1f5f9;border:1px solid #cbd5e1;padding:1px 6px;border-radius:4px;font-weight:800;color:#0f172a;">
+                GSTIN: ${config.company_gst}
+              </span>` : ''}
+          </div>
         </div>
-      </div>` : '';
+      </div>
+
+      <!-- Right: Document Title & Legal Nature -->
+      <div style="text-align:right;min-width:32%;">
+        <div style="display:inline-block;background:${primaryRgba};color:#ffffff;padding:4px 12px;border-radius:5px;font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;">
+          ${design.headerText || 'TAX INVOICE'}
+        </div>
+        <div style="font-size:9.5px;color:#64748b;font-weight:700;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;">
+          Original For Recipient
+        </div>
+        <div style="font-size:9.5px;color:#475569;margin-top:2px;">
+          Rule 46 of CGST Rules, 2017
+        </div>
+      </div>
+    </div>
+  `;
 
   const customerNameDisplay = customerName || 'Customer';
   const customerPhoneDisplay = customerPhone || '';
@@ -234,7 +255,7 @@ function buildA4InvoiceHtml(
     day: '2-digit', month: 'short', year: 'numeric'
   });
 
-  // 6. Redesigned Modern Executive Address & Invoice Meta Header
+  // 6. Address & Invoice Meta Header
   const addressBlock = `
     <div style="display:flex;gap:10px;margin-bottom:12px;width:100%;">
       <!-- Left: Consignee / Customer Details -->
@@ -331,11 +352,9 @@ function buildA4InvoiceHtml(
             ${item.item_discount > 0 ? `-₹${item.item_discount.toFixed(2)}` : '₹0.00'}
           </td>
           <td style="text-align:right;font-weight:600;">₹${item.taxable_value.toFixed(2)}</td>
-          ${isGst ? `<td style="text-align:center;">${item.gst_rate}%</td>` : ''}
-          ${isGst ? `
-            <td style="text-align:right;">₹${item.cgst.toFixed(2)}</td>
-            <td style="text-align:right;">₹${item.sgst.toFixed(2)}</td>
-          ` : ''}
+          <td style="text-align:center;">${item.gst_rate}%</td>
+          <td style="text-align:right;">₹${item.cgst.toFixed(2)}</td>
+          <td style="text-align:right;">₹${item.sgst.toFixed(2)}</td>
           <td style="text-align:right;font-weight:700;">₹${item.row_total.toFixed(2)}</td>
         </tr>
       `;
@@ -343,9 +362,11 @@ function buildA4InvoiceHtml(
 
     const pageFooter = printMode === 'sliced' && totalPages > 1 ? `
       <tr class="total-row" style="font-weight:700;background:#f8fafc;">
-        <td colspan="${isGst ? 6 : 5}" style="text-align:right;">Page ${pageNum} Subtotal:</td>
+        <td colspan="6" style="text-align:right;">Page ${pageNum} Subtotal:</td>
         <td style="text-align:right;">₹${pageTaxable.toFixed(2)}</td>
-        ${isGst ? `<td></td><td style="text-align:right;">₹${pageCgst.toFixed(2)}</td><td style="text-align:right;">₹${pageSgst.toFixed(2)}</td>` : ''}
+        <td></td>
+        <td style="text-align:right;">₹${pageCgst.toFixed(2)}</td>
+        <td style="text-align:right;">₹${pageSgst.toFixed(2)}</td>
         <td style="text-align:right;">₹${pageTotal.toFixed(2)}</td>
       </tr>
     ` : '';
@@ -355,7 +376,7 @@ function buildA4InvoiceHtml(
         <thead>
           ${totalPages > 1 ? `
             <tr style="background:#f1f5f9;font-size:9.5px;">
-              <td colspan="${isGst ? 11 : 8}" style="border:none;padding:3px 6px;">
+              <td colspan="11" style="border:none;padding:3px 6px;">
                 <div style="display:flex;justify-content:space-between;">
                   <span>${customerNameDisplay}</span>
                   <span>Page ${pageNum} of ${totalPages}</span>
@@ -372,8 +393,9 @@ function buildA4InvoiceHtml(
             <th style="width:58px;">Rate</th>
             <th style="width:54px;">Disc</th>
             <th style="width:64px;">Taxable</th>
-            ${isGst ? '<th style="width:38px;">GST</th>' : ''}
-            ${isGst ? '<th style="width:54px;">CGST</th><th style="width:54px;">SGST</th>' : ''}
+            <th style="width:38px;">GST</th>
+            <th style="width:54px;">CGST</th>
+            <th style="width:54px;">SGST</th>
             <th style="width:68px;">Amount</th>
           </tr>
         </thead>
@@ -447,13 +469,12 @@ function buildA4InvoiceHtml(
         <div style="display:flex;justify-content:space-between;border-top:1px dashed #cbd5e1;padding-top:3px;margin-top:2px;font-weight:600;">
           <span>Net Taxable Value:</span><span>₹${overallTaxable.toFixed(2)}</span>
         </div>
-        ${isGst ? `
-          <div style="display:flex;justify-content:space-between;color:#475569;">
-            <span>Total CGST:</span><span>₹${overallCgst.toFixed(2)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;color:#475569;">
-            <span>Total SGST:</span><span>₹${overallSgst.toFixed(2)}</span>
-          </div>` : ''}
+        <div style="display:flex;justify-content:space-between;color:#475569;">
+          <span>Total CGST:</span><span>₹${overallCgst.toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#475569;">
+          <span>Total SGST:</span><span>₹${overallSgst.toFixed(2)}</span>
+        </div>
         <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.18em;border-top:2px solid #0f172a;padding-top:4px;margin-top:4px;color:#0f172a;">
           <span>GRAND TOTAL:</span><span>₹${overallGrand.toFixed(2)}</span>
         </div>
@@ -479,8 +500,6 @@ function buildA4InvoiceHtml(
       templateStyles = `
         ${sharedPrintRules}
         body { font-family: Arial, sans-serif; font-size: ${fontSize}px; color: #0f172a; }
-        .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 10px; }
-        .header h1 { font-size: ${isCompact ? 16 : 20}px; font-weight: 800; margin: 0; color: #0f172a; }
         th, td { border: 1px solid #cbd5e1; padding: ${isCompact ? '3px 5px' : '5px 7px'}; font-size: ${fontSize}px; }
         th { background: #f1f5f9; text-align: center; font-weight: 700; color: #0f172a; }
         td { text-align: right; }
@@ -488,8 +507,7 @@ function buildA4InvoiceHtml(
         th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       `;
       templateBody = `
-        ${companyInfo}
-        <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
+        ${companyBrandingHeader}
         ${addressBlock}
         ${allTablesHtml}
         ${summaryHtml}
@@ -505,16 +523,13 @@ function buildA4InvoiceHtml(
       templateStyles = `
         ${sharedPrintRules}
         body { font-family: 'Segoe UI', Arial, sans-serif; font-size: ${fontSize}px; color: #0f172a; }
-        .header { background: ${primaryRgba}; color: #ffffff; padding: 8px 12px; border-radius: 6px; text-align: center; margin-bottom: 10px; }
-        .header h1 { font-size: ${isCompact ? 16 : 20}px; font-weight: 800; margin: 0; color: #fff; }
         th { background: ${primaryRgba}; color: #fff; padding: 5px 7px; text-align: center; font-weight: 700; border: 1px solid ${primaryColor}; }
         td { padding: 5px 7px; border-bottom: 1px solid #e2e8f0; border-left: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9; text-align: right; }
         .footer { text-align: center; margin-top: 16px; color: #64748b; font-size: 10.5px; }
-        .header, th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       `;
       templateBody = `
-        ${companyInfo}
-        <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
+        ${companyBrandingHeader}
         ${addressBlock}
         ${allTablesHtml}
         ${summaryHtml}
@@ -529,8 +544,6 @@ function buildA4InvoiceHtml(
       templateStyles = `
         ${sharedPrintRules}
         body { font-family: Arial, sans-serif; font-size: ${fontSize}px; color: #0f172a; }
-        .header { text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 10px; }
-        .header h1 { font-size: ${isCompact ? 16 : 20}px; font-weight: 300; letter-spacing: 2px; margin: 0; }
         th, td { border: none; padding: 5px 4px; text-align: right; }
         th { background: transparent; font-weight: 700; color: #475569; border-bottom: 2px solid #cbd5e1; text-align: center; }
         td { border-bottom: 1px solid #f1f5f9; }
@@ -538,8 +551,7 @@ function buildA4InvoiceHtml(
         .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       `;
       templateBody = `
-        ${companyInfo}
-        <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
+        ${companyBrandingHeader}
         ${addressBlock}
         ${allTablesHtml}
         ${summaryHtml}
@@ -554,27 +566,13 @@ function buildA4InvoiceHtml(
       templateStyles = `
         ${sharedPrintRules}
         body { font-family: 'Georgia', serif; font-size: ${fontSize}px; color: #0f172a; }
-        .company-header { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; border-bottom: 2px solid ${primaryColor}; padding-bottom: 8px; }
-        .company-logo { max-height: 55px; }
-        .company-details { font-size: 11px; color: #334155; }
-        .company-name { font-size: 22px; font-weight: 700; margin: 0; color: ${primaryColor}; }
-        .header { text-align: center; margin-bottom: 10px; }
-        .header h1 { font-size: ${isCompact ? 16 : 20}px; font-weight: 700; letter-spacing: 2px; color: ${primaryColor}; margin: 0; }
         th { background: ${primaryRgba}; color: #fff; padding: 5px 7px; text-align: center; }
         td { padding: 5px 7px; border-bottom: 1px solid #e2e8f0; text-align: right; }
         .footer { text-align: center; margin-top: 16px; font-size: 10.5px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 8px; }
         th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       `;
       templateBody = `
-        <div class="company-header">
-          ${config?.company_logo ? `<img src="${config.company_logo}" class="company-logo">` : ''}
-          <div class="company-details">
-            <div class="company-name">${config?.company_name || 'Company'}</div>
-            <div>${config?.company_address || ''}</div>
-            <div>Phone: ${config?.company_phone || ''} | GSTIN: ${config?.company_gst || ''}</div>
-          </div>
-        </div>
-        <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
+        ${companyBrandingHeader}
         ${addressBlock}
         ${allTablesHtml}
         ${summaryHtml}
@@ -589,16 +587,13 @@ function buildA4InvoiceHtml(
       templateStyles = `
         ${sharedPrintRules}
         body { font-family: Arial, sans-serif; font-size: ${Math.min(fontSize, 9.5)}px; color: #0f172a; }
-        .header { text-align: center; border-bottom: 1px solid #0f172a; padding-bottom: 3px; margin-bottom: 4px; }
-        .header h1 { font-size: 13px; font-weight: 800; margin: 0; }
         th, td { padding: 2px 4px; border: 1px solid #cbd5e1; text-align: center; font-size: 8.5px; }
         th { background: #f1f5f9; font-weight: 700; }
         .footer { text-align: center; margin-top: 6px; font-size: 8.5px; color: #64748b; }
         th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       `;
       templateBody = `
-        ${companyInfo}
-        <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
+        ${companyBrandingHeader}
         ${addressBlock}
         ${allTablesHtml}
         ${summaryHtml}
@@ -613,16 +608,13 @@ function buildA4InvoiceHtml(
       templateStyles = `
         ${sharedPrintRules}
         body { font-family: Arial, sans-serif; font-size: ${fontSize}px; color: #0f172a; }
-        .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px; }
-        .header h1 { font-size: 18px; font-weight: 800; margin: 0; }
         th, td { border: 1px solid #cbd5e1; padding: 5px; text-align: center; }
         th { background: #f1f5f9; font-weight: 700; }
         .footer { text-align: center; margin-top: 16px; color: #64748b; font-size: 10.5px; }
         th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       `;
       templateBody = `
-        ${companyInfo}
-        <div class="header"><h1>${design.headerText || 'TAX INVOICE'}</h1></div>
+        ${companyBrandingHeader}
         ${addressBlock}
         ${allTablesHtml}
         ${summaryHtml}

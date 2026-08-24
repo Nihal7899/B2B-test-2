@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { useLocation, useNavigationType } from 'react-router-dom';
+import { useNavigationType } from 'react-router-dom';
 
 interface KeepAliveRendererProps {
   currentKey: string;
@@ -13,7 +13,6 @@ interface ScrollPos {
 }
 
 export function KeepAliveRenderer({ currentKey, render, maxCache = 8 }: KeepAliveRendererProps) {
-  const location = useLocation();
   const navigationType = useNavigationType();
 
   const frozenElements = useRef<Map<string, ReactNode>>(new Map());
@@ -72,8 +71,7 @@ export function KeepAliveRenderer({ currentKey, render, maxCache = 8 }: KeepAliv
     } else {
       window.scrollTo(0, 0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentKey, location.key]);
+  }, [currentKey]);
 
   return (
     <>

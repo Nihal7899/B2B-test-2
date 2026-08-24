@@ -1,4 +1,4 @@
-// components/PromoBanner.tsx
+import React from 'react';
 import type { PromoBanner } from '@/types';
 
 interface PromoBannerCardProps {
@@ -6,7 +6,10 @@ interface PromoBannerCardProps {
   onAction?: (banner: PromoBanner) => void;
 }
 
-export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
+export const PromoBannerCard = React.memo(function PromoBannerCard({
+  banner,
+  onAction,
+}: PromoBannerCardProps) {
   let bgStyle: React.CSSProperties = {};
   let bgClass = '';
 
@@ -30,27 +33,23 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
   const showImage = banner.bgType !== 'image' && banner.image;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl h-[180px] flex text-white shadow-soft">
-      {/* Background layer */}
+    <div className="relative overflow-hidden rounded-2xl h-[180px] flex text-white shadow-soft transform-gpu">
       {banner.bgType === 'gradient' ? (
         <div className={`absolute inset-0 z-0 ${bgClass}`} />
       ) : (
         <div className="absolute inset-0 z-0" style={bgStyle} />
       )}
 
-      {/* Text content – left side */}
       <div className="relative z-30 flex-1 h-full p-4 flex flex-col justify-between min-w-0 overflow-hidden">
         <div className="flex-1 overflow-hidden">
           {banner.badge && (
-            <span className="inline-block text-[9px] font-bold tracking-wider uppercase bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5 mb-2">
+            <span className="inline-block text-[9px] font-bold tracking-wider uppercase bg-white/20 rounded-full px-2 py-0.5 mb-2">
               {banner.badge}
             </span>
           )}
-          {/* Title – allow up to 2 lines */}
           <h3 className="text-[17px] font-extrabold leading-tight tracking-tight line-clamp-2">
             {banner.headline}
           </h3>
-          {/* Description – allow up to 2 lines */}
           <p className="text-[11px] opacity-90 mt-1 leading-snug line-clamp-2">
             {banner.subtext}
           </p>
@@ -65,14 +64,13 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         )}
       </div>
 
-      {/* Image on the right */}
       {showImage && (
         <div className="relative z-10 w-[42%] shrink-0 h-full">
           <img
             src={banner.image}
             alt={banner.headline}
+            decoding="async"
             className="h-full w-full object-cover"
-            loading="lazy"
             onError={(e) => {
               e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
             }}
@@ -80,17 +78,22 @@ export function PromoBannerCard({ banner, onAction }: PromoBannerCardProps) {
         </div>
       )}
 
-      {/* Tint overlay */}
       {banner.overlayEnabled && (
         <div className="absolute inset-0 z-20" style={overlayStyle} />
       )}
     </div>
   );
-}
+});
 
-export function PromoCarousel({ banners, onAction }: { banners: PromoBanner[]; onAction?: (banner: PromoBanner) => void }) {
+export const PromoCarousel = React.memo(function PromoCarousel({
+  banners,
+  onAction,
+}: {
+  banners: PromoBanner[];
+  onAction?: (banner: PromoBanner) => void;
+}) {
   return (
-    <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
+    <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">
       {banners.map((banner) => (
         <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
           <PromoBannerCard banner={banner} onAction={onAction} />
@@ -98,4 +101,4 @@ export function PromoCarousel({ banners, onAction }: { banners: PromoBanner[]; o
       ))}
     </div>
   );
-}
+});

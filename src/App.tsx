@@ -1,5 +1,3 @@
-// App.tsx – full with stable keys for KeepAliveRenderer
-
 import {
   useMemo,
   useRef,
@@ -7,16 +5,13 @@ import {
   type ReactNode,
   useEffect,
 } from 'react';
-
 import {
   useNavigate,
   useLocation,
   Navigate,
 } from 'react-router-dom';
-
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-
 import toast from 'react-hot-toast';
 
 import { Header } from '@/components/Header';
@@ -41,9 +36,9 @@ import { FilteredProductsScreen } from '@/screens/FilteredProductsScreen';
 import { BusinessRegistrationScreen } from '@/screens/BusinessRegistrationScreen';
 import { AuthScreen } from '@/screens/AuthScreen';
 import StoreScreen from '@/screens/StoreScreen';
-import { CategoryScreen } from '@/screens/CategoryScreen'; // <-- NEW IMPORT
+import { CategoryScreen } from '@/screens/CategoryScreen';
 import { BrandScreen } from '@/screens/BrandScreen';
-import { BannerScreen } from '@/screens/BannerScreen'; // <-- NEW IMPORT
+import { BannerScreen } from '@/screens/BannerScreen';
 
 import type {
   Category,
@@ -91,9 +86,9 @@ const SCREEN_TO_PATH: Record<ScreenName, string> = {
   outletSelect: '/outlet-select',
   filteredProducts: '/filtered',
   store: '/store',
-  categoryDetail: '/category', // <-- NEW ROUT
+  categoryDetail: '/category',
   brand: '/brand',
-  banner: '/banner', // <-- NEW PATH
+  banner: '/banner',
 };
 
 const PATH_TO_SCREEN: Record<string, ScreenName> =
@@ -122,10 +117,6 @@ function parseRoute(pathname: string): {
   return { screen, key: pathname };
 }
 
-// ============================================================
-// BACK BUTTON HANDLER
-// ============================================================
-
 function BackButtonHandler() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -139,10 +130,8 @@ function BackButtonHandler() {
     let mounted = true;
 
     const handleBack = () => {
-      // 1. Try custom back handler
       if (triggerBack()) return;
 
-      // 2. Default handling
       const now = Date.now();
       const mainRoutes = ['/', '/categories', '/orders', '/cart', '/account'];
 
@@ -181,10 +170,6 @@ function BackButtonHandler() {
   return null;
 }
 
-// ============================================================
-// MAIN APP
-// ============================================================
-
 function App() {
   const cart = useCart();
   const { user, role, loading, profile } = useAuth();
@@ -198,7 +183,7 @@ function App() {
 
   const { screen } = useMemo(() => parseRoute(location.pathname), [location.pathname]);
 
-  // 🔥 Stable key for KeepAliveRenderer
+  // STABLE ROUTE KEY: Prevents unmounting/re-fetching home screen on scroll or navigation
   const key = useMemo(() => {
     if (screen === 'store') {
       const searchParams = new URLSearchParams(location.search);
@@ -214,19 +199,15 @@ function App() {
       const productId = searchParams.get('id') || 'default';
       return `product|${productId}`;
     }
-    if (screen === 'categoryDetail') { // <-- NEW
+    if (screen === 'categoryDetail') {
       const searchParams = new URLSearchParams(location.search);
       const categoryId = searchParams.get('id') || 'default';
       return `category|${categoryId}`;
     }
-    return location.pathname + '|' + location.key;
-  }, [screen, location.pathname, location.search, location.key]);
+    return location.pathname;
+  }, [screen, location.pathname, location.search]);
 
   const initPushRef = useRef(false);
-
-  // ==========================================================
-  // ONESIGNAL INITIALIZATION
-  // ==========================================================
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -236,10 +217,6 @@ function App() {
     initPushRef.current = true;
     initializePushNotifications(user.id);
   }, [user, loading]);
-
-  // ==========================================================
-  // NEW: HANDLE NOTIFICATION ACTION BUTTON CLICKS
-  // ==========================================================
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -252,11 +229,9 @@ function App() {
         if (!OneSignal?.Notifications) return;
 
         OneSignal.Notifications.addEventListener('click', (event: any) => {
-          // FIX: In OneSignal v5, actionId is nested inside event.result
           const actionId = event.result?.actionId;
           const additionalData = event.notification?.additionalData || {};
 
-          // If a specific action button was clicked
           if (actionId) {
             switch (actionId) {
               case 'view_order': {
@@ -293,9 +268,7 @@ function App() {
               default:
                 navigate(pathFor('home'));
             }
-          } 
-          // FIX: If the user tapped the notification body (no button clicked)
-          else {
+          } else {
             if (additionalData.order_id) {
               navigate(pathFor('orderDetail', { id: additionalData.order_id }));
             } else if (additionalData.product_id) {
@@ -311,20 +284,11 @@ function App() {
     };
 
     setupListener();
-  }, [user]);
-
-
-  // ==========================================================
-  // NAVIGATION
-  // ==========================================================
+  }, [user, navigate]);
 
   const goTo = (next: ScreenName) => {
     navigate(pathFor(next));
   };
-
-  // ==========================================================
-  // PRODUCT (UPDATED: passes storeId if on store screen)
-  // ==========================================================
 
   const openProduct = (product: Product) => {
     const productId = product?.id || product?.product_id || product?._id;
@@ -344,10 +308,6 @@ function App() {
     navigate(pathFor('product', params));
   };
 
-  // ==========================================================
-  // CATEGORY
-  // ==========================================================
-
   const openCategory = (category: Category) => {
     filterConfigRef.current = {
       category_ids: [category.id],
@@ -356,17 +316,9 @@ function App() {
     navigate(pathFor('filteredProducts'));
   };
 
-  // ==========================================================
-  // STORE (UPDATED to navigate to StoreScreen)
-  // ==========================================================
-
   const openStore = (store: Store) => {
     navigate(pathFor('store', { storeId: store.id }));
   };
-
-  // ==========================================================
-  // ACTION CONTEXT
-  // ==========================================================
 
   const actionCtx: ActionContext = {
     setScreen: goTo,
@@ -381,33 +333,17 @@ function App() {
     },
   };
 
-  // ==========================================================
-  // BANNER ACTION
-  // ==========================================================
-
   const handleBannerAction = async (banner: PromoBanner) => {
     await handleHomeAction(banner.actionType, banner.actionConfig, actionCtx);
   };
-
-  // ==========================================================
-  // BUSINESS REGISTERED
-  // ==========================================================
 
   const handleBusinessRegistered = (_business: Business) => {
     goTo('checkout');
   };
 
-  // ==========================================================
-  // ORDER
-  // ==========================================================
-
   const openOrder = (orderId: string) => {
     navigate(pathFor('orderDetail', { id: orderId }));
   };
-
-  // ==========================================================
-  // PROTECTED ROUTES
-  // ==========================================================
 
   const openProtected = (next: ScreenName) => {
     const allowed =
@@ -422,17 +358,9 @@ function App() {
     goTo(allowed ? next : 'home');
   };
 
-  // ==========================================================
-  // LOADING
-  // ==========================================================
-
   if (loading) {
     return <SplashScreen onFinish={() => undefined} />;
   }
-
-  // ==========================================================
-  // AUTH
-  // ==========================================================
 
   if (!user) {
     return (
@@ -442,10 +370,6 @@ function App() {
       </>
     );
   }
-
-  // ==========================================================
-  // HOME
-  // ==========================================================
 
   const homeScreen = (
     <HomeScreen
@@ -459,10 +383,6 @@ function App() {
       onBannerAction={handleBannerAction}
     />
   );
-
-  // ==========================================================
-  // RENDER SCREEN
-  // ==========================================================
 
   const renderScreen = (): ReactNode => {
     switch (screen) {
@@ -542,7 +462,7 @@ function App() {
           <ProductDetailScreen
             productId={productId}
             cart={cart}
-            onBack={() => navigate(-1)}   // <-- FIXED: go back to previous screen
+            onBack={() => navigate(-1)}
             onProduct={openProduct}
           />
         );
@@ -564,29 +484,15 @@ function App() {
         );
       }
 
-      // ============================================================
-      // STORE SCREEN
-      // ============================================================
       case 'store':
         return <StoreScreen goTo={goTo} />;
-    
-      // ============================================================
-      // BRAND SCREEN
-      // ============================================================
-        
+
       case 'brand':
         return <BrandScreen />;
-        
-      // ============================================================
-      // BANNER SCREEN (NEW)
-      // ============================================================
+
       case 'banner':
         return <BannerScreen />;
 
-
-      // ============================================================
-      // CATEGORY DETAIL SCREEN (NEW)
-      // ============================================================
       case 'categoryDetail':
         return <CategoryScreen onBack={() => navigate(-1)} onProduct={openProduct} cart={cart} />;
 
@@ -603,27 +509,18 @@ function App() {
     }
   };
 
-  // ==========================================================
-  // MAIN UI
-  // ==========================================================
-
-  // 🔥 1. Define which screens use custom full-bleed headers
-  // In App.tsx, near the bottom
-    const isFullBleed = 
+  const isFullBleed = 
     screen === 'store' || 
     screen === 'categories' || 
     screen === 'categoryDetail' || 
     screen === 'brand' ||
-    screen === 'banner'; // <-- ADD THIS
-
+    screen === 'banner';
 
   return (
     <div className="min-h-screen bg-ink-100">
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
 
       <div className="mx-auto min-h-screen max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50">
-        
-        {/* 🔥 2. HIDE default header on full-bleed screens */}
         {!isFullBleed && (
           <Header
             cartCount={cart.totalItems}
@@ -631,18 +528,12 @@ function App() {
           />
         )}
 
-        {/* 🔥 3. Remove top padding (pt-0) on full-bleed screens */}
-        <main className={`pb-24 animate-fade-up ${isFullBleed ? 'pt-0' : 'py-4'}`}>
-        
+        <main className={`pb-24 ${isFullBleed ? 'pt-0' : 'py-4'}`}>
           <BackButtonHandler />
-        
           <KeepAliveRenderer
             currentKey={key}
-            render={
-              renderScreen
-            }
+            render={renderScreen}
           />
-        
         </main>
 
         <BottomNavigation
@@ -654,10 +545,6 @@ function App() {
     </div>
   );
 }
-
-// ============================================================
-// ROOT WITH PROVIDERS
-// ============================================================
 
 export default function RootApp() {
   return (

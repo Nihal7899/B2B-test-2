@@ -1,5 +1,4 @@
-// components/ProductCard.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   Heart,
   Star,
@@ -12,7 +11,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { Product } from '@/types';
-import { OfferBadge } from './OfferBadge';
 
 interface ThemeProps {
   primaryColor?: string;
@@ -41,6 +39,12 @@ interface ProductCardProps {
   onWishlistToggle?: (productId: string) => void;
 }
 
+const features = [
+  { icon: Leaf, label: 'Fresh' },
+  { icon: ShieldCheck, label: 'Quality' },
+  { icon: Package, label: 'Bulk' },
+];
+
 export const ProductCard = React.memo(function ProductCard({
   product,
   quantity,
@@ -68,27 +72,24 @@ export const ProductCard = React.memo(function ProductCard({
 
   const [added, setAdded] = useState(false);
 
-  const handleAdd = (e: React.MouseEvent) => {
+  const handleAdd = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onAdd(product);
-
     setAdded(true);
-
     setTimeout(() => {
       setAdded(false);
     }, 1200);
-  };
+  }, [onAdd, product]);
 
-  const handleWishlistClick = (e: React.MouseEvent) => {
+  const handleWishlistClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-
     if (onWishlistToggle) {
       onWishlistToggle(product.id);
     }
-  };
+  }, [onWishlistToggle, product.id]);
 
-  const handleIncrement = () => onIncrement(product);
-  const handleDecrement = () => onDecrement(product);
+  const handleIncrement = useCallback(() => onIncrement(product), [onIncrement, product]);
+  const handleDecrement = useCallback(() => onDecrement(product), [onDecrement, product]);
 
   const quantityTheme = useMemo(
     () => ({
@@ -99,24 +100,7 @@ export const ProductCard = React.memo(function ProductCard({
   );
 
   const productTag = discount >= 10 ? 'BEST DEAL' : 'FRESH';
-  
-  // 🔥 Using brand name instead of 'Farm Fresh'
   const productQuality = product.brand;
-
-  const features = [
-    {
-      icon: Leaf,
-      label: 'Fresh',
-    },
-    {
-      icon: ShieldCheck,
-      label: 'Quality',
-    },
-    {
-      icon: Package,
-      label: 'Bulk',
-    },
-  ];
 
   return (
     <article
@@ -127,38 +111,34 @@ export const ProductCard = React.memo(function ProductCard({
         border
         ${horizontal ? 'w-[184px] shrink-0' : 'w-full'}
         rounded-[22px]
-        transition-all duration-300
+        transition-transform duration-300
         hover:-translate-y-1
-        hover:shadow-[0_14px_35px_rgba(15,23,42,0.14)]
         active:scale-[0.985]
+        transform-gpu
       `}
       style={{
         borderColor,
-        boxShadow: '0 6px 20px rgba(15, 23, 42, 0.08)',
+        boxShadow: '0 4px 16px rgba(15, 23, 42, 0.08)',
       }}
     >
-      {/* =====================================================
-          PRODUCT IMAGE
-      ===================================================== */}
-
-      <div className="relative h-[144px] overflow-hidden bg-slate-50">
+      {/* Product Image */}
+      <div className="relative h-[144px] w-full overflow-hidden bg-slate-50">
         <img
           src={product.image}
           alt={product.name}
+          decoding="async"
           className="
             h-full
             w-full
             object-cover
             transition-transform
-            duration-700
-            group-hover:scale-[1.07]
+            duration-500
+            group-hover:scale-[1.05]
           "
-          loading="lazy"
         />
 
-        {/* Soft image gradient */}
         <div
-          className="pointer-events-none absolute inset-0 opacity-25"
+          className="pointer-events-none absolute inset-0 opacity-20"
           style={{
             background: `linear-gradient(
               145deg,
@@ -169,13 +149,9 @@ export const ProductCard = React.memo(function ProductCard({
           }}
         />
 
-        {/* Bottom image fade */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/20 to-transparent" />
 
-        {/* =================================================
-            DEAL BADGE
-        ================================================= */}
-
+        {/* Deal Badge */}
         <div className="absolute left-2.5 top-2.5">
           {discount > 0 ? (
             <div
@@ -187,8 +163,7 @@ export const ProductCard = React.memo(function ProductCard({
                 font-black
                 tracking-wide
                 text-white
-                shadow-md
-                backdrop-blur-sm
+                shadow-sm
               "
               style={{
                 backgroundColor: primaryColor,
@@ -198,16 +173,13 @@ export const ProductCard = React.memo(function ProductCard({
               {discount}% OFF
             </div>
           ) : (
-            <div className="rounded-full bg-white/90 px-2.5 py-1 text-[8px] font-black tracking-wide text-slate-700 shadow-sm backdrop-blur-md">
+            <div className="rounded-full bg-white/95 px-2.5 py-1 text-[8px] font-black tracking-wide text-slate-700 shadow-sm">
               {productTag}
             </div>
           )}
         </div>
 
-        {/* =================================================
-            WISHLIST
-        ================================================= */}
-
+        {/* Wishlist */}
         <button
           onClick={handleWishlistClick}
           className="
@@ -216,11 +188,10 @@ export const ProductCard = React.memo(function ProductCard({
             items-center justify-center
             rounded-full
             border border-white/70
-            bg-white/90
+            bg-white/95
             text-slate-500
-            shadow-md
-            backdrop-blur-md
-            transition-all
+            shadow-sm
+            transition-transform
             hover:scale-105
             active:scale-90
           "
@@ -241,10 +212,7 @@ export const ProductCard = React.memo(function ProductCard({
           />
         </button>
 
-        {/* =================================================
-            QUALITY FLOATING BADGE (Brand Name)
-        ================================================= */}
-
+        {/* Quality Floating Badge */}
         <div
           className="
             absolute
@@ -259,11 +227,9 @@ export const ProductCard = React.memo(function ProductCard({
             bg-white/95
             px-2
             py-1
-            shadow-md
-            backdrop-blur-md
+            shadow-sm
           "
         >
-          {/* Changed icon from Leaf to ShieldCheck for brands */}
           <ShieldCheck
             size={9}
             strokeWidth={2.5}
@@ -279,12 +245,8 @@ export const ProductCard = React.memo(function ProductCard({
         </div>
       </div>
 
-      {/* =====================================================
-          CURVED CONTENT TOP
-      ===================================================== */}
-
+      {/* Curved Content Top */}
       <div className="relative bg-white">
-        {/* Decorative accent curve */}
         <div
           className="absolute -top-[17px] left-0 h-[25px] w-full"
           style={{
@@ -293,7 +255,6 @@ export const ProductCard = React.memo(function ProductCard({
           }}
         />
 
-        {/* Small accent line */}
         <div
           className="absolute -top-[3px] left-4 h-[3px] w-9 rounded-full opacity-80"
           style={{
@@ -301,12 +262,8 @@ export const ProductCard = React.memo(function ProductCard({
           }}
         />
 
-        {/* =================================================
-            CONTENT
-        ================================================= */}
-        
+        {/* Content */}
         <div className="relative px-3 pb-2 pt-1">
-          {/* Brand */}
           <div className="flex items-center gap-1">
             <p
               className="
@@ -322,7 +279,6 @@ export const ProductCard = React.memo(function ProductCard({
               {product.brand}
             </p>
 
-            {/* Static verified mark */}
             <div
               className="flex h-3.5 w-3.5 items-center justify-center rounded-full"
               style={{
@@ -337,7 +293,6 @@ export const ProductCard = React.memo(function ProductCard({
             </div>
           </div>
 
-          {/* Product name */}
           <h3
             className="
               mt-0.5
@@ -353,79 +308,29 @@ export const ProductCard = React.memo(function ProductCard({
             {product.name}
           </h3>
 
-          {/* =================================================
-              META
-          ================================================= */}
-
           <div className="mt-1 flex items-center gap-1">
-            <span
-              className="
-                rounded-md
-                bg-slate-50
-                px-1.5
-                py-1
-                text-[8px]
-                font-bold
-                text-slate-500
-              "
-            >
+            <span className="rounded-md bg-slate-50 px-1.5 py-1 text-[8px] font-bold text-slate-500">
               {product.packSize}
             </span>
-
             <span className="text-[9px] text-slate-300">•</span>
-
-            <span
-              className="
-                rounded-md
-                bg-slate-50
-                px-1.5
-                py-1
-                text-[8px]
-                font-bold
-                text-slate-500
-              "
-            >
+            <span className="rounded-md bg-slate-50 px-1.5 py-1 text-[8px] font-bold text-slate-500">
               MOQ {product.moq}
             </span>
           </div>
 
-          {/* =================================================
-              RATING
-          ================================================= */}
-
           <div className="mt-1 flex items-center gap-1.5">
-            <div
-              className="
-                flex items-center gap-1
-                rounded-full
-                bg-amber-50
-                px-1.5
-                py-0.5
-              "
-            >
-              <Star
-                size={9}
-                className="fill-amber-400 text-amber-400"
-              />
-
+            <div className="flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5">
+              <Star size={9} className="fill-amber-400 text-amber-400" />
               <span className="text-[9px] font-bold text-slate-700">
                 {product.rating}
               </span>
             </div>
-
-            <span className="text-[8px] text-slate-400">
-              Trusted
-            </span>
+            <span className="text-[8px] text-slate-400">Trusted</span>
           </div>
-
-          {/* =================================================
-              MINI FEATURES
-          ================================================= */}
 
           <div className="mt-1 flex items-center gap-1">
             {features.map((feature) => {
               const Icon = feature.icon;
-
               return (
                 <div
                   key={feature.label}
@@ -447,7 +352,6 @@ export const ProductCard = React.memo(function ProductCard({
                     strokeWidth={2.3}
                     style={{ color: primaryColor }}
                   />
-
                   <span className="truncate text-[7px] font-bold text-slate-500">
                     {feature.label}
                   </span>
@@ -456,17 +360,12 @@ export const ProductCard = React.memo(function ProductCard({
             })}
           </div>
 
-          {/* =================================================
-              PRICE + CART
-          ================================================= */}
-
           <div className="mt-1.5 flex items-end justify-between gap-1">
             <div className="min-w-0">
               <div className="flex items-center gap-1">
                 <p className="text-[8px] font-medium text-slate-400 line-through">
                   MRP ₹{product.mrp}
                 </p>
-
                 {discount > 0 && (
                   <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[7px] font-extrabold text-red-500">
                     {discount}% OFF
@@ -481,16 +380,11 @@ export const ProductCard = React.memo(function ProductCard({
                 >
                   ₹{product.price}
                 </span>
-
                 <span className="text-[7px] font-semibold text-slate-400">
                   /{product.packSize}
                 </span>
               </div>
             </div>
-
-            {/* =================================================
-                CART STATE
-            ================================================= */}
 
             {quantity > 0 ? (
               <QuantitySelector
@@ -511,7 +405,7 @@ export const ProductCard = React.memo(function ProductCard({
                   text-[9px]
                   font-extrabold
                   text-white
-                  shadow-md
+                  shadow-sm
                 "
                 style={{
                   backgroundColor: primaryColor,
@@ -531,8 +425,8 @@ export const ProductCard = React.memo(function ProductCard({
                   px-2.5
                   text-[10px]
                   font-extrabold
-                  shadow-md
-                  transition-all
+                  shadow-sm
+                  transition-transform
                   active:scale-95
                 "
                 style={
@@ -553,11 +447,7 @@ export const ProductCard = React.memo(function ProductCard({
                       }
                 }
               >
-                <ShoppingCart
-                  size={12}
-                  strokeWidth={2.6}
-                />
-
+                <ShoppingCart size={12} strokeWidth={2.6} />
                 Add
               </button>
             )}
@@ -567,10 +457,6 @@ export const ProductCard = React.memo(function ProductCard({
     </article>
   );
 });
-
-// =============================================================
-// QUANTITY SELECTOR
-// =============================================================
 
 interface QuantitySelectorProps {
   quantity: number;
@@ -590,14 +476,8 @@ export const QuantitySelector = React.memo(function QuantitySelector({
   size = 'sm',
   theme = DEFAULT_THEME,
 }: QuantitySelectorProps) {
-  const {
-    primaryColor = '#10b981',
-  } = theme;
-
-  const buttonSize =
-    size === 'md'
-      ? 'h-7 w-7'
-      : 'h-6 w-6';
+  const { primaryColor = '#10b981' } = theme;
+  const buttonSize = size === 'md' ? 'h-7 w-7' : 'h-6 w-6';
 
   return (
     <div
@@ -626,7 +506,7 @@ export const QuantitySelector = React.memo(function QuantitySelector({
           rounded-lg
           bg-white
           shadow-sm
-          transition
+          transition-transform
           active:scale-90
         `}
         style={{ color: primaryColor }}
@@ -660,7 +540,7 @@ export const QuantitySelector = React.memo(function QuantitySelector({
           rounded-lg
           bg-white
           shadow-sm
-          transition
+          transition-transform
           active:scale-90
         `}
         style={{ color: primaryColor }}
@@ -671,10 +551,6 @@ export const QuantitySelector = React.memo(function QuantitySelector({
     </div>
   );
 });
-
-// =============================================================
-// PRODUCT CAROUSEL
-// =============================================================
 
 interface ProductCarouselProps {
   title: string;
@@ -704,26 +580,19 @@ export const ProductCarousel = React.memo(function ProductCarousel({
   onWishlistToggle,
 }: ProductCarouselProps) {
   return (
-    <section>
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
-
+    <section className="transform-gpu">
       <div className="mb-3 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <div
             className="h-6 w-1 rounded-full"
             style={{
-              backgroundColor:
-                theme.primaryColor || '#10b981',
+              backgroundColor: theme.primaryColor || '#10b981',
             }}
           />
-
           <div>
             <h2 className="text-base font-black tracking-tight text-slate-900">
               {title}
             </h2>
-
             <p className="text-[9px] font-medium text-slate-400">
               Fresh deals for your business
             </p>
@@ -742,7 +611,7 @@ export const ProductCarousel = React.memo(function ProductCarousel({
             py-1.5
             text-[10px]
             font-extrabold
-            transition
+            transition-transform
             active:scale-95
           "
           style={{
@@ -755,10 +624,6 @@ export const ProductCarousel = React.memo(function ProductCarousel({
           <span className="text-[12px]">→</span>
         </button>
       </div>
-
-      {/* =====================================================
-          PRODUCTS
-      ===================================================== */}
 
       <div className="flex gap-3 overflow-x-auto px-4 pb-2 no-scrollbar scroll-touch transform-gpu">
         {products.map((product) => (

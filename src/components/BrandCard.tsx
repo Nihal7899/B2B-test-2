@@ -1,5 +1,4 @@
-// components/BrandCard.tsx
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { TrustedBrand } from '@/types';
 
 interface BrandCardProps {
@@ -9,12 +8,11 @@ interface BrandCardProps {
   logoUrl: string;
   productImage: string;
   productImages?: string[];
-  // editable fields
   tagline?: string;
   categories?: string[];
   bottomLabel?: string;
   bottomIcon?: 'shield' | 'crown' | 'leaf';
-  onClick?: () => void; // <-- NEW
+  onClick?: () => void;
 }
 
 const DEFAULT_CONTENT = {
@@ -26,7 +24,10 @@ const DEFAULT_CONTENT = {
 
 const getBrandContent = (props: BrandCardProps) => ({
   tagline: props.tagline || DEFAULT_CONTENT.tagline,
-  categories: props.categories && props.categories.length > 0 ? props.categories : DEFAULT_CONTENT.categories,
+  categories:
+    props.categories && props.categories.length > 0
+      ? props.categories
+      : DEFAULT_CONTENT.categories,
   bottomLabel: props.bottomLabel || DEFAULT_CONTENT.bottomLabel,
   bottomIcon: props.bottomIcon || DEFAULT_CONTENT.bottomIcon,
 });
@@ -45,53 +46,90 @@ const getLuminance = (hex: string) => {
   const { r, g, b } = hexToRgb(hex);
   const values = [r, g, b].map((value) => {
     const channel = value / 255;
-    return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+    return channel <= 0.03928
+      ? channel / 12.92
+      : Math.pow((channel + 0.055) / 1.055, 2.4);
   });
   return 0.2126 * values[0] + 0.7152 * values[1] + 0.0722 * values[2];
 };
 
-function BottomIcon({ type }: { type: 'shield' | 'crown' | 'leaf' }) {
+const BottomIcon = React.memo(({ type }: { type: 'shield' | 'crown' | 'leaf' }) => {
   if (type === 'crown') {
     return (
-      <svg viewBox="0 0 24 24" className="h-[13px] w-[13px]" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="m3 7 4 4 5-7 5 7 4-4-2 11H5L3 7Z" strokeLinecap="round" strokeLinejoin="round" />
+      <svg
+        viewBox="0 0 24 24"
+        className="h-[13px] w-[13px]"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path
+          d="m3 7 4 4 5-7 5 7 4-4-2 11H5L3 7Z"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
         <path d="M5 21h14" strokeLinecap="round" />
       </svg>
     );
   }
   if (type === 'leaf') {
     return (
-      <svg viewBox="0 0 24 24" className="h-[14px] w-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="M20 4C11 4 5 7 5 13c0 3 2 5 5 5 6 0 9-6 10-14Z" strokeLinecap="round" strokeLinejoin="round" />
+      <svg
+        viewBox="0 0 24 24"
+        className="h-[14px] w-[14px]"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path
+          d="M20 4C11 4 5 7 5 13c0 3 2 5 5 5 6 0 9-6 10-14Z"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
         <path d="M4 21c3-6 7-9 13-12" strokeLinecap="round" />
       </svg>
     );
   }
   return (
-    <svg viewBox="0 0 24 24" className="h-[13px] w-[13px]" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6l8-3Z" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="m8.5 12 2.2 2.2 4.8-5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[13px] w-[13px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path
+        d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6l8-3Z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="m8.5 12 2.2 2.2 4.8-5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
-}
+});
 
-export function BrandCard(props: BrandCardProps) {
-  const { 
-    brandName, 
-    primaryColor, 
-    secondaryColor, 
-    logoUrl, 
-    productImage, 
+export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
+  const {
+    brandName,
+    primaryColor,
+    secondaryColor,
+    logoUrl,
+    productImage,
     productImages = [],
     onClick,
   } = props;
-  
-  const content = getBrandContent(props);
 
-  const image = productImages.find(Boolean) || productImage || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product';
+  const content = useMemo(() => getBrandContent(props), [props]);
+  const image =
+    productImages.find(Boolean) ||
+    productImage ||
+    'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product';
 
-  const primaryRgb = hexToRgb(primaryColor);
-  const isLightBackground = getLuminance(primaryColor) > 0.68;
+  const isLightBackground = useMemo(() => getLuminance(primaryColor) > 0.68, [primaryColor]);
   const textColor = isLightBackground ? '#111827' : '#ffffff';
 
   return (
@@ -105,17 +143,16 @@ export function BrandCard(props: BrandCardProps) {
         flex-shrink-0
         overflow-hidden
         rounded-[25px]
-        isolate
         bg-white
-        shadow-[0_10px_35px_rgba(0,0,0,0.14)]
-        transition-all
-        duration-500
+        shadow-[0_8px_25px_rgba(0,0,0,0.12)]
+        transition-transform
+        duration-300
         hover:-translate-y-1
-        hover:shadow-[0_18px_45px_rgba(0,0,0,0.20)]
         cursor-pointer
+        transform-gpu
       "
     >
-      {/* ===== ORIGINAL DEFAULT BACKGROUND ===== */}
+      {/* Background */}
       <div
         className="absolute inset-0"
         style={{
@@ -134,26 +171,18 @@ export function BrandCard(props: BrandCardProps) {
           `,
         }}
       />
-      <div
-        className="absolute -left-12 -top-8 h-32 w-32 rounded-full blur-2xl"
-        style={{ background: `rgba(${primaryRgb.r},${primaryRgb.g},${primaryRgb.b},0.35)` }}
-      />
-      <div className="absolute -right-10 top-20 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
-      <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]" viewBox="0 0 180 270" preserveAspectRatio="none">
+      
+      <svg
+        className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]"
+        viewBox="0 0 180 270"
+        preserveAspectRatio="none"
+      >
         <circle cx="-10" cy="50" r="50" fill="none" stroke="white" strokeWidth="1" />
         <circle cx="-10" cy="50" r="36" fill="none" stroke="white" strokeWidth="1" />
         <circle cx="190" cy="74" r="34" fill="none" stroke="white" strokeWidth="1" />
         <path d="M-20 158 C40 126 90 153 205 112" fill="none" stroke="white" strokeWidth="1.2" />
         <path d="M-20 165 C45 133 97 160 205 120" fill="none" stroke="white" strokeWidth="0.8" />
-        <circle cx="150" cy="34" r="2" fill="white" />
-        <circle cx="162" cy="43" r="1.5" fill="white" />
-        <circle cx="141" cy="44" r="1" fill="white" />
       </svg>
-      <div className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-[3px] opacity-25">
-        {Array.from({ length: 9 }).map((_, i) => (
-          <span key={i} className="h-[2.5px] w-[2.5px] rounded-full bg-white" />
-        ))}
-      </div>
 
       {/* Logo */}
       <div
@@ -162,11 +191,16 @@ export function BrandCard(props: BrandCardProps) {
           flex h-[58px] w-[70px] -translate-x-1/2
           items-center justify-center rounded-[16px]
           border border-white/70 bg-white p-[8px]
-          shadow-[0_7px_18px_rgba(0,0,0,0.17)]
-          transition-transform duration-500 group-hover:scale-[1.04]
+          shadow-sm
+          transition-transform duration-300 group-hover:scale-[1.04]
         "
       >
-        <img src={logoUrl} alt={`${brandName} logo`} className="max-h-full max-w-full object-contain" loading="lazy" />
+        <img
+          src={logoUrl}
+          alt={`${brandName} logo`}
+          decoding="async"
+          className="max-h-full max-w-full object-contain"
+        />
         <span className="absolute right-[4px] top-[4px] flex h-[7px] w-[7px] rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.7)]" />
       </div>
 
@@ -176,7 +210,9 @@ export function BrandCard(props: BrandCardProps) {
           className="truncate text-[18px] font-extrabold leading-tight tracking-[-0.035em]"
           style={{
             color: textColor,
-            textShadow: isLightBackground ? '0 1px 2px rgba(255,255,255,0.5)' : '0 2px 7px rgba(0,0,0,0.22)',
+            textShadow: isLightBackground
+              ? '0 1px 2px rgba(255,255,255,0.5)'
+              : '0 2px 7px rgba(0,0,0,0.22)',
           }}
         >
           {brandName}
@@ -194,61 +230,53 @@ export function BrandCard(props: BrandCardProps) {
         {content.categories.slice(0, 3).map((cat) => (
           <span
             key={cat}
-            className="rounded-full border border-white/25 bg-white/[0.08] px-2 py-[2px] text-[6.5px] font-semibold tracking-wide text-white backdrop-blur-sm"
+            className="rounded-full border border-white/25 bg-black/20 px-2 py-[2px] text-[6.5px] font-semibold tracking-wide text-white"
           >
             {cat}
           </span>
         ))}
       </div>
 
-      {/* ===== 3D CYLINDRICAL CUP (PODIUM) ===== */}
+      {/* Podium */}
       <div className="absolute bottom-[-15px] left-1/2 z-10 h-[100px] w-[110%] -translate-x-1/2 pointer-events-none">
-        
-        {/* Layer 1: Base Curve */}
-        <div 
-          className="absolute top-[30px] left-0 w-full h-[70px] rounded-[50%]" 
-          style={{ 
-            background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
-          }} 
+        <div
+          className="absolute top-[30px] left-0 w-full h-[70px] rounded-[50%]"
+          style={{
+            background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)`,
+          }}
         />
-        
-        {/* Layer 2: Cylinder Body / Front Lip */}
-        <div 
-          className="absolute top-[35px] left-0 w-full h-[30px]" 
-          style={{ 
-            background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` 
-          }} 
+        <div
+          className="absolute top-[35px] left-0 w-full h-[30px]"
+          style={{
+            background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)`,
+          }}
         />
-        
-        {/* Layer 3: Top Curve (Inner floor/back lip) */}
-        <div 
-          className="absolute top-0 left-0 w-full h-[70px] rounded-[50%] shadow-[inset_0_10px_20px_rgba(0,0,0,0.3),inset_0_-2px_6px_rgba(0,0,0,0.15)]" 
-          style={{ 
-            background: `linear-gradient(to bottom, ${primaryColor} 0%, ${secondaryColor} 100%)` 
-          }} 
+        <div
+          className="absolute top-0 left-0 w-full h-[70px] rounded-[50%] shadow-[inset_0_10px_20px_rgba(0,0,0,0.3)]"
+          style={{
+            background: `linear-gradient(to bottom, ${primaryColor} 0%, ${secondaryColor} 100%)`,
+          }}
         />
-        
       </div>
 
-      {/* Single Dynamic Product positioned ON the floor */}
-      <div className="absolute bottom-[30px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-[1.04] pointer-events-auto">
+      {/* Product Image */}
+      <div className="absolute bottom-[30px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-transform duration-300 group-hover:-translate-y-1 pointer-events-auto">
         <img
           src={image}
           alt={`${brandName} product`}
-          className="h-full w-full object-contain object-bottom drop-shadow-[0_15px_20px_rgba(0,0,0,0.60)]"
-          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-contain object-bottom drop-shadow-[0_12px_16px_rgba(0,0,0,0.5)]"
         />
       </div>
 
-      {/* Bottom Strip (Pill Badge) over the front lip */}
+      {/* Bottom Pill Badge */}
       <div
         className="
           absolute bottom-[8px] left-1/2 z-40
           flex h-[24px] w-auto min-w-[130px] max-w-[90%] -translate-x-1/2
           items-center justify-center gap-1.5
-          rounded-full border border-white/20 bg-black/40 px-3
-          text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_2px_8px_rgba(0,0,0,0.3)]
-          backdrop-blur-md
+          rounded-full border border-white/20 bg-black/75 px-3
+          text-white shadow-sm
         "
       >
         <BottomIcon type={content.bottomIcon} />
@@ -257,24 +285,23 @@ export function BrandCard(props: BrandCardProps) {
         </span>
       </div>
 
-      {/* Top Light Overlay */}
       <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 h-[80px] bg-gradient-to-b from-white/[0.12] to-transparent" />
-
-      {/* Premium Border */}
       <div className="pointer-events-none absolute inset-0 z-50 rounded-[25px] border border-white/20" />
     </div>
   );
-}
+});
 
-// BrandCarousel
 interface BrandCarouselProps {
   brands: TrustedBrand[];
   onBrandClick?: (brand: TrustedBrand) => void;
 }
 
-export function BrandCarousel({ brands, onBrandClick }: BrandCarouselProps) {
+export const BrandCarousel = React.memo(function BrandCarousel({
+  brands,
+  onBrandClick,
+}: BrandCarouselProps) {
   return (
-    <div className="flex gap-4 overflow-x-auto px-4 pb-3 no-scrollbar scroll-touch">
+    <div className="flex gap-4 overflow-x-auto px-4 pb-3 no-scrollbar scroll-touch transform-gpu">
       {brands.map((brand) => (
         <div key={brand.id}>
           <BrandCard
@@ -282,7 +309,10 @@ export function BrandCarousel({ brands, onBrandClick }: BrandCarouselProps) {
             primaryColor={brand.primary_color || '#3B82F6'}
             secondaryColor={brand.secondary_color || '#1E40AF'}
             logoUrl={brand.logo_url}
-            productImage={brand.product_images?.[0] || 'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product'}
+            productImage={
+              brand.product_images?.[0] ||
+              'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product'
+            }
             productImages={brand.product_images || []}
             tagline={brand.tagline}
             categories={brand.categories}
@@ -294,4 +324,4 @@ export function BrandCarousel({ brands, onBrandClick }: BrandCarouselProps) {
       ))}
     </div>
   );
-}
+});

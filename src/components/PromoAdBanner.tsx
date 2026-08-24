@@ -1,15 +1,16 @@
-// components/PromoAdBanner.tsx
+import React from 'react';
 import { PromoBanner } from '@/types';
 
 interface PromoAdBannerProps {
   banner: PromoBanner;
 }
 
-export function PromoAdBanner({ banner }: PromoAdBannerProps) {
+export const PromoAdBanner = React.memo(function PromoAdBanner({
+  banner,
+}: PromoAdBannerProps) {
   const promoCode = (banner.actionConfig?.promoCode as string) || 'HYPER10';
   const discount = (banner.actionConfig?.discount as string) || '10% OFF';
 
-  // Background styles
   let bgStyle: React.CSSProperties = {};
   let bgClass = '';
 
@@ -27,27 +28,23 @@ export function PromoAdBanner({ banner }: PromoAdBannerProps) {
     bgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
   }
 
-  // Overlay style
   const overlayStyle: React.CSSProperties = {
     backgroundColor: banner.overlayColor || '#000000',
     opacity: (banner.overlayOpacity || 50) / 100,
   };
 
   return (
-    <div className="mx-4 rounded-2xl overflow-hidden relative min-h-[100px] shadow-card">
-      {/* Background layer */}
+    <div className="mx-4 rounded-2xl overflow-hidden relative min-h-[100px] shadow-card transform-gpu">
       {banner.bgType === 'gradient' ? (
         <div className={`absolute inset-0 ${bgClass}`} />
       ) : (
         <div className="absolute inset-0" style={bgStyle} />
       )}
 
-      {/* Overlay (tint) – above background, below content */}
       {banner.overlayEnabled && (
         <div className="absolute inset-0" style={overlayStyle} />
       )}
 
-      {/* Content */}
       <div className="relative z-10 p-4 flex flex-col justify-center h-full text-white">
         {banner.badge && (
           <p className="text-[10px] font-bold tracking-wider uppercase text-yellow-300">
@@ -56,7 +53,7 @@ export function PromoAdBanner({ banner }: PromoAdBannerProps) {
         )}
         <h3 className="text-lg font-extrabold leading-tight">{banner.headline}</h3>
         <div className="flex items-center gap-3 mt-1">
-          <span className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-lg text-sm font-mono font-bold tracking-wider border border-white/30">
+          <span className="bg-white/20 px-3 py-1 rounded-lg text-sm font-mono font-bold tracking-wider border border-white/30">
             {promoCode}
           </span>
           <span className="text-sm font-semibold">{discount}</span>
@@ -65,4 +62,4 @@ export function PromoAdBanner({ banner }: PromoAdBannerProps) {
       </div>
     </div>
   );
-}
+});

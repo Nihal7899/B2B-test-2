@@ -1,4 +1,3 @@
-// screens/HomeScreen.tsx
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck, ShieldCheck, Tag, RotateCcw, ChevronRight } from 'lucide-react';
@@ -31,7 +30,6 @@ interface HomeScreenProps {
   onBannerAction?: (banner: PromoBanner) => void;
 }
 
-// 1. Extracted & Memoized Banner Component
 const PromoActionBanner = React.memo(({ 
   banner, 
   onAction 
@@ -73,6 +71,7 @@ const PromoActionBanner = React.memo(({
           <img
             src={banner.image}
             alt={banner.headline}
+            decoding="async"
             className="h-full w-full object-cover"
             onError={(e) => {
               e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
@@ -110,7 +109,6 @@ const PromoActionBanner = React.memo(({
   );
 });
 
-// 2. Extracted & Memoized Product Grid Card (Fixes Cart Lag)
 const GridProductCard = React.memo(({
   product,
   quantity,
@@ -125,7 +123,7 @@ const GridProductCard = React.memo(({
   onClick: (p: Product) => void;
 }) => {
   return (
-    <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden flex flex-col">
+    <div className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden flex flex-col transform-gpu">
       <div
         className="relative bg-ink-50 h-[132px] overflow-hidden cursor-pointer"
         onClick={() => onClick(product)}
@@ -133,8 +131,8 @@ const GridProductCard = React.memo(({
         <img
           src={product.image}
           alt={product.name}
+          decoding="async"
           className="h-full w-full object-cover"
-          loading="lazy"
           onError={(e) => {
             e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Product';
           }}
@@ -185,8 +183,7 @@ const GridProductCard = React.memo(({
   );
 });
 
-// 3. Skeleton Loading Component
-const HomeSkeleton = () => (
+const HomeSkeleton = React.memo(() => (
   <div className="space-y-6 pb-6 animate-pulse">
     <div className="px-4 pt-2">
       <div className="h-10 bg-ink-200 rounded-xl w-full" />
@@ -217,12 +214,11 @@ const HomeSkeleton = () => (
       </div>
     </div>
   </div>
-);
+));
 
 export function HomeScreen({
   search,
   onSearchChange,
-  onCategory,
   onProduct,
   onViewAll,
   onStoreClick,
@@ -259,6 +255,7 @@ export function HomeScreen({
   }, [navigate]);
 
   useEffect(() => {
+    let active = true;
     void (async () => {
       try {
         const [catRes, prodRes, banners, storesRes, brandsRes] = await Promise.all([
@@ -268,6 +265,7 @@ export function HomeScreen({
           fetchStores(),
           fetchTrustedBrands(),
         ]);
+        if (!active) return;
         setCategories(catRes.categories);
         setProducts(prodRes.products);
         setStores(storesRes);
@@ -279,12 +277,15 @@ export function HomeScreen({
         setBottomBanners(banners.filter((b) => b.position === 'bottom'));
       } catch (err) {
         console.error('Failed to load catalog', err);
+      } finally {
+        if (active) setLoading(false);
       }
-      setLoading(false);
     })();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // 4. Memoize heavy filtering and array slicing
   const { filtered, popular, deals, essentials } = useMemo(() => {
     const query = search.trim().toLowerCase();
     const filteredProducts = query
@@ -301,25 +302,29 @@ export function HomeScreen({
     };
   }, [search, products]);
 
-  // Stable callbacks for cart actions
   const handleAddToCart = useCallback((p: Product) => cart.addToCart(p), [cart]);
-  const handleUpdateQuantity = useCallback((id: string, qty: number) => cart.updateQuantity(id, qty), [cart]);
+  const handleIncrement = useCallback((p: Product) => cart.addToCart(p), [cart]);
+  const handleDecrement = useCallback(
+    (p: Product) => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1),
+    [cart]
+  );
+  const handleUpdateQuantity = useCallback(
+    (id: string, qty: number) => cart.updateQuantity(id, qty),
+    [cart]
+  );
+  const handleGetQuantity = useCallback(
+    (id: string) => cart.getQuantity(id),
+    [cart]
+  );
 
-  const actions = {
-    getQuantity: cart.getQuantity,
-    onAdd: cart.addToCart,
-    onIncrement: (p: Product) => cart.addToCart(p),
-    onDecrement: (p: Product) => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1),
-    onProductClick: onProduct,
-    onViewAll,
-  };
+  const displayedCategories = useMemo(() => categories.slice(0, 20), [categories]);
 
   if (loading) return <HomeSkeleton />;
 
   const query = search.trim();
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-6 pb-6 transform-gpu">
       <SearchBar value={search} onChange={onSearchChange} onFilter={() => undefined} />
 
       {!query && topBanner && <PromoAdBanner banner={topBanner} />}
@@ -366,7 +371,7 @@ export function HomeScreen({
               </button>
             </div>
             <div className="grid grid-cols-4 gap-3">
-              {categories.slice(0, 20).map((category) => (
+              {displayedCategories.map((category) => (
                 <button
                   key={category.id}
                   onClick={() => openCategoryDetail(category)}
@@ -379,8 +384,8 @@ export function HomeScreen({
                     <img
                       src={category.image}
                       alt={category.name}
+                      decoding="async"
                       className="h-full w-full rounded-[14px] object-cover transition-transform duration-200 hover:scale-110"
-                      loading="lazy"
                       onError={(e) => {
                         e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Category';
                       }}
@@ -424,10 +429,19 @@ export function HomeScreen({
 
           {/* Popular Products */}
           {popular.length > 0 && (
-            <ProductCarousel title="Popular Products" products={popular} {...actions} />
+            <ProductCarousel
+              title="Popular Products"
+              products={popular}
+              getQuantity={handleGetQuantity}
+              onAdd={handleAddToCart}
+              onIncrement={handleIncrement}
+              onDecrement={handleDecrement}
+              onProductClick={onProduct}
+              onViewAll={onViewAll}
+            />
           )}
 
-          {/* Middle Banners (Hardware Accelerated) */}
+          {/* Middle Banners */}
           {middleBanners.length > 0 && (
             <section>
               <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">
@@ -442,7 +456,16 @@ export function HomeScreen({
 
           {/* Wholesale Deals */}
           {deals.length > 0 && (
-            <ProductCarousel title="Wholesale Deals" products={deals} {...actions} />
+            <ProductCarousel
+              title="Wholesale Deals"
+              products={deals}
+              getQuantity={handleGetQuantity}
+              onAdd={handleAddToCart}
+              onIncrement={handleIncrement}
+              onDecrement={handleDecrement}
+              onProductClick={onProduct}
+              onViewAll={onViewAll}
+            />
           )}
 
           {/* Perks */}
@@ -473,10 +496,19 @@ export function HomeScreen({
 
           {/* Everyday Essentials */}
           {essentials.length > 0 && (
-            <ProductCarousel title="Everyday Essentials" products={essentials} {...actions} />
+            <ProductCarousel
+              title="Everyday Essentials"
+              products={essentials}
+              getQuantity={handleGetQuantity}
+              onAdd={handleAddToCart}
+              onIncrement={handleIncrement}
+              onDecrement={handleDecrement}
+              onProductClick={onProduct}
+              onViewAll={onViewAll}
+            />
           )}
 
-          {/* Bottom Banners (Hardware Accelerated) */}
+          {/* Bottom Banners */}
           {bottomBanners.length > 0 && (
             <section>
               <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">

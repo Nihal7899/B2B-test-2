@@ -75,7 +75,7 @@ export async function buildGstBillHtml(orderId: string): Promise<string> {
   return buildA4InvoiceHtml(data, config, design);
 }
 
-// ─── HTML BUILDER ──────────────────────────────────────────────
+// ─── MAIN HTML BUILDER ──────────────────────────────────────────────
 function buildA4InvoiceHtml(
   data: OrderBillData,
   config: InvoiceConfig | null,
@@ -119,7 +119,7 @@ function buildA4InvoiceHtml(
     };
   });
 
-  // 2. Add Delivery Fee as a taxable service row (SAC 9968 @ 18% GST)
+  // 2. Delivery Fee as a taxable service line item (SAC 9968 @ 18% GST)
   if (deliveryFee > 0) {
     const deliveryTaxable = deliveryFee / 1.18;
     const deliveryGst = deliveryFee - deliveryTaxable;
@@ -153,7 +153,6 @@ function buildA4InvoiceHtml(
   const template = design.gstTemplate || 'template1';
   const fontSize = design.gstFont === 'small' ? 9.5 : design.gstFont === 'large' ? 13 : 11;
   const isCompact = design.invoiceLayout === 'compact';
-  const isProfessional = design.invoiceLayout === 'professional';
   const primaryColor = design.primaryColor || '#1d4ed8';
   const colorOpacity = design.colorOpacity ?? 1;
   const printMode = design.gstPrintMode || 'sliced';
@@ -168,7 +167,14 @@ function buildA4InvoiceHtml(
   const primaryRgba = hexToRgba(primaryColor, colorOpacity);
   const primaryRgbaLight = hexToRgba(primaryColor, 0.08);
 
-  // 4. Page Slicing Helpers
+  const customerNameDisplay = customerName || 'Customer';
+  const customerPhoneDisplay = customerPhone || '';
+  const customerGstDisplay = customerGst || '';
+  const currentDate = new Date(order.created_at).toLocaleDateString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric'
+  });
+
+  // 4. Multi-Page Capacity Slicing
   const computePageSlices = (totalItems: number, firstCapacity: number, nextCapacity: number) => {
     const slices: { start: number; end: number }[] = [];
     let start = 0;
@@ -184,307 +190,49 @@ function buildA4InvoiceHtml(
     return slices;
   };
 
-  const getPageRowCounts = (tmpl: string, fSize: string, layout: string, customFirst?: number, customNext?: number) => {
+  const getPageRowCounts = (tmpl: string, fSize: string) => {
     let defaultFirst = 18, defaultNext = 22;
     switch (tmpl) {
-      case 'template1': defaultFirst = 18; defaultNext = 22; break;
-      case 'template2': defaultFirst = 17; defaultNext = 21; break;
-      case 'template3': defaultFirst = 19; defaultNext = 23; break;
+      case 'template1': defaultFirst = 17; defaultNext = 21; break;
+      case 'template2': defaultFirst = 16; defaultNext = 20; break;
+      case 'template3': defaultFirst = 19; defaultNext = 24; break;
       case 'template4': defaultFirst = 16; defaultNext = 20; break;
       case 'template5': defaultFirst = 34; defaultNext = 40; break;
       default: defaultFirst = 18; defaultNext = 22;
     }
     if (fSize === 'small') { defaultFirst += 3; defaultNext += 4; }
     else if (fSize === 'large') { defaultFirst -= 3; defaultNext -= 4; }
-    if (layout === 'compact') { defaultFirst += 2; defaultNext += 3; }
-    else if (layout === 'professional') { defaultFirst -= 2; defaultNext -= 2; }
     return {
-      first: customFirst && customFirst > 0 ? customFirst : defaultFirst,
-      next: customNext && customNext > 0 ? customNext : defaultNext,
+      first: design.firstPageRows && design.firstPageRows > 0 ? design.firstPageRows : defaultFirst,
+      next: design.nextPageRows && design.nextPageRows > 0 ? design.nextPageRows : defaultNext,
     };
   };
 
-  const { first, next } = getPageRowCounts(template, design.gstFont, design.invoiceLayout, design.firstPageRows, design.nextPageRows);
+  const { first, next } = getPageRowCounts(template, design.gstFont);
   const slices = printMode === 'sliced' ? computePageSlices(itemsWithDetails.length, first, next) : [{ start: 0, end: itemsWithDetails.length }];
 
-  // 5. Executive Enterprise Top Header (Split Brand & Title Layout)
-  const logoElement = config?.company_logo
-    ? `<img src="${config.company_logo}" style="max-height:58px;max-width:160px;object-fit:contain;" alt="Company Logo" />`
-    : '';
-
-  const companyBrandingHeader = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;margin-bottom:12px;border-bottom:2px solid ${primaryColor};">
-      <!-- Left: Logo & Company Credentials -->
-      <div style="display:flex;align-items:center;gap:14px;max-width:65%;">
-        ${logoElement}
-        <div>
-          <h1 style="font-size:20px;font-weight:900;margin:0;color:#0f172a;letter-spacing:-0.4px;line-height:1.2;">
-            ${config?.company_name || 'Tax Invoice'}
-          </h1>
-          ${config?.company_address ? `<div style="font-size:10px;color:#475569;margin-top:3px;line-height:1.35;">${config.company_address}</div>` : ''}
-          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px;font-size:10px;color:#334155;">
-            ${config?.company_phone ? `<span><strong>Tel:</strong> ${config.company_phone}</span>` : ''}
-            ${config?.company_email ? `<span>• <strong>Email:</strong> ${config.company_email}</span>` : ''}
-            ${config?.company_gst ? `
-              <span style="background:#f1f5f9;border:1px solid #cbd5e1;padding:1px 6px;border-radius:4px;font-weight:800;color:#0f172a;">
-                GSTIN: ${config.company_gst}
-              </span>` : ''}
-          </div>
-        </div>
-      </div>
-
-      <!-- Right: Document Title & Legal Nature -->
-      <div style="text-align:right;min-width:32%;">
-        <div style="display:inline-block;background:${primaryRgba};color:#ffffff;padding:4px 12px;border-radius:5px;font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;">
-          ${design.headerText || 'TAX INVOICE'}
-        </div>
-        <div style="font-size:9.5px;color:#64748b;font-weight:700;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;">
-          Original For Recipient
-        </div>
-        <div style="font-size:9.5px;color:#475569;margin-top:2px;">
-          Rule 46 of CGST Rules, 2017
-        </div>
-      </div>
-    </div>
-  `;
-
-  const customerNameDisplay = customerName || 'Customer';
-  const customerPhoneDisplay = customerPhone || '';
-  const customerGstDisplay = customerGst || '';
-  const currentDate = new Date(order.created_at).toLocaleDateString('en-IN', {
-    day: '2-digit', month: 'short', year: 'numeric'
-  });
-
-  // 6. Address & Invoice Meta Header
-  const addressBlock = `
-    <div style="display:flex;gap:10px;margin-bottom:12px;width:100%;">
-      <!-- Left: Consignee / Customer Details -->
-      <div style="flex:1.2;border:1px solid #cbd5e1;border-top:3.5px solid ${primaryColor};border-radius:6px;padding:8px 10px;background:#f8fafc;">
-        <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;color:${primaryColor};letter-spacing:0.5px;margin-bottom:3px;">
-          Billed To / Consignee
-        </div>
-        <div style="font-size:12.5px;font-weight:800;color:#0f172a;line-height:1.2;">${customerNameDisplay}</div>
-        ${address ? `
-          <div style="font-size:10.5px;color:#334155;margin-top:3px;line-height:1.35;">
-            ${address.line1}${address.line2 ? `, ${address.line2}` : ''}, ${address.city}, ${address.state} - <strong>${address.postal_code}</strong>
-          </div>` : ''}
-        <div style="margin-top:4px;font-size:10px;color:#475569;display:flex;flex-wrap:wrap;gap:10px;">
-          ${customerPhoneDisplay ? `<span><strong>Phone:</strong> ${customerPhoneDisplay}</span>` : ''}
-          ${customerGstDisplay ? `<span style="color:#0f172a;font-weight:700;">GSTIN: ${customerGstDisplay}</span>` : ''}
-        </div>
-      </div>
-
-      <!-- Right: Invoice Metadata Box -->
-      <div style="flex:1;border:1px solid #cbd5e1;border-top:3.5px solid #0f172a;border-radius:6px;padding:8px 10px;background:#f8fafc;">
-        <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;color:#475569;letter-spacing:0.5px;margin-bottom:3px;">
-          Invoice Details
-        </div>
-        <table style="width:100%;border:none;margin:0;font-size:10.5px;line-height:1.4;">
-          <tr>
-            <td style="border:none;padding:1px 0;color:#64748b;text-align:left;width:45%;">Invoice No:</td>
-            <td style="border:none;padding:1px 0;font-weight:800;color:#0f172a;text-align:right;">${invoiceNumber}</td>
-          </tr>
-          <tr>
-            <td style="border:none;padding:1px 0;color:#64748b;text-align:left;">Invoice Date:</td>
-            <td style="border:none;padding:1px 0;font-weight:600;color:#0f172a;text-align:right;">${currentDate}</td>
-          </tr>
-          <tr>
-            <td style="border:none;padding:1px 0;color:#64748b;text-align:left;">Place of Supply:</td>
-            <td style="border:none;padding:1px 0;font-weight:600;color:#0f172a;text-align:right;">${address?.state || 'Local'}</td>
-          </tr>
-          <tr>
-            <td style="border:none;padding:1px 0;color:#64748b;text-align:left;">Payment:</td>
-            <td style="border:none;padding:1px 0;font-weight:800;color:#166534;text-align:right;">
-              <span style="background:#dcfce7;padding:1px 6px;border-radius:3px;font-size:9.5px;">PAID</span>
-            </td>
-          </tr>
-        </table>
-      </div>
-    </div>
-  `;
-
+  // 5. Common Sections
   const bankSection = design.showBankDetails && config?.bank_name ? `
-      <div style="margin-top:12px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:5px;font-size:10.5px;background:#fafafa;">
-        <div style="font-weight:700;margin-bottom:2px;color:#0f172a;">Bank Details</div>
-        <div style="display:flex;gap:16px;color:#334155;">
-          <span><strong>Bank:</strong> ${config.bank_name}</span>
-          <span><strong>A/c:</strong> ${config.bank_account || '-'}</span>
-          <span><strong>IFSC:</strong> ${config.bank_ifsc || '-'}</span>
-        </div>
-      </div>` : '';
+    <div style="margin-top:12px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:5px;font-size:10.5px;background:#fafafa;">
+      <div style="font-weight:700;margin-bottom:2px;color:#0f172a;">Bank Details</div>
+      <div style="display:flex;gap:16px;color:#334155;">
+        <span><strong>Bank:</strong> ${config.bank_name}</span>
+        <span><strong>A/c:</strong> ${config.bank_account || '-'}</span>
+        <span><strong>IFSC:</strong> ${config.bank_ifsc || '-'}</span>
+      </div>
+    </div>` : '';
 
   const termsSection = config?.terms_conditions ? `
-      <div style="margin-top:10px;font-size:9.5px;color:#64748b;">
-        <div style="font-weight:700;margin-bottom:2px;color:#334151;">Terms & Conditions:</div>
-        <div style="white-space:pre-wrap;line-height:1.3;">${config.terms_conditions}</div>
-      </div>` : '';
+    <div style="margin-top:10px;font-size:9.5px;color:#64748b;">
+      <div style="font-weight:700;margin-bottom:2px;color:#334151;">Terms & Conditions:</div>
+      <div style="white-space:pre-wrap;line-height:1.3;">${config.terms_conditions}</div>
+    </div>` : '';
 
   const signatureHtml = (design.showAuthorisedSignature || design.showReceiverSignature) ? `
-      <div style="margin-top:24px;display:flex;justify-content:space-between;font-size:10.5px;">
-        ${design.showReceiverSignature ? `<div style="border-top:1px solid #0f172a;padding-top:4px;width:32%;text-align:center;">Receiver's Signature</div>` : '<div></div>'}
-        ${design.showAuthorisedSignature ? `<div style="border-top:1px solid #0f172a;padding-top:4px;width:32%;text-align:center;">Authorised Signatory</div>` : '<div></div>'}
-      </div>` : '';
-
-  // 7. Multi-Page Table Builders (Includes Disc (₹) Column and Colored Delivery Row)
-  const buildPageTable = (startIdx: number, endIdx: number, pageNum: number, totalPages: number) => {
-    const pageItems = itemsWithDetails.slice(startIdx, endIdx);
-    const pageTaxable = pageItems.reduce((s, i) => s + i.taxable_value, 0);
-    const pageCgst = pageItems.reduce((s, i) => s + i.cgst, 0);
-    const pageSgst = pageItems.reduce((s, i) => s + i.sgst, 0);
-    const pageTotal = pageItems.reduce((s, i) => s + i.row_total, 0);
-
-    const rows = pageItems.map((item) => {
-      const deliveryStyle = item.is_delivery
-        ? `background-color:${primaryRgbaLight};font-weight:600;color:#0f172a;border-left:3px solid ${primaryColor};`
-        : '';
-
-      return `
-        <tr style="${deliveryStyle}">
-          <td style="text-align:center;">${item.serial}</td>
-          <td style="text-align:left;">
-            <div style="font-weight:600;">${item.product_name}</div>
-            ${item.pack_size ? `<div style="font-size:9px;color:#64748b;">${item.pack_size}</div>` : ''}
-          </td>
-          <td style="text-align:center;">${item.hsn}</td>
-          <td style="text-align:center;">${item.quantity}</td>
-          <td style="text-align:right;">₹${item.unit_price.toFixed(2)}</td>
-          <td style="text-align:right;color:${item.item_discount > 0 ? '#16a34a' : '#64748b'};">
-            ${item.item_discount > 0 ? `-₹${item.item_discount.toFixed(2)}` : '₹0.00'}
-          </td>
-          <td style="text-align:right;font-weight:600;">₹${item.taxable_value.toFixed(2)}</td>
-          <td style="text-align:center;">${item.gst_rate}%</td>
-          <td style="text-align:right;">₹${item.cgst.toFixed(2)}</td>
-          <td style="text-align:right;">₹${item.sgst.toFixed(2)}</td>
-          <td style="text-align:right;font-weight:700;">₹${item.row_total.toFixed(2)}</td>
-        </tr>
-      `;
-    }).join('');
-
-    const pageFooter = printMode === 'sliced' && totalPages > 1 ? `
-      <tr class="total-row" style="font-weight:700;background:#f8fafc;">
-        <td colspan="6" style="text-align:right;">Page ${pageNum} Subtotal:</td>
-        <td style="text-align:right;">₹${pageTaxable.toFixed(2)}</td>
-        <td></td>
-        <td style="text-align:right;">₹${pageCgst.toFixed(2)}</td>
-        <td style="text-align:right;">₹${pageSgst.toFixed(2)}</td>
-        <td style="text-align:right;">₹${pageTotal.toFixed(2)}</td>
-      </tr>
-    ` : '';
-
-    return `
-      <table style="width:100%;border-collapse:collapse;margin-bottom:8px;table-layout:auto;">
-        <thead>
-          ${totalPages > 1 ? `
-            <tr style="background:#f1f5f9;font-size:9.5px;">
-              <td colspan="11" style="border:none;padding:3px 6px;">
-                <div style="display:flex;justify-content:space-between;">
-                  <span>${customerNameDisplay}</span>
-                  <span>Page ${pageNum} of ${totalPages}</span>
-                  <span>${invoiceNumber}</span>
-                </div>
-              </td>
-            </tr>
-          ` : ''}
-          <tr>
-            <th style="width:28px;">#</th>
-            <th>Item Description</th>
-            <th style="width:48px;">HSN</th>
-            <th style="width:34px;">Qty</th>
-            <th style="width:58px;">Rate</th>
-            <th style="width:54px;">Disc</th>
-            <th style="width:64px;">Taxable</th>
-            <th style="width:38px;">GST</th>
-            <th style="width:54px;">CGST</th>
-            <th style="width:54px;">SGST</th>
-            <th style="width:68px;">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-          ${pageFooter}
-        </tbody>
-      </table>
-    `;
-  };
-
-  const buildCompactTable = (startIdx: number, endIdx: number, pageNum: number, totalPages: number) => {
-    const pageItems = itemsWithDetails.slice(startIdx, endIdx);
-    const rows = pageItems.map((item) => `
-      <tr style="${item.is_delivery ? `background-color:${primaryRgbaLight};font-weight:700;` : ''}">
-        <td>${item.serial}</td>
-        <td style="text-align:left;">${item.product_name}</td>
-        <td>${item.hsn}</td>
-        <td>${item.quantity}</td>
-        <td>₹${item.unit_price.toFixed(2)}</td>
-        <td style="color:${item.item_discount > 0 ? '#16a34a' : '#64748b'};">
-          ${item.item_discount > 0 ? `-₹${item.item_discount.toFixed(2)}` : '-'}
-        </td>
-        <td>₹${item.taxable_value.toFixed(2)}</td>
-        <td>${item.gst_rate}%</td>
-        <td>₹${item.cgst.toFixed(2)}</td>
-        <td>₹${item.sgst.toFixed(2)}</td>
-        <td>₹${item.row_total.toFixed(2)}</td>
-      </tr>
-    `).join('');
-
-    return `
-      <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
-        <thead>
-          ${totalPages > 1 ? `<tr><td colspan="11" style="text-align:right;font-size:8.5px;padding:2px;">Page ${pageNum} of ${totalPages}</td></tr>` : ''}
-          <tr>
-            <th>#</th><th>Description</th><th>HSN</th><th>Qty</th><th>Rate</th><th>Disc</th><th>Taxable</th><th>GST%</th><th>CGST</th><th>SGST</th><th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    `;
-  };
-
-  let allTablesHtml = '';
-  const isCompactTemplate = template === 'template5';
-  slices.forEach((slice, idx) => {
-    if (isCompactTemplate) {
-      allTablesHtml += buildCompactTable(slice.start, slice.end, idx + 1, slices.length);
-    } else {
-      allTablesHtml += buildPageTable(slice.start, slice.end, idx + 1, slices.length);
-    }
-    if (printMode === 'sliced' && idx < slices.length - 1) {
-      allTablesHtml += `<div style="page-break-after: always;"></div>`;
-    }
-  });
-
-  // 8. Summary Box
-  const summaryHtml = `
-    <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-      <div style="width:290px;font-size:${fontSize}px;line-height:1.65;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;background:#f8fafc;">
-        <div style="display:flex;justify-content:space-between;color:#475569;">
-          <span>Gross Total:</span><span>₹${rawSubtotal.toFixed(2)}</span>
-        </div>
-        ${totalDiscount > 0 ? `
-          <div style="display:flex;justify-content:space-between;color:#16a34a;font-weight:600;">
-            <span>Total Discount:</span><span>- ₹${totalDiscount.toFixed(2)}</span>
-          </div>` : ''}
-        <div style="display:flex;justify-content:space-between;border-top:1px dashed #cbd5e1;padding-top:3px;margin-top:2px;font-weight:600;">
-          <span>Net Taxable Value:</span><span>₹${overallTaxable.toFixed(2)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;color:#475569;">
-          <span>Total CGST:</span><span>₹${overallCgst.toFixed(2)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;color:#475569;">
-          <span>Total SGST:</span><span>₹${overallSgst.toFixed(2)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.18em;border-top:2px solid #0f172a;padding-top:4px;margin-top:4px;color:#0f172a;">
-          <span>GRAND TOTAL:</span><span>₹${overallGrand.toFixed(2)}</span>
-        </div>
-      </div>
-    </div>
-  `;
-
-  // ─── 9. Template Styles & Body Assembly ────────────────────────────
-  let templateStyles = '';
-  let templateBody = '';
+    <div style="margin-top:24px;display:flex;justify-content:space-between;font-size:10.5px;">
+      ${design.showReceiverSignature ? `<div style="border-top:1px solid #0f172a;padding-top:4px;width:32%;text-align:center;">Receiver's Signature</div>` : '<div></div>'}
+      ${design.showAuthorisedSignature ? `<div style="border-top:1px solid #0f172a;padding-top:4px;width:32%;text-align:center;">Authorised Signatory</div>` : '<div></div>'}
+    </div>` : '';
 
   const sharedPrintRules = `
     @page { size: A4 portrait; margin: 5mm 6mm 6mm 6mm; }
@@ -495,135 +243,520 @@ function buildA4InvoiceHtml(
     thead { display: table-header-group; }
   `;
 
-  switch (template) {
-    case 'template1':
-      templateStyles = `
-        ${sharedPrintRules}
-        body { font-family: Arial, sans-serif; font-size: ${fontSize}px; color: #0f172a; }
-        th, td { border: 1px solid #cbd5e1; padding: ${isCompact ? '3px 5px' : '5px 7px'}; font-size: ${fontSize}px; }
-        th { background: #f1f5f9; text-align: center; font-weight: 700; color: #0f172a; }
-        td { text-align: right; }
-        .footer { text-align: center; margin-top: 16px; font-size: 10.5px; color: #64748b; }
-        th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-      `;
-      templateBody = `
-        ${companyBrandingHeader}
-        ${addressBlock}
-        ${allTablesHtml}
-        ${summaryHtml}
-        ${signatureHtml}
-        ${bankSection}
-        ${termsSection}
-        ${isProfessional ? `<div style="margin-top:24px;display:flex;justify-content:space-between;font-size:10.5px;"><div>Receiver's Signature</div><div>For ${config?.company_name || 'Company'}</div></div>` : ''}
-        <div class="footer"><p>${design.footerText || 'Thank you for your business!'}</p></div>
-      `;
-      break;
+  // ─── TEMPLATE 1: CLASSIC CORPORATE GRID ──────────────────────────────────────────
+  if (template === 'template1') {
+    const buildT1Table = (startIdx: number, endIdx: number, pageNum: number, totalPages: number) => {
+      const pageItems = itemsWithDetails.slice(startIdx, endIdx);
+      const rows = pageItems.map((item) => `
+        <tr style="${item.is_delivery ? `background:#f8fafc;font-weight:600;` : ''}">
+          <td style="text-align:center;border:1px solid #000;">${item.serial}</td>
+          <td style="text-align:left;border:1px solid #000;"><strong>${item.product_name}</strong> ${item.pack_size ? `<span style="font-size:9px;color:#555;">(${item.pack_size})</span>` : ''}</td>
+          <td style="text-align:center;border:1px solid #000;">${item.hsn}</td>
+          <td style="text-align:center;border:1px solid #000;">${item.quantity}</td>
+          <td style="text-align:right;border:1px solid #000;">₹${item.unit_price.toFixed(2)}</td>
+          <td style="text-align:right;border:1px solid #000;">${item.item_discount > 0 ? `-₹${item.item_discount.toFixed(2)}` : '-'}</td>
+          <td style="text-align:right;border:1px solid #000;font-weight:600;">₹${item.taxable_value.toFixed(2)}</td>
+          <td style="text-align:center;border:1px solid #000;">${item.gst_rate}%</td>
+          <td style="text-align:right;border:1px solid #000;">₹${item.cgst.toFixed(2)}</td>
+          <td style="text-align:right;border:1px solid #000;">₹${item.sgst.toFixed(2)}</td>
+          <td style="text-align:right;border:1px solid #000;font-weight:700;">₹${item.row_total.toFixed(2)}</td>
+        </tr>
+      `).join('');
 
-    case 'template2':
-      templateStyles = `
-        ${sharedPrintRules}
-        body { font-family: 'Segoe UI', Arial, sans-serif; font-size: ${fontSize}px; color: #0f172a; }
-        th { background: ${primaryRgba}; color: #fff; padding: 5px 7px; text-align: center; font-weight: 700; border: 1px solid ${primaryColor}; }
-        td { padding: 5px 7px; border-bottom: 1px solid #e2e8f0; border-left: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9; text-align: right; }
-        .footer { text-align: center; margin-top: 16px; color: #64748b; font-size: 10.5px; }
-        th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      return `
+        <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-top:4px;">
+          <thead>
+            ${totalPages > 1 ? `<tr><td colspan="11" style="text-align:right;font-size:9px;padding:2px;border:none;">Page ${pageNum} of ${totalPages}</td></tr>` : ''}
+            <tr style="background:#e2e8f0;font-size:10px;">
+              <th style="border:1px solid #000;padding:4px;width:28px;">S.N</th>
+              <th style="border:1px solid #000;padding:4px;">Description of Goods/Services</th>
+              <th style="border:1px solid #000;padding:4px;width:50px;">HSN/SAC</th>
+              <th style="border:1px solid #000;padding:4px;width:35px;">Qty</th>
+              <th style="border:1px solid #000;padding:4px;width:60px;">Rate</th>
+              <th style="border:1px solid #000;padding:4px;width:55px;">Disc</th>
+              <th style="border:1px solid #000;padding:4px;width:65px;">Taxable</th>
+              <th style="border:1px solid #000;padding:4px;width:40px;">GST%</th>
+              <th style="border:1px solid #000;padding:4px;width:55px;">CGST</th>
+              <th style="border:1px solid #000;padding:4px;width:55px;">SGST</th>
+              <th style="border:1px solid #000;padding:4px;width:70px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
       `;
-      templateBody = `
-        ${companyBrandingHeader}
-        ${addressBlock}
-        ${allTablesHtml}
-        ${summaryHtml}
-        ${signatureHtml}
-        ${bankSection}
-        ${termsSection}
-        <div class="footer"><p>${design.footerText || 'Thank You!'}</p></div>
-      `;
-      break;
+    };
 
-    case 'template3':
-      templateStyles = `
-        ${sharedPrintRules}
-        body { font-family: Arial, sans-serif; font-size: ${fontSize}px; color: #0f172a; }
-        th, td { border: none; padding: 5px 4px; text-align: right; }
-        th { background: transparent; font-weight: 700; color: #475569; border-bottom: 2px solid #cbd5e1; text-align: center; }
-        td { border-bottom: 1px solid #f1f5f9; }
-        .footer { text-align: center; margin-top: 14px; color: #94a3b8; font-size: 10px; }
-        .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-      `;
-      templateBody = `
-        ${companyBrandingHeader}
-        ${addressBlock}
-        ${allTablesHtml}
-        ${summaryHtml}
-        ${signatureHtml}
-        ${bankSection}
-        ${termsSection}
-        <div class="footer"><p>${design.footerText || 'Thank you'}</p></div>
-      `;
-      break;
+    let tablesHtml = '';
+    slices.forEach((s, idx) => {
+      tablesHtml += buildT1Table(s.start, s.end, idx + 1, slices.length);
+      if (printMode === 'sliced' && idx < slices.length - 1) tablesHtml += `<div style="page-break-after:always;"></div>`;
+    });
 
-    case 'template4':
-      templateStyles = `
-        ${sharedPrintRules}
-        body { font-family: 'Georgia', serif; font-size: ${fontSize}px; color: #0f172a; }
-        th { background: ${primaryRgba}; color: #fff; padding: 5px 7px; text-align: center; }
-        td { padding: 5px 7px; border-bottom: 1px solid #e2e8f0; text-align: right; }
-        .footer { text-align: center; margin-top: 16px; font-size: 10.5px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 8px; }
-        th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-      `;
-      templateBody = `
-        ${companyBrandingHeader}
-        ${addressBlock}
-        ${allTablesHtml}
-        ${summaryHtml}
-        ${signatureHtml}
+    const bodyContent = `
+      <div style="border:2px solid #000;padding:10px;">
+        <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:8px;">
+          <div style="font-size:18px;font-weight:900;letter-spacing:1px;">${design.headerText || 'TAX INVOICE'}</div>
+          <div style="font-size:10px;font-weight:700;">(Under Section 31 of GST Act, 2017)</div>
+        </div>
+        <!-- 2-Box Split: Seller vs Buyer -->
+        <div style="display:flex;border:1px solid #000;margin-bottom:8px;">
+          <div style="flex:1.2;padding:6px;border-right:1px solid #000;font-size:10.5px;line-height:1.4;">
+            <div style="font-size:9px;font-weight:bold;text-transform:uppercase;color:#555;">Details of Supplier / Seller</div>
+            <div style="font-size:13px;font-weight:bold;margin-top:2px;">${config?.company_name || 'Store'}</div>
+            <div>${config?.company_address || ''}</div>
+            <div><strong>GSTIN:</strong> ${config?.company_gst || '-'} | <strong>State:</strong> Local</div>
+            <div><strong>Phone:</strong> ${config?.company_phone || '-'}</div>
+          </div>
+          <div style="flex:1;padding:6px;font-size:10.5px;line-height:1.4;">
+            <div style="font-size:9px;font-weight:bold;text-transform:uppercase;color:#555;">Details of Recipient / Buyer</div>
+            <div style="font-size:13px;font-weight:bold;margin-top:2px;">${customerNameDisplay}</div>
+            <div>${address ? `${address.line1}, ${address.city} - ${address.postal_code}` : 'Walk-in'}</div>
+            <div><strong>GSTIN:</strong> ${customerGstDisplay || 'Unregistered'}</div>
+            <div><strong>Invoice No:</strong> ${invoiceNumber} | <strong>Date:</strong> ${currentDate}</div>
+          </div>
+        </div>
+        ${tablesHtml}
+        <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+          <table style="width:300px;border:1px solid #000;border-collapse:collapse;font-size:10.5px;">
+            <tr><td style="border:1px solid #000;padding:3px 6px;">Gross Amount:</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;">₹${rawSubtotal.toFixed(2)}</td></tr>
+            ${totalDiscount > 0 ? `<tr><td style="border:1px solid #000;padding:3px 6px;color:green;">Discount:</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;color:green;">-₹${totalDiscount.toFixed(2)}</td></tr>` : ''}
+            <tr><td style="border:1px solid #000;padding:3px 6px;font-weight:bold;">Total Taxable:</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;font-weight:bold;">₹${overallTaxable.toFixed(2)}</td></tr>
+            <tr><td style="border:1px solid #000;padding:3px 6px;">Total CGST:</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;">₹${overallCgst.toFixed(2)}</td></tr>
+            <tr><td style="border:1px solid #000;padding:3px 6px;">Total SGST:</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;">₹${overallSgst.toFixed(2)}</td></tr>
+            <tr style="background:#e2e8f0;font-weight:bold;font-size:12px;"><td style="border:1px solid #000;padding:4px 6px;">Grand Total:</td><td style="border:1px solid #000;padding:4px 6px;text-align:right;">₹${overallGrand.toFixed(2)}</td></tr>
+          </table>
+        </div>
         ${bankSection}
         ${termsSection}
-        <div class="footer"><p>${design.footerText || 'Thank You for your business!'}</p></div>
-      `;
-      break;
+        ${signatureHtml}
+        <div style="text-align:center;margin-top:12px;font-size:9.5px;color:#555;">${design.footerText || 'Thank you for your business!'}</div>
+      </div>
+    `;
 
-    case 'template5':
-      templateStyles = `
-        ${sharedPrintRules}
-        body { font-family: Arial, sans-serif; font-size: ${Math.min(fontSize, 9.5)}px; color: #0f172a; }
-        th, td { padding: 2px 4px; border: 1px solid #cbd5e1; text-align: center; font-size: 8.5px; }
-        th { background: #f1f5f9; font-weight: 700; }
-        .footer { text-align: center; margin-top: 6px; font-size: 8.5px; color: #64748b; }
-        th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-      `;
-      templateBody = `
-        ${companyBrandingHeader}
-        ${addressBlock}
-        ${allTablesHtml}
-        ${summaryHtml}
-        ${signatureHtml}
-        ${bankSection}
-        ${termsSection}
-        <div class="footer"><p>${design.footerText || 'Thank You'}</p></div>
-      `;
-      break;
-
-    default:
-      templateStyles = `
-        ${sharedPrintRules}
-        body { font-family: Arial, sans-serif; font-size: ${fontSize}px; color: #0f172a; }
-        th, td { border: 1px solid #cbd5e1; padding: 5px; text-align: center; }
-        th { background: #f1f5f9; font-weight: 700; }
-        .footer { text-align: center; margin-top: 16px; color: #64748b; font-size: 10.5px; }
-        th, .total-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-      `;
-      templateBody = `
-        ${companyBrandingHeader}
-        ${addressBlock}
-        ${allTablesHtml}
-        ${summaryHtml}
-        ${signatureHtml}
-        ${bankSection}
-        ${termsSection}
-        <div class="footer"><p>${design.footerText || 'Thank you for your business!'}</p></div>
-      `;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: Arial, sans-serif; font-size: ${fontSize}px; }</style></head><body>${bodyContent}</body></html>`;
   }
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${templateStyles}</style></head><body>${templateBody}</body></html>`;
+  // ─── TEMPLATE 2: MODERN GRADIENT / COLOR BANNER ──────────────────────────────────
+  if (template === 'template2') {
+    const buildT2Table = (startIdx: number, endIdx: number) => {
+      const pageItems = itemsWithDetails.slice(startIdx, endIdx);
+      const rows = pageItems.map((item, i) => `
+        <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'};${item.is_delivery ? `background:${primaryRgbaLight};font-weight:bold;` : ''}">
+          <td style="padding:6px 8px;text-align:center;border-bottom:1px solid #e2e8f0;">${item.serial}</td>
+          <td style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0;">
+            <div style="font-weight:700;color:#1e293b;">${item.product_name}</div>
+            ${item.pack_size ? `<div style="font-size:9px;color:#64748b;">${item.pack_size}</div>` : ''}
+          </td>
+          <td style="padding:6px 8px;text-align:center;border-bottom:1px solid #e2e8f0;color:#64748b;">${item.hsn}</td>
+          <td style="padding:6px 8px;text-align:center;border-bottom:1px solid #e2e8f0;font-weight:600;">${item.quantity}</td>
+          <td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e2e8f0;">₹${item.unit_price.toFixed(2)}</td>
+          <td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e2e8f0;color:${item.item_discount > 0 ? '#16a34a' : '#94a3b8'};">
+            ${item.item_discount > 0 ? `-₹${item.item_discount.toFixed(2)}` : '₹0.00'}
+          </td>
+          <td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e2e8f0;font-weight:700;color:#0f172a;">₹${item.taxable_value.toFixed(2)}</td>
+          <td style="padding:6px 8px;text-align:center;border-bottom:1px solid #e2e8f0;color:#64748b;">${item.gst_rate}%</td>
+          <td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e2e8f0;color:#475569;">₹${item.cgst.toFixed(2)}</td>
+          <td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e2e8f0;color:#475569;">₹${item.sgst.toFixed(2)}</td>
+          <td style="padding:6px 8px;text-align:right;border-bottom:1px solid #e2e8f0;font-weight:800;color:#0f172a;">₹${item.row_total.toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;margin-top:6px;border:1px solid #e2e8f0;">
+          <thead>
+            <tr style="background:${primaryRgba};color:#ffffff;font-size:10.5px;">
+              <th style="padding:7px;width:30px;">#</th>
+              <th style="padding:7px;text-align:left;">Item & Details</th>
+              <th style="padding:7px;width:48px;">HSN</th>
+              <th style="padding:7px;width:35px;">Qty</th>
+              <th style="padding:7px;width:60px;">Rate</th>
+              <th style="padding:7px;width:55px;">Disc</th>
+              <th style="padding:7px;width:65px;">Taxable</th>
+              <th style="padding:7px;width:40px;">GST</th>
+              <th style="padding:7px;width:55px;">CGST</th>
+              <th style="padding:7px;width:55px;">SGST</th>
+              <th style="padding:7px;width:75px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    };
+
+    let tablesHtml = '';
+    slices.forEach((s, idx) => {
+      tablesHtml += buildT2Table(s.start, s.end);
+      if (printMode === 'sliced' && idx < slices.length - 1) tablesHtml += `<div style="page-break-after:always;"></div>`;
+    });
+
+    const bodyContent = `
+      <div style="background:#ffffff;">
+        <!-- Top Full Width Colored Banner -->
+        <div style="background:${primaryRgba};color:#ffffff;padding:14px 18px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div>
+            ${config?.company_logo ? `<img src="${config.company_logo}" style="max-height:48px;margin-bottom:4px;filter:brightness(0) invert(1);" />` : ''}
+            <div style="font-size:22px;font-weight:900;letter-spacing:-0.5px;color:#fff;">${config?.company_name || 'Store'}</div>
+            <div style="font-size:10px;opacity:0.9;margin-top:2px;">${config?.company_address || ''} • GSTIN: ${config?.company_gst || '-'}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:18px;font-weight:900;letter-spacing:1px;text-transform:uppercase;">${design.headerText || 'TAX INVOICE'}</div>
+            <div style="font-size:11px;opacity:0.9;margin-top:3px;">#${invoiceNumber}</div>
+            <div style="font-size:10px;opacity:0.8;">${currentDate}</div>
+          </div>
+        </div>
+
+        <!-- Rounded Customer Info Bar -->
+        <div style="display:flex;gap:10px;margin-bottom:12px;">
+          <div style="flex:1.2;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:10.5px;">
+            <span style="font-size:9px;font-weight:800;color:${primaryColor};text-transform:uppercase;">Billed To</span>
+            <div style="font-size:13px;font-weight:800;color:#0f172a;margin-top:1px;">${customerNameDisplay}</div>
+            ${address ? `<div style="color:#475569;margin-top:2px;">${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
+            <div style="color:#64748b;margin-top:2px;">Phone: ${customerPhoneDisplay || '-'} | GSTIN: ${customerGstDisplay || 'Unregistered'}</div>
+          </div>
+          <div style="flex:0.8;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:10.5px;text-align:right;">
+            <span style="font-size:9px;font-weight:800;color:#64748b;text-transform:uppercase;">Status</span>
+            <div style="margin-top:2px;"><span style="background:#dcfce7;color:#15803d;font-weight:800;padding:2px 8px;border-radius:20px;font-size:10px;">PAID / COMPLETED</span></div>
+            <div style="color:#64748b;margin-top:6px;">Place of Supply: <strong>${address?.state || 'Local'}</strong></div>
+          </div>
+        </div>
+
+        ${tablesHtml}
+
+        <!-- Gradient Accent Summary Card -->
+        <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+          <div style="width:300px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:11px;line-height:1.6;">
+            <div style="display:flex;justify-content:space-between;color:#475569;"><span>Gross Subtotal:</span><span>₹${rawSubtotal.toFixed(2)}</span></div>
+            ${totalDiscount > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;font-weight:600;"><span>Promo Discount:</span><span>-₹${totalDiscount.toFixed(2)}</span></div>` : ''}
+            <div style="display:flex;justify-content:space-between;color:#0f172a;font-weight:700;border-top:1px dashed #cbd5e1;padding-top:2px;margin-top:2px;"><span>Net Taxable:</span><span>₹${overallTaxable.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;color:#64748b;"><span>CGST:</span><span>₹${overallCgst.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;color:#64748b;"><span>SGST:</span><span>₹${overallSgst.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;font-weight:900;font-size:14px;color:#ffffff;background:${primaryRgba};padding:4px 8px;border-radius:6px;margin-top:6px;">
+              <span>TOTAL PAID:</span><span>₹${overallGrand.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        ${bankSection}
+        ${termsSection}
+        ${signatureHtml}
+        <div style="text-align:center;margin-top:14px;font-size:10px;color:#94a3b8;">${design.footerText || 'Thank you!'}</div>
+      </div>
+    `;
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: 'Segoe UI', Arial, sans-serif; font-size: ${fontSize}px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
+  }
+
+  // ─── TEMPLATE 3: MINIMALIST MONOCHROME / SWISS CLEAN ─────────────────────────────
+  if (template === 'template3') {
+    const buildT3Table = (startIdx: number, endIdx: number) => {
+      const pageItems = itemsWithDetails.slice(startIdx, endIdx);
+      const rows = pageItems.map((item) => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:6px 2px;color:#94a3b8;text-align:center;">${item.serial}</td>
+          <td style="padding:6px 4px;text-align:left;">
+            <div style="font-weight:600;color:#0f172a;">${item.product_name}</div>
+            ${item.pack_size ? `<div style="font-size:8.5px;color:#94a3b8;">${item.pack_size}</div>` : ''}
+          </td>
+          <td style="padding:6px 2px;text-align:center;color:#64748b;">${item.hsn}</td>
+          <td style="padding:6px 2px;text-align:center;">${item.quantity}</td>
+          <td style="padding:6px 2px;text-align:right;">₹${item.unit_price.toFixed(2)}</td>
+          <td style="padding:6px 2px;text-align:right;color:#64748b;">${item.item_discount > 0 ? `-₹${item.item_discount.toFixed(2)}` : '-'}</td>
+          <td style="padding:6px 2px;text-align:right;font-weight:600;">₹${item.taxable_value.toFixed(2)}</td>
+          <td style="padding:6px 2px;text-align:center;color:#64748b;">${item.gst_rate}%</td>
+          <td style="padding:6px 2px;text-align:right;color:#64748b;">₹${item.cgst.toFixed(2)}</td>
+          <td style="padding:6px 2px;text-align:right;color:#64748b;">₹${item.sgst.toFixed(2)}</td>
+          <td style="padding:6px 2px;text-align:right;font-weight:700;color:#0f172a;">₹${item.row_total.toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+          <thead>
+            <tr style="border-bottom:2px solid #0f172a;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#475569;">
+              <th style="padding:4px;text-align:center;width:25px;">#</th>
+              <th style="padding:4px;text-align:left;">Description</th>
+              <th style="padding:4px;width:48px;">HSN</th>
+              <th style="padding:4px;width:30px;">Qty</th>
+              <th style="padding:4px;text-align:right;width:55px;">Rate</th>
+              <th style="padding:4px;text-align:right;width:50px;">Disc</th>
+              <th style="padding:4px;text-align:right;width:60px;">Taxable</th>
+              <th style="padding:4px;text-align:center;width:35px;">GST</th>
+              <th style="padding:4px;text-align:right;width:50px;">CGST</th>
+              <th style="padding:4px;text-align:right;width:50px;">SGST</th>
+              <th style="padding:4px;text-align:right;width:65px;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    };
+
+    let tablesHtml = '';
+    slices.forEach((s, idx) => {
+      tablesHtml += buildT3Table(s.start, s.end);
+      if (printMode === 'sliced' && idx < slices.length - 1) tablesHtml += `<div style="page-break-after:always;"></div>`;
+    });
+
+    const bodyContent = `
+      <div style="color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
+        <!-- Clean Airy Header -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px;">
+          <div>
+            <div style="font-size:24px;font-weight:300;letter-spacing:2px;text-transform:uppercase;color:#0f172a;">${config?.company_name || 'TAX INVOICE'}</div>
+            <div style="font-size:10px;color:#64748b;margin-top:2px;">${config?.company_address || ''} • GSTIN: ${config?.company_gst || '-'}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:1px;color:#0f172a;">INVOICE #${invoiceNumber}</div>
+            <div style="font-size:10px;color:#64748b;">${currentDate}</div>
+          </div>
+        </div>
+
+        <!-- Hairline Two Column Meta -->
+        <div style="display:flex;justify-content:space-between;margin-bottom:14px;font-size:10.5px;color:#334155;line-height:1.5;">
+          <div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:#94a3b8;text-transform:uppercase;">Billed To</div>
+            <div style="font-weight:700;color:#0f172a;">${customerNameDisplay}</div>
+            ${address ? `<div>${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
+            <div>Phone: ${customerPhoneDisplay || '-'} | GST: ${customerGstDisplay || 'Unregistered'}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:#94a3b8;text-transform:uppercase;">Order Meta</div>
+            <div>Place of Supply: ${address?.state || 'Local'}</div>
+            <div>Payment Mode: PREPAID / COD</div>
+          </div>
+        </div>
+
+        ${tablesHtml}
+
+        <!-- Clean Right-Aligned Summary -->
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+          <div style="width:260px;font-size:10.5px;line-height:1.7;">
+            <div style="display:flex;justify-content:space-between;color:#64748b;"><span>Taxable Amount:</span><span>₹${overallTaxable.toFixed(2)}</span></div>
+            ${totalDiscount > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;"><span>Total Discount:</span><span>-₹${totalDiscount.toFixed(2)}</span></div>` : ''}
+            <div style="display:flex;justify-content:space-between;color:#64748b;"><span>CGST:</span><span>₹${overallCgst.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;color:#64748b;"><span>SGST:</span><span>₹${overallSgst.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;font-weight:800;font-size:14px;color:#0f172a;border-top:1px solid #0f172a;padding-top:4px;margin-top:4px;">
+              <span>TOTAL DUE:</span><span>₹${overallGrand.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        ${bankSection}
+        ${termsSection}
+        ${signatureHtml}
+        <div style="text-align:center;margin-top:16px;font-size:9.5px;color:#94a3b8;">${design.footerText || 'Thank you.'}</div>
+      </div>
+    `;
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: -apple-system, sans-serif; font-size: ${fontSize}px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
+  }
+
+  // ─── TEMPLATE 4: EXECUTIVE ENTERPRISE (The Master Professional) ──────────────────
+  if (template === 'template4') {
+    const buildT4Table = (startIdx: number, endIdx: number, pageNum: number, totalPages: number) => {
+      const pageItems = itemsWithDetails.slice(startIdx, endIdx);
+      const rows = pageItems.map((item) => `
+        <tr style="${item.is_delivery ? `background-color:${primaryRgbaLight};font-weight:600;border-left:3px solid ${primaryColor};` : ''}">
+          <td style="text-align:center;border:1px solid #cbd5e1;padding:5px 7px;">${item.serial}</td>
+          <td style="text-align:left;border:1px solid #cbd5e1;padding:5px 7px;">
+            <div style="font-weight:700;">${item.product_name}</div>
+            ${item.pack_size ? `<div style="font-size:9px;color:#64748b;">${item.pack_size}</div>` : ''}
+          </td>
+          <td style="text-align:center;border:1px solid #cbd5e1;padding:5px 7px;">${item.hsn}</td>
+          <td style="text-align:center;border:1px solid #cbd5e1;padding:5px 7px;">${item.quantity}</td>
+          <td style="text-align:right;border:1px solid #cbd5e1;padding:5px 7px;">₹${item.unit_price.toFixed(2)}</td>
+          <td style="text-align:right;border:1px solid #cbd5e1;padding:5px 7px;color:${item.item_discount > 0 ? '#16a34a' : '#64748b'};">
+            ${item.item_discount > 0 ? `-₹${item.item_discount.toFixed(2)}` : '₹0.00'}
+          </td>
+          <td style="text-align:right;border:1px solid #cbd5e1;padding:5px 7px;font-weight:600;">₹${item.taxable_value.toFixed(2)}</td>
+          <td style="text-align:center;border:1px solid #cbd5e1;padding:5px 7px;">${item.gst_rate}%</td>
+          <td style="text-align:right;border:1px solid #cbd5e1;padding:5px 7px;">₹${item.cgst.toFixed(2)}</td>
+          <td style="text-align:right;border:1px solid #cbd5e1;padding:5px 7px;">₹${item.sgst.toFixed(2)}</td>
+          <td style="text-align:right;border:1px solid #cbd5e1;padding:5px 7px;font-weight:700;">₹${item.row_total.toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+          <thead>
+            ${totalPages > 1 ? `<tr><td colspan="11" style="text-align:right;font-size:9px;padding:2px;border:none;">Page ${pageNum} of ${totalPages}</td></tr>` : ''}
+            <tr style="background:#f1f5f9;font-size:10px;">
+              <th style="border:1px solid #cbd5e1;padding:5px;width:28px;">#</th>
+              <th style="border:1px solid #cbd5e1;padding:5px;text-align:left;">Item Description</th>
+              <th style="border:1px solid #cbd5e1;padding:5px;width:48px;">HSN</th>
+              <th style="border:1px solid #cbd5e1;padding:5px;width:34px;">Qty</th>
+              <th style="border:1px solid #cbd5e1;padding:5px;width:58px;">Rate</th>
+              <th style="border:1px solid #cbd5e1;padding:5px;width:54px;">Disc</th>
+              <th style="border:1px solid #cbd5e1;padding:5px;width:64px;">Taxable</th>
+              <th style="border:1px solid #cbd5e1;padding:5px;width:38px;">GST</th>
+              <th style="border:1px solid #cbd5e1;padding:5px;width:54px;">CGST</th>
+              <th style="border:1px solid #cbd5e1;padding:5px;width:54px;">SGST</th>
+              <th style="border:1px solid #cbd5e1;padding:5px;width:68px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    };
+
+    let tablesHtml = '';
+    slices.forEach((s, idx) => {
+      tablesHtml += buildT4Table(s.start, s.end, idx + 1, slices.length);
+      if (printMode === 'sliced' && idx < slices.length - 1) tablesHtml += `<div style="page-break-after:always;"></div>`;
+    });
+
+    const bodyContent = `
+      <div>
+        <!-- Executive Split Branding Header -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;margin-bottom:12px;border-bottom:2px solid ${primaryColor};">
+          <div style="display:flex;align-items:center;gap:14px;max-width:65%;">
+            ${config?.company_logo ? `<img src="${config.company_logo}" style="max-height:58px;max-width:160px;object-fit:contain;" />` : ''}
+            <div>
+              <h1 style="font-size:20px;font-weight:900;margin:0;color:#0f172a;letter-spacing:-0.4px;">${config?.company_name || 'Tax Invoice'}</h1>
+              ${config?.company_address ? `<div style="font-size:10px;color:#475569;margin-top:3px;">${config.company_address}</div>` : ''}
+              <div style="margin-top:4px;font-size:10px;color:#334155;">
+                <strong>Tel:</strong> ${config?.company_phone || '-'} • <strong>GSTIN:</strong> ${config?.company_gst || '-'}
+              </div>
+            </div>
+          </div>
+          <div style="text-align:right;min-width:32%;">
+            <div style="display:inline-block;background:${primaryRgba};color:#ffffff;padding:4px 12px;border-radius:5px;font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;">
+              ${design.headerText || 'TAX INVOICE'}
+            </div>
+            <div style="font-size:9.5px;color:#64748b;font-weight:700;margin-top:4px;text-transform:uppercase;">Original For Recipient</div>
+          </div>
+        </div>
+
+        <!-- 2 Column Executive Card Section -->
+        <div style="display:flex;gap:10px;margin-bottom:12px;width:100%;">
+          <div style="flex:1.2;border:1px solid #cbd5e1;border-top:3.5px solid ${primaryColor};border-radius:6px;padding:8px 10px;background:#f8fafc;">
+            <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;color:${primaryColor};">Billed To / Consignee</div>
+            <div style="font-size:12.5px;font-weight:800;color:#0f172a;margin-top:1px;">${customerNameDisplay}</div>
+            ${address ? `<div style="font-size:10.5px;color:#334155;margin-top:2px;">${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
+            <div style="font-size:10px;color:#475569;margin-top:3px;">Phone: ${customerPhoneDisplay || '-'} | GSTIN: ${customerGstDisplay || 'Unregistered'}</div>
+          </div>
+          <div style="flex:1;border:1px solid #cbd5e1;border-top:3.5px solid #0f172a;border-radius:6px;padding:8px 10px;background:#f8fafc;font-size:10.5px;">
+            <div style="display:flex;justify-content:space-between;"><span>Invoice No:</span><strong>${invoiceNumber}</strong></div>
+            <div style="display:flex;justify-content:space-between;margin-top:2px;"><span>Invoice Date:</span><span>${currentDate}</span></div>
+            <div style="display:flex;justify-content:space-between;margin-top:2px;"><span>Place of Supply:</span><span>${address?.state || 'Local'}</span></div>
+            <div style="display:flex;justify-content:space-between;margin-top:2px;"><span>Status:</span><strong style="color:#166534;">PAID</strong></div>
+          </div>
+        </div>
+
+        ${tablesHtml}
+
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+          <div style="width:290px;font-size:${fontSize}px;line-height:1.65;border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;background:#f8fafc;">
+            <div style="display:flex;justify-content:space-between;color:#475569;"><span>Gross Total:</span><span>₹${rawSubtotal.toFixed(2)}</span></div>
+            ${totalDiscount > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;font-weight:600;"><span>Total Discount:</span><span>-₹${totalDiscount.toFixed(2)}</span></div>` : ''}
+            <div style="display:flex;justify-content:space-between;border-top:1px dashed #cbd5e1;padding-top:3px;margin-top:2px;font-weight:600;"><span>Net Taxable Value:</span><span>₹${overallTaxable.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;color:#475569;"><span>Total CGST:</span><span>₹${overallCgst.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;color:#475569;"><span>Total SGST:</span><span>₹${overallSgst.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.18em;border-top:2px solid #0f172a;padding-top:4px;margin-top:4px;color:#0f172a;">
+              <span>GRAND TOTAL:</span><span>₹${overallGrand.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        ${bankSection}
+        ${termsSection}
+        ${signatureHtml}
+        <div style="text-align:center;margin-top:14px;font-size:10.5px;color:#64748b;">${design.footerText || 'Thank you for your business!'}</div>
+      </div>
+    `;
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: Arial, sans-serif; font-size: ${fontSize}px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
+  }
+
+  // ─── TEMPLATE 5: COMPACT HIGH-DENSITY (Dense / Paper-Saving) ─────────────────────
+  if (template === 'template5') {
+    const buildT5Table = (startIdx: number, endIdx: number) => {
+      const pageItems = itemsWithDetails.slice(startIdx, endIdx);
+      const rows = pageItems.map((item) => `
+        <tr style="font-size:8.5px;${item.is_delivery ? 'background:#f1f5f9;font-weight:bold;' : ''}">
+          <td style="border:1px solid #cbd5e1;padding:2px;text-align:center;">${item.serial}</td>
+          <td style="border:1px solid #cbd5e1;padding:2px 4px;text-align:left;">${item.product_name}</td>
+          <td style="border:1px solid #cbd5e1;padding:2px;text-align:center;">${item.hsn}</td>
+          <td style="border:1px solid #cbd5e1;padding:2px;text-align:center;">${item.quantity}</td>
+          <td style="border:1px solid #cbd5e1;padding:2px;text-align:right;">₹${item.unit_price.toFixed(2)}</td>
+          <td style="border:1px solid #cbd5e1;padding:2px;text-align:right;">${item.item_discount > 0 ? `-₹${item.item_discount.toFixed(2)}` : '-'}</td>
+          <td style="border:1px solid #cbd5e1;padding:2px;text-align:right;font-weight:600;">₹${item.taxable_value.toFixed(2)}</td>
+          <td style="border:1px solid #cbd5e1;padding:2px;text-align:center;">${item.gst_rate}%</td>
+          <td style="border:1px solid #cbd5e1;padding:2px;text-align:right;">₹${item.cgst.toFixed(2)}</td>
+          <td style="border:1px solid #cbd5e1;padding:2px;text-align:right;">₹${item.sgst.toFixed(2)}</td>
+          <td style="border:1px solid #cbd5e1;padding:2px;text-align:right;font-weight:700;">₹${item.row_total.toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <table style="width:100%;border-collapse:collapse;margin-top:4px;">
+          <thead>
+            <tr style="background:#f8fafc;font-size:8.5px;font-weight:bold;">
+              <th style="border:1px solid #cbd5e1;padding:3px;width:24px;">#</th>
+              <th style="border:1px solid #cbd5e1;padding:3px;text-align:left;">Description</th>
+              <th style="border:1px solid #cbd5e1;padding:3px;width:44px;">HSN</th>
+              <th style="border:1px solid #cbd5e1;padding:3px;width:28px;">Qty</th>
+              <th style="border:1px solid #cbd5e1;padding:3px;width:50px;">Rate</th>
+              <th style="border:1px solid #cbd5e1;padding:3px;width:46px;">Disc</th>
+              <th style="border:1px solid #cbd5e1;padding:3px;width:55px;">Taxable</th>
+              <th style="border:1px solid #cbd5e1;padding:3px;width:34px;">GST%</th>
+              <th style="border:1px solid #cbd5e1;padding:3px;width:46px;">CGST</th>
+              <th style="border:1px solid #cbd5e1;padding:3px;width:46px;">SGST</th>
+              <th style="border:1px solid #cbd5e1;padding:3px;width:60px;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    };
+
+    let tablesHtml = '';
+    slices.forEach((s, idx) => {
+      tablesHtml += buildT5Table(s.start, s.end);
+      if (printMode === 'sliced' && idx < slices.length - 1) tablesHtml += `<div style="page-break-after:always;"></div>`;
+    });
+
+    const bodyContent = `
+      <div style="font-size:9px;line-height:1.3;">
+        <!-- Compact 2-Column Header -->
+        <div style="display:flex;justify-content:space-between;border-bottom:1.5px solid #0f172a;padding-bottom:4px;margin-bottom:6px;">
+          <div>
+            <div style="font-size:14px;font-weight:900;">${config?.company_name || 'STORE'}</div>
+            <div style="font-size:8.5px;color:#555;">${config?.company_address || ''} | GSTIN: ${config?.company_gst || '-'}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;">${design.headerText || 'TAX INVOICE'}</div>
+            <div style="font-size:8.5px;color:#555;">#${invoiceNumber} | ${currentDate}</div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;background:#f8fafc;border:1px solid #cbd5e1;padding:4px 6px;margin-bottom:4px;font-size:8.5px;">
+          <div><strong>Customer:</strong> ${customerNameDisplay} (${customerPhoneDisplay || '-'}) | GST: ${customerGstDisplay || 'Unreg'}</div>
+          <div><strong>Place of Supply:</strong> ${address?.state || 'Local'}</div>
+        </div>
+
+        ${tablesHtml}
+
+        <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+          <div style="width:230px;border:1px solid #cbd5e1;padding:4px 6px;background:#f8fafc;font-size:9px;line-height:1.5;">
+            <div style="display:flex;justify-content:space-between;"><span>Taxable Subtotal:</span><span>₹${overallTaxable.toFixed(2)}</span></div>
+            ${totalDiscount > 0 ? `<div style="display:flex;justify-content:space-between;color:green;"><span>Discount:</span><span>-₹${totalDiscount.toFixed(2)}</span></div>` : ''}
+            <div style="display:flex;justify-content:space-between;"><span>Total Tax (CGST+SGST):</span><span>₹${overallGst.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;font-weight:900;border-top:1px solid #000;margin-top:2px;padding-top:2px;font-size:11px;">
+              <span>TOTAL DUE:</span><span>₹${overallGrand.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        ${bankSection}
+        ${termsSection}
+        ${signatureHtml}
+      </div>
+    `;
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: Arial, sans-serif; font-size: 8.5px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
+  }
+
+  // Fallback default
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules}</style></head><body>${buildA4InvoiceHtml(data, config, { ...design, gstTemplate: 'template4' })}</body></html>`;
 }

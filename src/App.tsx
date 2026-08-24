@@ -516,10 +516,11 @@ function App() {
     screen === 'brand' ||
     screen === 'banner';
 
+  // Inside App.tsx return block
   return (
     <div className="min-h-screen bg-ink-100">
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-
+  
       <div className="mx-auto min-h-screen max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50">
         {!isFullBleed && (
           <Header
@@ -527,23 +528,27 @@ function App() {
             onCartClick={() => goTo('cart')}
           />
         )}
-
-        <main className={`pb-24 ${isFullBleed ? 'pt-0' : 'py-4'}`}>
+  
+        <main className={`${isFullBleed ? 'pb-0 pt-0' : 'py-4 pb-24'}`}>
           <BackButtonHandler />
           <KeepAliveRenderer
             currentKey={key}
             render={renderScreen}
           />
         </main>
-
-        <BottomNavigation
-          active={screen}
-          cartCount={cart.totalItems}
-          onNavigate={goTo}
-        />
+  
+        {/* Hide BottomNavigation on Subcategory screen */}
+        {screen !== 'categoryDetail' && (
+          <BottomNavigation
+            active={screen}
+            cartCount={cart.totalItems}
+            onNavigate={goTo}
+          />
+        )}
       </div>
     </div>
   );
+
 }
 
 export default function RootApp() {

@@ -20,7 +20,7 @@ export async function getFastCurrentPosition(): Promise<PositionResult> {
 
       const position = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 15000,
         maximumAge: 5000,
       });
 
@@ -48,8 +48,8 @@ export async function getFastCurrentPosition(): Promise<PositionResult> {
       const quickPos = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: false,
-          timeout: 6000,
-          maximumAge: 60000, // Accepts cached location up to 1 min old
+          timeout: 10000, // 10 seconds for initial quick check
+          maximumAge: 60000,
         });
       });
 
@@ -62,12 +62,12 @@ export async function getFastCurrentPosition(): Promise<PositionResult> {
         throw new Error('Location permission denied. Tap the lock icon in Chrome to allow location.');
       }
 
-      // Step B: Hardware GPS attempt if network position failed
+      // Step B: Hardware GPS attempt with extended 35-second timeout
       try {
         const accuratePos = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
-            timeout: 8000,
+            timeout: 35000, // 👈 35 seconds timeout for GPS hardware lock
             maximumAge: 0,
           });
         });

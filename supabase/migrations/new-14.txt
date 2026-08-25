@@ -1,0 +1,29 @@
+-- 1. Campaign log table
+CREATE TABLE IF NOT EXISTS public.whatsapp_campaigns (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  template_name text NOT NULL,
+  audience_type text NOT NULL DEFAULT 'all',
+  total_recipients integer NOT NULL DEFAULT 0,
+  successful_sends integer NOT NULL DEFAULT 0,
+  failed_sends integer NOT NULL DEFAULT 0,
+  template_params jsonb NOT NULL DEFAULT '{}'::jsonb,
+  button_param text,
+  status text NOT NULL DEFAULT 'completed',
+  sent_by uuid REFERENCES auth.users(id),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT whatsapp_campaigns_pkey PRIMARY KEY (id)
+);
+
+-- 2. Message detail logs
+CREATE TABLE IF NOT EXISTS public.whatsapp_message_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  campaign_id uuid REFERENCES public.whatsapp_campaigns(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES auth.users(id),
+  recipient_phone text NOT NULL,
+  status text NOT NULL DEFAULT 'queued',
+  whatsapp_message_id text,
+  error_message text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT whatsapp_message_logs_pkey PRIMARY KEY (id)
+);
+

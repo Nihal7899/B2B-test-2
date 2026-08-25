@@ -1,4 +1,3 @@
-// screens/AdminScreen.tsx
 import { useState } from 'react';
 import { 
   ArrowLeft, 
@@ -18,16 +17,18 @@ import {
   Bell,
   BarChart2,
   PenTool,
+  MessageSquare, // Added icon
 } from 'lucide-react';
 import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import InvoiceSettings from '@/components/InvoiceSettings';
 import AdminInvoices from '@/components/AdminInvoices';
+import WhatsAppCampaignManager from '@/components/Admin/WhatsAppCampaignManager'; // Added component
 
 import Dashboard from '@/components/Admin/Dashboard';
 import BannersManager from '@/components/Admin/BannersManager';
 import StoresManager from '@/components/Admin/StoresManager';
 import StoreConfigManager from '@/components/Admin/StoreConfigManager';
-import BrandConfigManager from '@/components/Admin/BrandConfigManager'; // NEW
+import BrandConfigManager from '@/components/Admin/BrandConfigManager';
 import BrandsManager from '@/components/Admin/BrandsManager';
 import CategoriesManager from '@/components/Admin/CategoriesManager';
 import ProductsManager from '@/components/Admin/ProductsManager';
@@ -50,9 +51,10 @@ type Tab =
   | 'banners'
   | 'stores'
   | 'storeContent'
-  | 'brandContent'   // NEW
+  | 'brandContent'
   | 'brands'
   | 'categories'
+  | 'subcategories'
   | 'products'
   | 'volumepricing'
   | 'promocodes'
@@ -63,17 +65,20 @@ type Tab =
   | 'invoiceSettings'
   | 'deliveryRanges'
   | 'push'
-  | 'reports';
+  | 'whatsapp' // Added Tab ID
+  | 'reports'
+  | 'compression';
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
 
   const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare }, // Added WhatsApp Tab
     { id: 'banners', label: 'Banners', icon: Tag },
     { id: 'stores', label: 'Stores', icon: Store },
     { id: 'storeContent', label: 'Store Content', icon: PenTool },
-    { id: 'brandContent', label: 'Brand Content', icon: PenTool }, // NEW
+    { id: 'brandContent', label: 'Brand Content', icon: PenTool },
     { id: 'brands', label: 'Brands', icon: Award },
     { id: 'categories', label: 'Categories', icon: LayoutGrid },
     { id: 'subcategories', label: 'Subcategories', icon: LayoutGrid },
@@ -127,10 +132,11 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
       {/* Main content */}
       <div className="flex-1 space-y-4">
         {tab === 'dashboard' && <Dashboard onNavigateToTab={(tabId: Tab) => setTab(tabId)} />}
+        {tab === 'whatsapp' && <WhatsAppCampaignManager />}
         {tab === 'banners' && <BannersManager />}
         {tab === 'stores' && <StoresManager />}
         {tab === 'storeContent' && <StoreConfigManager />}
-        {tab === 'brandContent' && <BrandConfigManager />} {/* NEW */}
+        {tab === 'brandContent' && <BrandConfigManager />}
         {tab === 'brands' && <BrandsManager />}
         {tab === 'categories' && <CategoriesManager />}
         {tab === 'subcategories' && <SubcategoriesManager />}

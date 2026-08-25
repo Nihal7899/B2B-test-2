@@ -32,6 +32,7 @@ CREATE TABLE public.categories (
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  gradient text,
   CONSTRAINT categories_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.products (
@@ -55,12 +56,14 @@ CREATE TABLE public.products (
   is_available boolean DEFAULT true,
   min_order_quantity integer DEFAULT 1,
   brand_id uuid,
-  subcategory_id uuid,
   hsn_code text,
   gst_percentage numeric DEFAULT 0 CHECK (gst_percentage >= 0::numeric AND gst_percentage <= 100::numeric),
   product_code text UNIQUE,
+  subcategory_id uuid,
+  image_urls ARRAY DEFAULT '{}'::text[],
   CONSTRAINT products_pkey PRIMARY KEY (id),
-  CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
+  CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id),
+  CONSTRAINT products_subcategory_id_fkey FOREIGN KEY (subcategory_id) REFERENCES public.subcategories(id)
 );
 CREATE TABLE public.promotions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -296,6 +299,13 @@ CREATE TABLE public.stores (
   text_color text DEFAULT '#064e3b'::text,
   border_color text DEFAULT '#a7f3d0'::text,
   config jsonb DEFAULT '{"hero": {"image": "", "title": "", "ctaLink": "/categories", "ctaText": "Shop Now", "enabled": true, "subtitle": "", "ctaBgColor": "#ffffff", "gradientTo": "#16a34a", "ctaTextColor": "#065f46", "gradientFrom": "#065f46"}, "bulkDeal": {"cta": "", "tag": "", "icon": "Package", "title": "", "enabled": false, "subtitle": "", "ctaBgColor": "#ffffff", "ctaTextColor": "#065f46"}, "trending": {"title": "Top categories", "ctaText": "Browse all categories", "enabled": false, "subtitle": "Jump straight to what customers are buying most", "ctaBgColor": "#ffffff", "iconButtons": [], "ctaTextColor": "#065f46"}, "badgeText": "STORE", "badgeColor": "#fbbf24", "categories": [], "highlights": [], "tintOpacity": 50}'::jsonb,
+  rating text,
+  orders text,
+  store_icon text,
+  features jsonb DEFAULT '[]'::jsonb,
+  premium_badge jsonb DEFAULT '{"icon": "Sparkles", "label": "PREMIUM", "sublabel": "QUALITY"}'::jsonb,
+  badge_text text DEFAULT 'STORE'::text,
+  badge_color text DEFAULT '#fbbf24'::text,
   CONSTRAINT stores_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.trusted_brands (
@@ -306,6 +316,15 @@ CREATE TABLE public.trusted_brands (
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  primary_color character varying DEFAULT '#3B82F6'::character varying,
+  secondary_color character varying DEFAULT '#1E40AF'::character varying,
+  product_images jsonb DEFAULT '[]'::jsonb,
+  tagline text,
+  categories ARRAY,
+  bottom_label text,
+  bottom_icon text CHECK (bottom_icon = ANY (ARRAY['shield'::text, 'crown'::text, 'leaf'::text])),
+  description text,
+  config jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT trusted_brands_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.product_volume_pricing (
@@ -445,4 +464,35 @@ CREATE TABLE public.push_notifications (
   audience text DEFAULT 'all'::text,
   CONSTRAINT push_notifications_pkey PRIMARY KEY (id),
   CONSTRAINT push_notifications_sent_by_fkey FOREIGN KEY (sent_by) REFERENCES auth.users(id)
+);
+CREATE TABLE public.subcategories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  category_id uuid NOT NULL,
+  name text NOT NULL,
+  slug text NOT NULL UNIQUE,
+  image_url text,
+  description text,
+  sort_order integer DEFAULT 0,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT subcategories_pkey PRIMARY KEY (id),
+  CONSTRAINT subcategories_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
+);
+CREATE TABLE public.notification_channels (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  channel_id text NOT NULL UNIQUE,
+  name text NOT NULL,
+  description text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  small_icon text,
+  CONSTRAINT notification_channels_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.app_settings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  key text NOT NULL UNIQUE,
+  value jsonb NOT NULL,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT app_settings_pkey PRIMARY KEY (id)
 );

@@ -1,65 +1,55 @@
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
-import { supabase } from '@/lib/supabase';
 
 interface PositionResult {
   latitude: number;
   longitude: number;
+  accuracy?: number;
 }
 
 /**
- * Uses watchPosition instead of getCurrentPosition to prevent Chrome on Android from hanging.
+ * Clean wrapper around navigator.geolocation to prevent browser hanging.
  */
-function getBrowserPositionWatch(options: PositionOptions): Promise<GeolocationPosition> {
+function requestBrowserPosition(options: PositionOptions): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !('geolocation' in navigator)) {
       return reject(new Error('Geolocation is not supported by your browser.'));
     }
 
-    let watchId: number | null = null;
-    let settled = false;
+    let completed = false;
 
-    // Hard fallback timer in case browser fails to trigger internal timeout
-    const hardTimer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    // Timeout safety net
+    const timeoutId = setTimeout(() => {
+      if (!completed) {
+        completed = true;
         reject(new Error('TIMEOUT'));
       }
-    }, (options.timeout || 7000) + 500);
+    }, (options.timeout || 10000) + 500);
 
-    try {
-      watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          if (!settled && position?.coords) {
-            settled = true;
-            clearTimeout(hardTimer);
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-            resolve(position);
-          }
-        },
-        (error) => {
-          if (!settled) {
-            settled = true;
-            clearTimeout(hardTimer);
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-            reject(error);
-          }
-        },
-        options
-      );
-    } catch (err) {
-      clearTimeout(hardTimer);
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-      reject(err);
-    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (!completed) {
+          completed = true;
+          clearTimeout(timeoutId);
+          resolve(pos);
+        }
+      },
+      (err) => {
+        if (!completed) {
+          completed = true;
+          clearTimeout(timeoutId);
+          reject(err);
+        }
+      },
+      options
+    );
   });
 }
 
 export async function getFastCurrentPosition(): Promise<PositionResult> {
-  // ----------------------------------------------------
-  // 1. CAPACITOR NATIVE APP (Android / iOS)
-  // ----------------------------------------------------
+  // ------------------------------------------------------------------
+  // 1. NATIVE CAPACITOR APP (Android / iOS)
+  // ------------------------------------------------------------------
   if (Capacitor.isNativePlatform()) {
     try {
       const permission = await Geolocation.checkPermissions();
@@ -72,93 +62,67 @@ export async function getFastCurrentPosition(): Promise<PositionResult> {
 
       const position = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 8000,
-        maximumAge: 10000,
+        timeout: 10000,
+        maximumAge: 5000,
       });
 
       return {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
       };
     } catch (err: any) {
       if (err?.message?.toLowerCase().includes('denied')) {
         throw new Error('Location permission denied in app settings.');
       }
-      console.warn('Native geolocation failed, falling back to browser...', err);
+      console.warn('Native geolocation failed, attempting browser fallback...', err);
     }
   }
 
-  // ----------------------------------------------------
-  // 2. MOBILE & DESKTOP BROWSERS (Chrome, Firefox, Safari)
-  // ----------------------------------------------------
+  // ------------------------------------------------------------------
+  // 2. WEB BROWSER (Chrome, Firefox, Safari, Kiwi)
+  // ------------------------------------------------------------------
   if (typeof window !== 'undefined' && 'geolocation' in navigator) {
     // Check permission state in Chromium-based browsers
     if (navigator.permissions && navigator.permissions.query) {
       try {
         const status = await navigator.permissions.query({ name: 'geolocation' });
         if (status.state === 'denied') {
-          throw new Error('Location blocked. Tap the tune/lock icon in your URL bar and allow location.');
+          throw new Error('Location permission is blocked. Tap the tune/lock icon in your URL bar to allow access.');
         }
       } catch {
-        // Permissions query not supported or failed; proceed to normal flow
+        // Permissions API not available; continue
       }
     }
 
-    // Step 2A: Fast Network & Wi-Fi Triangulation (Resolves in <1s on Chrome)
     try {
-      const quickPos = await getBrowserPositionWatch({
-        enableHighAccuracy: false,
-        timeout: 4000,
-        maximumAge: 60000, // Accepts cached fix from up to 60s ago
+      // 10-second window to let Android Chrome warm up Google Play Services GPS / Wi-Fi
+      const pos = await requestBrowserPosition({
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 10000, // Accepts cached fix up to 10s old for instant load
       });
 
+      // Filter out inaccurate ISP/City-wide approximations (> 10 km error radius)
+      if (pos.coords.accuracy && pos.coords.accuracy > 10000) {
+        throw new Error('Detected location is too inaccurate. Please select your address manually.');
+      }
+
       return {
-        latitude: quickPos.coords.latitude,
-        longitude: quickPos.coords.longitude,
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
       };
-    } catch (firstErr: any) {
-      if (firstErr.code === 1 || firstErr.message === 'PERMISSION_DENIED') {
+    } catch (err: any) {
+      if (err.code === 1 || err.message === 'PERMISSION_DENIED') {
         throw new Error('Location permission denied. Please allow location access in your browser.');
       }
-
-      // Step 2B: High-Accuracy GPS Attempt via active Watch
-      try {
-        const precisePos = await getBrowserPositionWatch({
-          enableHighAccuracy: true,
-          timeout: 6000,
-          maximumAge: 0,
-        });
-
-        return {
-          latitude: precisePos.coords.latitude,
-          longitude: precisePos.coords.longitude,
-        };
-      } catch (secondErr: any) {
-        if (secondErr.code === 1 || secondErr.message === 'PERMISSION_DENIED') {
-          throw new Error('Location permission denied.');
-        }
-        console.warn('Browser GPS watch failed, checking cloud fallback...', secondErr);
+      if (err.message && err.message.includes('inaccurate')) {
+        throw err;
       }
     }
   }
 
-  // ----------------------------------------------------
-  // 3. CLOUD FALLBACK (Google Geolocation API)
-  // ----------------------------------------------------
-  try {
-    const { data, error } = await supabase.functions.invoke('maps', {
-      body: { action: 'geolocate' },
-    });
-
-    if (!error && data?.location?.lat && data?.location?.lng) {
-      return {
-        latitude: data.location.lat,
-        longitude: data.location.lng,
-      };
-    }
-  } catch (cloudErr) {
-    console.error('Cloud geolocation fallback failed:', cloudErr);
-  }
-
-  throw new Error('Could not detect location. Please search for your area or tap on the map.');
+  // Pure failure: Never guesses via server IP
+  throw new Error('Could not get an accurate GPS location. Please search your place or tap on the map.');
 }

@@ -30,6 +30,17 @@ interface TemplateConfig {
 
 const TEMPLATES: TemplateConfig[] = [
   {
+    id: 'hello_world',
+    name: 'Meta Pre-Approved Test (hello_world)',
+    description: 'Instant test template approved by Meta by default. Requires no variable configuration.',
+    buttonLabel: 'None',
+    defaultButtonParam: '',
+    buttonParamHelp: 'No button parameters needed for the hello_world template',
+    fields: [],
+    preview: () =>
+      `Hello World!\n\nWelcome and congratulations! This message confirms that your WhatsApp Business Cloud API integration is live and working.`,
+  },
+  {
     id: 'flash_sale_promo',
     name: 'Flash Sale / Discount',
     description: 'Promote percentage discounts and special seasonal coupon codes.',
@@ -47,7 +58,7 @@ const TEMPLATES: TemplateConfig[] = [
   {
     id: 'new_arrivals_promo',
     name: 'New Arrivals / Spotlight',
-    description: 'Notify customers about newly added categories or fresh stock.',
+    description: 'Notify customers about newly added categories or fresh wholesale inventory.',
     buttonLabel: 'View Collection',
     defaultButtonParam: 'categories/beverages',
     buttonParamHelp: 'Appended to domain (e.g. categories/beverages)',
@@ -95,7 +106,6 @@ export default function WhatsAppCampaignManager() {
 
   const selectedTemplate = TEMPLATES.find((t) => t.id === selectedTemplateId) || TEMPLATES[0];
 
-  // Update default button parameter when template changes
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplateId(templateId);
     const tmpl = TEMPLATES.find((t) => t.id === templateId);
@@ -104,7 +114,6 @@ export default function WhatsAppCampaignManager() {
     }
   };
 
-  // Fetch count of valid phone recipients from public.profiles
   const fetchRecipientCount = async () => {
     setIsLoadingCount(true);
     setErrorMsg(null);
@@ -133,10 +142,9 @@ export default function WhatsAppCampaignManager() {
     fetchRecipientCount();
   }, [audience]);
 
-  // Dispatch campaign via Supabase Edge Function
   const handleSendCampaign = async () => {
     if (!recipientCount || recipientCount === 0) {
-      alert('No valid recipients found for this audience.');
+      alert('No valid recipients found for this audience filter.');
       return;
     }
 
@@ -149,7 +157,6 @@ export default function WhatsAppCampaignManager() {
     setResult(null);
     setErrorMsg(null);
 
-    // Build parameter values in exact order required by Meta template
     const orderedBodyParams = [
       'Customer Name',
       ...selectedTemplate.fields.map((f) => paramValues[f.key] || f.default),
@@ -177,7 +184,7 @@ export default function WhatsAppCampaignManager() {
           failed: data.failed,
         });
       } else {
-        throw new Error(data?.error || 'Unknown dispatch error occurred.');
+        throw new Error(data?.error || 'Failed to process WhatsApp campaign.');
       }
     } catch (err: any) {
       console.error('Campaign submission failed:', err);
@@ -189,14 +196,14 @@ export default function WhatsAppCampaignManager() {
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
+      {/* Top Header Card */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-ink-200">
         <div>
           <h2 className="text-xl font-black text-ink-900 flex items-center gap-2">
             <Sparkles className="text-brand-600" size={22} /> WhatsApp Broadcast Manager
           </h2>
           <p className="text-sm text-ink-500 mt-0.5">
-            Deliver pre-approved Meta WhatsApp templates directly to registered phone numbers.
+            Deliver pre-approved Meta WhatsApp templates directly to registered profile contacts.
           </p>
         </div>
         <button
@@ -288,57 +295,61 @@ export default function WhatsAppCampaignManager() {
                 />
                 <div>
                   <div className="text-sm font-bold text-ink-900">Registered Only</div>
-                  <div className="text-xs text-ink-500">Verified business accounts</div>
+                  <div className="text-xs text-ink-500">Verified business profiles</div>
                 </div>
               </label>
             </div>
           </div>
 
-          {/* 3. Dynamic Variables */}
-          <div className="space-y-3.5">
-            <label className="block text-xs font-bold uppercase tracking-wider text-ink-500">
-              3. Message Variables
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {selectedTemplate.fields.map((field) => (
-                <div key={field.key} className="space-y-1">
-                  <label className="text-xs font-semibold text-ink-700 block">
-                    {field.label}
-                  </label>
-                  <input
-                    type="text"
-                    value={paramValues[field.key] || ''}
-                    placeholder={field.default}
-                    onChange={(e) =>
-                      setParamValues({ ...paramValues, [field.key]: e.target.value })
-                    }
-                    className="w-full px-3.5 py-2.5 border border-ink-200 rounded-xl text-sm font-medium text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-                  />
-                </div>
-              ))}
+          {/* 3. Dynamic Variables (Hidden for hello_world) */}
+          {selectedTemplate.fields.length > 0 && (
+            <div className="space-y-3.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-ink-500">
+                3. Message Variables
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {selectedTemplate.fields.map((field) => (
+                  <div key={field.key} className="space-y-1">
+                    <label className="text-xs font-semibold text-ink-700 block">
+                      {field.label}
+                    </label>
+                    <input
+                      type="text"
+                      value={paramValues[field.key] || ''}
+                      placeholder={field.default}
+                      onChange={(e) =>
+                        setParamValues({ ...paramValues, [field.key]: e.target.value })
+                      }
+                      className="w-full px-3.5 py-2.5 border border-ink-200 rounded-xl text-sm font-medium text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* 4. Dynamic URL Button Parameter */}
-          <div className="space-y-1.5 pt-1">
-            <label className="block text-xs font-bold uppercase tracking-wider text-ink-500">
-              4. Dynamic Button Path / Query
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={buttonParam}
-                onChange={(e) => setButtonParam(e.target.value)}
-                placeholder="e.g. cart?promo=SAVE20"
-                className="w-full px-3.5 py-2.5 border border-ink-200 rounded-xl text-sm font-mono text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-              />
+          {/* 4. Dynamic URL Button Parameter (Hidden for hello_world) */}
+          {selectedTemplate.id !== 'hello_world' && (
+            <div className="space-y-1.5 pt-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-ink-500">
+                4. Dynamic Button Path / Query
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={buttonParam}
+                  onChange={(e) => setButtonParam(e.target.value)}
+                  placeholder="e.g. cart?promo=SAVE20"
+                  className="w-full px-3.5 py-2.5 border border-ink-200 rounded-xl text-sm font-mono text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+                />
+              </div>
+              <p className="text-[11px] text-ink-500">
+                {selectedTemplate.buttonParamHelp}. Leading slashes are trimmed automatically.
+              </p>
             </div>
-            <p className="text-[11px] text-ink-500">
-              {selectedTemplate.buttonParamHelp}. Leading slashes are stripped automatically.
-            </p>
-          </div>
+          )}
 
-          {/* Action Button */}
+          {/* Action Trigger Button */}
           <button
             type="button"
             onClick={handleSendCampaign}
@@ -347,14 +358,14 @@ export default function WhatsAppCampaignManager() {
           >
             <Send size={18} />
             {isSending
-              ? 'Broadcasting Campaign...'
+              ? 'Broadcasting Messages...'
               : `Send Campaign (${recipientCount ?? 0} Recipients)`}
           </button>
         </div>
 
-        {/* Right Column: 5 Columns (Live Preview & Execution Logs) */}
+        {/* Right Column: 5 Columns (Preview & Execution Logs) */}
         <div className="lg:col-span-5 space-y-4">
-          {/* WhatsApp Chat Preview Card */}
+          {/* Live Phone Mock */}
           <div className="bg-ink-950 p-5 rounded-2xl text-white shadow-md">
             <div className="flex items-center justify-between text-emerald-400 mb-3.5 pb-2 border-b border-ink-800">
               <div className="flex items-center gap-2">
@@ -366,35 +377,37 @@ export default function WhatsAppCampaignManager() {
               </span>
             </div>
 
-            {/* Chat Bubble Container */}
-            <div className="bg-[#EFEAE2] p-4 rounded-xl shadow-inner min-h-[260px] flex flex-col justify-between">
+            {/* Bubble Canvas */}
+            <div className="bg-[#EFEAE2] p-4 rounded-xl shadow-inner min-h-[240px] flex flex-col justify-between">
               <div className="bg-white p-3.5 rounded-2xl rounded-tl-none shadow-sm border border-emerald-950/5 max-w-full">
                 <p className="text-xs sm:text-sm text-ink-900 leading-relaxed whitespace-pre-line font-normal">
                   {selectedTemplate.preview(paramValues)}
                 </p>
                 <div className="mt-2 pt-2 border-t border-ink-100 text-[11px] text-ink-400 flex items-center justify-between">
-                  <span>Reply STOP to unsubscribe</span>
+                  <span>{selectedTemplate.id !== 'hello_world' ? 'Reply STOP to unsubscribe' : ''}</span>
                   <span className="text-[10px]">12:00 PM</span>
                 </div>
               </div>
 
-              {/* Dynamic URL Button Mock */}
-              <div className="mt-3 bg-white hover:bg-ink-50 transition-colors border border-ink-200 rounded-xl py-2.5 px-3 flex items-center justify-center gap-2 text-brand-600 font-bold text-xs sm:text-sm shadow-sm cursor-default">
-                <ExternalLink size={14} />
-                <span>{selectedTemplate.buttonLabel}</span>
-              </div>
+              {selectedTemplate.buttonLabel !== 'None' && (
+                <div className="mt-3 bg-white hover:bg-ink-50 transition-colors border border-ink-200 rounded-xl py-2.5 px-3 flex items-center justify-center gap-2 text-brand-600 font-bold text-xs sm:text-sm shadow-sm cursor-default">
+                  <ExternalLink size={14} />
+                  <span>{selectedTemplate.buttonLabel}</span>
+                </div>
+              )}
             </div>
 
-            {/* Dynamic URL Destination Display */}
-            <div className="mt-3 px-1 text-[11px] text-ink-400 truncate">
-              <span className="text-ink-500">Target URL:</span>{' '}
-              <span className="font-mono text-emerald-300">
-                https://your-domain.com/{buttonParam.replace(/^\/+/, '')}
-              </span>
-            </div>
+            {selectedTemplate.buttonLabel !== 'None' && (
+              <div className="mt-3 px-1 text-[11px] text-ink-400 truncate">
+                <span className="text-ink-500">Destination:</span>{' '}
+                <span className="font-mono text-emerald-300">
+                  https://your-domain.com/{buttonParam.replace(/^\/+/, '')}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Feedback & Result Notifications */}
+          {/* Error Banner */}
           {errorMsg && (
             <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex items-start gap-3 text-rose-800 animate-in fade-in duration-200">
               <AlertTriangle className="shrink-0 text-rose-600 mt-0.5" size={18} />
@@ -405,6 +418,7 @@ export default function WhatsAppCampaignManager() {
             </div>
           )}
 
+          {/* Success Statistics */}
           {result && (
             <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl space-y-2 text-emerald-900 animate-in fade-in duration-200">
               <div className="flex items-center gap-2 font-bold text-sm text-emerald-700">
@@ -427,10 +441,10 @@ export default function WhatsAppCampaignManager() {
             </div>
           )}
 
-          {/* Quick Audience Summary */}
+          {/* Total Profile Stats */}
           <div className="bg-white p-4 rounded-2xl border border-ink-200 text-xs text-ink-600 flex items-center justify-between">
             <span className="flex items-center gap-1.5 font-medium">
-              <Users size={15} className="text-ink-400" /> Active Profile Reach:
+              <Users size={15} className="text-ink-400" /> Target Profile Count:
             </span>
             <span className="font-bold text-ink-900 bg-ink-100 px-2 py-0.5 rounded-md">
               {recipientCount === null ? 'Calculating...' : `${recipientCount} phone numbers`}

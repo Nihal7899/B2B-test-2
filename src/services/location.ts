@@ -4,59 +4,17 @@ import { Geolocation } from '@capacitor/geolocation';
 interface PositionResult {
   latitude: number;
   longitude: number;
-  accuracy?: number;
-}
-
-/**
- * Clean wrapper around navigator.geolocation to prevent browser hanging.
- */
-function requestBrowserPosition(options: PositionOptions): Promise<GeolocationPosition> {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
-      return reject(new Error('Geolocation is not supported by your browser.'));
-    }
-
-    let completed = false;
-
-    // Timeout safety net
-    const timeoutId = setTimeout(() => {
-      if (!completed) {
-        completed = true;
-        reject(new Error('TIMEOUT'));
-      }
-    }, (options.timeout || 10000) + 500);
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        if (!completed) {
-          completed = true;
-          clearTimeout(timeoutId);
-          resolve(pos);
-        }
-      },
-      (err) => {
-        if (!completed) {
-          completed = true;
-          clearTimeout(timeoutId);
-          reject(err);
-        }
-      },
-      options
-    );
-  });
 }
 
 export async function getFastCurrentPosition(): Promise<PositionResult> {
-  // ------------------------------------------------------------------
-  // 1. NATIVE CAPACITOR APP (Android / iOS)
-  // ------------------------------------------------------------------
+  // 1. Native Capacitor App Layer
   if (Capacitor.isNativePlatform()) {
     try {
       const permission = await Geolocation.checkPermissions();
       if (permission.location !== 'granted') {
         const requested = await Geolocation.requestPermissions();
         if (requested.location !== 'granted') {
-          throw new Error('Location permission denied in app settings.');
+          throw new Error('Location permission denied.');
         }
       }
 
@@ -69,60 +27,65 @@ export async function getFastCurrentPosition(): Promise<PositionResult> {
       return {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
       };
     } catch (err: any) {
       if (err?.message?.toLowerCase().includes('denied')) {
         throw new Error('Location permission denied in app settings.');
       }
-      console.warn('Native geolocation failed, attempting browser fallback...', err);
     }
   }
 
-  // ------------------------------------------------------------------
-  // 2. WEB BROWSER (Chrome, Firefox, Safari, Kiwi)
-  // ------------------------------------------------------------------
+  // 2. Android Chrome / Mobile Browser Layer
   if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-    // Check permission state in Chromium-based browsers
-    if (navigator.permissions && navigator.permissions.query) {
-      try {
-        const status = await navigator.permissions.query({ name: 'geolocation' });
-        if (status.state === 'denied') {
-          throw new Error('Location permission is blocked. Tap the tune/lock icon in your URL bar to allow access.');
-        }
-      } catch {
-        // Permissions API not available; continue
-      }
+    if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+      throw new Error(
+        'Location requires HTTPS. If testing on mobile via local network IP, enable HTTPS or Chrome insecure origin flags.'
+      );
     }
 
+    // Step A: Fast fix (uses Wi-Fi / Google Play Services network location)
     try {
-      // 10-second window to let Android Chrome warm up Google Play Services GPS / Wi-Fi
-      const pos = await requestBrowserPosition({
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 10000, // Accepts cached fix up to 10s old for instant load
+      const quickPos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 6000,
+          maximumAge: 60000, // Accepts cached location up to 1 min old
+        });
       });
 
-      // Filter out inaccurate ISP/City-wide approximations (> 10 km error radius)
-      if (pos.coords.accuracy && pos.coords.accuracy > 10000) {
-        throw new Error('Detected location is too inaccurate. Please select your address manually.');
+      return {
+        latitude: quickPos.coords.latitude,
+        longitude: quickPos.coords.longitude,
+      };
+    } catch (firstErr: any) {
+      if (firstErr.code === 1) {
+        throw new Error('Location permission denied. Tap the lock icon in Chrome to allow location.');
       }
 
-      return {
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-        accuracy: pos.coords.accuracy,
-      };
-    } catch (err: any) {
-      if (err.code === 1 || err.message === 'PERMISSION_DENIED') {
-        throw new Error('Location permission denied. Please allow location access in your browser.');
-      }
-      if (err.message && err.message.includes('inaccurate')) {
-        throw err;
+      // Step B: Hardware GPS attempt if network position failed
+      try {
+        const accuratePos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+            maximumAge: 0,
+          });
+        });
+
+        return {
+          latitude: accuratePos.coords.latitude,
+          longitude: accuratePos.coords.longitude,
+        };
+      } catch (secondErr: any) {
+        if (secondErr.code === 1) {
+          throw new Error('Location permission denied.');
+        }
+        if (secondErr.code === 2) {
+          throw new Error('GPS signal unavailable. Enable Google Location Accuracy in Android settings.');
+        }
       }
     }
   }
 
-  // Pure failure: Never guesses via server IP
-  throw new Error('Could not get an accurate GPS location. Please search your place or tap on the map.');
+  throw new Error('Location request timed out. Please tap on the map or search your address.');
 }

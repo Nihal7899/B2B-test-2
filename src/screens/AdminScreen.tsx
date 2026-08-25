@@ -74,12 +74,12 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
 
   const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare }, // Added WhatsApp Tab
+ed WhatsApp Tab
     { id: 'banners', label: 'Banners', icon: Tag },
     { id: 'stores', label: 'Stores', icon: Store },
     { id: 'storeContent', label: 'Store Content', icon: PenTool },
-    { id: 'brandContent', label: 'Brand Content', icon: PenTool },
     { id: 'brands', label: 'Brands', icon: Award },
+    { id: 'brandContent', label: 'Brand Content', icon: PenTool },
     { id: 'categories', label: 'Categories', icon: LayoutGrid },
     { id: 'subcategories', label: 'Subcategories', icon: LayoutGrid },
     { id: 'products', label: 'Products', icon: Package },
@@ -92,6 +92,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'invoiceSettings', label: 'Invoice Settings', icon: Settings },
     { id: 'deliveryRanges', label: 'Delivery Ranges', icon: MapPin },
     { id: 'push', label: 'Push Notifications', icon: Bell },
+    { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare }, // Add
     { id: 'reports', label: 'Reports', icon: BarChart2 },
     { id: 'compression', label: 'Compression', icon: Settings },
   ];
@@ -132,12 +133,11 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
       {/* Main content */}
       <div className="flex-1 space-y-4">
         {tab === 'dashboard' && <Dashboard onNavigateToTab={(tabId: Tab) => setTab(tabId)} />}
-        {tab === 'whatsapp' && <WhatsAppCampaignManager />}
         {tab === 'banners' && <BannersManager />}
         {tab === 'stores' && <StoresManager />}
         {tab === 'storeContent' && <StoreConfigManager />}
-        {tab === 'brandContent' && <BrandConfigManager />}
         {tab === 'brands' && <BrandsManager />}
+        {tab === 'brandContent' && <BrandConfigManager />}
         {tab === 'categories' && <CategoriesManager />}
         {tab === 'subcategories' && <SubcategoriesManager />}
         {tab === 'products' && <ProductsManager />}
@@ -150,6 +150,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'invoiceSettings' && <InvoiceSettings />}
         {tab === 'deliveryRanges' && <DeliveryRangesManager />}
         {tab === 'push' && <PushNotificationSender />}
+        {tab === 'whatsapp' && <WhatsAppCampaignManager />}       
         {tab === 'compression' && <CompressionSettings />}
         {tab === 'reports' && <Reports />}
       </div>

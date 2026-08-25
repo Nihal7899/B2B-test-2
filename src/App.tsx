@@ -221,8 +221,6 @@ function App() {
     const darkHeaderScreens = ['store', 'brand', 'categoryDetail'];
     const isDarkBg = showSplash || darkHeaderScreens.includes(screen);
 
-    // true = Dark icons (for light backgrounds)
-    // false = White icons (for dark/gradient backgrounds)
     setFullScreenSystemBars(!isDarkBg);
   }, [screen, showSplash]);
 
@@ -298,7 +296,7 @@ function App() {
           }
         });
       } catch (e) {
-        console.error("OneSignal setup error:", e);
+        console.error('OneSignal setup error:', e);
       }
     };
 
@@ -529,18 +527,20 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
+    <div className="min-h-screen bg-ink-50 md:bg-ink-100 flex flex-col justify-between">
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
 
-      <div className="mx-auto flex-1 w-full max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col">
+      <div className="mx-auto flex-1 w-full max-w-7xl bg-ink-50 md:bg-white md:shadow-sm md:border-x md:border-ink-100 relative flex flex-col">
         {!isFullBleed && (
           <Header
+            active={screen}
             cartCount={cart.totalItems}
             onCartClick={() => goTo('cart')}
+            onNavigate={goTo}
           />
         )}
 
-        <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'py-4 pb-24'}`}>
+        <main className={`flex-1 w-full ${isFullBleed ? 'pb-0 pt-0' : 'py-4 md:py-6 px-0 md:px-4 pb-24 md:pb-8'}`}>
           <BackButtonHandler />
           <KeepAliveRenderer
             currentKey={key}
@@ -549,7 +549,7 @@ function App() {
         </main>
 
         {screen !== 'categoryDetail' && (
-          <div className="safe-bottom bg-white border-t border-gray-100">
+          <div className="md:hidden safe-bottom bg-white border-t border-gray-100 sticky bottom-0 z-40">
             <BottomNavigation
               active={screen}
               cartCount={cart.totalItems}

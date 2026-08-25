@@ -1,6 +1,5 @@
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
-import { supabase } from '@/lib/supabase';
 
 interface PositionResult {
   latitude: number;
@@ -19,11 +18,11 @@ export async function getFastCurrentPosition(): Promise<PositionResult> {
         }
       }
 
-      // Native Fused Location Provider (Google Play Services / CoreLocation)
+      // Native Fused Location Provider (Accurate to 5-15m)
       const position = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 8000,
-        maximumAge: 10000,
+        timeout: 10000,
+        maximumAge: 0, // Always request fresh coordinates
       });
 
       return {
@@ -34,65 +33,50 @@ export async function getFastCurrentPosition(): Promise<PositionResult> {
       if (err?.message?.toLowerCase().includes('denied')) {
         throw new Error('Location permission denied in app settings.');
       }
-      console.warn('Native geolocation failed, falling back...', err);
+      console.warn('Native geolocation failed, falling back to browser API...', err);
     }
   }
 
-  // 2. Web Browser Layer (Progressive Fallback)
+  // 2. Web Browser Layer
   if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-    // Attempt 2A: High-Accuracy GPS (5 second hard limit)
+    // Attempt A: High-Accuracy GPS / Wi-Fi Triangulation (8s timeout)
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 30000,
+          timeout: 8000,
+          maximumAge: 0, // Do not use stale cache
         });
       });
+
       return {
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
       };
     } catch (err: any) {
-      // If user explicitly clicked "Block", stop immediately
       if (err.code === 1) {
-        throw new Error('Location permission denied in browser.');
+        throw new Error('Location permission denied. Please enable location access in browser settings.');
       }
 
-      // Attempt 2B: Low-Accuracy Fast Network/Wi-Fi Positioning
+      // Attempt B: Standard Network Triangulation (Fast fallback)
       try {
         const fallbackPos = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: false,
-            timeout: 5000,
-            maximumAge: 300000,
+            timeout: 6000,
+            maximumAge: 0,
           });
         });
+
         return {
           latitude: fallbackPos.coords.latitude,
           longitude: fallbackPos.coords.longitude,
         };
       } catch (fallbackErr) {
-        console.warn('Browser network positioning failed. Trying cloud fallback...', fallbackErr);
+        console.warn('Network location failed:', fallbackErr);
       }
     }
   }
 
-  // 3. Cloud Fallback: Google Geolocation API via Supabase Edge Function
-  try {
-    const { data, error } = await supabase.functions.invoke('maps', {
-      body: { action: 'geolocate' },
-    });
-
-    if (!error && data?.location?.lat && data?.location?.lng) {
-      return {
-        latitude: data.location.lat,
-        longitude: data.location.lng,
-      };
-    }
-  } catch (cloudErr) {
-    console.error('Cloud geolocation fallback error:', cloudErr);
-  }
-
-  throw new Error('Could not detect location automatically. Please search or pick on map.');
+  throw new Error('Could not detect exact location. Please search for your address or tap on the map.');
 }

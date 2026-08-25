@@ -7,7 +7,7 @@ interface PositionResult {
 }
 
 export async function getFastCurrentPosition(): Promise<PositionResult> {
-  // 1. Native Capacitor Layer (iOS & Android)
+  // 1. Native Capacitor App Layer
   if (Capacitor.isNativePlatform()) {
     try {
       const permission = await Geolocation.checkPermissions();
@@ -18,11 +18,10 @@ export async function getFastCurrentPosition(): Promise<PositionResult> {
         }
       }
 
-      // Native Fused Location Provider (Accurate to 5-15m)
       const position = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 0, // Always request fresh coordinates
+        maximumAge: 5000,
       });
 
       return {
@@ -33,50 +32,60 @@ export async function getFastCurrentPosition(): Promise<PositionResult> {
       if (err?.message?.toLowerCase().includes('denied')) {
         throw new Error('Location permission denied in app settings.');
       }
-      console.warn('Native geolocation failed, falling back to browser API...', err);
     }
   }
 
-  // 2. Web Browser Layer
+  // 2. Android Chrome / Mobile Browser Layer
   if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-    // Attempt A: High-Accuracy GPS / Wi-Fi Triangulation (8s timeout)
+    if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+      throw new Error(
+        'Location requires HTTPS. If testing on mobile via local network IP, enable HTTPS or Chrome insecure origin flags.'
+      );
+    }
+
+    // Step A: Fast fix (uses Wi-Fi / Google Play Services network location)
     try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+      const quickPos = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 8000,
-          maximumAge: 0, // Do not use stale cache
+          enableHighAccuracy: false,
+          timeout: 6000,
+          maximumAge: 60000, // Accepts cached location up to 1 min old
         });
       });
 
       return {
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
+        latitude: quickPos.coords.latitude,
+        longitude: quickPos.coords.longitude,
       };
-    } catch (err: any) {
-      if (err.code === 1) {
-        throw new Error('Location permission denied. Please enable location access in browser settings.');
+    } catch (firstErr: any) {
+      if (firstErr.code === 1) {
+        throw new Error('Location permission denied. Tap the lock icon in Chrome to allow location.');
       }
 
-      // Attempt B: Standard Network Triangulation (Fast fallback)
+      // Step B: Hardware GPS attempt if network position failed
       try {
-        const fallbackPos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        const accuratePos = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: false,
-            timeout: 6000,
+            enableHighAccuracy: true,
+            timeout: 8000,
             maximumAge: 0,
           });
         });
 
         return {
-          latitude: fallbackPos.coords.latitude,
-          longitude: fallbackPos.coords.longitude,
+          latitude: accuratePos.coords.latitude,
+          longitude: accuratePos.coords.longitude,
         };
-      } catch (fallbackErr) {
-        console.warn('Network location failed:', fallbackErr);
+      } catch (secondErr: any) {
+        if (secondErr.code === 1) {
+          throw new Error('Location permission denied.');
+        }
+        if (secondErr.code === 2) {
+          throw new Error('GPS signal unavailable. Enable Google Location Accuracy in Android settings.');
+        }
       }
     }
   }
 
-  throw new Error('Could not detect exact location. Please search for your address or tap on the map.');
+  throw new Error('Location request timed out. Please tap on the map or search your address.');
 }

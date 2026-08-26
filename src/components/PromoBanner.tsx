@@ -57,29 +57,32 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
   const sizeConfig = useMemo(() => {
     switch (size) {
       case 'small':
+        // Previous existing middle & bottom action banner size (150px)
         return {
-          container: 'h-[110px]',
-          padding: 'p-3',
-          badge: 'text-[8px] px-2 py-0.5 mb-1',
-          headline: 'text-sm font-extrabold line-clamp-1',
-          subtext: 'text-[10px] opacity-90 mt-0.5 line-clamp-1',
-          cta: 'text-[10px] px-2.5 py-1 mt-1.5',
-          imageWidth: 'w-[35%]',
+          container: 'h-[150px] min-h-[150px]',
+          padding: 'px-4 py-3',
+          badge: 'text-[9px] px-2 py-0.5 mb-1.5',
+          headline: 'text-[16px] sm:text-[17px] font-extrabold leading-tight line-clamp-2',
+          subtext: 'text-[11px] opacity-80 mt-0.5 line-clamp-2',
+          cta: 'text-xs font-bold px-3.5 py-1.5 mt-2 shadow-sm',
+          imageWidth: 'w-2/5 sm:w-[38%]',
         };
       case 'large':
+        // Large hero banner format (220px)
         return {
-          container: 'h-[210px]',
+          container: 'h-[220px] min-h-[220px]',
           padding: 'p-5 sm:p-6',
           badge: 'text-[10px] px-3 py-1 mb-2',
-          headline: 'text-xl sm:text-2xl font-black line-clamp-2',
-          subtext: 'text-xs sm:text-sm opacity-90 mt-1 line-clamp-2',
+          headline: 'text-xl sm:text-2xl font-black leading-snug line-clamp-2',
+          subtext: 'text-xs sm:text-sm opacity-90 mt-1 leading-relaxed line-clamp-2',
           cta: 'text-xs sm:text-sm font-bold px-4 py-2 mt-3 shadow-md',
-          imageWidth: 'w-[42%]',
+          imageWidth: 'w-[45%]',
         };
       case 'medium':
       default:
+        // Previous existing carousel banner size (180px)
         return {
-          container: 'h-[165px]',
+          container: 'h-[180px] min-h-[180px]',
           padding: 'p-4',
           badge: 'text-[9px] px-2 py-0.5 mb-2',
           headline: 'text-[17px] font-extrabold leading-tight tracking-tight line-clamp-2',
@@ -97,7 +100,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
       {/* Background layer */}
       <div className="absolute inset-0 z-0" style={computedBgStyle} />
 
-      {/* Text Content (Takes full width when no image, or flex-1 when image is present) */}
+      {/* Text Content (Takes 100% full width when no image is present) */}
       <div
         className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}
       >
@@ -109,8 +112,8 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
               {banner.badge}
             </span>
           )}
-          <h3 className={sizeConfig.headline}>{banner.headline}</h3>
-          {banner.subtext && <p className={sizeConfig.subtext}>{banner.subtext}</p>}
+          <h3 className={`whitespace-pre-line ${sizeConfig.headline}`}>{banner.headline}</h3>
+          {banner.subtext && <p className={`whitespace-pre-line ${sizeConfig.subtext}`}>{banner.subtext}</p>}
         </div>
 
         {banner.showCta !== false && banner.cta && (

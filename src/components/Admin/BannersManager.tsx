@@ -12,6 +12,7 @@ import {
   Loader2,
   Save,
   Sliders,
+  CornerDownLeft,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ActionType, PromoBanner, BannerPosition, BannerSize, BannerBgType, HomeBanner } from '@/types';
@@ -252,8 +253,8 @@ export default function BannersManager() {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-ink-800 truncate">{banner.title}</p>
-                    <p className="text-xs text-ink-500 truncate">{banner.description || 'No description'}</p>
+                    <p className="text-sm font-bold text-ink-800 truncate whitespace-pre-line">{banner.title}</p>
+                    <p className="text-xs text-ink-500 truncate whitespace-pre-line">{banner.description || 'No description'}</p>
                   </div>
                 </div>
 
@@ -447,6 +448,13 @@ function BannerForm({
     setForm((f) => ({ ...f, action_config: { ...f.action_config, [key]: value } }));
   };
 
+  const insertLineBreak = (field: 'title' | 'description') => {
+    setForm((f) => ({
+      ...f,
+      [field]: f[field] + '\n',
+    }));
+  };
+
   const previewBannerObject = useMemo<PromoBanner>(() => {
     return {
       id: initial?.id || 'temp-id',
@@ -594,18 +602,40 @@ function BannerForm({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7 space-y-4">
+          {/* Title & Formatting */}
           <div>
-            <label className="block text-xs font-bold text-ink-700 mb-1">Headline Title *</label>
-            <input
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold text-ink-700">Headline Title *</label>
+              <button
+                type="button"
+                onClick={() => insertLineBreak('title')}
+                className="text-[10px] font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1 bg-brand-50 px-2 py-0.5 rounded-md"
+              >
+                <CornerDownLeft size={10} /> Force Next Line
+              </button>
+            </div>
+            <textarea
+              rows={2}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              placeholder="e.g. Special Bulk Discounts on Oils"
-              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm font-bold outline-none focus:border-brand-500"
+              placeholder={'e.g. Special Bulk Discounts\non Everyday Edible Oils'}
+              className="w-full rounded-xl border border-ink-200 p-2.5 text-xs font-bold outline-none focus:border-brand-500 font-sans"
             />
+            <p className="text-[10px] text-ink-400 mt-0.5">Press Enter or click "Force Next Line" to split lines.</p>
           </div>
 
+          {/* Description & Formatting */}
           <div>
-            <label className="block text-xs font-bold text-ink-700 mb-1">Subtext / Description</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold text-ink-700">Subtext / Description</label>
+              <button
+                type="button"
+                onClick={() => insertLineBreak('description')}
+                className="text-[10px] font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1 bg-brand-50 px-2 py-0.5 rounded-md"
+              >
+                <CornerDownLeft size={10} /> Force Next Line
+              </button>
+            </div>
             <textarea
               rows={2}
               value={form.description}
@@ -644,9 +674,9 @@ function BannerForm({
                 onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
                 className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
               >
-                <option value="small">Small (110px)</option>
-                <option value="medium">Medium (165px)</option>
-                <option value="large">Large Hero (210px)</option>
+                <option value="small">Small (150px - Action Banner)</option>
+                <option value="medium">Medium (180px - Carousel)</option>
+                <option value="large">Large (220px - Hero)</option>
               </select>
             </div>
 
@@ -1004,13 +1034,13 @@ function BannerForm({
         <div className="lg:col-span-5 flex flex-col justify-between bg-ink-50/70 p-4 rounded-2xl border border-ink-100">
           <div>
             <p className="text-xs font-black uppercase tracking-wider text-ink-500 mb-3 flex items-center gap-1.5">
-              <Eye size={14} /> Live Size & Gradient Preview
+              <Eye size={14} /> Live Preview ({previewBannerObject.size?.toUpperCase()})
             </p>
             <div className="w-full">
               <PromoBannerCard banner={previewBannerObject} />
             </div>
             <p className="text-[10px] text-ink-400 mt-3 leading-relaxed">
-              * Text wraps automatically to the next line and spans 100% width when no image is uploaded.
+              * Text supports manual line breaks and fills 100% of the banner width when no image is uploaded.
             </p>
           </div>
 

@@ -14,7 +14,6 @@ import {
   Sliders,
   CornerDownLeft,
   LayoutTemplate,
-  SlidersHorizontal,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ActionType, PromoBanner, BannerPosition, BannerSize, BannerBgType, HomeBanner } from '@/types';
@@ -108,14 +107,15 @@ export default function BannersManager() {
     };
   }, [banners]);
 
-  // Filtered banner list
+  // Filtered & strictly sorted banner list
   const filteredBanners = useMemo(() => {
-    if (activeTab === 'all') return banners;
-    if (activeTab === 'top') return banners.filter((b) => b.position === 'top');
-    if (activeTab === 'carousel') return banners.filter((b) => b.position === 'carousel');
-    if (activeTab === 'middle') return banners.filter((b) => ['middle', 'middle_1', 'middle_2', 'middle_3'].includes(b.position || ''));
-    if (activeTab === 'bottom') return banners.filter((b) => b.position === 'bottom');
-    return banners;
+    let list = [...banners];
+    if (activeTab === 'top') list = list.filter((b) => b.position === 'top');
+    else if (activeTab === 'carousel') list = list.filter((b) => b.position === 'carousel');
+    else if (activeTab === 'middle') list = list.filter((b) => ['middle', 'middle_1', 'middle_2', 'middle_3'].includes(b.position || ''));
+    else if (activeTab === 'bottom') list = list.filter((b) => b.position === 'bottom');
+
+    return list.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
   }, [banners, activeTab]);
 
   const handleDeleteClick = (banner: HomeBanner) => {
@@ -166,17 +166,28 @@ export default function BannersManager() {
     }
   };
 
+  // Fixed Position-Scoped Reordering with Clean Sequence Indexing
   const handleReorder = async (banner: HomeBanner, direction: 'up' | 'down') => {
-    const sorted = [...banners].sort((a, b) => a.display_order - b.display_order);
-    const idx = sorted.findIndex((b) => b.id === banner.id);
+    const idx = filteredBanners.findIndex((b) => b.id === banner.id);
+    if (idx === -1) return;
+
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sorted.length) return;
-    const swapBanner = sorted[swapIdx];
+    if (swapIdx < 0 || swapIdx >= filteredBanners.length) return;
+
+    const updatedList = [...filteredBanners];
+    const targetBanner = updatedList[swapIdx];
+    
+    // Swap positions within the current scope
+    updatedList[idx] = targetBanner;
+    updatedList[swapIdx] = banner;
+
     try {
-      await Promise.all([
-        updateHomeBanner(banner.id, { display_order: swapBanner.display_order }),
-        updateHomeBanner(swapBanner.id, { display_order: banner.display_order }),
-      ]);
+      // Re-assign clean distinct display_orders within this position group
+      await Promise.all(
+        updatedList.map((item, index) =>
+          updateHomeBanner(item.id, { display_order: (index + 1) * 10 })
+        )
+      );
       await load();
     } catch {
       addToast('Failed to reorder banners', 'error');
@@ -379,7 +390,7 @@ export default function BannersManager() {
                     onClick={() => void handleReorder(banner, 'up')}
                     disabled={i === 0}
                     className="h-8 w-8 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-30"
-                    title="Move Up"
+                    title="Move Up in Current Slot"
                   >
                     <ArrowUp size={14} />
                   </button>
@@ -387,7 +398,7 @@ export default function BannersManager() {
                     onClick={() => void handleReorder(banner, 'down')}
                     disabled={i === filteredBanners.length - 1}
                     className="h-8 w-8 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-30"
-                    title="Move Down"
+                    title="Move Down in Current Slot"
                   >
                     <ArrowDown size={14} />
                   </button>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck, ShieldCheck, Tag, RotateCcw, ChevronRight } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import type { Category, Product, PromoBanner, Store, TrustedBrand, HomeSection } from '@/types';
 import type { useCart } from '@/store';
 import { SearchBar } from '@/components/SearchBar';
@@ -10,7 +11,6 @@ import { ProductCarousel } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { StoreCarousel } from '@/components/StoreCard';
 import { BrandCarousel } from '@/components/BrandCard';
-import { getRecentlyViewedIds } from '@/lib/recentlyViewed';
 import {
   fetchHomeSections,
   fetchHomeBanners,
@@ -18,15 +18,14 @@ import {
   fetchProducts,
   fetchPopularProducts,
   fetchUserReorderProducts,
+  fetchRecentlyViewedProducts,
   fetchVolumeDealsProducts,
   fetchNewArrivalsProducts,
   fetchTopRatedProducts,
   fetchLimitedStockProducts,
   fetchBrandSpotlight,
-  fetchProductsByIds,
   fetchStores,
   fetchTrustedBrands,
-  fetchRecentlyViewedProducts,
 } from '@/services/catalog';
 
 interface HomeScreenProps {
@@ -67,69 +66,141 @@ export function HomeScreen({
   const [brands, setBrands] = useState<TrustedBrand[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Fast background updater for dynamic personal sections
+  const refreshDynamicSections = useCallback(async () => {
+    try {
+      const [recent, reorder] = await Promise.all([
+        fetchRecentlyViewedProducts(),
+        fetchUserReorderProducts(10),
+      ]);
+      setRecentlyViewed(recent);
+      setReorderProducts(reorder);
+    } catch (e) {
+      console.warn('Failed to refresh dynamic personal sections:', e);
+    }
+  }, []);
+
+  // Background updater for layout & banners
+  const refreshLayoutAndBanners = useCallback(async () => {
+    try {
+      const [secRes, banRes] = await Promise.all([
+        fetchHomeSections(),
+        fetchHomeBanners(),
+      ]);
+      setSections(secRes.filter((s) => s.isActive));
+      setBanners(banRes);
+    } catch (e) {
+      console.warn('Failed to refresh layout:', e);
+    }
+  }, []);
+
+  const loadAllHomeData = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true);
+
+    try {
+      const [
+        secRes,
+        banRes,
+        catRes,
+        prodRes,
+        popRes,
+        reorderRes,
+        recentRes,
+        volumeRes,
+        newArrRes,
+        topRatedRes,
+        limitedRes,
+        spotlightRes,
+        storeRes,
+        brandRes,
+      ] = await Promise.all([
+        fetchHomeSections(),
+        fetchHomeBanners(),
+        fetchCategories(),
+        fetchProducts(),
+        fetchPopularProducts(12),
+        fetchUserReorderProducts(10),
+        fetchRecentlyViewedProducts(),
+        fetchVolumeDealsProducts(10),
+        fetchNewArrivalsProducts(10),
+        fetchTopRatedProducts(10),
+        fetchLimitedStockProducts(10),
+        fetchBrandSpotlight(),
+        fetchStores(),
+        fetchTrustedBrands(),
+      ]);
+
+      setSections(secRes.filter((s) => s.isActive));
+      setBanners(banRes);
+      setCategories(catRes.categories || []);
+      setProducts(prodRes.products || []);
+      setPopularProducts(popRes || []);
+      setReorderProducts(reorderRes || []);
+      setRecentlyViewed(recentRes || []);
+      setVolumeDeals(volumeRes || []);
+      setNewArrivals(newArrRes || []);
+      setTopRated(topRatedRes || []);
+      setLimitedStock(limitedRes || []);
+      setBrandSpotlight(spotlightRes);
+      setStores(storeRes || []);
+      setBrands(brandRes || []);
+    } catch (err) {
+      console.error('Failed to load home catalog data:', err);
+    } finally {
+      if (isInitial) setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
-    void (async () => {
-      try {
-        const recentIds = getRecentlyViewedIds();
 
-        const [
-          secRes,
-          banRes,
-          catRes,
-          prodRes,
-          popRes,
-          reorderRes,
-          recentRes, // <-- Populated by fetchRecentlyViewedProducts()
-          volumeRes,
-          newArrRes,
-          topRatedRes,
-          limitedRes,
-          spotlightRes,
-          storeRes,
-          brandRes,
-        ] = await Promise.all([
-          fetchHomeSections(),
-          fetchHomeBanners(),
-          fetchCategories(),
-          fetchProducts(),
-          fetchPopularProducts(12),
-          fetchUserReorderProducts(10),
-          fetchRecentlyViewedProducts(), // <-- Clean, direct service call
-          fetchVolumeDealsProducts(10),
-          fetchNewArrivalsProducts(10),
-          fetchTopRatedProducts(10),
-          fetchLimitedStockProducts(10),
-          fetchBrandSpotlight(),
-          fetchStores(),
-          fetchTrustedBrands(),
-        ]);
+    // 1. Initial Load
+    void loadAllHomeData(true);
 
-        if (!active) return;
-        setSections(secRes.filter((s) => s.isActive));
-        setBanners(banRes);
-        setCategories(catRes.categories || []);
-        setProducts(prodRes.products || []);
-        setPopularProducts(popRes || []);
-        setReorderProducts(reorderRes || []);
-        setRecentlyViewed(recentRes || []);
-        setVolumeDeals(volumeRes || []);
-        setNewArrivals(newArrRes || []);
-        setTopRated(topRatedRes || []);
-        setLimitedStock(limitedRes || []);
-        setBrandSpotlight(spotlightRes);
-        setStores(storeRes || []);
-        setBrands(brandRes || []);
-      } catch (err) {
-        console.error('Failed to load home catalog data:', err);
-      } finally {
-        if (active) setLoading(false);
+    // 2. Realtime listener for Admin Layout changes
+    const homeChannel = supabase
+      .channel('realtime:home_updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_sections' }, () => {
+        if (active) void refreshLayoutAndBanners();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_banners' }, () => {
+        if (active) void refreshLayoutAndBanners();
+      })
+      .subscribe();
+
+    // 3. Instant Event Listener for Recently Viewed additions
+    const handleRecentlyViewedUpdate = () => {
+      if (active) void fetchRecentlyViewedProducts().then(setRecentlyViewed);
+    };
+    window.addEventListener('recently-viewed-updated', handleRecentlyViewedUpdate);
+
+    // 4. KeepAlive Activation Listener (When user pops back to Home Screen)
+    const handleKeepAliveFocus = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key?: string }>;
+      if (active && (customEvent.detail?.key === '/' || customEvent.detail?.key === 'home' || !customEvent.detail?.key)) {
+        void refreshDynamicSections();
+        void refreshLayoutAndBanners();
       }
-    })();
+    };
+    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
+
+    // 5. App resume from background
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && active) {
+        void refreshDynamicSections();
+        void refreshLayoutAndBanners();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       active = false;
+      window.removeEventListener('recently-viewed-updated', handleRecentlyViewedUpdate);
+      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      void supabase.removeChannel(homeChannel);
     };
-  }, []);
+  }, [loadAllHomeData, refreshDynamicSections, refreshLayoutAndBanners]);
 
   const { filtered, deals, essentials } = useMemo(() => {
     const query = search.trim().toLowerCase();

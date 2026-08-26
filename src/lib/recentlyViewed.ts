@@ -27,8 +27,11 @@ export async function recordRecentlyViewed(productId: string): Promise<void> {
         encoding: Encoding.UTF8,
       });
     } catch {
-      // Ignored when running in standard browser environments without native filesystem
+      // Ignored in standard browser environments
     }
+
+    // 3. Broadcast instant update event across all mounted/keep-alive components
+    window.dispatchEvent(new CustomEvent('recently-viewed-updated', { detail: { productId, ids: updatedIds } }));
   } catch (err) {
     console.warn('Error recording recently viewed product:', err);
   }
@@ -37,7 +40,6 @@ export async function recordRecentlyViewed(productId: string): Promise<void> {
 export async function getRecentlyViewedIds(): Promise<string[]> {
   let ids: string[] = [];
 
-  // Try reading from Capacitor Filesystem first
   try {
     const file = await Filesystem.readFile({
       path: FILE_PATH,
@@ -52,7 +54,6 @@ export async function getRecentlyViewedIds(): Promise<string[]> {
       }
     }
   } catch {
-    // Fallback to browser localStorage
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {

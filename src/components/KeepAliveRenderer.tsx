@@ -71,6 +71,9 @@ export function KeepAliveRenderer({ currentKey, render, maxCache = 8 }: KeepAliv
     } else {
       window.scrollTo(0, 0);
     }
+
+    // Broadcast screen activation to inform Keep-Alive components
+    window.dispatchEvent(new CustomEvent('keepalive:activated', { detail: { key: currentKey } }));
   }, [currentKey]);
 
   return (

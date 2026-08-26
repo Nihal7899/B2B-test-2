@@ -369,6 +369,13 @@ export type BannerBgType = 'color' | 'gradient' | 'image';
 export type HomeSectionType =
   | 'categories'
   | 'popular_products'
+  | 'quick_reorder'
+  | 'recently_viewed'
+  | 'volume_deals'
+  | 'new_arrivals'
+  | 'top_rated'
+  | 'limited_stock'
+  | 'brand_spotlight'
   | 'deals'
   | 'essentials'
   | 'stores'

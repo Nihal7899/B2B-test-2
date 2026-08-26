@@ -47,7 +47,7 @@ export default function SectionsManager() {
   };
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   const handleToggle = async (section: HomeSection) => {
@@ -236,7 +236,6 @@ export default function SectionsManager() {
         ))}
       </div>
 
-      {/* Mobile-Friendly Edit / Create Modal */}
       {editingSection && (
         <div className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-4 sm:p-5 space-y-4 shadow-card">
@@ -279,8 +278,15 @@ export default function SectionsManager() {
                   className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs font-bold bg-white outline-none focus:border-brand-500"
                 >
                   <option value="categories">Categories Grid</option>
-                  <option value="popular_products">Popular Products (Order Ranked)</option>
+                  <option value="quick_reorder">Buy Again / Quick Reorder</option>
+                  <option value="recently_viewed">Recently Viewed Products</option>
+                  <option value="popular_products">Popular Products (Sales Volume Ranked)</option>
+                  <option value="volume_deals">Volume Savings / Max Tier Discounts</option>
                   <option value="deals">Wholesale Deals (% Discount)</option>
+                  <option value="new_arrivals">New Arrivals / Just Launched</option>
+                  <option value="top_rated">Top Rated by Businesses</option>
+                  <option value="limited_stock">Fast Selling / Limited Stock Deals</option>
+                  <option value="brand_spotlight">Brand Spotlight (Featured Brand)</option>
                   <option value="essentials">Everyday Essentials (Staples)</option>
                   <option value="banner_slot">Banner Slot</option>
                   <option value="stores">Curated Stores</option>
@@ -311,9 +317,9 @@ export default function SectionsManager() {
                       onChange={(e) => setEditingSection({ ...editingSection, bannerSize: e.target.value as BannerSize })}
                       className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
                     >
-                      <option value="small">Small (110px)</option>
-                      <option value="medium">Medium (165px)</option>
-                      <option value="large">Large (210px)</option>
+                      <option value="small">Small (150px - Action Banner)</option>
+                      <option value="medium">Medium (180px - Carousel)</option>
+                      <option value="large">Large (220px - Hero)</option>
                     </select>
                   </div>
                 </div>

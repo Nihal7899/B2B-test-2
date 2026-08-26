@@ -2034,3 +2034,159 @@ export async function fetchPopularProducts(limit = 12): Promise<Product[]> {
   const { products } = await fetchProducts();
   return [...products].sort((a, b) => b.rating - a.rating).slice(0, limit);
 }
+
+
+
+// 1. Buy Again / Quick Reorder (Top ordered items by logged-in user)
+export async function fetchUserReorderProducts(limit = 10): Promise<Product[]> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(15);
+
+    if (!orders || orders.length === 0) return [];
+    const orderIds = orders.map((o) => o.id);
+
+    const { data: items } = await supabase
+      .from('order_items')
+      .select('product_id, quantity')
+      .in('order_id', orderIds);
+
+    if (!items || items.length === 0) return [];
+
+    const frequencyMap: Record<string, number> = {};
+    items.forEach((item) => {
+      if (item.product_id) {
+        frequencyMap[item.product_id] = (frequencyMap[item.product_id] || 0) + item.quantity;
+      }
+    });
+
+    const sortedIds = Object.keys(frequencyMap)
+      .sort((a, b) => frequencyMap[b] - frequencyMap[a])
+      .slice(0, limit);
+
+    return sortedIds.length ? await fetchProductsByIds(sortedIds) : [];
+  } catch (e) {
+    console.warn('Failed to fetch user reorder products:', e);
+    return [];
+  }
+}
+
+// 2. Volume Savings / Max Tier Discounts
+export async function fetchVolumeDealsProducts(limit = 10): Promise<Product[]> {
+  try {
+    const { data: tiers } = await supabase
+      .from('product_volume_pricing')
+      .select('product_id, discount_percent')
+      .order('discount_percent', { ascending: false })
+      .limit(30);
+
+    if (!tiers || tiers.length === 0) return [];
+    const uniqueIds = Array.from(new Set(tiers.map((t) => t.product_id))).slice(0, limit);
+    return await fetchProductsByIds(uniqueIds);
+  } catch (e) {
+    console.warn('Failed to fetch volume deals products:', e);
+    return [];
+  }
+}
+
+// 3. New Arrivals (In-stock, created recently)
+export async function fetchNewArrivalsProducts(limit = 10): Promise<Product[]> {
+  const { data: catData } = await supabase.from('categories').select('id, slug').eq('is_active', true);
+  const categoryMap: Record<string, string> = {};
+  (catData as DbCategory[] | null)?.forEach((c) => {
+    categoryMap[c.id] = c.slug;
+  });
+
+  const { data } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_active', true)
+    .gt('stock_quantity', 0)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  return (data as DbProduct[] || []).map((p) => mapProduct(p, categoryMap[p.category_id] ?? ''));
+}
+
+// 4. Top Rated by Businesses (Rating >= 4.5)
+export async function fetchTopRatedProducts(limit = 10): Promise<Product[]> {
+  const { data: catData } = await supabase.from('categories').select('id, slug').eq('is_active', true);
+  const categoryMap: Record<string, string> = {};
+  (catData as DbCategory[] | null)?.forEach((c) => {
+    categoryMap[c.id] = c.slug;
+  });
+
+  const { data } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_active', true)
+    .gte('rating', 4.5)
+    .order('rating', { ascending: false })
+    .limit(limit);
+
+  return (data as DbProduct[] || []).map((p) => mapProduct(p, categoryMap[p.category_id] ?? ''));
+}
+
+// 5. Fast Selling / Limited Stock Deals (Stock <= 20 and > 0)
+export async function fetchLimitedStockProducts(limit = 10): Promise<Product[]> {
+  const { data: catData } = await supabase.from('categories').select('id, slug').eq('is_active', true);
+  const categoryMap: Record<string, string> = {};
+  (catData as DbCategory[] | null)?.forEach((c) => {
+    categoryMap[c.id] = c.slug;
+  });
+
+  const { data } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_active', true)
+    .gt('stock_quantity', 0)
+    .lte('stock_quantity', 20)
+    .order('stock_quantity', { ascending: true })
+    .limit(limit);
+
+  return (data as DbProduct[] || []).map((p) => mapProduct(p, categoryMap[p.category_id] ?? ''));
+}
+
+// 6. Brand Spotlight (Top active brand products)
+export async function fetchBrandSpotlight(): Promise<{ brandName: string; products: Product[] } | null> {
+  try {
+    const { data: brands } = await supabase
+      .from('trusted_brands')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .limit(1);
+
+    if (!brands || brands.length === 0) return null;
+    const spotlightBrand = brands[0];
+
+    const { data: catData } = await supabase.from('categories').select('id, slug').eq('is_active', true);
+    const categoryMap: Record<string, string> = {};
+    (catData as DbCategory[] | null)?.forEach((c) => {
+      categoryMap[c.id] = c.slug;
+    });
+
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_active', true)
+      .or(`brand_id.eq.${spotlightBrand.id},brand.eq.${spotlightBrand.name}`)
+      .order('rating', { ascending: false })
+      .limit(10);
+
+    return {
+      brandName: spotlightBrand.name,
+      products: (data as DbProduct[] || []).map((p) => mapProduct(p, categoryMap[p.category_id] ?? '')),
+    };
+  } catch (e) {
+    console.warn('Failed to fetch brand spotlight:', e);
+    return null;
+  }
+}

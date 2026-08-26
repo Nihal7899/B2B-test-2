@@ -10,12 +10,20 @@ import { ProductCarousel } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { StoreCarousel } from '@/components/StoreCard';
 import { BrandCarousel } from '@/components/BrandCard';
+import { getRecentlyViewedIds } from '@/lib/recentlyViewed';
 import {
   fetchHomeSections,
   fetchHomeBanners,
   fetchCategories,
   fetchProducts,
   fetchPopularProducts,
+  fetchUserReorderProducts,
+  fetchVolumeDealsProducts,
+  fetchNewArrivalsProducts,
+  fetchTopRatedProducts,
+  fetchLimitedStockProducts,
+  fetchBrandSpotlight,
+  fetchProductsByIds,
   fetchStores,
   fetchTrustedBrands,
 } from '@/services/catalog';
@@ -47,6 +55,13 @@ export function HomeScreen({
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [popularProducts, setPopularProducts] = useState<Product[]>([]);
+  const [reorderProducts, setReorderProducts] = useState<Product[]>([]);
+  const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
+  const [volumeDeals, setVolumeDeals] = useState<Product[]>([]);
+  const [newArrivals, setNewArrivals] = useState<Product[]>([]);
+  const [topRated, setTopRated] = useState<Product[]>([]);
+  const [limitedStock, setLimitedStock] = useState<Product[]>([]);
+  const [brandSpotlight, setBrandSpotlight] = useState<{ brandName: string; products: Product[] } | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [brands, setBrands] = useState<TrustedBrand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,25 +70,57 @@ export function HomeScreen({
     let active = true;
     void (async () => {
       try {
-        const [secRes, banRes, catRes, prodRes, popRes, storeRes, brandRes] = await Promise.all([
+        const recentIds = getRecentlyViewedIds();
+
+        const [
+          secRes,
+          banRes,
+          catRes,
+          prodRes,
+          popRes,
+          reorderRes,
+          recentRes,
+          volumeRes,
+          newArrRes,
+          topRatedRes,
+          limitedRes,
+          spotlightRes,
+          storeRes,
+          brandRes,
+        ] = await Promise.all([
           fetchHomeSections(),
           fetchHomeBanners(),
           fetchCategories(),
           fetchProducts(),
           fetchPopularProducts(12),
+          fetchUserReorderProducts(10),
+          recentIds.length ? fetchProductsByIds(recentIds) : Promise.resolve([]),
+          fetchVolumeDealsProducts(10),
+          fetchNewArrivalsProducts(10),
+          fetchTopRatedProducts(10),
+          fetchLimitedStockProducts(10),
+          fetchBrandSpotlight(),
           fetchStores(),
           fetchTrustedBrands(),
         ]);
+
         if (!active) return;
         setSections(secRes.filter((s) => s.isActive));
         setBanners(banRes);
         setCategories(catRes.categories || []);
         setProducts(prodRes.products || []);
         setPopularProducts(popRes || []);
+        setReorderProducts(reorderRes || []);
+        setRecentlyViewed(recentRes || []);
+        setVolumeDeals(volumeRes || []);
+        setNewArrivals(newArrRes || []);
+        setTopRated(topRatedRes || []);
+        setLimitedStock(limitedRes || []);
+        setBrandSpotlight(spotlightRes);
         setStores(storeRes || []);
         setBrands(brandRes || []);
       } catch (err) {
-        console.error('Failed to load catalog data:', err);
+        console.error('Failed to load home catalog data:', err);
       } finally {
         if (active) setLoading(false);
       }
@@ -83,8 +130,7 @@ export function HomeScreen({
     };
   }, []);
 
-  // Filter products for Search and Dynamic Ranking
-  const { filtered, popular, deals, essentials } = useMemo(() => {
+  const { filtered, deals, essentials } = useMemo(() => {
     const query = search.trim().toLowerCase();
     const filteredProducts = query
       ? products.filter((p) =>
@@ -92,7 +138,6 @@ export function HomeScreen({
         )
       : products;
 
-    // Wholesale deals: calculated real discounts
     const dealsList = [...filteredProducts]
       .map((p) => ({
         ...p,
@@ -102,7 +147,6 @@ export function HomeScreen({
       .sort((a, b) => b.calcDiscount - a.calcDiscount)
       .slice(0, 10);
 
-    // Everyday Essentials: Staple food keywords
     const staples = ['oil', 'atta', 'flour', 'rice', 'sugar', 'salt', 'milk', 'spice', 'tea', 'dal'];
     const essentialsList = filteredProducts
       .filter((p) => staples.some((s) => `${p.name} ${p.brand}`.toLowerCase().includes(s)))
@@ -110,11 +154,10 @@ export function HomeScreen({
 
     return {
       filtered: filteredProducts,
-      popular: popularProducts.length > 0 ? popularProducts : filteredProducts.slice(0, 10),
       deals: dealsList,
       essentials: essentialsList.length > 0 ? essentialsList : filteredProducts.slice(0, 10),
     };
-  }, [search, products, popularProducts]);
+  }, [search, products]);
 
   const topBanner = useMemo(() => banners.find((b) => b.position === 'top') || null, [banners]);
   const carouselBanners = useMemo(() => banners.filter((b) => b.position === 'carousel'), [banners]);
@@ -143,7 +186,6 @@ export function HomeScreen({
 
   const query = search.trim();
 
-  // Helper to reliably find matching banners for a slot
   const getSlotBanners = (slotPosition?: string) => {
     const target = slotPosition || 'middle_1';
     return banners.filter((b) => {
@@ -210,12 +252,57 @@ export function HomeScreen({
                 </section>
               );
 
-            case 'popular_products':
-              return popular.length > 0 ? (
+            case 'quick_reorder':
+              return reorderProducts.length > 0 ? (
                 <ProductCarousel
                   key={section.id}
-                  title={section.title}
-                  products={popular}
+                  title={section.title || 'Buy Again'}
+                  products={reorderProducts}
+                  getQuantity={handleGetQuantity}
+                  onAdd={handleAddToCart}
+                  onIncrement={handleIncrement}
+                  onDecrement={handleDecrement}
+                  onProductClick={onProduct}
+                  onViewAll={onViewAll}
+                />
+              ) : null;
+
+            case 'recently_viewed':
+              return recentlyViewed.length > 0 ? (
+                <ProductCarousel
+                  key={section.id}
+                  title={section.title || 'Recently Viewed'}
+                  products={recentlyViewed}
+                  getQuantity={handleGetQuantity}
+                  onAdd={handleAddToCart}
+                  onIncrement={handleIncrement}
+                  onDecrement={handleDecrement}
+                  onProductClick={onProduct}
+                  onViewAll={onViewAll}
+                />
+              ) : null;
+
+            case 'popular_products':
+              return popularProducts.length > 0 ? (
+                <ProductCarousel
+                  key={section.id}
+                  title={section.title || 'Popular Products'}
+                  products={popularProducts}
+                  getQuantity={handleGetQuantity}
+                  onAdd={handleAddToCart}
+                  onIncrement={handleIncrement}
+                  onDecrement={handleDecrement}
+                  onProductClick={onProduct}
+                  onViewAll={onViewAll}
+                />
+              ) : null;
+
+            case 'volume_deals':
+              return volumeDeals.length > 0 ? (
+                <ProductCarousel
+                  key={section.id}
+                  title={section.title || 'Volume Savings'}
+                  products={volumeDeals}
                   getQuantity={handleGetQuantity}
                   onAdd={handleAddToCart}
                   onIncrement={handleIncrement}
@@ -229,8 +316,68 @@ export function HomeScreen({
               return deals.length > 0 ? (
                 <ProductCarousel
                   key={section.id}
-                  title={section.title}
+                  title={section.title || 'Wholesale Deals'}
                   products={deals}
+                  getQuantity={handleGetQuantity}
+                  onAdd={handleAddToCart}
+                  onIncrement={handleIncrement}
+                  onDecrement={handleDecrement}
+                  onProductClick={onProduct}
+                  onViewAll={onViewAll}
+                />
+              ) : null;
+
+            case 'new_arrivals':
+              return newArrivals.length > 0 ? (
+                <ProductCarousel
+                  key={section.id}
+                  title={section.title || 'New Arrivals'}
+                  products={newArrivals}
+                  getQuantity={handleGetQuantity}
+                  onAdd={handleAddToCart}
+                  onIncrement={handleIncrement}
+                  onDecrement={handleDecrement}
+                  onProductClick={onProduct}
+                  onViewAll={onViewAll}
+                />
+              ) : null;
+
+            case 'top_rated':
+              return topRated.length > 0 ? (
+                <ProductCarousel
+                  key={section.id}
+                  title={section.title || 'Top Rated by Businesses'}
+                  products={topRated}
+                  getQuantity={handleGetQuantity}
+                  onAdd={handleAddToCart}
+                  onIncrement={handleIncrement}
+                  onDecrement={handleDecrement}
+                  onProductClick={onProduct}
+                  onViewAll={onViewAll}
+                />
+              ) : null;
+
+            case 'limited_stock':
+              return limitedStock.length > 0 ? (
+                <ProductCarousel
+                  key={section.id}
+                  title={section.title || 'Fast Selling / Low Stock'}
+                  products={limitedStock}
+                  getQuantity={handleGetQuantity}
+                  onAdd={handleAddToCart}
+                  onIncrement={handleIncrement}
+                  onDecrement={handleDecrement}
+                  onProductClick={onProduct}
+                  onViewAll={onViewAll}
+                />
+              ) : null;
+
+            case 'brand_spotlight':
+              return brandSpotlight && brandSpotlight.products.length > 0 ? (
+                <ProductCarousel
+                  key={section.id}
+                  title={section.title || `Spotlight: ${brandSpotlight.brandName}`}
+                  products={brandSpotlight.products}
                   getQuantity={handleGetQuantity}
                   onAdd={handleAddToCart}
                   onIncrement={handleIncrement}
@@ -244,7 +391,7 @@ export function HomeScreen({
               return essentials.length > 0 ? (
                 <ProductCarousel
                   key={section.id}
-                  title={section.title}
+                  title={section.title || 'Everyday Essentials'}
                   products={essentials}
                   getQuantity={handleGetQuantity}
                   onAdd={handleAddToCart}

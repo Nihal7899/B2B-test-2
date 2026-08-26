@@ -41,7 +41,7 @@ import DeliveryRangesManager from '@/components/Admin/DeliveryRangesManager';
 import Reports from '@/components/Admin/Reports';
 import SubcategoriesManager from '@/components/Admin/SubcategoriesManager';
 import CompressionSettings from '@/components/Admin/CompressionSettings';
-import HomeAdminManager from '@/components/Admin/HomeAdminManager';
+import SectionsManager from '@/components/Admin/SectionsManager';
 
 
 interface AdminScreenProps {
@@ -136,7 +136,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
       {/* Main content */}
       <div className="flex-1 space-y-4">
         {tab === 'dashboard' && <Dashboard onNavigateToTab={(tabId: Tab) => setTab(tabId)} />}
-        {tab === 'homeSections' && <HomeAdminManager />}
+        {tab === 'homeSections' && <SectionsManager />}
         {tab === 'banners' && <BannersManager />}
         {tab === 'stores' && <StoresManager />}
         {tab === 'storeContent' && <StoreConfigManager />}

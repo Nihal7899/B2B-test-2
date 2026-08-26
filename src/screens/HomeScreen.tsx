@@ -4,13 +4,12 @@ import { Truck, ShieldCheck, Tag, RotateCcw, ChevronRight } from 'lucide-react';
 import type { Category, Product, PromoBanner, Store, TrustedBrand, HomeSection } from '@/types';
 import type { useCart } from '@/store';
 import { SearchBar } from '@/components/SearchBar';
-import { PromoCarousel } from '@/components/PromoBanner';
+import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
 import { ProductCarousel } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { StoreCarousel } from '@/components/StoreCard';
 import { BrandCarousel } from '@/components/BrandCard';
-import { PromoActionBanner } from '@/components/PromoActionBanner';
 import {
   fetchHomeSections,
   fetchHomeBanners,
@@ -84,6 +83,7 @@ export function HomeScreen({
     };
   }, []);
 
+  // Filter products for Search and Dynamic Ranking
   const { filtered, popular, deals, essentials } = useMemo(() => {
     const query = search.trim().toLowerCase();
     const filteredProducts = query
@@ -92,15 +92,17 @@ export function HomeScreen({
         )
       : products;
 
+    // Wholesale deals: calculated real discounts
     const dealsList = [...filteredProducts]
       .map((p) => ({
         ...p,
         calcDiscount: p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0,
       }))
-      .filter((p) => p.calcDiscount >= 8 || ((p as any).discount_percentage && (p as any).discount_percentage >= 8))
+      .filter((p) => p.calcDiscount >= 8)
       .sort((a, b) => b.calcDiscount - a.calcDiscount)
       .slice(0, 10);
 
+    // Everyday Essentials: Staple food keywords
     const staples = ['oil', 'atta', 'flour', 'rice', 'sugar', 'salt', 'milk', 'spice', 'tea', 'dal'];
     const essentialsList = filteredProducts
       .filter((p) => staples.some((s) => `${p.name} ${p.brand}`.toLowerCase().includes(s)))
@@ -140,6 +142,16 @@ export function HomeScreen({
   }
 
   const query = search.trim();
+
+  // Helper to reliably find matching banners for a slot
+  const getSlotBanners = (slotPosition?: string) => {
+    const target = slotPosition || 'middle_1';
+    return banners.filter((b) => {
+      if (b.position === target) return true;
+      if (target === 'middle_1' && (b.position === 'middle' || !b.position)) return true;
+      return false;
+    });
+  };
 
   return (
     <div className="space-y-6 pb-6 transform-gpu">
@@ -244,20 +256,25 @@ export function HomeScreen({
               ) : null;
 
             case 'banner_slot': {
-              const matchingBanners = banners.filter(
-                (b) => b.position === (section.bannerPosition || 'middle_1')
-              );
-              if (matchingBanners.length === 0) return null;
+              const matching = getSlotBanners(section.bannerPosition);
+              if (matching.length === 0) return null;
               return (
-                <section key={section.id} className="px-4 space-y-3">
-                  {matchingBanners.map((banner) => (
-                    <PromoActionBanner
-                      key={banner.id}
-                      banner={banner}
-                      sizeOverride={section.bannerSize}
+                <section key={section.id}>
+                  {matching.length > 1 ? (
+                    <PromoCarousel
+                      banners={matching}
+                      size={section.bannerSize}
                       onAction={onBannerAction}
                     />
-                  ))}
+                  ) : (
+                    <div className="px-4">
+                      <PromoBannerCard
+                        banner={matching[0]}
+                        size={section.bannerSize}
+                        onAction={onBannerAction}
+                      />
+                    </div>
+                  )}
                 </section>
               );
             }

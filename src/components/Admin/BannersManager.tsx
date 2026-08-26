@@ -14,7 +14,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { ActionType, PromoBanner, BannerPosition, BannerSize, BannerBgType } from '@/types';
+import type { ActionType, PromoBanner, BannerPosition, BannerSize, BannerBgType, HomeBanner } from '@/types';
 import {
   fetchAllHomeBanners,
   createHomeBanner,
@@ -31,34 +31,6 @@ import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
-
-export interface HomeBannerRecord {
-  id: string;
-  badge?: string | null;
-  title: string;
-  description: string;
-  image_url?: string | null;
-  background_color: string;
-  button_text: string;
-  action_type: ActionType;
-  action_config: Record<string, unknown>;
-  display_order: number;
-  is_active: boolean;
-  position: BannerPosition;
-  size?: BannerSize;
-  start_at?: string | null;
-  end_at?: string | null;
-  bg_type: BannerBgType;
-  bg_color: string;
-  bg_gradient?: string;
-  gradient_from?: string;
-  gradient_to?: string;
-  gradient_direction?: string;
-  overlay_enabled: boolean;
-  overlay_color: string;
-  overlay_opacity: number;
-  show_cta: boolean;
-}
 
 const ACTION_TYPES: ActionType[] = [
   'VIEW_CATEGORY',
@@ -77,11 +49,11 @@ const ACTION_TYPES: ActionType[] = [
 ];
 
 export default function BannersManager() {
-  const [banners, setBanners] = useState<HomeBannerRecord[]>([]);
+  const [banners, setBanners] = useState<HomeBanner[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
-  const [editingBanner, setEditingBanner] = useState<HomeBannerRecord | null>(null);
-  const [previewBanner, setPreviewBanner] = useState<HomeBannerRecord | null>(null);
+  const [editingBanner, setEditingBanner] = useState<HomeBanner | null>(null);
+  const [previewBanner, setPreviewBanner] = useState<HomeBanner | null>(null);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -103,7 +75,7 @@ export default function BannersManager() {
   const load = useCallback(async () => {
     try {
       const data = await fetchAllHomeBanners();
-      setBanners(data as unknown as HomeBannerRecord[]);
+      setBanners(data);
     } catch {
       addToast('Failed to load banners', 'error');
     } finally {
@@ -137,9 +109,9 @@ export default function BannersManager() {
     }
   };
 
-  const handleToggle = async (banner: HomeBannerRecord) => {
+  const handleToggle = async (banner: HomeBanner) => {
     try {
-      await updateHomeBanner(banner.id, { is_active: !banner.is_active } as any);
+      await updateHomeBanner(banner.id, { is_active: !banner.is_active });
       addToast(`Banner ${!banner.is_active ? 'activated' : 'deactivated'}`, 'success');
       await load();
     } catch {
@@ -157,7 +129,7 @@ export default function BannersManager() {
     }
   };
 
-  const handleReorder = async (banner: HomeBannerRecord, direction: 'up' | 'down') => {
+  const handleReorder = async (banner: HomeBanner, direction: 'up' | 'down') => {
     const sorted = [...banners].sort((a, b) => a.display_order - b.display_order);
     const idx = sorted.findIndex((b) => b.id === banner.id);
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
@@ -165,8 +137,8 @@ export default function BannersManager() {
     const swapBanner = sorted[swapIdx];
     try {
       await Promise.all([
-        updateHomeBanner(banner.id, { display_order: swapBanner.display_order } as any),
-        updateHomeBanner(swapBanner.id, { display_order: banner.display_order } as any),
+        updateHomeBanner(banner.id, { display_order: swapBanner.display_order }),
+        updateHomeBanner(swapBanner.id, { display_order: banner.display_order }),
       ]);
       await load();
     } catch {
@@ -174,7 +146,7 @@ export default function BannersManager() {
     }
   };
 
-  const handleEdit = (banner: HomeBannerRecord) => {
+  const handleEdit = (banner: HomeBanner) => {
     setEditingBanner(banner);
     setViewMode('form');
   };
@@ -195,7 +167,7 @@ export default function BannersManager() {
     addToast('Banner saved successfully', 'success');
   };
 
-  const toPromoBanner = (b: HomeBannerRecord): PromoBanner => {
+  const toPromoBanner = (b: HomeBanner): PromoBanner => {
     return {
       id: b.id,
       headline: b.title,
@@ -217,6 +189,8 @@ export default function BannersManager() {
       overlayColor: b.overlay_color || '#000000',
       overlayOpacity: b.overlay_opacity ?? 40,
       showCta: b.show_cta !== false,
+      displayOrder: b.display_order,
+      isActive: b.is_active,
     };
   };
 
@@ -246,7 +220,7 @@ export default function BannersManager() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-black text-ink-900">Banners Management</h2>
-          <p className="text-xs text-ink-500">Configure promotional banners, position slots, and gradient themes</p>
+          <p className="text-xs text-ink-500">Configure banners, positions, sizes, and custom gradients</p>
         </div>
         <button
           onClick={handleAddNew}
@@ -399,7 +373,7 @@ function BannerForm({
   onSaved,
   addToast,
 }: {
-  initial: HomeBannerRecord | null;
+  initial: HomeBanner | null;
   onClose: () => void;
   onSaved: () => void;
   addToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -495,6 +469,8 @@ function BannerForm({
       overlayColor: form.overlay_color,
       overlayOpacity: form.overlay_opacity,
       showCta: form.show_cta,
+      displayOrder: form.display_order,
+      isActive: form.is_active,
     };
   }, [form, previewUrl, initial]);
 
@@ -668,8 +644,8 @@ function BannerForm({
                 onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
                 className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
               >
-                <option value="small">Small (96px)</option>
-                <option value="medium">Medium (145px)</option>
+                <option value="small">Small (110px)</option>
+                <option value="medium">Medium (165px)</option>
                 <option value="large">Large Hero (210px)</option>
               </select>
             </div>
@@ -686,7 +662,6 @@ function BannerForm({
                 <option value="middle_1">Middle 1</option>
                 <option value="middle_2">Middle 2</option>
                 <option value="middle_3">Middle 3</option>
-                <option value="middle">Middle Legacy</option>
                 <option value="bottom">Bottom</option>
               </select>
             </div>

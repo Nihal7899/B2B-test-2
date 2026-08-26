@@ -1947,6 +1947,10 @@ export async function deleteProductImages(urls: string[]): Promise<void> {
   await Promise.all(urls.map(url => deleteProductImage(url).catch(console.error)));
 }
 
+// ================================================================
+// DYNAMIC HOME SECTIONS & POPULAR PRODUCTS
+// ================================================================
+
 export function mapSectionFromDb(row: any): HomeSection {
   return {
     id: row.id,

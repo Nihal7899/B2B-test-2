@@ -36,6 +36,8 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
       } else {
         tailwindBgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
       }
+    } else {
+      tailwindBgClass = banner.bgClass || 'bg-gradient-to-r from-brand-600 to-brand-800';
     }
 
     return { computedBgStyle, tailwindBgClass };

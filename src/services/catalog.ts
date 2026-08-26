@@ -2208,3 +2208,105 @@ export async function fetchRecentlyViewedProducts(): Promise<Product[]> {
     return [];
   }
 }
+
+// ================================================================
+// COPY BANNER IMAGE & SAFE DUPLICATE
+// ================================================================
+
+/**
+ * Creates a duplicate of an existing image file in Supabase storage.
+ */
+export async function copyBannerImage(imageUrl: string): Promise<string> {
+  if (!imageUrl) return '';
+
+  let bucket = 'home-banners';
+  let filePath = '';
+
+  const homeBannersPrefix = '/storage/v1/object/public/home-banners/';
+  const catalogImagesPrefix = '/storage/v1/object/public/catalog-images/';
+
+  if (imageUrl.includes(homeBannersPrefix)) {
+    bucket = 'home-banners';
+    filePath = imageUrl.substring(imageUrl.indexOf(homeBannersPrefix) + homeBannersPrefix.length);
+  } else if (imageUrl.includes(catalogImagesPrefix)) {
+    bucket = 'catalog-images';
+    filePath = imageUrl.substring(imageUrl.indexOf(catalogImagesPrefix) + catalogImagesPrefix.length);
+  } else {
+    return imageUrl;
+  }
+
+  if (!filePath) return imageUrl;
+  filePath = filePath.split('?')[0];
+
+  const ext = filePath.split('.').pop() || 'webp';
+  const newFileName = `banner-copy-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
+
+  const { error } = await supabase.storage.from(bucket).copy(filePath, newFileName);
+
+  if (error) {
+    console.warn(`Failed to copy image in bucket ${bucket}:`, error);
+    return imageUrl;
+  }
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(newFileName);
+  return data.publicUrl;
+}
+
+/**
+ * Duplicates banner record and its storage image file with confirmation.
+ */
+export async function duplicateHomeBanner(id: string): Promise<HomeBanner | null> {
+  const { data: original, error: fetchError } = await supabase
+    .from('home_banners')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (fetchError || !original) throw fetchError || new Error('Banner not found');
+
+  const orig = original as DbHomeBanner;
+  let newImageUrl = orig.image_url;
+
+  // Create an independent copy of the image file in Supabase storage
+  if (orig.image_url && !orig.image_url.includes('placeholder')) {
+    try {
+      newImageUrl = await copyBannerImage(orig.image_url);
+    } catch (err) {
+      console.warn('Image duplication error, keeping original URL:', err);
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('home_banners')
+    .insert({
+      badge: orig.badge,
+      title: orig.title ? `${orig.title} (Copy)` : 'Banner (Copy)',
+      description: orig.description,
+      image_url: newImageUrl,
+      background_color: orig.background_color,
+      button_text: orig.button_text,
+      action_type: orig.action_type,
+      action_config: orig.action_config,
+      display_order: (orig.display_order || 0) + 1,
+      is_active: false,
+      position: orig.position || 'top',
+      size: orig.size || 'medium',
+      start_at: null,
+      end_at: null,
+      bg_type: orig.bg_type,
+      bg_color: orig.bg_color,
+      bg_gradient: orig.bg_gradient,
+      gradient_from: orig.gradient_from,
+      gradient_to: orig.gradient_to,
+      gradient_direction: orig.gradient_direction,
+      overlay_enabled: orig.overlay_enabled,
+      overlay_color: orig.overlay_color,
+      overlay_opacity: orig.overlay_opacity,
+      show_cta: orig.show_cta,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as HomeBanner;
+}

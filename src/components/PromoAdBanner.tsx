@@ -4,11 +4,13 @@ import type { PromoBanner } from '@/types';
 interface PromoAdBannerProps {
   banner: PromoBanner;
   onAction?: (banner: PromoBanner) => void;
+  className?: string;
 }
 
 export const PromoAdBanner = React.memo(function PromoAdBanner({
   banner,
   onAction,
+  className = 'mx-4',
 }: PromoAdBannerProps) {
   const promoCode = (banner.actionConfig?.promoCode as string) || '';
   const discount = (banner.actionConfig?.discount as string) || '';
@@ -46,7 +48,7 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
   return (
     <div
       onClick={() => onAction?.(banner)}
-      className={`mx-4 rounded-2xl overflow-hidden relative min-h-[100px] shadow-card transform-gpu p-4 flex flex-col justify-center text-white cursor-pointer ${tailwindBgClass}`}
+      className={`rounded-2xl overflow-hidden relative min-h-[110px] shadow-card transform-gpu p-4 flex flex-col justify-center text-white cursor-pointer ${tailwindBgClass} ${className}`}
       style={computedBgStyle}
     >
       {banner.overlayEnabled && (
@@ -59,29 +61,29 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
         />
       )}
 
-      <div className="relative z-10">
+      <div className="relative z-10 space-y-1">
         {banner.badge && (
           <p className="text-[10px] font-black tracking-wider uppercase text-yellow-300">
             {banner.badge}
           </p>
         )}
-        <h3 className="text-base sm:text-lg font-black leading-tight mt-0.5 whitespace-normal break-words">
+        <h3 className="text-base sm:text-lg font-black leading-tight whitespace-pre-line break-words drop-shadow-xs">
           {banner.headline}
         </h3>
 
         {(promoCode || discount) && (
-          <div className="flex items-center gap-2.5 mt-2">
+          <div className="flex items-center gap-2.5 pt-1">
             {promoCode && (
-              <span className="bg-white/20 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold tracking-wider border border-white/30 backdrop-blur-sm">
+              <span className="bg-white/20 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold tracking-wider border border-white/30 backdrop-blur-sm shadow-xs">
                 {promoCode}
               </span>
             )}
-            {discount && <span className="text-xs font-bold">{discount}</span>}
+            {discount && <span className="text-xs font-bold text-white/95">{discount}</span>}
           </div>
         )}
 
         {banner.subtext && (
-          <p className="text-xs opacity-90 mt-1 whitespace-normal break-words">
+          <p className="text-xs opacity-90 pt-0.5 whitespace-pre-line break-words">
             {banner.subtext}
           </p>
         )}

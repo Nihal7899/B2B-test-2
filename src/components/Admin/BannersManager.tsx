@@ -28,6 +28,7 @@ import {
   type DbProduct,
 } from '@/services/catalog';
 import { PromoBannerCard } from '@/components/PromoBanner';
+import { PromoAdBanner } from '@/components/PromoAdBanner';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
@@ -56,9 +57,11 @@ export default function BannersManager() {
   const [editingBanner, setEditingBanner] = useState<HomeBanner | null>(null);
   const [previewBanner, setPreviewBanner] = useState<HomeBanner | null>(null);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
+  
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     bannerId?: string;
+    action?: 'delete' | 'duplicate';
     title: string;
     message: string;
   }>({
@@ -88,23 +91,39 @@ export default function BannersManager() {
     void load();
   }, [load]);
 
-  const handleDeleteClick = (id: string) => {
+  const handleDeleteClick = (banner: HomeBanner) => {
     setConfirmDialog({
       isOpen: true,
-      bannerId: id,
+      bannerId: banner.id,
+      action: 'delete',
       title: 'Delete Banner',
-      message: 'Are you sure you want to delete this banner? This action cannot be undone.',
+      message: `Are you sure you want to delete "${banner.title}"? This action cannot be undone.`,
     });
   };
 
-  const handleConfirmDelete = async () => {
+  const handleDuplicateClick = (banner: HomeBanner) => {
+    setConfirmDialog({
+      isOpen: true,
+      bannerId: banner.id,
+      action: 'duplicate',
+      title: 'Duplicate Banner',
+      message: `Are you sure you want to duplicate "${banner.title}"? This will copy all banner settings and create a separate image file in storage.`,
+    });
+  };
+
+  const handleConfirmAction = async () => {
     if (!confirmDialog.bannerId) return;
     try {
-      await deleteHomeBanner(confirmDialog.bannerId);
-      addToast('Banner deleted successfully', 'success');
+      if (confirmDialog.action === 'duplicate') {
+        await duplicateHomeBanner(confirmDialog.bannerId);
+        addToast('Banner and storage image duplicated successfully', 'success');
+      } else {
+        await deleteHomeBanner(confirmDialog.bannerId);
+        addToast('Banner deleted successfully', 'success');
+      }
       await load();
     } catch {
-      addToast('Failed to delete banner', 'error');
+      addToast(`Failed to ${confirmDialog.action || 'process'} banner`, 'error');
     } finally {
       setConfirmDialog({ isOpen: false, bannerId: undefined, title: '', message: '' });
     }
@@ -117,16 +136,6 @@ export default function BannersManager() {
       await load();
     } catch {
       addToast('Failed to update banner', 'error');
-    }
-  };
-
-  const handleDuplicate = async (id: string) => {
-    try {
-      await duplicateHomeBanner(id);
-      addToast('Banner duplicated', 'success');
-      await load();
-    } catch {
-      addToast('Failed to duplicate banner', 'error');
     }
   };
 
@@ -221,7 +230,7 @@ export default function BannersManager() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-black text-ink-900">Banners Management</h2>
-          <p className="text-xs text-ink-500">Configure banners, positions, sizes, and custom gradients</p>
+          <p className="text-xs text-ink-500">Configure promotional banners, position slots, sizes, and gradients</p>
         </div>
         <button
           onClick={handleAddNew}
@@ -241,7 +250,7 @@ export default function BannersManager() {
                     <img src={banner.image_url} alt="" className="h-12 w-12 rounded-xl object-cover border border-ink-100" />
                   ) : (
                     <div
-                      className="h-12 w-12 rounded-xl border border-ink-100 flex items-center justify-center text-[9px] font-black text-white shadow-inner"
+                      className="h-12 w-12 rounded-xl border border-ink-100 flex items-center justify-center text-[9px] font-black text-white shadow-inner text-center px-1"
                       style={{
                         background:
                           banner.bg_type === 'gradient'
@@ -314,9 +323,9 @@ export default function BannersManager() {
                   {banner.is_active ? 'ON' : 'OFF'}
                 </button>
                 <button
-                  onClick={() => void handleDuplicate(banner.id)}
+                  onClick={() => handleDuplicateClick(banner)}
                   className="h-8 w-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center hover:bg-brand-100"
-                  title="Duplicate"
+                  title="Duplicate with new storage image"
                 >
                   <Copy size={14} />
                 </button>
@@ -328,7 +337,7 @@ export default function BannersManager() {
                   <Pencil size={14} />
                 </button>
                 <button
-                  onClick={() => handleDeleteClick(banner.id)}
+                  onClick={() => handleDeleteClick(banner)}
                   className="h-8 w-8 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100"
                   title="Delete"
                 >
@@ -340,6 +349,7 @@ export default function BannersManager() {
         ))}
       </div>
 
+      {/* List Item Live Preview Modal */}
       {previewBanner && (
         <div
           className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
@@ -347,21 +357,28 @@ export default function BannersManager() {
         >
           <div className="max-w-md w-full space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft">
-              <h3 className="text-sm font-bold text-ink-900">Live Preview ({previewBanner.size || 'medium'})</h3>
+              <h3 className="text-sm font-bold text-ink-900">
+                Live Preview ({previewBanner.position === 'top' ? 'Top Promo Ad' : previewBanner.size?.toUpperCase() || 'MEDIUM'})
+              </h3>
               <button onClick={() => setPreviewBanner(null)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
               </button>
             </div>
-            <PromoBannerCard banner={toPromoBanner(previewBanner)} />
+            {previewBanner.position === 'top' ? (
+              <PromoAdBanner banner={toPromoBanner(previewBanner)} className="mx-0 w-full" />
+            ) : (
+              <PromoBannerCard banner={toPromoBanner(previewBanner)} className="w-full" />
+            )}
           </div>
         </div>
       )}
 
+      {/* Unified Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}
         title={confirmDialog.title}
         message={confirmDialog.message}
-        onConfirm={handleConfirmDelete}
+        onConfirm={handleConfirmAction}
         onCancel={() => setConfirmDialog({ isOpen: false, bannerId: undefined, title: '', message: '' })}
       />
     </div>
@@ -687,7 +704,7 @@ function BannerForm({
                 onChange={(e) => setForm({ ...form, position: e.target.value as BannerPosition })}
                 className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
               >
-                <option value="top">Top Rectangular</option>
+                <option value="top">Top Rectangular (Promo Ad)</option>
                 <option value="carousel">Top Carousel</option>
                 <option value="middle_1">Middle 1</option>
                 <option value="middle_2">Middle 2</option>
@@ -709,6 +726,33 @@ function BannerForm({
               </select>
             </div>
           </div>
+
+          {/* Top Promo Ad specific configuration */}
+          {form.position === 'top' && (
+            <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2.5">
+              <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Promo Ad Details</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-ink-700 mb-1">Promo Code</label>
+                  <input
+                    value={(form.action_config.promoCode as string) || ''}
+                    onChange={(e) => setActionConfig('promoCode', e.target.value)}
+                    placeholder="e.g. HYPER10"
+                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-mono font-bold outline-none focus:border-brand-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-ink-700 mb-1">Discount Tag</label>
+                  <input
+                    value={(form.action_config.discount as string) || ''}
+                    onChange={(e) => setActionConfig('discount', e.target.value)}
+                    placeholder="e.g. 10% OFF"
+                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-bold outline-none focus:border-brand-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {form.bg_type === 'gradient' && (
             <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
@@ -1031,16 +1075,21 @@ function BannerForm({
           </div>
         </div>
 
+        {/* Live Preview Panel */}
         <div className="lg:col-span-5 flex flex-col justify-between bg-ink-50/70 p-4 rounded-2xl border border-ink-100">
           <div>
             <p className="text-xs font-black uppercase tracking-wider text-ink-500 mb-3 flex items-center gap-1.5">
-              <Eye size={14} /> Live Preview ({previewBannerObject.size?.toUpperCase()})
+              <Eye size={14} /> Live Preview ({form.position === 'top' ? 'Top Promo Ad' : previewBannerObject.size?.toUpperCase() || 'MEDIUM'})
             </p>
             <div className="w-full">
-              <PromoBannerCard banner={previewBannerObject} />
+              {form.position === 'top' ? (
+                <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
+              ) : (
+                <PromoBannerCard banner={previewBannerObject} className="w-full" />
+              )}
             </div>
             <p className="text-[10px] text-ink-400 mt-3 leading-relaxed">
-              * Text supports manual line breaks and fills 100% of the banner width when no image is uploaded.
+              * Text wraps automatically to the next line and spans 100% width when no image is uploaded.
             </p>
           </div>
 

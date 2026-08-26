@@ -1,18 +1,23 @@
 import React, { useMemo } from 'react';
-import type { PromoBanner } from '@/types';
+import type { PromoBanner, BannerSize } from '@/types';
 
-interface PromoAdBannerProps {
+interface PromoBannerCardProps {
   banner: PromoBanner;
+  size?: BannerSize;
   onAction?: (banner: PromoBanner) => void;
+  className?: string;
 }
 
-export const PromoAdBanner = React.memo(function PromoAdBanner({
+export const PromoBannerCard = React.memo(function PromoBannerCard({
   banner,
+  size: sizeProp,
   onAction,
-}: PromoAdBannerProps) {
-  const promoCode = (banner.actionConfig?.promoCode as string) || '';
-  const discount = (banner.actionConfig?.discount as string) || '';
+  className = '',
+}: PromoBannerCardProps) {
+  const size = sizeProp || banner.size || 'medium';
+  const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
 
+  // Compute CSS Background dynamically
   const { computedBgStyle, tailwindBgClass } = useMemo(() => {
     let computedBgStyle: React.CSSProperties = {};
     let tailwindBgClass = '';
@@ -43,49 +48,123 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
     return { computedBgStyle, tailwindBgClass };
   }, [banner]);
 
+  const overlayStyle: React.CSSProperties = {
+    backgroundColor: banner.overlayColor || '#000000',
+    opacity: (banner.overlayOpacity ?? 40) / 100,
+  };
+
+  // Dimensions & typography presets based on selected size
+  const sizeConfig = useMemo(() => {
+    switch (size) {
+      case 'small':
+        return {
+          container: 'h-[110px]',
+          padding: 'p-3',
+          badge: 'text-[8px] px-2 py-0.5 mb-1',
+          headline: 'text-sm font-extrabold line-clamp-1',
+          subtext: 'text-[10px] opacity-90 mt-0.5 line-clamp-1',
+          cta: 'text-[10px] px-2.5 py-1 mt-1.5',
+          imageWidth: 'w-[35%]',
+        };
+      case 'large':
+        return {
+          container: 'h-[210px]',
+          padding: 'p-5 sm:p-6',
+          badge: 'text-[10px] px-3 py-1 mb-2',
+          headline: 'text-xl sm:text-2xl font-black line-clamp-2',
+          subtext: 'text-xs sm:text-sm opacity-90 mt-1 line-clamp-2',
+          cta: 'text-xs sm:text-sm font-bold px-4 py-2 mt-3 shadow-md',
+          imageWidth: 'w-[42%]',
+        };
+      case 'medium':
+      default:
+        return {
+          container: 'h-[165px]',
+          padding: 'p-4',
+          badge: 'text-[9px] px-2 py-0.5 mb-2',
+          headline: 'text-[17px] font-extrabold leading-tight tracking-tight line-clamp-2',
+          subtext: 'text-[11px] opacity-90 mt-1 leading-snug line-clamp-2',
+          cta: 'text-xs font-bold px-3.5 py-1.5 mt-2 shadow-sm',
+          imageWidth: 'w-[42%]',
+        };
+    }
+  }, [size]);
+
   return (
     <div
-      onClick={() => onAction?.(banner)}
-      className={`mx-4 rounded-2xl overflow-hidden relative min-h-[100px] shadow-card transform-gpu p-4 flex flex-col justify-center text-white cursor-pointer ${tailwindBgClass}`}
-      style={computedBgStyle}
+      className={`relative overflow-hidden rounded-2xl flex text-white shadow-soft transform-gpu ${sizeConfig.container} ${tailwindBgClass} ${className}`}
     >
-      {banner.overlayEnabled && (
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundColor: banner.overlayColor || '#000000',
-            opacity: (banner.overlayOpacity ?? 40) / 100,
-          }}
-        />
-      )}
+      {/* Background layer */}
+      <div className="absolute inset-0 z-0" style={computedBgStyle} />
 
-      <div className="relative z-10">
-        {banner.badge && (
-          <p className="text-[10px] font-black tracking-wider uppercase text-yellow-300">
-            {banner.badge}
-          </p>
-        )}
-        <h3 className="text-base sm:text-lg font-black leading-tight mt-0.5 whitespace-normal break-words">
-          {banner.headline}
-        </h3>
+      {/* Text Content (Takes full width when no image, or flex-1 when image is present) */}
+      <div
+        className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}
+      >
+        <div className="flex-1 overflow-hidden">
+          {banner.badge && (
+            <span
+              className={`inline-block font-bold tracking-wider uppercase bg-white/20 rounded-full ${sizeConfig.badge}`}
+            >
+              {banner.badge}
+            </span>
+          )}
+          <h3 className={sizeConfig.headline}>{banner.headline}</h3>
+          {banner.subtext && <p className={sizeConfig.subtext}>{banner.subtext}</p>}
+        </div>
 
-        {(promoCode || discount) && (
-          <div className="flex items-center gap-2.5 mt-2">
-            {promoCode && (
-              <span className="bg-white/20 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold tracking-wider border border-white/30 backdrop-blur-sm">
-                {promoCode}
-              </span>
-            )}
-            {discount && <span className="text-xs font-bold">{discount}</span>}
-          </div>
-        )}
-
-        {banner.subtext && (
-          <p className="text-xs opacity-90 mt-1 whitespace-normal break-words">
-            {banner.subtext}
-          </p>
+        {banner.showCta !== false && banner.cta && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAction?.(banner);
+            }}
+            className={`flex-shrink-0 self-start bg-white text-ink-900 font-bold rounded-lg tap-highlight active:scale-95 transition-transform ${sizeConfig.cta}`}
+          >
+            {banner.cta}
+          </button>
         )}
       </div>
+
+      {/* Side Image Container */}
+      {showImage && (
+        <div className={`relative z-10 shrink-0 h-full ${sizeConfig.imageWidth}`}>
+          <img
+            src={banner.image}
+            alt={banner.headline}
+            decoding="async"
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </div>
+      )}
+
+      {/* Tint Overlay */}
+      {banner.overlayEnabled && (
+        <div className="absolute inset-0 z-20 pointer-events-none" style={overlayStyle} />
+      )}
+    </div>
+  );
+});
+
+export const PromoCarousel = React.memo(function PromoCarousel({
+  banners,
+  size,
+  onAction,
+}: {
+  banners: PromoBanner[];
+  size?: BannerSize;
+  onAction?: (banner: PromoBanner) => void;
+}) {
+  return (
+    <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">
+      {banners.map((banner) => (
+        <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
+          <PromoBannerCard banner={banner} size={size} onAction={onAction} />
+        </div>
+      ))}
     </div>
   );
 });

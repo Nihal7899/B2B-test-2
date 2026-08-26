@@ -1,4 +1,3 @@
-// src/components/PromoBanner.tsx
 import React, { useMemo } from 'react';
 import type { PromoBanner, BannerSize } from '@/types';
 
@@ -16,8 +15,9 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
   className = '',
 }: PromoBannerCardProps) {
   const size = sizeProp || banner.size || 'medium';
-  const hasImage = Boolean(banner.image && banner.image.trim().length > 0 && banner.bgType !== 'image');
+  const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
 
+  // Compute CSS Background dynamically
   const { computedBgStyle, tailwindBgClass } = useMemo(() => {
     let computedBgStyle: React.CSSProperties = {};
     let tailwindBgClass = '';
@@ -53,67 +53,64 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
     opacity: (banner.overlayOpacity ?? 40) / 100,
   };
 
-  const sizeClasses = useMemo(() => {
+  // Dimensions & typography presets based on selected size
+  const sizeConfig = useMemo(() => {
     switch (size) {
       case 'small':
         return {
-          container: 'h-[110px] min-h-[110px] p-3',
-          badge: 'text-[8px] px-1.5 py-0.5 mb-1',
+          container: 'h-[110px]',
+          padding: 'p-3',
+          badge: 'text-[8px] px-2 py-0.5 mb-1',
           headline: 'text-sm font-extrabold line-clamp-1',
-          subtext: 'text-[10px] line-clamp-1 mt-0.5',
+          subtext: 'text-[10px] opacity-90 mt-0.5 line-clamp-1',
           cta: 'text-[10px] px-2.5 py-1 mt-1.5',
-          imageWidth: 'w-[32%]',
-          textWidth: hasImage ? 'w-[68%]' : 'w-full',
+          imageWidth: 'w-[35%]',
         };
       case 'large':
         return {
-          container: 'h-[210px] min-h-[210px] p-5',
-          badge: 'text-[10px] px-2.5 py-0.5 mb-2',
+          container: 'h-[210px]',
+          padding: 'p-5 sm:p-6',
+          badge: 'text-[10px] px-3 py-1 mb-2',
           headline: 'text-xl sm:text-2xl font-black line-clamp-2',
-          subtext: 'text-xs sm:text-sm mt-1 line-clamp-2',
-          cta: 'text-xs font-bold px-4 py-2 mt-3 shadow-md',
+          subtext: 'text-xs sm:text-sm opacity-90 mt-1 line-clamp-2',
+          cta: 'text-xs sm:text-sm font-bold px-4 py-2 mt-3 shadow-md',
           imageWidth: 'w-[42%]',
-          textWidth: hasImage ? 'w-[58%]' : 'w-full',
         };
       case 'medium':
       default:
         return {
-          container: 'h-[165px] min-h-[165px] p-4',
-          badge: 'text-[9px] px-2 py-0.5 mb-1.5',
-          headline: 'text-[17px] font-extrabold leading-tight line-clamp-2',
+          container: 'h-[165px]',
+          padding: 'p-4',
+          badge: 'text-[9px] px-2 py-0.5 mb-2',
+          headline: 'text-[17px] font-extrabold leading-tight tracking-tight line-clamp-2',
           subtext: 'text-[11px] opacity-90 mt-1 leading-snug line-clamp-2',
           cta: 'text-xs font-bold px-3.5 py-1.5 mt-2 shadow-sm',
-          imageWidth: 'w-[40%]',
-          textWidth: hasImage ? 'w-[60%]' : 'w-full',
+          imageWidth: 'w-[42%]',
         };
     }
-  }, [size, hasImage]);
+  }, [size]);
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl flex text-white shadow-soft transform-gpu ${sizeClasses.container} ${tailwindBgClass} ${className}`}
-      style={computedBgStyle}
+      className={`relative overflow-hidden rounded-2xl flex text-white shadow-soft transform-gpu ${sizeConfig.container} ${tailwindBgClass} ${className}`}
     >
-      {banner.overlayEnabled && (
-        <div className="absolute inset-0 z-10 pointer-events-none" style={overlayStyle} />
-      )}
+      {/* Background layer */}
+      <div className="absolute inset-0 z-0" style={computedBgStyle} />
 
-      {/* Dynamic text container expanding to 100% width when no image */}
-      <div className={`relative z-20 flex flex-col justify-between overflow-hidden ${sizeClasses.textWidth}`}>
+      {/* Text Content (Takes full width when no image, or flex-1 when image is present) */}
+      <div
+        className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}
+      >
         <div className="flex-1 overflow-hidden">
           {banner.badge && (
-            <span className={`inline-block font-bold tracking-wider uppercase bg-white/20 rounded-full ${sizeClasses.badge}`}>
+            <span
+              className={`inline-block font-bold tracking-wider uppercase bg-white/20 rounded-full ${sizeConfig.badge}`}
+            >
               {banner.badge}
             </span>
           )}
-          <h3 className={`tracking-tight text-white ${sizeClasses.headline}`}>
-            {banner.headline}
-          </h3>
-          {banner.subtext && (
-            <p className={`text-white/90 ${sizeClasses.subtext}`}>
-              {banner.subtext}
-            </p>
-          )}
+          <h3 className={sizeConfig.headline}>{banner.headline}</h3>
+          {banner.subtext && <p className={sizeConfig.subtext}>{banner.subtext}</p>}
         </div>
 
         {banner.showCta !== false && banner.cta && (
@@ -122,25 +119,31 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
               e.stopPropagation();
               onAction?.(banner);
             }}
-            className={`flex-shrink-0 self-start bg-white text-ink-900 rounded-lg tap-highlight active:scale-95 transition-transform ${sizeClasses.cta}`}
+            className={`flex-shrink-0 self-start bg-white text-ink-900 font-bold rounded-lg tap-highlight active:scale-95 transition-transform ${sizeConfig.cta}`}
           >
             {banner.cta}
           </button>
         )}
       </div>
 
-      {hasImage && (
-        <div className={`relative z-10 shrink-0 h-full ${sizeClasses.imageWidth}`}>
+      {/* Side Image Container */}
+      {showImage && (
+        <div className={`relative z-10 shrink-0 h-full ${sizeConfig.imageWidth}`}>
           <img
             src={banner.image}
             alt={banner.headline}
             decoding="async"
-            className="h-full w-full object-cover rounded-r-xl"
+            className="h-full w-full object-cover"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}
           />
         </div>
+      )}
+
+      {/* Tint Overlay */}
+      {banner.overlayEnabled && (
+        <div className="absolute inset-0 z-20 pointer-events-none" style={overlayStyle} />
       )}
     </div>
   );

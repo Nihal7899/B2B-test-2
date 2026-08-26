@@ -79,7 +79,7 @@ export function HomeScreen({
           prodRes,
           popRes,
           reorderRes,
-          recentRes,
+          recentRes, // <-- Populated by fetchRecentlyViewedProducts()
           volumeRes,
           newArrRes,
           topRatedRes,
@@ -94,7 +94,7 @@ export function HomeScreen({
           fetchProducts(),
           fetchPopularProducts(12),
           fetchUserReorderProducts(10),
-          recentIds.length ? fetchProductsByIds(recentIds) : Promise.resolve([]),
+          fetchRecentlyViewedProducts(), // <-- Clean, direct service call
           fetchVolumeDealsProducts(10),
           fetchNewArrivalsProducts(10),
           fetchTopRatedProducts(10),

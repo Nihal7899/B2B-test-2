@@ -96,16 +96,20 @@ export interface PromoBanner {
   subtext: string;
   cta: string;
   image: string;
-  bgClass: string;
-  textClass: string;
+  bgClass?: string;
+  textClass?: string;
   badge?: string;
   actionType?: string;
   actionConfig?: Record<string, unknown>;
-  position?: string; // 'top' | 'carousel' | 'middle' | 'bottom'
-  background_color?: string; // 👈 add this
+  position?: string;
+  background_color?: string;
   bgType?: 'color' | 'image' | 'gradient';
   bgColor?: string;
   bgGradient?: string;
+  gradientFrom?: string;
+  gradientTo?: string;
+  gradientDirection?: string;
+  size?: BannerSize;
   overlayEnabled?: boolean;
   overlayColor?: string;
   overlayOpacity?: number;
@@ -248,17 +252,21 @@ export interface HomeBanner {
   action_config: Record<string, unknown>;
   display_order: number;
   is_active: boolean;
-  position: string; // 'top' | 'carousel' | 'middle' | 'bottom'
+  position: string;
+  size?: BannerSize;
   start_at: string | null;
   end_at: string | null;
   created_at: string;
   updated_at: string;
   bg_type?: 'color' | 'image' | 'gradient';
-  bg_color?: string;          // hex colour
-  bg_gradient?: string;       // e.g. 'from-blue-500 to-purple-500'
+  bg_color?: string;
+  bg_gradient?: string;
+  gradient_from?: string;
+  gradient_to?: string;
+  gradient_direction?: string;
   overlay_enabled?: boolean;
   overlay_color?: string;
-  overlay_opacity?: number;   // 0-100
+  overlay_opacity?: number;
   show_cta?: boolean;
 }
 
@@ -352,4 +360,31 @@ export interface DeliveryRange {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export type BannerSize = 'small' | 'medium' | 'large';
+export type BannerPosition = 'top' | 'carousel' | 'middle' | 'middle_1' | 'middle_2' | 'middle_3' | 'bottom';
+export type BannerBgType = 'color' | 'gradient' | 'image';
+
+export type HomeSectionType =
+  | 'categories'
+  | 'popular_products'
+  | 'deals'
+  | 'essentials'
+  | 'stores'
+  | 'brands'
+  | 'perks'
+  | 'banner_slot'
+  | 'custom_products';
+
+export interface HomeSection {
+  id: string;
+  title: string;
+  subtitle?: string;
+  sectionType: HomeSectionType;
+  bannerPosition?: BannerPosition;
+  bannerSize?: BannerSize;
+  sortOrder: number;
+  isActive: boolean;
+  config?: Record<string, any>;
 }

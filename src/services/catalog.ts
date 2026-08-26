@@ -498,6 +498,7 @@ export interface DbHomeBanner {
   display_order: number;
   is_active: boolean;
   position: string;
+  size?: string;
   start_at: string | null;
   end_at: string | null;
   created_at: string;
@@ -505,6 +506,9 @@ export interface DbHomeBanner {
   bg_type: string | null;
   bg_color: string | null;
   bg_gradient: string | null;
+  gradient_from?: string;
+  gradient_to?: string;
+  gradient_direction?: string;
   overlay_enabled: boolean | null;
   overlay_color: string | null;
   overlay_opacity: number | null;
@@ -523,15 +527,19 @@ export function mapHomeBanner(db: DbHomeBanner): PromoBanner {
     badge: db.badge ?? undefined,
     actionType: db.action_type,
     actionConfig: db.action_config,
-    position: db.position || 'top',
+    position: db.position || 'middle_1',
+    size: (db.size as any) || 'medium',
     background_color: db.background_color,
-    bgType: (db.bg_type as 'color' | 'image' | 'gradient') || 'color',
-    bgColor: db.bg_color ?? undefined,
+    bgType: (db.bg_type as 'color' | 'image' | 'gradient') || 'gradient',
+    bgColor: db.bg_color ?? '#16a34a',
     bgGradient: db.bg_gradient ?? undefined,
+    gradientFrom: db.gradient_from ?? '#065f46',
+    gradientTo: db.gradient_to ?? '#10b981',
+    gradientDirection: db.gradient_direction ?? 'to right',
     overlayEnabled: db.overlay_enabled ?? false,
-    overlayColor: db.overlay_color ?? undefined,
-    overlayOpacity: db.overlay_opacity ?? 0,
-    showCta: db.show_cta !== undefined ? db.show_cta : true,
+    overlayColor: db.overlay_color ?? '#000000',
+    overlayOpacity: db.overlay_opacity ?? 40,
+    showCta: db.show_cta !== false,
   };
 }
 
@@ -1937,4 +1945,88 @@ export async function deleteProductImage(imageUrl: string): Promise<void> {
 // Helper: delete multiple product images
 export async function deleteProductImages(urls: string[]): Promise<void> {
   await Promise.all(urls.map(url => deleteProductImage(url).catch(console.error)));
+}
+
+export function mapSectionFromDb(row: any): HomeSection {
+  return {
+    id: row.id,
+    title: row.title,
+    subtitle: row.subtitle || '',
+    sectionType: row.section_type,
+    bannerPosition: row.banner_position || 'middle_1',
+    bannerSize: row.banner_size || 'medium',
+    sortOrder: row.sort_order ?? 0,
+    isActive: Boolean(row.is_active),
+    config: row.config || {},
+  };
+}
+
+export async function fetchHomeSections(): Promise<HomeSection[]> {
+  const { data, error } = await supabase
+    .from('home_sections')
+    .select('*')
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching home sections:', error);
+    return [];
+  }
+  return (data || []).map(mapSectionFromDb);
+}
+
+export async function createHomeSection(section: Partial<HomeSection>): Promise<HomeSection> {
+  const payload = {
+    title: section.title,
+    subtitle: section.subtitle || '',
+    section_type: section.sectionType,
+    banner_position: section.bannerPosition,
+    banner_size: section.bannerSize || 'medium',
+    sort_order: section.sortOrder ?? 0,
+    is_active: section.isActive ?? true,
+    config: section.config || {},
+  };
+  const { data, error } = await supabase.from('home_sections').insert(payload).select().single();
+  if (error) throw error;
+  return mapSectionFromDb(data);
+}
+
+export async function updateHomeSection(id: string, section: Partial<HomeSection>): Promise<void> {
+  const payload = {
+    title: section.title,
+    subtitle: section.subtitle,
+    section_type: section.sectionType,
+    banner_position: section.bannerPosition,
+    banner_size: section.bannerSize,
+    sort_order: section.sortOrder,
+    is_active: section.isActive,
+    config: section.config,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabase.from('home_sections').update(payload).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteHomeSection(id: string): Promise<void> {
+  const { error } = await supabase.from('home_sections').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function fetchPopularProducts(limit = 12): Promise<Product[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_popular_products', { limit_count: limit });
+    if (!error && data && data.length > 0) {
+      const { data: catData } = await supabase.from('categories').select('id, slug').eq('is_active', true);
+      const categoryMap: Record<string, string> = {};
+      (catData as DbCategory[] | null)?.forEach((c) => {
+        categoryMap[c.id] = c.slug;
+      });
+
+      return (data as DbProduct[]).map((p) => mapProduct(p, categoryMap[p.category_id] ?? ''));
+    }
+  } catch (e) {
+    console.warn('RPC popular query fallback:', e);
+  }
+
+  const { products } = await fetchProducts();
+  return [...products].sort((a, b) => b.rating - a.rating).slice(0, limit);
 }

@@ -1,87 +1,27 @@
 import React from 'react';
-import type { PromoBanner } from '@/types';
+import type { PromoBanner, BannerSize } from '@/types';
+import { PromoActionBanner } from '@/components/PromoActionBanner';
 
 interface PromoBannerCardProps {
   banner: PromoBanner;
+  size?: BannerSize;
   onAction?: (banner: PromoBanner) => void;
+  className?: string;
 }
 
 export const PromoBannerCard = React.memo(function PromoBannerCard({
   banner,
+  size,
   onAction,
+  className = '',
 }: PromoBannerCardProps) {
-  let bgStyle: React.CSSProperties = {};
-  let bgClass = '';
-
-  if (banner.bgType === 'image') {
-    bgStyle = {
-      backgroundImage: `url(${banner.image})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-    };
-  } else if (banner.bgType === 'color') {
-    bgStyle = { backgroundColor: banner.bgColor || '#16a34a' };
-  } else if (banner.bgType === 'gradient') {
-    bgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
-  }
-
-  const overlayStyle: React.CSSProperties = {
-    backgroundColor: banner.overlayColor || '#000000',
-    opacity: (banner.overlayOpacity || 50) / 100,
-  };
-
-  const showImage = banner.bgType !== 'image' && banner.image;
-
   return (
-    <div className="relative overflow-hidden rounded-2xl h-[180px] flex text-white shadow-soft transform-gpu">
-      {banner.bgType === 'gradient' ? (
-        <div className={`absolute inset-0 z-0 ${bgClass}`} />
-      ) : (
-        <div className="absolute inset-0 z-0" style={bgStyle} />
-      )}
-
-      <div className="relative z-30 flex-1 h-full p-4 flex flex-col justify-between min-w-0 overflow-hidden">
-        <div className="flex-1 overflow-hidden">
-          {banner.badge && (
-            <span className="inline-block text-[9px] font-bold tracking-wider uppercase bg-white/20 rounded-full px-2 py-0.5 mb-2">
-              {banner.badge}
-            </span>
-          )}
-          <h3 className="text-[17px] font-extrabold leading-tight tracking-tight line-clamp-2">
-            {banner.headline}
-          </h3>
-          <p className="text-[11px] opacity-90 mt-1 leading-snug line-clamp-2">
-            {banner.subtext}
-          </p>
-        </div>
-        {banner.showCta !== false && (
-          <button
-            onClick={() => onAction?.(banner)}
-            className="flex-shrink-0 mt-2 self-start bg-white text-ink-900 text-xs font-bold rounded-lg px-3.5 py-1.5 tap-highlight active:scale-95 transition-transform shadow-sm"
-          >
-            {banner.cta}
-          </button>
-        )}
-      </div>
-
-      {showImage && (
-        <div className="relative z-10 w-[42%] shrink-0 h-full">
-          <img
-            src={banner.image}
-            alt={banner.headline}
-            decoding="async"
-            className="h-full w-full object-cover"
-            onError={(e) => {
-              e.currentTarget.src = 'https://placehold.co/400x400/EEE/999?text=Banner';
-            }}
-          />
-        </div>
-      )}
-
-      {banner.overlayEnabled && (
-        <div className="absolute inset-0 z-20" style={overlayStyle} />
-      )}
-    </div>
+    <PromoActionBanner
+      banner={banner}
+      sizeOverride={size}
+      onAction={onAction}
+      className={className}
+    />
   );
 });
 

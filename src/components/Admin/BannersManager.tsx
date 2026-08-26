@@ -1,10 +1,20 @@
-// src/components/admin/BannersManager.tsx
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  Plus, Pencil, Trash2, X, Eye, Copy, ArrowUp, ArrowDown, ImageIcon, Loader2, Save
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Eye,
+  Copy,
+  ArrowUp,
+  ArrowDown,
+  ImageIcon,
+  Loader2,
+  Save,
+  Sliders,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { HomeBanner, ActionType, DbCategory, DbProduct } from '@/types';
+import type { ActionType, PromoBanner, BannerPosition, BannerSize, BannerBgType } from '@/types';
 import {
   fetchAllHomeBanners,
   createHomeBanner,
@@ -13,13 +23,42 @@ import {
   duplicateHomeBanner,
   uploadBannerImage,
   deleteBannerImage,
+  type DbCategory,
+  type DbProduct,
 } from '@/services/catalog';
 import { PromoBannerCard } from '@/components/PromoBanner';
-import type { PromoBanner } from '@/types';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
+
+export interface HomeBannerRecord {
+  id: string;
+  badge?: string | null;
+  title: string;
+  description: string;
+  image_url?: string | null;
+  background_color: string;
+  button_text: string;
+  action_type: ActionType;
+  action_config: Record<string, unknown>;
+  display_order: number;
+  is_active: boolean;
+  position: BannerPosition;
+  size?: BannerSize;
+  start_at?: string | null;
+  end_at?: string | null;
+  bg_type: BannerBgType;
+  bg_color: string;
+  bg_gradient?: string;
+  gradient_from?: string;
+  gradient_to?: string;
+  gradient_direction?: string;
+  overlay_enabled: boolean;
+  overlay_color: string;
+  overlay_opacity: number;
+  show_cta: boolean;
+}
 
 const ACTION_TYPES: ActionType[] = [
   'VIEW_CATEGORY',
@@ -38,11 +77,11 @@ const ACTION_TYPES: ActionType[] = [
 ];
 
 export default function BannersManager() {
-  const [banners, setBanners] = useState<HomeBanner[]>([]);
+  const [banners, setBanners] = useState<HomeBannerRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
-  const [editingBanner, setEditingBanner] = useState<HomeBanner | null>(null);
-  const [previewBanner, setPreviewBanner] = useState<HomeBanner | null>(null);
+  const [editingBanner, setEditingBanner] = useState<HomeBannerRecord | null>(null);
+  const [previewBanner, setPreviewBanner] = useState<HomeBannerRecord | null>(null);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -64,8 +103,8 @@ export default function BannersManager() {
   const load = useCallback(async () => {
     try {
       const data = await fetchAllHomeBanners();
-      setBanners(data);
-    } catch (err) {
+      setBanners(data as unknown as HomeBannerRecord[]);
+    } catch {
       addToast('Failed to load banners', 'error');
     } finally {
       setLoading(false);
@@ -91,19 +130,19 @@ export default function BannersManager() {
       await deleteHomeBanner(confirmDialog.bannerId);
       addToast('Banner deleted successfully', 'success');
       await load();
-    } catch (err) {
+    } catch {
       addToast('Failed to delete banner', 'error');
     } finally {
       setConfirmDialog({ isOpen: false, bannerId: undefined, title: '', message: '' });
     }
   };
 
-  const handleToggle = async (banner: HomeBanner) => {
+  const handleToggle = async (banner: HomeBannerRecord) => {
     try {
-      await updateHomeBanner(banner.id, { is_active: !banner.is_active });
+      await updateHomeBanner(banner.id, { is_active: !banner.is_active } as any);
       addToast(`Banner ${!banner.is_active ? 'activated' : 'deactivated'}`, 'success');
       await load();
-    } catch (err) {
+    } catch {
       addToast('Failed to update banner', 'error');
     }
   };
@@ -113,12 +152,12 @@ export default function BannersManager() {
       await duplicateHomeBanner(id);
       addToast('Banner duplicated', 'success');
       await load();
-    } catch (err) {
+    } catch {
       addToast('Failed to duplicate banner', 'error');
     }
   };
 
-  const handleReorder = async (banner: HomeBanner, direction: 'up' | 'down') => {
+  const handleReorder = async (banner: HomeBannerRecord, direction: 'up' | 'down') => {
     const sorted = [...banners].sort((a, b) => a.display_order - b.display_order);
     const idx = sorted.findIndex((b) => b.id === banner.id);
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
@@ -126,16 +165,16 @@ export default function BannersManager() {
     const swapBanner = sorted[swapIdx];
     try {
       await Promise.all([
-        updateHomeBanner(banner.id, { display_order: swapBanner.display_order }),
-        updateHomeBanner(swapBanner.id, { display_order: banner.display_order }),
+        updateHomeBanner(banner.id, { display_order: swapBanner.display_order } as any),
+        updateHomeBanner(swapBanner.id, { display_order: banner.display_order } as any),
       ]);
       await load();
-    } catch (err) {
+    } catch {
       addToast('Failed to reorder banners', 'error');
     }
   };
 
-  const handleEdit = (banner: HomeBanner) => {
+  const handleEdit = (banner: HomeBannerRecord) => {
     setEditingBanner(banner);
     setViewMode('form');
   };
@@ -156,36 +195,33 @@ export default function BannersManager() {
     addToast('Banner saved successfully', 'success');
   };
 
-  const toPromoBanner = (b: HomeBanner): PromoBanner => {
-    const bgMap: Record<string, string> = {
-      brand: 'bg-gradient-to-br from-brand-700 to-brand-900',
-      accent: 'bg-gradient-to-br from-accent-500 to-accent-700',
-      ink: 'bg-gradient-to-br from-ink-800 to-ink-900',
-    };
+  const toPromoBanner = (b: HomeBannerRecord): PromoBanner => {
     return {
       id: b.id,
       headline: b.title,
       subtext: b.description,
       cta: b.button_text,
-      image: b.image_url,
-      bgClass: bgMap[b.background_color] ?? bgMap.brand,
-      textClass: 'text-white',
+      image: b.image_url || '',
       badge: b.badge ?? undefined,
       actionType: b.action_type,
       actionConfig: b.action_config,
-      position: b.position || 'top',
-      bgType: b.bg_type || 'color',
+      position: b.position || 'middle_1',
+      size: b.size || 'medium',
+      bgType: b.bg_type || 'gradient',
       bgColor: b.bg_color || '#16a34a',
-      bgGradient: b.bg_gradient || 'from-brand-600 to-brand-800',
-      overlayEnabled: b.overlay_enabled || false,
+      bgGradient: b.bg_gradient || '',
+      gradientFrom: b.gradient_from || '#065f46',
+      gradientTo: b.gradient_to || '#10b981',
+      gradientDirection: b.gradient_direction || 'to right',
+      overlayEnabled: Boolean(b.overlay_enabled),
       overlayColor: b.overlay_color || '#000000',
-      overlayOpacity: b.overlay_opacity || 50,
-      showCta: b.show_cta !== undefined ? b.show_cta : true,
+      overlayOpacity: b.overlay_opacity ?? 40,
+      showCta: b.show_cta !== false,
     };
   };
 
   if (loading) {
-    return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
+    return <Loader2 className="animate-spin mx-auto text-brand-600 my-10" size={28} />;
   }
 
   if (viewMode === 'form') {
@@ -200,127 +236,144 @@ export default function BannersManager() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <ToastContainer>
         {toasts.map((t) => (
           <Toast key={t.id} message={t.message} type={t.type} onClose={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))} />
         ))}
       </ToastContainer>
 
-      <button
-        onClick={handleAddNew}
-        className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
-      >
-        <Plus size={16} /> Add banner
-      </button>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-black text-ink-900">Banners Management</h2>
+          <p className="text-xs text-ink-500">Configure promotional banners, position slots, and gradient themes</p>
+        </div>
+        <button
+          onClick={handleAddNew}
+          className="h-10 px-4 rounded-xl bg-brand-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform"
+        >
+          <Plus size={16} /> Add banner
+        </button>
+      </div>
 
-      {banners.map((banner, i) => (
-        <div key={banner.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3">
-                {banner.image_url && (
-                  <img src={banner.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
-                )}
-                <div>
-                  <p className="text-sm font-bold text-ink-800 truncate">{banner.title}</p>
-                  <p className="text-xs text-ink-500 truncate">{banner.description}</p>
+      <div className="space-y-3">
+        {banners.map((banner, i) => (
+          <div key={banner.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3">
+                  {banner.image_url ? (
+                    <img src={banner.image_url} alt="" className="h-12 w-12 rounded-xl object-cover border border-ink-100" />
+                  ) : (
+                    <div
+                      className="h-12 w-12 rounded-xl border border-ink-100 flex items-center justify-center text-[9px] font-black text-white shadow-inner"
+                      style={{
+                        background:
+                          banner.bg_type === 'gradient'
+                            ? `linear-gradient(${banner.gradient_direction || 'to right'}, ${banner.gradient_from || '#065f46'}, ${banner.gradient_to || '#10b981'})`
+                            : banner.bg_color || '#16a34a',
+                      }}
+                    >
+                      NO IMG
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-ink-800 truncate">{banner.title}</p>
+                    <p className="text-xs text-ink-500 truncate">{banner.description || 'No description'}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                  <span
+                    className={`text-[9px] font-black tracking-wider uppercase rounded-full px-2.5 py-0.5 ${
+                      banner.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-ink-100 text-ink-500'
+                    }`}
+                  >
+                    {banner.is_active ? 'ACTIVE' : 'HIDDEN'}
+                  </span>
+                  <span className="text-[9px] font-bold text-ink-600 bg-ink-50 px-2 py-0.5 rounded-full border border-ink-100">
+                    Pos: {banner.position || 'top'}
+                  </span>
+                  <span className="text-[9px] font-bold text-ink-600 bg-ink-50 px-2 py-0.5 rounded-full border border-ink-100">
+                    Size: {banner.size || 'medium'}
+                  </span>
+                  <span className="text-[9px] font-bold text-ink-600 bg-ink-50 px-2 py-0.5 rounded-full border border-ink-100">
+                    Type: {banner.bg_type}
+                  </span>
+                  <span className="text-[9px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
+                    Order: {banner.display_order}
+                  </span>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span
-                  className={`text-[10px] font-bold rounded-full px-2.5 py-0.5 ${
-                    banner.is_active
-                      ? 'bg-brand-100 text-brand-700'
-                      : 'bg-ink-100 text-ink-500'
+
+              <div className="flex flex-wrap items-center gap-1.5 self-end md:self-start">
+                <button
+                  onClick={() => setPreviewBanner(banner)}
+                  className="h-8 w-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center hover:bg-sky-100"
+                  title="Preview"
+                >
+                  <Eye size={14} />
+                </button>
+                <button
+                  onClick={() => void handleReorder(banner, 'up')}
+                  disabled={i === 0}
+                  className="h-8 w-8 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-30"
+                  title="Move Up"
+                >
+                  <ArrowUp size={14} />
+                </button>
+                <button
+                  onClick={() => void handleReorder(banner, 'down')}
+                  disabled={i === banners.length - 1}
+                  className="h-8 w-8 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-30"
+                  title="Move Down"
+                >
+                  <ArrowDown size={14} />
+                </button>
+                <button
+                  onClick={() => void handleToggle(banner)}
+                  className={`h-8 px-2.5 rounded-xl text-[10px] font-extrabold ${
+                    banner.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-ink-100 text-ink-500'
                   }`}
                 >
-                  {banner.is_active ? 'ACTIVE' : 'HIDDEN'}
-                </span>
-                <span className="text-[10px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
-                  Order: {banner.display_order}
-                </span>
-                <span className="text-[10px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
-                  Pos: {banner.position || 'top'}
-                </span>
-                <span className="text-[10px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
-                  {banner.action_type}
-                </span>
-                {banner.start_at && (
-                  <span className="text-[10px] text-amber-600">
-                    From: {new Date(banner.start_at).toLocaleDateString()}
-                  </span>
-                )}
-                {banner.end_at && (
-                  <span className="text-[10px] text-amber-600">
-                    To: {new Date(banner.end_at).toLocaleDateString()}
-                  </span>
-                )}
+                  {banner.is_active ? 'ON' : 'OFF'}
+                </button>
+                <button
+                  onClick={() => void handleDuplicate(banner.id)}
+                  className="h-8 w-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center hover:bg-brand-100"
+                  title="Duplicate"
+                >
+                  <Copy size={14} />
+                </button>
+                <button
+                  onClick={() => handleEdit(banner)}
+                  className="h-8 w-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center hover:bg-brand-100"
+                  title="Edit"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={() => handleDeleteClick(banner.id)}
+                  className="h-8 w-8 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100"
+                  title="Delete"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setPreviewBanner(banner)}
-                className="h-9 w-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center"
-              >
-                <Eye size={14} />
-              </button>
-              <button
-                onClick={() => void handleReorder(banner, 'up')}
-                disabled={i === 0}
-                className="h-9 w-9 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-40"
-              >
-                <ArrowUp size={14} />
-              </button>
-              <button
-                onClick={() => void handleReorder(banner, 'down')}
-                disabled={i === banners.length - 1}
-                className="h-9 w-9 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-40"
-              >
-                <ArrowDown size={14} />
-              </button>
-              <button
-                onClick={() => void handleToggle(banner)}
-                className={`h-9 px-3 rounded-xl text-xs font-bold ${
-                  banner.is_active
-                    ? 'bg-brand-100 text-brand-700'
-                    : 'bg-ink-100 text-ink-500'
-                }`}
-              >
-                {banner.is_active ? 'ON' : 'OFF'}
-              </button>
-              <button
-                onClick={() => void handleDuplicate(banner.id)}
-                className="h-9 w-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center"
-              >
-                <Copy size={14} />
-              </button>
-              <button
-                onClick={() => handleEdit(banner)}
-                className="h-9 w-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center"
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                onClick={() => handleDeleteClick(banner.id)}
-                className="h-9 w-9 rounded-xl bg-red-50 text-red-500 flex items-center justify-center"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
       {previewBanner && (
         <div
-          className="fixed inset-0 z-[300] bg-black/40 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
           onClick={() => setPreviewBanner(null)}
         >
-          <div className="max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-white rounded-2xl p-3 mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-ink-900">Preview</h3>
-              <button onClick={() => setPreviewBanner(null)} className="text-ink-400">
+          <div className="max-w-md w-full space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft">
+              <h3 className="text-sm font-bold text-ink-900">Live Preview ({previewBanner.size || 'medium'})</h3>
+              <button onClick={() => setPreviewBanner(null)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
               </button>
             </div>
@@ -340,14 +393,13 @@ export default function BannersManager() {
   );
 }
 
-// ========== BannerForm (refactored) ==========
 function BannerForm({
   initial,
   onClose,
   onSaved,
   addToast,
 }: {
-  initial: HomeBanner | null;
+  initial: HomeBannerRecord | null;
   onClose: () => void;
   onSaved: () => void;
   addToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -363,24 +415,30 @@ function BannerForm({
     action_config: (initial?.action_config ?? {}) as Record<string, unknown>,
     display_order: initial?.display_order ?? 0,
     is_active: initial?.is_active ?? true,
-    position: initial?.position ?? 'top',
+    position: (initial?.position ?? 'middle_1') as BannerPosition,
+    size: (initial?.size ?? 'medium') as BannerSize,
     start_at: initial?.start_at ?? '',
     end_at: initial?.end_at ?? '',
-    bg_type: initial?.bg_type ?? 'color',
+    bg_type: (initial?.bg_type ?? 'gradient') as BannerBgType,
     bg_color: initial?.bg_color ?? '#16a34a',
-    bg_gradient: initial?.bg_gradient ?? 'from-brand-600 to-brand-800',
+    bg_gradient: initial?.bg_gradient ?? '',
+    gradient_from: initial?.gradient_from ?? '#065f46',
+    gradient_to: initial?.gradient_to ?? '#10b981',
+    gradient_direction: initial?.gradient_direction ?? 'to right',
     overlay_enabled: initial?.overlay_enabled ?? false,
     overlay_color: initial?.overlay_color ?? '#000000',
-    overlay_opacity: initial?.overlay_opacity ?? 50,
+    overlay_opacity: initial?.overlay_opacity ?? 40,
     show_cta: initial?.show_cta ?? true,
   });
+
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(initial?.image_url ?? '');
-  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(initial?.image_url ?? null);
+  const [originalImageUrl] = useState<string | null>(initial?.image_url ?? null);
+
   const [categories, setCategories] = useState<DbCategory[]>([]);
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
@@ -405,17 +463,48 @@ function BannerForm({
     setPreviewUrl(URL.createObjectURL(file));
   };
 
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setPreviewUrl('');
+    setForm((f) => ({ ...f, image_url: '' }));
+  };
+
   const setActionConfig = (key: string, value: unknown) => {
     setForm((f) => ({ ...f, action_config: { ...f.action_config, [key]: value } }));
   };
 
+  const previewBannerObject = useMemo<PromoBanner>(() => {
+    return {
+      id: initial?.id || 'temp-id',
+      headline: form.title || 'Banner Title Headline',
+      subtext: form.description || 'Short subtext and promotional details',
+      cta: form.button_text || 'Shop now',
+      image: previewUrl,
+      badge: form.badge || undefined,
+      actionType: form.action_type,
+      actionConfig: form.action_config,
+      position: form.position,
+      size: form.size,
+      bgType: form.bg_type,
+      bgColor: form.bg_color,
+      bgGradient: form.bg_gradient,
+      gradientFrom: form.gradient_from,
+      gradientTo: form.gradient_to,
+      gradientDirection: form.gradient_direction,
+      overlayEnabled: form.overlay_enabled,
+      overlayColor: form.overlay_color,
+      overlayOpacity: form.overlay_opacity,
+      showCta: form.show_cta,
+    };
+  }, [form, previewUrl, initial]);
+
   const handleSave = async () => {
-    if (!form.title) {
+    if (!form.title.trim()) {
       addToast('Title is required', 'warning');
       return;
     }
     if (form.bg_type === 'image' && !form.image_url && !selectedFile) {
-      addToast('Please upload an image for full‑screen banner.', 'warning');
+      addToast('Please upload an image for Full Image banner type.', 'warning');
       return;
     }
 
@@ -428,39 +517,29 @@ function BannerForm({
         setUploadProgress(0);
         setUploadStatus('Compressing image...');
 
-        // Simulate compression progress (0-30%)
-        const compressionSteps = 8;
-        for (let i = 0; i <= compressionSteps; i++) {
-          const progress = Math.min(30, (i / compressionSteps) * 30);
+        for (let i = 0; i <= 6; i++) {
+          const progress = Math.min(30, (i / 6) * 30);
           setUploadProgress(progress);
-          setUploadStatus(`Compressing... ${Math.round(progress)}%`);
-          await new Promise((resolve) => setTimeout(resolve, 120));
+          await new Promise((resolve) => setTimeout(resolve, 80));
         }
 
-        // Actual compression
         const compressed = await compressImage(selectedFile);
-        setUploadStatus('Compression complete. Uploading...');
+        setUploadStatus('Uploading banner image...');
         setUploadProgress(30);
 
-        // Upload with progress callback (30-100%)
-        const uploadProgressCallback = (uploadPercent: number) => {
-          const overall = 30 + (uploadPercent * 0.7);
+        const uploadProgressCallback = (p: number) => {
+          const overall = 30 + p * 0.7;
           setUploadProgress(Math.min(100, overall));
           setUploadStatus(`Uploading... ${Math.round(overall)}%`);
         };
 
         newImageUrl = await uploadBannerImage(compressed, uploadProgressCallback);
 
-        setUploadProgress(100);
-        setUploadStatus('Upload complete!');
-
-        // Delete old image if different
         if (originalImageUrl && originalImageUrl !== newImageUrl) {
           await deleteBannerImage(originalImageUrl);
         }
       }
 
-      // Build payload
       const payload = {
         badge: form.badge || null,
         title: form.title,
@@ -473,11 +552,15 @@ function BannerForm({
         display_order: form.display_order,
         is_active: form.is_active,
         position: form.position,
+        size: form.size,
         start_at: form.start_at || null,
         end_at: form.end_at || null,
         bg_type: form.bg_type,
         bg_color: form.bg_color,
         bg_gradient: form.bg_gradient,
+        gradient_from: form.gradient_from,
+        gradient_to: form.gradient_to,
+        gradient_direction: form.gradient_direction,
         overlay_enabled: form.overlay_enabled,
         overlay_color: form.overlay_color,
         overlay_opacity: form.overlay_opacity,
@@ -485,15 +568,15 @@ function BannerForm({
       };
 
       if (initial) {
-        await updateHomeBanner(initial.id, payload);
+        await updateHomeBanner(initial.id, payload as any);
       } else {
-        await createHomeBanner(payload);
+        await createHomeBanner(payload as any);
       }
 
       onSaved();
     } catch (err) {
       console.error(err);
-      addToast('Failed to save banner. Check console for details.', 'error');
+      addToast('Failed to save banner', 'error');
     } finally {
       setSaving(false);
       setUploading(false);
@@ -502,7 +585,6 @@ function BannerForm({
     }
   };
 
-  // Show circular upload overlay
   if (uploading) {
     return (
       <UploadProgress
@@ -513,7 +595,6 @@ function BannerForm({
     );
   }
 
-  // Render form (same as before, mobile friendly)
   const needsCategory = form.action_type === 'VIEW_CATEGORY' || form.action_type === 'FILTER_PRODUCTS';
   const needsProduct = form.action_type === 'VIEW_PRODUCT';
   const needsBrand = form.action_type === 'VIEW_BRAND' || form.action_type === 'FILTER_PRODUCTS';
@@ -524,515 +605,459 @@ function BannerForm({
   const needsFilter = form.action_type === 'FILTER_PRODUCTS';
 
   return (
-    <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-4 shadow-card">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-ink-900">{initial ? 'Edit' : 'New'} banner</h3>
-        <button onClick={onClose} className="h-10 w-10 flex items-center justify-center">
-          <X size={16} className="text-ink-400" />
+    <div className="bg-white border border-brand-200 rounded-2xl p-4 sm:p-5 space-y-5 shadow-card">
+      <div className="flex items-center justify-between border-b border-ink-100 pb-3">
+        <h3 className="text-sm font-black text-ink-900 flex items-center gap-1.5">
+          <Sliders size={16} className="text-brand-600" />
+          {initial ? 'Edit Banner' : 'Create New Banner'}
+        </h3>
+        <button onClick={onClose} className="h-8 w-8 rounded-lg flex items-center justify-center text-ink-400 hover:bg-ink-50">
+          <X size={16} />
         </button>
       </div>
 
-      {/* Basic fields */}
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Badge</label>
-        <input
-          value={form.badge}
-          onChange={(e) => setForm({ ...form, badge: e.target.value })}
-          placeholder="e.g. WHOLESALE"
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Title *</label>
-        <input
-          value={form.title}
-          onChange={(e) => setForm({ ...form, title: e.target.value })}
-          placeholder="Banner title"
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Description</label>
-        <input
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          placeholder="Short description"
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Image URL {form.bg_type === 'image' && '*'}</label>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            value={form.image_url}
-            onChange={(e) => {
-              setForm({ ...form, image_url: e.target.value });
-              setPreviewUrl(e.target.value);
-            }}
-            placeholder="Image URL or upload"
-            className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-          <label className="h-10 px-3 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer">
-            <ImageIcon size={14} /> Upload
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFileSelect(f);
-              }}
-            />
-          </label>
-        </div>
-        {previewUrl && (
-          <div className="relative mt-2">
-            <img src={previewUrl} alt="Preview" className="h-20 w-full rounded-xl object-cover" />
-            {selectedFile && (
-              <span className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
-                New
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Background type */}
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Background Type</label>
-        <select
-          value={form.bg_type}
-          onChange={(e) => setForm({ ...form, bg_type: e.target.value as 'color' | 'image' | 'gradient' })}
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        >
-          <option value="color">Solid Colour</option>
-          <option value="image">Full Image (no colour)</option>
-          <option value="gradient">Gradient</option>
-        </select>
-      </div>
-
-      {form.bg_type === 'color' && (
-        <div>
-          <label className="block text-xs font-bold text-ink-600 mb-1">Background Colour</label>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="color"
-              value={form.bg_color}
-              onChange={(e) => setForm({ ...form, bg_color: e.target.value })}
-              className="h-10 w-14 rounded-xl border border-ink-200 p-1 cursor-pointer"
-            />
-            <input
-              type="text"
-              value={form.bg_color}
-              onChange={(e) => setForm({ ...form, bg_color: e.target.value })}
-              placeholder="#hex"
-              className="flex-1 min-w-[120px] h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {['#16a34a', '#dc2626', '#2563eb', '#ea580c', '#8b5cf6', '#ec4899', '#f59e0b', '#14b8a6', '#4b5563'].map((c) => (
-              <button
-                key={c}
-                onClick={() => setForm({ ...form, bg_color: c })}
-                className="h-8 w-8 rounded-full border border-ink-200"
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {form.bg_type === 'gradient' && (
-        <div>
-          <label className="block text-xs font-bold text-ink-600 mb-1">Gradient Classes</label>
-          <select
-            value={form.bg_gradient}
-            onChange={(e) => setForm({ ...form, bg_gradient: e.target.value })}
-            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          >
-            <option value="from-brand-600 to-brand-800">Brand Green</option>
-            <option value="from-red-500 to-red-700">Red</option>
-            <option value="from-blue-500 to-blue-700">Blue</option>
-            <option value="from-orange-500 to-orange-700">Orange</option>
-            <option value="from-purple-500 to-purple-700">Purple</option>
-            <option value="from-pink-500 to-pink-700">Pink</option>
-            <option value="from-yellow-400 to-yellow-600">Yellow</option>
-            <option value="from-teal-400 to-teal-600">Teal</option>
-            <option value="from-gray-600 to-gray-800">Gray</option>
-          </select>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-bold text-ink-600 mb-1">Legacy Color (for carousel)</label>
-          <select
-            value={form.background_color}
-            onChange={(e) => setForm({ ...form, background_color: e.target.value })}
-            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          >
-            <option value="brand">Brand green</option>
-            <option value="accent">Accent</option>
-            <option value="ink">Dark</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-ink-600 mb-1">Button text</label>
-          <input
-            value={form.button_text}
-            onChange={(e) => setForm({ ...form, button_text: e.target.value })}
-            placeholder="CTA"
-            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-xs font-bold text-ink-600 mb-1">Position</label>
-        <select
-          value={form.position}
-          onChange={(e) => setForm({ ...form, position: e.target.value })}
-          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-        >
-          <option value="top">Top (rectangular promo code)</option>
-          <option value="carousel">Carousel (action button card)</option>
-          <option value="middle">Middle (action button banner)</option>
-          <option value="bottom">Bottom (action button banner)</option>
-        </select>
-      </div>
-
-      {form.position === 'top' && (
-        <>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-7 space-y-4">
           <div>
-            <label className="block text-xs font-bold text-ink-600 mb-1">Promo Code</label>
+            <label className="block text-xs font-bold text-ink-700 mb-1">Headline Title *</label>
             <input
-              value={(form.action_config.promoCode as string) || ''}
-              onChange={(e) => setActionConfig('promoCode', e.target.value)}
-              placeholder="e.g. HYPER10"
-              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="e.g. Special Bulk Discounts on Oils"
+              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm font-bold outline-none focus:border-brand-500"
             />
           </div>
-          <div>
-            <label className="block text-xs font-bold text-ink-600 mb-1">Discount Text</label>
-            <input
-              value={(form.action_config.discount as string) || ''}
-              onChange={(e) => setActionConfig('discount', e.target.value)}
-              placeholder="e.g. 10% OFF"
-              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-            />
-          </div>
-        </>
-      )}
 
-      {form.position !== 'top' && (
-        <>
           <div>
-            <label className="block text-xs font-bold text-ink-600 mb-1">Action type</label>
-            <select
-              value={form.action_type}
-              onChange={(e) => setForm({ ...form, action_type: e.target.value as ActionType, action_config: {} })}
-              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-            >
-              {ACTION_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
+            <label className="block text-xs font-bold text-ink-700 mb-1">Subtext / Description</label>
+            <textarea
+              rows={2}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="e.g. Order in volume and save up to 25% on wholesale packs"
+              className="w-full rounded-xl border border-ink-200 p-2.5 text-xs outline-none focus:border-brand-500"
+            />
           </div>
-          {needsScreen && (
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Screen</label>
-              <select
-                value={(form.action_config.screen as string) ?? ''}
-                onChange={(e) => setActionConfig('screen', e.target.value)}
-                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-              >
-                <option value="">Select screen</option>
-                <option value="home">Home</option>
-                <option value="categories">Categories</option>
-                <option value="cart">Cart</option>
-                <option value="orders">Orders</option>
-                <option value="wishlist">Wishlist</option>
-                <option value="addresses">Addresses</option>
-                <option value="account">Account</option>
-                <option value="businessRegistration">Business registration</option>
-              </select>
-            </div>
-          )}
-          {needsUrl && (
-            <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">External URL</label>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Badge</label>
               <input
-                value={(form.action_config.url as string) ?? ''}
-                onChange={(e) => setActionConfig('url', e.target.value)}
-                placeholder="https://..."
-                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+                value={form.badge}
+                onChange={(e) => setForm({ ...form, badge: e.target.value })}
+                placeholder="e.g. WHOLESALE"
+                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
               />
             </div>
-          )}
-          {needsSearch && (
             <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Search query</label>
+              <label className="block text-xs font-bold text-ink-700 mb-1">CTA Button Text</label>
               <input
-                value={(form.action_config.query as string) ?? ''}
-                onChange={(e) => setActionConfig('query', e.target.value)}
-                placeholder="e.g. basmati"
-                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+                value={form.button_text}
+                onChange={(e) => setForm({ ...form, button_text: e.target.value })}
+                placeholder="Shop now"
+                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
               />
             </div>
-          )}
-          {needsProduct && (
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Product</label>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Banner Size</label>
               <select
-                value={(form.action_config.product_id as string) ?? ''}
-                onChange={(e) => {
-                  setActionConfig('product_id', e.target.value);
-                  const p = products.find((x) => x.id === e.target.value);
-                  if (p) setActionConfig('product_name', `${p.brand} ${p.name}`);
-                }}
-                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+                value={form.size}
+                onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
+                className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
               >
-                <option value="">Select product</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.brand} {p.name}
-                  </option>
-                ))}
+                <option value="small">Small (96px)</option>
+                <option value="medium">Medium (145px)</option>
+                <option value="large">Large Hero (210px)</option>
               </select>
             </div>
-          )}
-          {needsCategory && (
+
             <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Categories</label>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Placement Slot</label>
               <select
-                multiple
-                value={(form.action_config.category_ids as string[]) ?? []}
-                onChange={(e) =>
-                  setActionConfig('category_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
-                }
-                className="w-full h-24 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-                size={4}
+                value={form.position}
+                onChange={(e) => setForm({ ...form, position: e.target.value as BannerPosition })}
+                className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
               >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.slug}>
-                    {c.name}
-                  </option>
-                ))}
+                <option value="top">Top Rectangular</option>
+                <option value="carousel">Top Carousel</option>
+                <option value="middle_1">Middle 1</option>
+                <option value="middle_2">Middle 2</option>
+                <option value="middle_3">Middle 3</option>
+                <option value="middle">Middle Legacy</option>
+                <option value="bottom">Bottom</option>
               </select>
             </div>
-          )}
-          {needsBrand && (
+
             <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Brands</label>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Background Style</label>
               <select
-                multiple
-                value={(form.action_config.brand_ids as string[]) ?? []}
-                onChange={(e) =>
-                  setActionConfig('brand_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
-                }
-                className="w-full h-24 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-                size={4}
+                value={form.bg_type}
+                onChange={(e) => setForm({ ...form, bg_type: e.target.value as BannerBgType })}
+                className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
               >
-                {brands.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
+                <option value="gradient">Custom Gradient</option>
+                <option value="color">Solid Colour</option>
+                <option value="image">Full Image</option>
               </select>
             </div>
-          )}
-          {needsSmartCollection && (
-            <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Smart Collection</label>
-              <select
-                value={(form.action_config.collection_id as string) ?? ''}
-                onChange={(e) => {
-                  const sc = smartCollections.find((x) => x.id === e.target.value);
-                  setActionConfig('collection_id', e.target.value);
-                  if (sc) setActionConfig('name', sc.name);
-                }}
-                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-              >
-                <option value="">Select collection</option>
-                {smartCollections.map((sc) => (
-                  <option key={sc.id} value={sc.id}>
-                    {sc.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          {needsFilter && (
-            <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Filter options</label>
-              <div className="rounded-xl border border-ink-100 p-3 bg-ink-50/30 space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    value={(form.action_config.discount_min as number) ?? ''}
-                    onChange={(e) => setActionConfig('discount_min', e.target.value ? Number(e.target.value) : null)}
-                    placeholder="Min discount %"
-                    className="h-9 rounded-lg border border-ink-200 px-2 text-sm outline-none focus:border-brand-500"
-                  />
-                  <input
-                    type="number"
-                    value={(form.action_config.discount_max as number) ?? ''}
-                    onChange={(e) => setActionConfig('discount_max', e.target.value ? Number(e.target.value) : null)}
-                    placeholder="Max discount %"
-                    className="h-9 rounded-lg border border-ink-200 px-2 text-sm outline-none focus:border-brand-500"
-                  />
-                  <input
-                    type="number"
-                    value={(form.action_config.price_min as number) ?? ''}
-                    onChange={(e) => setActionConfig('price_min', e.target.value ? Number(e.target.value) : null)}
-                    placeholder="Min price"
-                    className="h-9 rounded-lg border border-ink-200 px-2 text-sm outline-none focus:border-brand-500"
-                  />
-                  <input
-                    type="number"
-                    value={(form.action_config.price_max as number) ?? ''}
-                    onChange={(e) => setActionConfig('price_max', e.target.value ? Number(e.target.value) : null)}
-                    placeholder="Max price"
-                    className="h-9 rounded-lg border border-ink-200 px-2 text-sm outline-none focus:border-brand-500"
-                  />
+          </div>
+
+          {form.bg_type === 'gradient' && (
+            <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Gradient Stop Configuration</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-ink-500 mb-1">Start Color (From)</label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="color"
+                      value={form.gradient_from}
+                      onChange={(e) => setForm({ ...form, gradient_from: e.target.value })}
+                      className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={form.gradient_from}
+                      onChange={(e) => setForm({ ...form, gradient_from: e.target.value })}
+                      className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                    />
+                  </div>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-ink-700">
-                  <input
-                    type="checkbox"
-                    checked={(form.action_config.stock_only as boolean) ?? false}
-                    onChange={(e) => setActionConfig('stock_only', e.target.checked)}
-                    className="accent-brand-600"
-                  />{' '}
-                  In stock only
-                </label>
-                <select
-                  value={(form.action_config.sort as string) ?? 'newest'}
-                  onChange={(e) => setActionConfig('sort', e.target.value)}
-                  className="w-full h-9 rounded-lg border border-ink-200 px-2 text-sm outline-none focus:border-brand-500"
-                >
-                  <option value="newest">Newest</option>
-                  <option value="discount_desc">Discount: high to low</option>
-                  <option value="discount_asc">Discount: low to high</option>
-                  <option value="price_asc">Price: low to high</option>
-                  <option value="price_desc">Price: high to low</option>
-                  <option value="rating_desc">Top rated</option>
-                </select>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-ink-500 mb-1">End Color (To)</label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="color"
+                      value={form.gradient_to}
+                      onChange={(e) => setForm({ ...form, gradient_to: e.target.value })}
+                      className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={form.gradient_to}
+                      onChange={(e) => setForm({ ...form, gradient_to: e.target.value })}
+                      className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[
+                  { from: '#065f46', to: '#10b981' },
+                  { from: '#1e3a8a', to: '#3b82f6' },
+                  { from: '#7c2d12', to: '#f97316' },
+                  { from: '#581c87', to: '#a855f7' },
+                  { from: '#831843', to: '#ec4899' },
+                  { from: '#172554', to: '#1e293b' },
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setForm({ ...form, gradient_from: preset.from, gradient_to: preset.to })}
+                    className="h-6 px-2 rounded-md text-[9px] font-bold text-white shadow-xs"
+                    style={{ background: `linear-gradient(to right, ${preset.from}, ${preset.to})` }}
+                  >
+                    Preset {idx + 1}
+                  </button>
+                ))}
               </div>
             </div>
           )}
-        </>
-      )}
 
-      {/* Overlay */}
-      <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 text-xs font-bold text-ink-700">
-          <input
-            type="checkbox"
-            checked={form.overlay_enabled}
-            onChange={(e) => setForm({ ...form, overlay_enabled: e.target.checked })}
-            className="accent-brand-600"
-          />
-          Enable tint overlay
-        </label>
-      </div>
+          {form.bg_type === 'color' && (
+            <div className="p-3 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
+              <label className="block text-xs font-bold text-ink-700">Solid Colour</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={form.bg_color}
+                  onChange={(e) => setForm({ ...form, bg_color: e.target.value })}
+                  className="h-9 w-12 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={form.bg_color}
+                  onChange={(e) => setForm({ ...form, bg_color: e.target.value })}
+                  className="flex-1 h-9 rounded-lg border border-ink-200 px-2.5 text-xs font-mono uppercase"
+                />
+              </div>
+            </div>
+          )}
 
-      {form.overlay_enabled && (
-        <div className="space-y-2 border border-ink-100 rounded-xl p-3 bg-ink-50">
-          <div>
-            <label className="block text-xs font-bold text-ink-600 mb-1">Tint Colour</label>
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-ink-700">
+                Side Image {form.bg_type === 'image' && '<Required for Full Image>'}
+              </label>
+              {previewUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="text-[11px] font-bold text-red-500 hover:text-red-700 flex items-center gap-1"
+                >
+                  <Trash2 size={12} /> Remove Image (Enable 100% text width)
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
-                type="color"
-                value={form.overlay_color}
-                onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
-                className="h-10 w-14 rounded-xl border border-ink-200 p-1 cursor-pointer"
+                value={form.image_url}
+                onChange={(e) => {
+                  setForm({ ...form, image_url: e.target.value });
+                  setPreviewUrl(e.target.value);
+                }}
+                placeholder="Image URL or upload..."
+                className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
               />
-              <input
-                type="text"
-                value={form.overlay_color}
-                onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
-                className="flex-1 min-w-[120px] h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-              />
+              <label className="h-10 px-3.5 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:bg-brand-100 transition-colors">
+                <ImageIcon size={14} /> Upload
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleFileSelect(f);
+                  }}
+                />
+              </label>
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-ink-600 mb-1">Opacity: {form.overlay_opacity}%</label>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={form.overlay_opacity}
-              onChange={(e) => setForm({ ...form, overlay_opacity: Number(e.target.value) })}
-              className="w-full"
-            />
+
+          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
+            <div>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Click Action Type</label>
+              <select
+                value={form.action_type}
+                onChange={(e) => setForm({ ...form, action_type: e.target.value as ActionType, action_config: {} })}
+                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs font-bold bg-white outline-none focus:border-brand-500"
+              >
+                {ACTION_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {needsScreen && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Screen</label>
+                <select
+                  value={(form.action_config.screen as string) ?? ''}
+                  onChange={(e) => setActionConfig('screen', e.target.value)}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select screen</option>
+                  <option value="home">Home</option>
+                  <option value="categories">Categories</option>
+                  <option value="cart">Cart</option>
+                  <option value="orders">Orders</option>
+                  <option value="wishlist">Wishlist</option>
+                  <option value="addresses">Addresses</option>
+                  <option value="account">Account</option>
+                  <option value="businessRegistration">Business registration</option>
+                </select>
+              </div>
+            )}
+
+            {needsUrl && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">External URL</label>
+                <input
+                  value={(form.action_config.url as string) ?? ''}
+                  onChange={(e) => setActionConfig('url', e.target.value)}
+                  placeholder="https://..."
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs"
+                />
+              </div>
+            )}
+
+            {needsSearch && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Search Query</label>
+                <input
+                  value={(form.action_config.query as string) ?? ''}
+                  onChange={(e) => setActionConfig('query', e.target.value)}
+                  placeholder="e.g. basmati rice"
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs"
+                />
+              </div>
+            )}
+
+            {needsProduct && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Product</label>
+                <select
+                  value={(form.action_config.product_id as string) ?? ''}
+                  onChange={(e) => {
+                    setActionConfig('product_id', e.target.value);
+                    const p = products.find((x) => x.id === e.target.value);
+                    if (p) setActionConfig('product_name', `${p.brand} ${p.name}`);
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select product</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.brand} {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsCategory && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Categories</label>
+                <select
+                  multiple
+                  value={(form.action_config.category_ids as string[]) ?? []}
+                  onChange={(e) =>
+                    setActionConfig('category_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
+                  }
+                  className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsBrand && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Brands</label>
+                <select
+                  multiple
+                  value={(form.action_config.brand_ids as string[]) ?? []}
+                  onChange={(e) =>
+                    setActionConfig('brand_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
+                  }
+                  className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
+                >
+                  {brands.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsSmartCollection && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Smart Collection</label>
+                <select
+                  value={(form.action_config.collection_id as string) ?? ''}
+                  onChange={(e) => {
+                    const sc = smartCollections.find((x) => x.id === e.target.value);
+                    setActionConfig('collection_id', e.target.value);
+                    if (sc) setActionConfig('name', sc.name);
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select collection</option>
+                  {smartCollections.map((sc) => (
+                    <option key={sc.id} value={sc.id}>
+                      {sc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsFilter && (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <input
+                  type="number"
+                  value={(form.action_config.discount_min as number) ?? ''}
+                  onChange={(e) => setActionConfig('discount_min', e.target.value ? Number(e.target.value) : null)}
+                  placeholder="Min %"
+                  className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
+                />
+                <input
+                  type="number"
+                  value={(form.action_config.price_max as number) ?? ''}
+                  onChange={(e) => setActionConfig('price_max', e.target.value ? Number(e.target.value) : null)}
+                  placeholder="Max Price"
+                  className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 pt-1">
+            <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.overlay_enabled}
+                onChange={(e) => setForm({ ...form, overlay_enabled: e.target.checked })}
+                className="accent-brand-600 rounded"
+              />
+              Dark Overlay
+            </label>
+            <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.show_cta}
+                onChange={(e) => setForm({ ...form, show_cta: e.target.checked })}
+                className="accent-brand-600 rounded"
+              />
+              Show CTA
+            </label>
+            <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_active}
+                onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                className="accent-brand-600 rounded"
+              />
+              Active
+            </label>
           </div>
         </div>
-      )}
 
-      <div>
-        <label className="flex items-center gap-2 text-xs font-bold text-ink-700">
-          <input
-            type="checkbox"
-            checked={form.show_cta}
-            onChange={(e) => setForm({ ...form, show_cta: e.target.checked })}
-            className="accent-brand-600"
-          />
-          Show action button
-        </label>
-      </div>
+        <div className="lg:col-span-5 flex flex-col justify-between bg-ink-50/70 p-4 rounded-2xl border border-ink-100">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wider text-ink-500 mb-3 flex items-center gap-1.5">
+              <Eye size={14} /> Live Size & Gradient Preview
+            </p>
+            <div className="w-full">
+              <PromoBannerCard banner={previewBannerObject} />
+            </div>
+            <p className="text-[10px] text-ink-400 mt-3 leading-relaxed">
+              * Text wraps automatically to the next line and spans 100% width when no image is uploaded.
+            </p>
+          </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-bold text-ink-600 mb-1">Start date</label>
-          <input
-            type="datetime-local"
-            value={form.start_at ? form.start_at.slice(0, 16) : ''}
-            onChange={(e) => setForm({ ...form, start_at: e.target.value ? new Date(e.target.value).toISOString() : '' })}
-            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-ink-600 mb-1">End date</label>
-          <input
-            type="datetime-local"
-            value={form.end_at ? form.end_at.slice(0, 16) : ''}
-            onChange={(e) => setForm({ ...form, end_at: e.target.value ? new Date(e.target.value).toISOString() : '' })}
-            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-bold text-ink-600 mb-1">Display order</label>
-          <input
-            type="number"
-            value={form.display_order}
-            onChange={(e) => setForm({ ...form, display_order: Number(e.target.value) })}
-            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-        </div>
-        <div className="flex items-end h-10">
-          <label className="flex items-center gap-2 text-sm text-ink-700">
-            <input
-              type="checkbox"
-              checked={form.is_active}
-              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-              className="accent-brand-600"
-            />{' '}
-            Active
-          </label>
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-ink-200 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl border border-ink-200 text-xs font-bold text-ink-600 bg-white hover:bg-ink-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Banner
+            </button>
+          </div>
         </div>
       </div>
-
-      <button
-        onClick={handleSave}
-        disabled={saving || !form.title || (form.bg_type === 'image' && !form.image_url && !selectedFile)}
-        className="w-full h-11 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
-      >
-        {saving ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save banner</>}
-      </button>
     </div>
   );
 }

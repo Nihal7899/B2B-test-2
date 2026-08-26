@@ -600,33 +600,44 @@ export async function createHomeBanner(
 }
 
 export async function updateHomeBanner(id: string, updates: Partial<HomeBanner>): Promise<void> {
+  const payload: Record<string, any> = {};
+
+  // Only assign fields that are explicitly passed in updates
+  if (updates.badge !== undefined) payload.badge = updates.badge;
+  if (updates.title !== undefined) payload.title = updates.title;
+  if (updates.description !== undefined) payload.description = updates.description;
+  if (updates.image_url !== undefined) payload.image_url = updates.image_url;
+  if (updates.background_color !== undefined) payload.background_color = updates.background_color;
+  if (updates.button_text !== undefined) payload.button_text = updates.button_text;
+  if (updates.action_type !== undefined) payload.action_type = updates.action_type;
+  if (updates.action_config !== undefined) payload.action_config = updates.action_config;
+  if (updates.display_order !== undefined) payload.display_order = updates.display_order;
+  if (updates.is_active !== undefined) payload.is_active = updates.is_active;
+  if (updates.position !== undefined) payload.position = updates.position;
+  if (updates.size !== undefined) payload.size = updates.size;
+  if (updates.start_at !== undefined) payload.start_at = updates.start_at;
+  if (updates.end_at !== undefined) payload.end_at = updates.end_at;
+  if (updates.bg_type !== undefined) payload.bg_type = updates.bg_type;
+  if (updates.bg_color !== undefined) payload.bg_color = updates.bg_color;
+  if (updates.bg_gradient !== undefined) payload.bg_gradient = updates.bg_gradient;
+  if (updates.gradient_from !== undefined) payload.gradient_from = updates.gradient_from;
+  if (updates.gradient_to !== undefined) payload.gradient_to = updates.gradient_to;
+  if (updates.gradient_direction !== undefined) payload.gradient_direction = updates.gradient_direction;
+  if (updates.overlay_enabled !== undefined) payload.overlay_enabled = updates.overlay_enabled;
+  if (updates.overlay_color !== undefined) payload.overlay_color = updates.overlay_color;
+  if (updates.overlay_opacity !== undefined) payload.overlay_opacity = updates.overlay_opacity;
+  if (updates.show_cta !== undefined) payload.show_cta = updates.show_cta;
+
+  payload.updated_at = new Date().toISOString();
+
   const { error } = await supabase
     .from('home_banners')
-    .update({
-      badge: updates.badge,
-      title: updates.title,
-      description: updates.description,
-      image_url: updates.image_url,
-      background_color: updates.background_color,
-      button_text: updates.button_text,
-      action_type: updates.action_type,
-      action_config: updates.action_config,
-      display_order: updates.display_order,
-      is_active: updates.is_active,
-      position: updates.position || 'top',
-      start_at: updates.start_at,
-      end_at: updates.end_at,
-      bg_type: updates.bg_type,
-      bg_color: updates.bg_color,
-      bg_gradient: updates.bg_gradient,
-      overlay_enabled: updates.overlay_enabled,
-      overlay_color: updates.overlay_color,
-      overlay_opacity: updates.overlay_opacity,
-      show_cta: updates.show_cta,
-    })
+    .update(payload)
     .eq('id', id);
+
   if (error) throw error;
 }
+
 
 
 /**

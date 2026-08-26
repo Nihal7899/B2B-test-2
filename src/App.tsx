@@ -214,6 +214,24 @@ function App() {
     screen === 'brand' ||
     screen === 'banner';
 
+  // Prevent long press context menus globally except on editable inputs
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        target.tagName !== 'INPUT' &&
+        target.tagName !== 'TEXTAREA' &&
+        !target.isContentEditable
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('contextmenu', handleContextMenu);
+    return () => window.removeEventListener('contextmenu', handleContextMenu);
+  }, []);
+
   // Apply transparent edge-to-edge system bars
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -221,8 +239,6 @@ function App() {
     const darkHeaderScreens = ['store', 'brand', 'categoryDetail'];
     const isDarkBg = showSplash || darkHeaderScreens.includes(screen);
 
-    // true = Dark icons (for light backgrounds)
-    // false = White icons (for dark/gradient backgrounds)
     setFullScreenSystemBars(!isDarkBg);
   }, [screen, showSplash]);
 

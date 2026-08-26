@@ -13,6 +13,8 @@ import {
   Save,
   Sliders,
   CornerDownLeft,
+  LayoutTemplate,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ActionType, PromoBanner, BannerPosition, BannerSize, BannerBgType, HomeBanner } from '@/types';
@@ -50,11 +52,15 @@ const ACTION_TYPES: ActionType[] = [
   'OPEN_EXTERNAL_URL',
 ];
 
+type PositionTab = 'all' | 'top' | 'carousel' | 'middle' | 'bottom';
+
 export default function BannersManager() {
   const [banners, setBanners] = useState<HomeBanner[]>([]);
+  const [activeTab, setActiveTab] = useState<PositionTab>('all');
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
   const [editingBanner, setEditingBanner] = useState<HomeBanner | null>(null);
+  const [defaultPositionForNew, setDefaultPositionForNew] = useState<BannerPosition>('middle_1');
   const [previewBanner, setPreviewBanner] = useState<HomeBanner | null>(null);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
   
@@ -90,6 +96,27 @@ export default function BannersManager() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Counts by position
+  const tabCounts = useMemo(() => {
+    return {
+      all: banners.length,
+      top: banners.filter((b) => b.position === 'top').length,
+      carousel: banners.filter((b) => b.position === 'carousel').length,
+      middle: banners.filter((b) => ['middle', 'middle_1', 'middle_2', 'middle_3'].includes(b.position || '')).length,
+      bottom: banners.filter((b) => b.position === 'bottom').length,
+    };
+  }, [banners]);
+
+  // Filtered banner list
+  const filteredBanners = useMemo(() => {
+    if (activeTab === 'all') return banners;
+    if (activeTab === 'top') return banners.filter((b) => b.position === 'top');
+    if (activeTab === 'carousel') return banners.filter((b) => b.position === 'carousel');
+    if (activeTab === 'middle') return banners.filter((b) => ['middle', 'middle_1', 'middle_2', 'middle_3'].includes(b.position || ''));
+    if (activeTab === 'bottom') return banners.filter((b) => b.position === 'bottom');
+    return banners;
+  }, [banners, activeTab]);
 
   const handleDeleteClick = (banner: HomeBanner) => {
     setConfirmDialog({
@@ -161,7 +188,9 @@ export default function BannersManager() {
     setViewMode('form');
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = (positionOverride?: BannerPosition) => {
+    const pos = positionOverride || (activeTab === 'all' ? 'middle_1' : activeTab === 'middle' ? 'middle_1' : (activeTab as BannerPosition));
+    setDefaultPositionForNew(pos);
     setEditingBanner(null);
     setViewMode('form');
   };
@@ -212,6 +241,7 @@ export default function BannersManager() {
     return (
       <BannerForm
         initial={editingBanner}
+        defaultPosition={defaultPositionForNew}
         onClose={handleFormClose}
         onSaved={handleFormSaved}
         addToast={addToast}
@@ -227,129 +257,177 @@ export default function BannersManager() {
         ))}
       </ToastContainer>
 
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-black text-ink-900">Banners Management</h2>
-          <p className="text-xs text-ink-500">Configure promotional banners, position slots, sizes, and gradients</p>
+          <p className="text-xs text-ink-500">Configure promotional banners across Top Ad, Carousel, Middle slots, and Bottom</p>
         </div>
         <button
-          onClick={handleAddNew}
+          onClick={() => handleAddNew()}
           className="h-10 px-4 rounded-xl bg-brand-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform"
         >
           <Plus size={16} /> Add banner
         </button>
       </div>
 
-      <div className="space-y-3">
-        {banners.map((banner, i) => (
-          <div key={banner.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3">
-                  {banner.image_url ? (
-                    <img src={banner.image_url} alt="" className="h-12 w-12 rounded-xl object-cover border border-ink-100" />
-                  ) : (
-                    <div
-                      className="h-12 w-12 rounded-xl border border-ink-100 flex items-center justify-center text-[9px] font-black text-white shadow-inner text-center px-1"
-                      style={{
-                        background:
-                          banner.bg_type === 'gradient'
-                            ? `linear-gradient(${banner.gradient_direction || 'to right'}, ${banner.gradient_from || '#065f46'}, ${banner.gradient_to || '#10b981'})`
-                            : banner.bg_color || '#16a34a',
-                      }}
-                    >
-                      NO IMG
+      {/* Position Tabs */}
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 bg-ink-50/80 p-1.5 rounded-2xl border border-ink-100">
+        {[
+          { id: 'all', label: 'All Banners', count: tabCounts.all },
+          { id: 'top', label: 'Top Promo Ad', count: tabCounts.top },
+          { id: 'carousel', label: 'Top Carousel', count: tabCounts.carousel },
+          { id: 'middle', label: 'Middle Slots (1, 2, 3)', count: tabCounts.middle },
+          { id: 'bottom', label: 'Bottom Banner', count: tabCounts.bottom },
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as PositionTab)}
+              className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all ${
+                isActive
+                  ? 'bg-white text-brand-700 shadow-sm border border-brand-100'
+                  : 'text-ink-600 hover:text-ink-900'
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                  isActive ? 'bg-brand-50 text-brand-700' : 'bg-ink-200/60 text-ink-600'
+                }`}
+              >
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Banner Cards List */}
+      {filteredBanners.length === 0 ? (
+        <div className="bg-white border border-dashed border-ink-200 rounded-2xl p-8 text-center space-y-3">
+          <LayoutTemplate className="mx-auto text-ink-300" size={36} />
+          <p className="text-xs text-ink-500 font-medium">No banners found in this slot.</p>
+          <button
+            onClick={() => handleAddNew()}
+            className="px-3.5 py-1.5 rounded-xl bg-brand-50 text-brand-700 text-xs font-bold hover:bg-brand-100"
+          >
+            + Create banner for {activeTab.toUpperCase()}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredBanners.map((banner, i) => (
+            <div key={banner.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    {banner.image_url ? (
+                      <img src={banner.image_url} alt="" className="h-12 w-12 rounded-xl object-cover border border-ink-100" />
+                    ) : (
+                      <div
+                        className="h-12 w-12 rounded-xl border border-ink-100 flex items-center justify-center text-[9px] font-black text-white shadow-inner text-center px-1"
+                        style={{
+                          background:
+                            banner.bg_type === 'gradient'
+                              ? `linear-gradient(${banner.gradient_direction || 'to right'}, ${banner.gradient_from || '#065f46'}, ${banner.gradient_to || '#10b981'})`
+                              : banner.bg_color || '#16a34a',
+                        }}
+                      >
+                        NO IMG
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-ink-800 truncate whitespace-pre-line">{banner.title}</p>
+                      <p className="text-xs text-ink-500 truncate whitespace-pre-line">{banner.description || 'No description'}</p>
                     </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-ink-800 truncate whitespace-pre-line">{banner.title}</p>
-                    <p className="text-xs text-ink-500 truncate whitespace-pre-line">{banner.description || 'No description'}</p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                    <span
+                      className={`text-[9px] font-black tracking-wider uppercase rounded-full px-2.5 py-0.5 ${
+                        banner.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-ink-100 text-ink-500'
+                      }`}
+                    >
+                      {banner.is_active ? 'ACTIVE' : 'HIDDEN'}
+                    </span>
+                    <span className="text-[9px] font-bold text-ink-600 bg-ink-50 px-2 py-0.5 rounded-full border border-ink-100">
+                      Slot: {banner.position || 'top'}
+                    </span>
+                    <span className="text-[9px] font-bold text-ink-600 bg-ink-50 px-2 py-0.5 rounded-full border border-ink-100">
+                      Size: {banner.size || 'medium'}
+                    </span>
+                    <span className="text-[9px] font-bold text-ink-600 bg-ink-50 px-2 py-0.5 rounded-full border border-ink-100">
+                      Type: {banner.bg_type}
+                    </span>
+                    <span className="text-[9px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
+                      Order: {banner.display_order}
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-                  <span
-                    className={`text-[9px] font-black tracking-wider uppercase rounded-full px-2.5 py-0.5 ${
-                      banner.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-ink-100 text-ink-500'
+                <div className="flex flex-wrap items-center gap-1.5 self-end md:self-start">
+                  <button
+                    onClick={() => setPreviewBanner(banner)}
+                    className="h-8 w-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center hover:bg-sky-100"
+                    title="Preview"
+                  >
+                    <Eye size={14} />
+                  </button>
+                  <button
+                    onClick={() => void handleReorder(banner, 'up')}
+                    disabled={i === 0}
+                    className="h-8 w-8 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-30"
+                    title="Move Up"
+                  >
+                    <ArrowUp size={14} />
+                  </button>
+                  <button
+                    onClick={() => void handleReorder(banner, 'down')}
+                    disabled={i === filteredBanners.length - 1}
+                    className="h-8 w-8 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-30"
+                    title="Move Down"
+                  >
+                    <ArrowDown size={14} />
+                  </button>
+                  <button
+                    onClick={() => void handleToggle(banner)}
+                    className={`h-8 px-2.5 rounded-xl text-[10px] font-extrabold ${
+                      banner.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-ink-100 text-ink-500'
                     }`}
                   >
-                    {banner.is_active ? 'ACTIVE' : 'HIDDEN'}
-                  </span>
-                  <span className="text-[9px] font-bold text-ink-600 bg-ink-50 px-2 py-0.5 rounded-full border border-ink-100">
-                    Pos: {banner.position || 'top'}
-                  </span>
-                  <span className="text-[9px] font-bold text-ink-600 bg-ink-50 px-2 py-0.5 rounded-full border border-ink-100">
-                    Size: {banner.size || 'medium'}
-                  </span>
-                  <span className="text-[9px] font-bold text-ink-600 bg-ink-50 px-2 py-0.5 rounded-full border border-ink-100">
-                    Type: {banner.bg_type}
-                  </span>
-                  <span className="text-[9px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
-                    Order: {banner.display_order}
-                  </span>
+                    {banner.is_active ? 'ON' : 'OFF'}
+                  </button>
+                  <button
+                    onClick={() => handleDuplicateClick(banner)}
+                    className="h-8 w-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center hover:bg-brand-100"
+                    title="Duplicate with safe new storage image"
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleEdit(banner)}
+                    className="h-8 w-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center hover:bg-brand-100"
+                    title="Edit"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClick(banner)}
+                    className="h-8 w-8 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100"
+                    title="Delete"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
-
-              <div className="flex flex-wrap items-center gap-1.5 self-end md:self-start">
-                <button
-                  onClick={() => setPreviewBanner(banner)}
-                  className="h-8 w-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center hover:bg-sky-100"
-                  title="Preview"
-                >
-                  <Eye size={14} />
-                </button>
-                <button
-                  onClick={() => void handleReorder(banner, 'up')}
-                  disabled={i === 0}
-                  className="h-8 w-8 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-30"
-                  title="Move Up"
-                >
-                  <ArrowUp size={14} />
-                </button>
-                <button
-                  onClick={() => void handleReorder(banner, 'down')}
-                  disabled={i === banners.length - 1}
-                  className="h-8 w-8 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-30"
-                  title="Move Down"
-                >
-                  <ArrowDown size={14} />
-                </button>
-                <button
-                  onClick={() => void handleToggle(banner)}
-                  className={`h-8 px-2.5 rounded-xl text-[10px] font-extrabold ${
-                    banner.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-ink-100 text-ink-500'
-                  }`}
-                >
-                  {banner.is_active ? 'ON' : 'OFF'}
-                </button>
-                <button
-                  onClick={() => handleDuplicateClick(banner)}
-                  className="h-8 w-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center hover:bg-brand-100"
-                  title="Duplicate with new storage image"
-                >
-                  <Copy size={14} />
-                </button>
-                <button
-                  onClick={() => handleEdit(banner)}
-                  className="h-8 w-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center hover:bg-brand-100"
-                  title="Edit"
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  onClick={() => handleDeleteClick(banner)}
-                  className="h-8 w-8 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100"
-                  title="Delete"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* List Item Live Preview Modal */}
+      {/* Preview Modal */}
       {previewBanner && (
         <div
           className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
@@ -373,7 +451,7 @@ export default function BannersManager() {
         </div>
       )}
 
-      {/* Unified Confirmation Dialog */}
+      {/* Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}
         title={confirmDialog.title}
@@ -387,11 +465,13 @@ export default function BannersManager() {
 
 function BannerForm({
   initial,
+  defaultPosition = 'middle_1',
   onClose,
   onSaved,
   addToast,
 }: {
   initial: HomeBanner | null;
+  defaultPosition?: BannerPosition;
   onClose: () => void;
   onSaved: () => void;
   addToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -407,8 +487,8 @@ function BannerForm({
     action_config: (initial?.action_config ?? {}) as Record<string, unknown>,
     display_order: initial?.display_order ?? 0,
     is_active: initial?.is_active ?? true,
-    position: (initial?.position ?? 'middle_1') as BannerPosition,
-    size: (initial?.size ?? 'medium') as BannerSize,
+    position: (initial?.position ?? defaultPosition) as BannerPosition,
+    size: (initial?.size ?? (initial?.position === 'carousel' ? 'medium' : 'small')) as BannerSize,
     start_at: initial?.start_at ?? '',
     end_at: initial?.end_at ?? '',
     bg_type: (initial?.bg_type ?? 'gradient') as BannerBgType,
@@ -619,6 +699,23 @@ function BannerForm({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7 space-y-4">
+          {/* Position Slot Selection */}
+          <div className="p-3 bg-brand-50/50 border border-brand-100 rounded-2xl">
+            <label className="block text-xs font-bold text-brand-900 mb-1">Placement Slot</label>
+            <select
+              value={form.position}
+              onChange={(e) => setForm({ ...form, position: e.target.value as BannerPosition })}
+              className="w-full h-10 rounded-xl border border-brand-200 px-3 text-xs font-bold bg-white text-ink-800 outline-none focus:border-brand-500"
+            >
+              <option value="top">Top Rectangular (Promo Ad)</option>
+              <option value="carousel">Top Carousel</option>
+              <option value="middle_1">Middle 1</option>
+              <option value="middle_2">Middle 2</option>
+              <option value="middle_3">Middle 3</option>
+              <option value="bottom">Bottom</option>
+            </select>
+          </div>
+
           {/* Title & Formatting */}
           <div>
             <div className="flex items-center justify-between mb-1">
@@ -638,7 +735,6 @@ function BannerForm({
               placeholder={'e.g. Special Bulk Discounts\non Everyday Edible Oils'}
               className="w-full rounded-xl border border-ink-200 p-2.5 text-xs font-bold outline-none focus:border-brand-500 font-sans"
             />
-            <p className="text-[10px] text-ink-400 mt-0.5">Press Enter or click "Force Next Line" to split lines.</p>
           </div>
 
           {/* Description & Formatting */}
@@ -683,9 +779,9 @@ function BannerForm({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-ink-700 mb-1">Banner Size</label>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Banner Size Preset</label>
               <select
                 value={form.size}
                 onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
@@ -694,22 +790,6 @@ function BannerForm({
                 <option value="small">Small (150px - Action Banner)</option>
                 <option value="medium">Medium (180px - Carousel)</option>
                 <option value="large">Large (220px - Hero)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-ink-700 mb-1">Placement Slot</label>
-              <select
-                value={form.position}
-                onChange={(e) => setForm({ ...form, position: e.target.value as BannerPosition })}
-                className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
-              >
-                <option value="top">Top Rectangular (Promo Ad)</option>
-                <option value="carousel">Top Carousel</option>
-                <option value="middle_1">Middle 1</option>
-                <option value="middle_2">Middle 2</option>
-                <option value="middle_3">Middle 3</option>
-                <option value="bottom">Bottom</option>
               </select>
             </div>
 

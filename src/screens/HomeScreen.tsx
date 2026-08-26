@@ -26,6 +26,7 @@ import {
   fetchProductsByIds,
   fetchStores,
   fetchTrustedBrands,
+  fetchRecentlyViewedProducts,
 } from '@/services/catalog';
 
 interface HomeScreenProps {

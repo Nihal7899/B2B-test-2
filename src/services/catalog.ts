@@ -629,33 +629,53 @@ export async function updateHomeBanner(id: string, updates: Partial<HomeBanner>)
 }
 
 
+/**
+ * Duplicates banner record and its storage image file with confirmation.
+ */
 export async function duplicateHomeBanner(id: string): Promise<HomeBanner | null> {
-  const { data: original } = await supabase
+  const { data: original, error: fetchError } = await supabase
     .from('home_banners')
     .select('*')
     .eq('id', id)
     .maybeSingle();
-  if (!original) return null;
+
+  if (fetchError || !original) throw fetchError || new Error('Banner not found');
+
   const orig = original as DbHomeBanner;
+  let newImageUrl = orig.image_url;
+
+  // Create an independent copy of the image file in Supabase storage
+  if (orig.image_url && !orig.image_url.includes('placeholder')) {
+    try {
+      newImageUrl = await copyBannerImage(orig.image_url);
+    } catch (err) {
+      console.warn('Image duplication error, keeping original URL:', err);
+    }
+  }
+
   const { data, error } = await supabase
     .from('home_banners')
     .insert({
       badge: orig.badge,
-      title: orig.title + ' (Copy)',
+      title: orig.title ? `${orig.title} (Copy)` : 'Banner (Copy)',
       description: orig.description,
-      image_url: orig.image_url,
+      image_url: newImageUrl,
       background_color: orig.background_color,
       button_text: orig.button_text,
       action_type: orig.action_type,
       action_config: orig.action_config,
-      display_order: orig.display_order + 1,
+      display_order: (orig.display_order || 0) + 1,
       is_active: false,
       position: orig.position || 'top',
+      size: orig.size || 'medium',
       start_at: null,
       end_at: null,
       bg_type: orig.bg_type,
       bg_color: orig.bg_color,
       bg_gradient: orig.bg_gradient,
+      gradient_from: orig.gradient_from,
+      gradient_to: orig.gradient_to,
+      gradient_direction: orig.gradient_direction,
       overlay_enabled: orig.overlay_enabled,
       overlay_color: orig.overlay_color,
       overlay_opacity: orig.overlay_opacity,
@@ -663,6 +683,7 @@ export async function duplicateHomeBanner(id: string): Promise<HomeBanner | null
     })
     .select()
     .single();
+
   if (error) throw error;
   return data as HomeBanner;
 }

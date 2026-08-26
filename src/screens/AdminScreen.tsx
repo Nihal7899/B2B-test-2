@@ -41,6 +41,8 @@ import DeliveryRangesManager from '@/components/Admin/DeliveryRangesManager';
 import Reports from '@/components/Admin/Reports';
 import SubcategoriesManager from '@/components/Admin/SubcategoriesManager';
 import CompressionSettings from '@/components/Admin/CompressionSettings';
+import HomeAdminManager from '@/components/Admin/HomeAdminManager';
+
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -48,6 +50,7 @@ interface AdminScreenProps {
 
 type Tab =
   | 'dashboard'
+  | 'homeSections'
   | 'banners'
   | 'stores'
   | 'storeContent'
@@ -74,6 +77,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
 
   const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'homeSections', label: 'Home Sections', icon: LayoutGrid },
     { id: 'banners', label: 'Banners', icon: Tag },
     { id: 'stores', label: 'Stores', icon: Store },
     { id: 'storeContent', label: 'Store Content', icon: PenTool },
@@ -132,6 +136,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
       {/* Main content */}
       <div className="flex-1 space-y-4">
         {tab === 'dashboard' && <Dashboard onNavigateToTab={(tabId: Tab) => setTab(tabId)} />}
+        {tab === 'homeSections' && <HomeAdminManager />}
         {tab === 'banners' && <BannersManager />}
         {tab === 'stores' && <StoresManager />}
         {tab === 'storeContent' && <StoreConfigManager />}

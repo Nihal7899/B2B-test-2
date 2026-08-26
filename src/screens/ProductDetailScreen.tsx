@@ -1,4 +1,3 @@
-// screens/ProductDetailScreen.tsx
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Heart, Share2, Star, Truck, ShieldCheck, Percent, Hash, Plus, Minus } from 'lucide-react';
@@ -17,6 +16,7 @@ import {
   fetchCategories,
 } from '@/services/catalog';
 import { getStoreTheme, setStoreTheme } from '@/context/StoreContext';
+import { recordRecentlyViewed } from '@/lib/recentlyViewed';
 
 interface ProductDetailScreenProps {
   productId: string;
@@ -89,7 +89,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     }
   }, [storeId]);
 
-  // Fetch product
+  // Fetch product and record recently viewed
   useEffect(() => {
     void (async () => {
       setLoading(true);
@@ -97,6 +97,10 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
       if (result) {
         setProduct(result.product);
         setRelated(result.related);
+        
+        // Record viewed product in localStorage and Capacitor Filesystem
+        void recordRecentlyViewed(productId);
+
         const wl = await fetchWishlist();
         setWishlist(wl);
         setWishlisted(wl.includes(productId));

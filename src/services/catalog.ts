@@ -19,6 +19,7 @@ import type {
   Subcategory, // <-- added
 } from '@/types';
 import { StoreConfig } from '@/types/storeConfig';
+import { getRecentlyViewedIds } from '@/lib/recentlyViewed';
 
 export interface DbCategory {
   id: string;
@@ -2188,5 +2189,22 @@ export async function fetchBrandSpotlight(): Promise<{ brandName: string; produc
   } catch (e) {
     console.warn('Failed to fetch brand spotlight:', e);
     return null;
+  }
+}
+
+export async function fetchRecentlyViewedProducts(): Promise<Product[]> {
+  try {
+    const ids = await getRecentlyViewedIds();
+    if (!ids || ids.length === 0) return [];
+
+    const products = await fetchProductsByIds(ids);
+
+    // Preserve the exact recent order from the stored IDs
+    return ids
+      .map((id) => products.find((p) => p.id === id))
+      .filter((p): p is Product => Boolean(p));
+  } catch (err) {
+    console.warn('Failed to fetch recently viewed products:', err);
+    return [];
   }
 }

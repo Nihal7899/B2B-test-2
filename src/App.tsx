@@ -21,6 +21,7 @@ import { KeepAliveRenderer } from '@/components/KeepAliveRenderer';
 import { setFullScreenSystemBars } from '@/hooks/useSystemBars';
 
 import { HomeScreen } from '@/screens/HomeScreen';
+import { SearchScreen } from '@/screens/SearchScreen';
 import { CategoriesScreen } from '@/screens/CategoriesScreen';
 import { OrdersScreen } from '@/screens/OrdersScreen';
 import { CartScreen } from '@/screens/CartScreen';
@@ -70,6 +71,7 @@ import {
 
 const SCREEN_TO_PATH: Record<ScreenName, string> = {
   home: '/',
+  search: '/search',
   categories: '/categories',
   orders: '/orders',
   cart: '/cart',
@@ -177,7 +179,6 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [search, setSearch] = useState('');
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
   const [showSplash, setShowSplash] = useState(true);
@@ -212,15 +213,13 @@ function App() {
     screen === 'categories' || 
     screen === 'categoryDetail' || 
     screen === 'brand' ||
-    screen === 'banner';
+    screen === 'banner' ||
+    screen === 'search';
 
-  // Apply transparent edge-to-edge system bars
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-
-    const darkHeaderScreens = ['store', 'brand', 'categoryDetail'];
+    const darkHeaderScreens = ['store', 'brand', 'categoryDetail', 'search'];
     const isDarkBg = showSplash || darkHeaderScreens.includes(screen);
-
     setFullScreenSystemBars(!isDarkBg);
   }, [screen, showSplash]);
 
@@ -245,22 +244,11 @@ function App() {
       navigate('/');
       return;
     }
-
-    const searchParams = new URLSearchParams(location.search);
-    const storeId = searchParams.get('storeId');
-
-    const params: Record<string, string> = { id: productId };
-    if (storeId) {
-      params.storeId = storeId;
-    }
-
-    navigate(pathFor('product', params));
+    navigate(pathFor('product', { id: productId }));
   };
 
   const openCategory = (category: Category) => {
-    filterConfigRef.current = {
-      category_ids: [category.id],
-    };
+    filterConfigRef.current = { category_ids: [category.id] };
     filterTitleRef.current = category.name;
     navigate(pathFor('filteredProducts'));
   };
@@ -271,13 +259,13 @@ function App() {
 
   const actionCtx: ActionContext = {
     setScreen: goTo,
-    setSearch: setSearch,
+    setSearch: (_s) => {},
     openProduct,
     openCategory,
-    setFilterConfig: (config: FilterConfig | null) => {
+    setFilterConfig: (config) => {
       filterConfigRef.current = config;
     },
-    setFilterTitle: (title: string) => {
+    setFilterTitle: (title) => {
       filterTitleRef.current = title;
     },
   };
@@ -320,23 +308,29 @@ function App() {
     );
   }
 
-  const homeScreen = (
-    <HomeScreen
-      search={search}
-      onSearchChange={setSearch}
-      onCategory={openCategory}
-      onProduct={openProduct}
-      onViewAll={() => goTo('categories')}
-      onStoreClick={openStore}
-      cart={cart}
-      onBannerAction={handleBannerAction}
-    />
-  );
-
   const renderScreen = (): ReactNode => {
     switch (screen) {
       case 'home':
-        return homeScreen;
+        return (
+          <HomeScreen
+            onCategory={openCategory}
+            onProduct={openProduct}
+            onViewAll={() => goTo('categories')}
+            onStoreClick={openStore}
+            cart={cart}
+            onBannerAction={handleBannerAction}
+          />
+        );
+
+      case 'search':
+        return (
+          <SearchScreen
+            cart={cart}
+            onBack={() => goTo('home')}
+            onProductClick={openProduct}
+            onBannerAction={handleBannerAction}
+          />
+        );
 
       case 'categories':
         return <CategoriesScreen onBack={() => goTo('home')} />;
@@ -374,9 +368,7 @@ function App() {
 
       case 'orderDetail': {
         const orderId = new URLSearchParams(location.search).get('id');
-        if (!orderId) {
-          return <Navigate to="/orders" replace />;
-        }
+        if (!orderId) return <Navigate to="/orders" replace />;
         return <OrderDetailScreen orderId={orderId} onBack={() => goTo('orders')} />;
       }
 
@@ -390,23 +382,21 @@ function App() {
         return <AccountScreen onNavigate={openProtected} />;
 
       case 'admin':
-        return role === 'admin' ? <AdminScreen onBack={() => goTo('account')} /> : homeScreen;
+        return role === 'admin' ? <AdminScreen onBack={() => goTo('account')} /> : <HomeScreen onCategory={openCategory} onProduct={openProduct} onViewAll={() => goTo('categories')} onStoreClick={openStore} cart={cart} />;
 
       case 'warehouse':
         return role === 'admin' || role === 'warehouse_manager'
           ? <WarehouseScreen onBack={() => goTo('account')} />
-          : homeScreen;
+          : <HomeScreen onCategory={openCategory} onProduct={openProduct} onViewAll={() => goTo('categories')} onStoreClick={openStore} cart={cart} />;
 
       case 'delivery':
         return role === 'admin' || role === 'delivery_partner'
           ? <DeliveryScreen onBack={() => goTo('account')} />
-          : homeScreen;
+          : <HomeScreen onCategory={openCategory} onProduct={openProduct} onViewAll={() => goTo('categories')} onStoreClick={openStore} cart={cart} />;
 
       case 'product': {
         const productId = new URLSearchParams(location.search).get('id');
-        if (!productId) {
-          return <Navigate to="/" replace />;
-        }
+        if (!productId) return <Navigate to="/" replace />;
         return (
           <ProductDetailScreen
             productId={productId}
@@ -419,9 +409,7 @@ function App() {
 
       case 'filteredProducts': {
         const filter = filterConfigRef.current;
-        if (!filter) {
-          return <Navigate to="/" replace />;
-        }
+        if (!filter) return <Navigate to="/" replace />;
         return (
           <FilteredProductsScreen
             filter={filter}
@@ -454,7 +442,16 @@ function App() {
         );
 
       default:
-        return homeScreen;
+        return (
+          <HomeScreen
+            onCategory={openCategory}
+            onProduct={openProduct}
+            onViewAll={() => goTo('categories')}
+            onStoreClick={openStore}
+            cart={cart}
+            onBannerAction={handleBannerAction}
+          />
+        );
     }
   };
 
@@ -464,11 +461,10 @@ function App() {
 
       <div className="mx-auto flex-1 w-full max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col">
         
-        {/* Header strictly renders ONLY on the Home Screen */}
+        {/* Header strictly displays only on the Home Screen */}
         {screen === 'home' && (
           <Header
-            search={search}
-            onSearchChange={setSearch}
+            onSearchClick={() => goTo('search')}
             cartCount={cart.totalItems}
             onCartClick={() => goTo('cart')}
             onLocationClick={() => goTo('addresses')}
@@ -483,7 +479,7 @@ function App() {
           />
         </main>
 
-        {screen !== 'categoryDetail' && (
+        {screen !== 'categoryDetail' && screen !== 'search' && (
           <div className="safe-bottom bg-white border-t border-gray-100">
             <BottomNavigation
               active={screen}

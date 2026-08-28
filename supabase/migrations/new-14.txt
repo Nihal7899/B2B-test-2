@@ -27,3 +27,53 @@ CREATE TABLE IF NOT EXISTS public.whatsapp_message_logs (
   CONSTRAINT whatsapp_message_logs_pkey PRIMARY KEY (id)
 );
 
+CREATE TABLE IF NOT EXISTS public.whatsapp_templates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  template_name text NOT NULL UNIQUE,
+  display_name text NOT NULL,
+  description text DEFAULT '',
+  language text NOT NULL DEFAULT 'en',
+  has_header boolean NOT NULL DEFAULT false,
+  header_type text NOT NULL DEFAULT 'NONE' CHECK (header_type IN ('NONE', 'IMAGE', 'DOCUMENT', 'VIDEO', 'TEXT')),
+  body_text text NOT NULL,
+  variables_config jsonb NOT NULL DEFAULT '[]'::jsonb, -- array of { "label": "Discount %", "default": "20" }
+  has_dynamic_button boolean NOT NULL DEFAULT false,
+  button_label text DEFAULT 'Visit Website',
+  button_default_param text DEFAULT '',
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT whatsapp_templates_pkey PRIMARY KEY (id)
+);
+
+
+-- Seed your active templates
+INSERT INTO public.whatsapp_templates (
+  template_name, display_name, description, language, has_header, header_type, body_text, variables_config, has_dynamic_button, button_label, button_default_param
+) VALUES 
+(
+  'hello_world', 
+  'Meta Pre-Approved Test', 
+  'Instant test template pre-approved by Meta.', 
+  'en_US', 
+  false, 
+  'NONE', 
+  'Hello World! Welcome and congratulations on testing your API integration.', 
+  '[]'::jsonb, 
+  false, 
+  '', 
+  ''
+),
+(
+  'flash_sale_promo', 
+  'Flash Sale / Discount', 
+  'Promote percentage discounts and coupon codes.', 
+  'en', 
+  false, 
+  'NONE', 
+  'Hello {{1}}, exclusive wholesale offer from {{2}}! 🚀 Get {{3}}% OFF on your entire order using promo code {{4}} at checkout. Hurry, this offer is valid for a limited time only!', 
+  '[{"label": "Store Name", "default": "Wholesale Hub"}, {"label": "Discount (%)", "default": "20"}, {"label": "Promo Code", "default": "SAVE20"}]'::jsonb, 
+  true, 
+  'Claim Offer', 
+  'cart?promo=SAVE20'
+)
+ON CONFLICT (template_name) DO NOTHING;

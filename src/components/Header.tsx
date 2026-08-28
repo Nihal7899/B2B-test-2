@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { MapPin, ChevronDown, Search, ShoppingBag } from 'lucide-react';
 import { fetchAddresses, type DbAddress } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
@@ -16,8 +16,6 @@ export function Header({
   onCartClick,
   onLocationClick,
 }: HeaderProps) {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const isScrolledRef = useRef(false);
   const [address, setAddress] = useState<DbAddress | null>(null);
   const [animatedWords, setAnimatedWords] = useState<string[]>([
     'Refined Oil',
@@ -31,7 +29,7 @@ export function Header({
   const [keywordIndex, setKeywordIndex] = useState(0);
   const [isFading, setIsFading] = useState(false);
 
-  // 1. Fetch user's active delivery address
+  // 1. Fetch user's active delivery address once
   useEffect(() => {
     let active = true;
     void fetchAddresses().then((addrs) => {
@@ -44,7 +42,7 @@ export function Header({
     };
   }, []);
 
-  // 2. Fetch catalog keywords dynamically for search placeholder
+  // 2. Fetch catalog keywords dynamically for placeholder
   useEffect(() => {
     let active = true;
     void getOrBuildSearchDictionary().then((dict) => {
@@ -57,34 +55,7 @@ export function Header({
     };
   }, []);
 
-  // 3. Jitter-free, 60/120fps Scroll Hysteresis Engine
-  useEffect(() => {
-    let ticking = false;
-
-    const onScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const y = window.scrollY;
-
-          // Hysteresis thresholds: collapse above 30px, restore below 8px
-          if (y > 30 && !isScrolledRef.current) {
-            isScrolledRef.current = true;
-            setIsScrolled(true);
-          } else if (y <= 8 && isScrolledRef.current) {
-            isScrolledRef.current = false;
-            setIsScrolled(false);
-          }
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  // 4. Animated placeholder cycle
+  // 3. Cycle animated placeholder
   useEffect(() => {
     const interval = setInterval(() => {
       setIsFading(true);
@@ -104,41 +75,35 @@ export function Header({
   }, [address]);
 
   return (
-    <header className="sticky top-0 z-50 bg-[#02402c] text-white shadow-lg rounded-b-3xl safe-top transform-gpu will-change-transform">
-      <div className="max-w-7xl mx-auto px-4 pt-3 pb-3.5">
-        
-        {/* Butter-Smooth Collapsible Location Container */}
-        <div
-          className={`overflow-hidden transform-gpu will-change-[max-height,opacity,transform,margin] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-            isScrolled
-              ? 'max-h-0 opacity-0 -translate-y-2 mb-0 pointer-events-none'
-              : 'max-h-12 opacity-100 translate-y-0 mb-2.5'
-          }`}
+    <div className="bg-[#02402c] text-white">
+      {/* 1. Location Bar: Scrolls away naturally with the page */}
+      <div className="safe-top max-w-7xl mx-auto px-4 pt-3 pb-1">
+        <button
+          onClick={onLocationClick}
+          type="button"
+          className="group flex items-center gap-2 text-left active:opacity-80 transition-opacity"
         >
-          <button
-            onClick={onLocationClick}
-            type="button"
-            className="group flex items-center gap-2 text-left active:opacity-80 transition-opacity"
-          >
-            <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm group-hover:bg-white/20 transition-colors shrink-0">
-              <MapPin size={15} className="text-white" />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1">
-                <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[240px] sm:max-w-xs">
-                  {locationText}
-                </span>
-                <ChevronDown size={14} className="text-white/80 shrink-0 group-hover:translate-y-0.5 transition-transform" />
-              </div>
-              <span className="text-[10px] font-medium text-white/60 leading-none">
-                {address ? 'Delivery location' : 'Tap to choose address'}
+          <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm group-hover:bg-white/20 transition-colors shrink-0">
+            <MapPin size={15} className="text-white" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1">
+              <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[240px] sm:max-w-xs">
+                {locationText}
               </span>
+              <ChevronDown size={14} className="text-white/80 shrink-0 group-hover:translate-y-0.5 transition-transform" />
             </div>
-          </button>
-        </div>
+            <span className="text-[10px] font-medium text-white/60 leading-none">
+              {address ? 'Delivery location' : 'Tap to choose address'}
+            </span>
+          </div>
+        </button>
+      </div>
 
-        {/* Search Bar & Cart Row */}
-        <div className="flex items-center gap-2.5 transform-gpu">
+      {/* 2. Sticky Bar: Pins to the top at 120fps with zero JavaScript listeners */}
+      <div className="sticky top-0 z-40 bg-[#02402c] shadow-lg rounded-b-3xl">
+        <div className="max-w-7xl mx-auto px-4 pt-2 pb-3.5 flex items-center gap-2.5">
+          {/* Search Trigger */}
           <div
             onClick={onSearchClick}
             className="relative flex-1 h-11 px-3.5 rounded-xl bg-white text-slate-900 flex items-center gap-2.5 cursor-pointer shadow-sm active:scale-[0.99] transition-transform select-none"
@@ -156,6 +121,7 @@ export function Header({
             </div>
           </div>
 
+          {/* Cart Button */}
           <button
             onClick={onCartClick}
             type="button"
@@ -172,8 +138,7 @@ export function Header({
             )}
           </button>
         </div>
-
       </div>
-    </header>
+    </div>
   );
 }

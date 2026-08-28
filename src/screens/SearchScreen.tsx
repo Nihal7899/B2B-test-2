@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -14,8 +14,6 @@ import {
   Sparkle,
   Grid,
   Percent,
-  Flame,
-  RotateCcw,
 } from 'lucide-react';
 import type { Product, PromoBanner, Category } from '@/types';
 import type { useCart } from '@/store';
@@ -26,6 +24,7 @@ import {
   type RelatedSlugItem,
 } from '@/services/searchEngine';
 import {
+  fetchHomeBanners,
   fetchUserReorderProducts,
   fetchRecentlyViewedProducts,
 } from '@/services/catalog';
@@ -59,19 +58,18 @@ export function SearchScreen({
   const [suggestions, setSuggestions] = useState<SearchSuggestionItem[]>([]);
   const [didYouMean, setDidYouMean] = useState<string | null>(null);
 
-  // Dynamic Personal Modules (Reorder & Recently Viewed)
+  // Real data modules from catalog service
+  const [banners, setBanners] = useState<PromoBanner[]>([]);
   const [reorderProducts, setReorderProducts] = useState<Product[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
 
-  // Search Results & Layout state
+  // Search results state
   const [products, setProducts] = useState<Product[]>([]);
   const [alternativeProducts, setAlternativeProducts] = useState<Product[]>([]);
   const [relatedSlugs, setRelatedSlugs] = useState<RelatedSlugItem[]>([]);
   const [matchedCategory, setMatchedCategory] = useState<Category | null>(null);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
-  const [topBanner, setTopBanner] = useState<PromoBanner | null>(null);
-  const [middleBanners, setMiddleBanners] = useState<PromoBanner[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [filterInStock, setFilterInStock] = useState(false);
@@ -87,16 +85,18 @@ export function SearchScreen({
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Load Reorder & Recently Viewed modules on mount
+  // Load exact same banners, reorders, and recently viewed products on mount
   useEffect(() => {
     let mounted = true;
     void Promise.all([
+      fetchHomeBanners(),
       fetchUserReorderProducts(10),
       fetchRecentlyViewedProducts(),
-    ]).then(([reorder, recent]) => {
+    ]).then(([bannerData, reorderData, recentData]) => {
       if (mounted) {
-        setReorderProducts(reorder || []);
-        setRecentlyViewed(recent || []);
+        setBanners(bannerData || []);
+        setReorderProducts(reorderData || []);
+        setRecentlyViewed(recentData || []);
       }
     });
 
@@ -105,10 +105,22 @@ export function SearchScreen({
     };
   }, []);
 
+  const topBanner = useMemo(
+    () => banners.find((b) => b.position === 'top') || banners[0] || null,
+    [banners]
+  );
+  const carouselBanners = useMemo(
+    () => banners.filter((b) => b.position === 'carousel' || b.position === 'middle'),
+    [banners]
+  );
+
   const saveRecentSearch = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    const updated = [trimmed, ...recentSearches.filter((s) => s.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
+    const updated = [
+      trimmed,
+      ...recentSearches.filter((s) => s.toLowerCase() !== trimmed.toLowerCase()),
+    ].slice(0, 8);
     setRecentSearches(updated);
     localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
   };
@@ -155,8 +167,6 @@ export function SearchScreen({
       setMatchedCategory(result.matchedCategory);
       setAllCategories(result.allCategories);
       setTrendingProducts(result.trendingProducts);
-      setTopBanner(result.topBanner);
-      setMiddleBanners(result.middleBanners);
       setDidYouMean(result.didYouMean);
       setLoading(false);
     },
@@ -194,8 +204,7 @@ export function SearchScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-24">
-      
-      {/* Sticky Top Search Header */}
+      {/* Search Header */}
       <div className="sticky top-0 z-40 bg-[#02402c] px-4 py-3 shadow-md">
         <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-7xl mx-auto">
           <button
@@ -248,7 +257,7 @@ export function SearchScreen({
       {/* Main Container */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-3 space-y-6">
         
-        {/* Real-time Typing Dropdown Overlay */}
+        {/* Real-time Typing Suggestions & Recents Dropdown */}
         {isFocused && (
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-card divide-y divide-slate-100 overflow-hidden">
             {didYouMean && (
@@ -331,14 +340,12 @@ export function SearchScreen({
         {!isFocused && submittedQuery && (
           <div className="space-y-6">
             
-            {/* Top Fixed Promo Ad Banner */}
+            {/* 1. Top Home Banner */}
             {topBanner && (
-              <div className="overflow-hidden rounded-2xl shadow-sm">
-                <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
-              </div>
+              <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
             )}
 
-            {/* Header & Filter Bar */}
+            {/* Results Filter & Count Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
               <div>
                 <h1 className="text-sm font-extrabold text-slate-900">
@@ -381,7 +388,7 @@ export function SearchScreen({
               </div>
             </div>
 
-            {/* 1. Primary Matched Products Grid */}
+            {/* 2. Primary Matched Product Grid[cite: 5] */}
             {loading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {[...Array(6)].map((_, i) => (
@@ -412,18 +419,18 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 2. Middle Promo Banner / Carousel */}
-            {middleBanners.length > 0 && (
+            {/* 3. Middle Home Promo Carousel */}
+            {carouselBanners.length > 0 && (
               <div className="pt-2">
-                {middleBanners.length > 1 ? (
-                  <PromoCarousel banners={middleBanners} onAction={onBannerAction} />
+                {carouselBanners.length > 1 ? (
+                  <PromoCarousel banners={carouselBanners} onAction={onBannerAction} />
                 ) : (
-                  <PromoBannerCard banner={middleBanners[0]} onAction={onBannerAction} />
+                  <PromoBannerCard banner={carouselBanners[0]} onAction={onBannerAction} />
                 )}
               </div>
             )}
 
-            {/* 3. Alternative Products from Other Brands */}
+            {/* 4. Alternative Brand Products[cite: 5, 7] */}
             {alternativeProducts.length > 0 && (
               <div className="space-y-3 pt-2">
                 <div className="flex items-center gap-2">
@@ -451,7 +458,7 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 4. Related Slugs & Category Navigation */}
+            {/* 5. Related Slugs & Category Navigation */}
             {relatedSlugs.length > 0 && (
               <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
                 <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
@@ -472,7 +479,7 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 5. Quick Reorder (Buy Again) Carousel */}
+            {/* 6. Quick Reorder (Buy Again) Carousel */}
             {reorderProducts.length > 0 && (
               <div className="pt-2">
                 <ProductCarousel
@@ -489,7 +496,7 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 6. Recently Viewed Products Carousel */}
+            {/* 7. Recently Viewed Products Carousel */}
             {recentlyViewed.length > 0 && (
               <div className="pt-2">
                 <ProductCarousel
@@ -506,7 +513,7 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 7. "Explore All Categories" Visual Grid */}
+            {/* 8. "Explore All Categories" Visual Grid[cite: 3] */}
             {allCategories.length > 0 && (
               <section className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
@@ -549,7 +556,7 @@ export function SearchScreen({
               </section>
             )}
 
-            {/* 8. Top Rated & Trending Wholesale Deals */}
+            {/* 9. Trending Wholesale Deals */}
             {trendingProducts.length > 0 && (
               <div className="pt-2">
                 <ProductCarousel

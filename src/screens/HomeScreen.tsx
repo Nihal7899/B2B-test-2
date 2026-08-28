@@ -334,9 +334,9 @@ export function HomeScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-6">
-      {/* 1. Header Location Bar (Compact so it scrolls off earlier) */}
+      {/* 1. Header Location Bar (Reduced padding-bottom) */}
       <div className="bg-[#02402c] text-white">
-        <div className="safe-top max-w-7xl mx-auto px-4 pt-2.5 pb-2">
+        <div className="safe-top max-w-7xl mx-auto px-4 pt-2.5 pb-1">
           <button
             onClick={() => navigate('/addresses')}
             type="button"
@@ -360,8 +360,8 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 2. Header Sticky Search & Cart Bar (Extra top padding so search input sits comfortably lower) */}
-      <div className="sticky top-0 z-40 bg-[#02402c] text-white px-4 pt-4 sm:pt-4.5 pb-3.5 shadow-lg rounded-b-3xl safe-top">
+      {/* 2. Header Sticky Search & Cart Bar (Tight 5-6px total gap from address bar) */}
+      <div className="sticky top-0 z-40 bg-[#02402c] text-white px-4 pt-0.5 pb-3 shadow-lg rounded-b-3xl">
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
           {/* Search Trigger Input */}
           <div

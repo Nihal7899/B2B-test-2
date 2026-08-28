@@ -1,17 +1,20 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Search,
   X,
   History,
-  TrendingUp,
   Sparkles,
-  Filter,
   Check,
-  ShoppingBag,
   Plus,
   Minus,
   AlertCircle,
+  Package,
+  Layers,
+  Building2,
+  ChevronRight,
+  Sparkle,
 } from 'lucide-react';
 import type { Product, PromoBanner } from '@/types';
 import type { useCart } from '@/store';
@@ -19,6 +22,7 @@ import {
   getLiveSearchSuggestions,
   executeFullSearch,
   type SearchSuggestionItem,
+  type RelatedSlugItem,
 } from '@/services/searchEngine';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
 
@@ -39,25 +43,23 @@ export function SearchScreen({
   onProductClick,
   onBannerAction,
 }: SearchScreenProps) {
+  const navigate = useNavigate();
   const [query, setQuery] = useState(initialQuery);
   const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
   const [isFocused, setIsFocused] = useState(!initialQuery);
 
-  // Suggestions & Corrections state (lightweight)
   const [suggestions, setSuggestions] = useState<SearchSuggestionItem[]>([]);
   const [didYouMean, setDidYouMean] = useState<string | null>(null);
 
-  // Search Results state
   const [products, setProducts] = useState<Product[]>([]);
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [alternativeProducts, setAlternativeProducts] = useState<Product[]>([]);
+  const [relatedSlugs, setRelatedSlugs] = useState<RelatedSlugItem[]>([]);
   const [promoAd, setPromoAd] = useState<PromoBanner | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Filter Chips
   const [filterInStock, setFilterInStock] = useState(false);
   const [filterDeals, setFilterDeals] = useState(false);
 
-  // Recent Searches
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
@@ -68,7 +70,6 @@ export function SearchScreen({
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Save to Recent Searches
   const saveRecentSearch = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -82,7 +83,6 @@ export function SearchScreen({
     localStorage.removeItem(RECENT_SEARCHES_KEY);
   };
 
-  // 1. Live Lightweight Suggestions while typing (No full product queries)
   useEffect(() => {
     let active = true;
     const timer = setTimeout(async () => {
@@ -92,7 +92,7 @@ export function SearchScreen({
         setSuggestions(res.suggestions);
         setDidYouMean(res.didYouMean);
       }
-    }, 120);
+    }, 100);
 
     return () => {
       active = false;
@@ -100,10 +100,9 @@ export function SearchScreen({
     };
   }, [query, isFocused, submittedQuery]);
 
-  // 2. Perform heavy search execution on submit or filter toggle
   const performSearch = useCallback(
     async (searchTerm: string) => {
-      const q = searchTerm.trim();
+      const q = (searchTerm || '').trim();
       setSubmittedQuery(q);
       setIsFocused(false);
       setLoading(true);
@@ -115,7 +114,8 @@ export function SearchScreen({
       });
 
       setProducts(result.products);
-      setRelatedProducts(result.relatedProducts);
+      setAlternativeProducts(result.alternativeBrandProducts);
+      setRelatedSlugs(result.relatedSlugs);
       setDidYouMean(result.didYouMean);
       setPromoAd(result.promoAd);
       setLoading(false);
@@ -123,12 +123,11 @@ export function SearchScreen({
     [filterInStock, filterDeals]
   );
 
-  // Auto-run if opened with initialQuery
   useEffect(() => {
     if (initialQuery) {
       void performSearch(initialQuery);
     } else {
-      setTimeout(() => searchInputRef.current?.focus(), 150);
+      setTimeout(() => searchInputRef.current?.focus(), 120);
     }
   }, [initialQuery, performSearch]);
 
@@ -144,9 +143,18 @@ export function SearchScreen({
     void performSearch(text);
   };
 
+  const handleSlugClick = (slugItem: RelatedSlugItem) => {
+    if (slugItem.type === 'category' && slugItem.id) {
+      navigate(`/category?id=${slugItem.id}`);
+    } else {
+      setQuery(slugItem.name);
+      void performSearch(slugItem.name);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-24">
-      {/* Top Search Bar */}
+      {/* Sticky Search Header */}
       <div className="sticky top-0 z-40 bg-[#02402c] px-4 py-3 shadow-md">
         <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-7xl mx-auto">
           <button
@@ -168,7 +176,7 @@ export function SearchScreen({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setIsFocused(true)}
-              placeholder="Search by brand, item, or category..."
+              placeholder="Search by Brand, Product, or Pack (e.g. Aashirvaad Atta 10kg)..."
               className="w-full h-11 pl-10 pr-9 rounded-xl bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-sm placeholder:text-slate-400"
             />
 
@@ -196,10 +204,10 @@ export function SearchScreen({
         </form>
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Container */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-3 space-y-4">
         
-        {/* Suggestion Dropdown Overlay when typing */}
+        {/* Realtime Typing Suggestions */}
         {isFocused && (
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-card divide-y divide-slate-100 overflow-hidden">
             {didYouMean && (
@@ -230,21 +238,24 @@ export function SearchScreen({
                   <button
                     key={`${item.text}-${idx}`}
                     onClick={() => handleSelectKeyword(item.text)}
-                    className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-slate-50 transition-colors"
+                    className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-slate-50 transition-colors group"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <Search size={14} className="text-slate-400 shrink-0" />
-                      <span className="text-xs font-semibold text-slate-700 truncate">{item.text}</span>
+                      <Search size={14} className="text-slate-400 group-hover:text-emerald-600 shrink-0 transition-colors" />
+                      <span className="text-xs font-semibold text-slate-800 group-hover:text-emerald-900 truncate">
+                        {item.text}
+                      </span>
                     </div>
-                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full uppercase">
-                      {item.type}
-                    </span>
+                    {item.packSize && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Package size={11} /> {item.packSize}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
             )}
 
-            {/* Recent Searches section */}
             {recentSearches.length > 0 && !query && (
               <div className="py-2.5 px-4">
                 <div className="flex items-center justify-between mb-2">
@@ -275,20 +286,19 @@ export function SearchScreen({
           </div>
         )}
 
-        {/* Search Results Display */}
+        {/* Results Page */}
         {!isFocused && submittedQuery && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             
-            {/* Active Query Header & Filters */}
+            {/* Header & Filter Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm">
               <div>
                 <h1 className="text-sm font-extrabold text-slate-900">
                   Search results for <span className="text-emerald-700">"{submittedQuery}"</span>
                 </h1>
-                <p className="text-[11px] text-slate-500">{products.length} commodities available</p>
+                <p className="text-[11px] text-slate-500">{products.length} matching products</p>
               </div>
 
-              {/* Filter Chips */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
@@ -315,40 +325,20 @@ export function SearchScreen({
                       : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  {filterDeals && <Check size={13} />} Volume Deals
+                  {filterDeals && <Check size={13} />} Deals
                 </button>
               </div>
             </div>
 
-            {/* Spell Corrector suggestion card if typo was made */}
-            {didYouMean && (
-              <div
-                onClick={() => handleSelectKeyword(didYouMean)}
-                className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl cursor-pointer flex items-center justify-between text-xs text-emerald-950 transition-colors hover:bg-emerald-100/70"
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles size={16} className="text-emerald-600" />
-                  <span>
-                    Showing results for <strong>{submittedQuery}</strong>. Did you mean{' '}
-                    <span className="font-extrabold text-emerald-700 underline">{didYouMean}</span>?
-                  </span>
-                </div>
-                <span className="font-bold text-[11px] text-emerald-700">Search '{didYouMean}'</span>
-              </div>
-            )}
-
-            {/* Loading Indicator */}
-            {loading && (
+            {/* 1. Primary Matched Search Results */}
+            {loading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {[...Array(6)].map((_, i) => (
+                {[...Array(4)].map((_, i) => (
                   <div key={i} className="h-56 bg-slate-200 rounded-2xl animate-pulse" />
                 ))}
               </div>
-            )}
-
-            {/* Products Grid */}
-            {!loading && products.length > 0 && (
-              <>
+            ) : products.length > 0 ? (
+              <div className="space-y-3">
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {products.map((product) => {
                     const qty = cart.getQuantity(product.id);
@@ -427,62 +417,121 @@ export function SearchScreen({
                     );
                   })}
                 </div>
-
-                {/* Promo Ad Card placed inside Search Results */}
-                {promoAd && (
-                  <div className="pt-2">
-                    <PromoAdBanner banner={promoAd} onAction={onBannerAction} />
-                  </div>
-                )}
-              </>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center">
+                <AlertCircle size={32} className="mx-auto text-slate-400 mb-2" />
+                <h3 className="text-sm font-bold text-slate-800">No exact matches for "{submittedQuery}"</h3>
+                <p className="text-xs text-slate-400 mt-1">Check out available alternatives below.</p>
+              </div>
             )}
 
-            {/* Zero Results State with Recommendations */}
-            {!loading && products.length === 0 && (
-              <div className="space-y-6">
-                <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
-                  <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
-                    <AlertCircle size={32} />
+            {/* Promo Banner Placement */}
+            {promoAd && (
+              <div>
+                <PromoAdBanner banner={promoAd} onAction={onBannerAction} />
+              </div>
+            )}
+
+            {/* 2. Alternative Products from Other Brands */}
+            {alternativeProducts.length > 0 && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkle size={17} className="text-emerald-600 fill-emerald-100" />
+                    <h2 className="text-sm font-extrabold text-slate-900">
+                      Explore Alternatives from Other Brands
+                    </h2>
                   </div>
-                  <h2 className="text-base font-black text-slate-900">No exact matches found</h2>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    We couldn't find items for "{submittedQuery}". Try checking your spelling or search by general category.
-                  </p>
                 </div>
 
-                {/* Recommended Fallback Products */}
-                {relatedProducts.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-black text-slate-900">Popular Business Commodities</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {relatedProducts.map((p) => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {alternativeProducts.map((product) => {
+                    const qty = cart.getQuantity(product.id);
+                    return (
+                      <div
+                        key={product.id}
+                        className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-sm flex flex-col justify-between group"
+                      >
                         <div
-                          key={p.id}
-                          className="bg-white border rounded-xl p-3 flex flex-col justify-between shadow-sm cursor-pointer"
-                          onClick={() => onProductClick(p)}
+                          className="h-28 w-full overflow-hidden rounded-xl bg-slate-50 mb-2 cursor-pointer relative"
+                          onClick={() => onProductClick(product)}
                         >
-                          <img src={p.image} alt={p.name} className="h-24 w-full object-cover rounded-lg mb-2" />
-                          <p className="text-[10px] font-bold text-emerald-600 uppercase">{p.brand}</p>
-                          <h4 className="text-xs font-bold text-slate-800 line-clamp-2">{p.name}</h4>
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-xs font-extrabold text-slate-900">₹{p.price}</span>
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+                            {product.brand}
+                          </p>
+                          <h3
+                            onClick={() => onProductClick(product)}
+                            className="text-xs font-bold text-slate-800 line-clamp-2 cursor-pointer mt-0.5"
+                          >
+                            {product.name}
+                          </h3>
+                          <p className="text-[11px] text-slate-400 mt-0.5">{product.packSize}</p>
+                        </div>
+
+                        <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                          <span className="text-sm font-extrabold text-slate-900">₹{product.price}</span>
+                          {qty > 0 ? (
+                            <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-lg p-0.5">
+                              <button
+                                onClick={() => cart.updateQuantity(product.id, qty - 1)}
+                                className="h-6 w-6 rounded bg-emerald-600 text-white flex items-center justify-center active:scale-95"
+                              >
+                                <Minus size={12} />
+                              </button>
+                              <span className="text-xs font-extrabold text-emerald-900 px-1">{qty}</span>
+                              <button
+                                onClick={() => cart.addToCart(product)}
+                                className="h-6 w-6 rounded bg-emerald-600 text-white flex items-center justify-center active:scale-95"
+                              >
+                                <Plus size={12} />
+                              </button>
+                            </div>
+                          ) : (
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                cart.addToCart(p);
-                              }}
-                              className="px-2.5 py-1 rounded-md bg-emerald-600 text-white text-[11px] font-bold"
+                              onClick={() => cart.addToCart(product)}
+                              className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold shadow-sm"
                             >
                               Add
                             </button>
-                          </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
+
+            {/* 3. Related Slugs & Category Navigation */}
+            {relatedSlugs.length > 0 && (
+              <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Layers size={14} className="text-purple-600" /> Related Collections & Categories
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {relatedSlugs.map((slugItem) => (
+                    <button
+                      key={slugItem.slug}
+                      onClick={() => handleSlugClick(slugItem)}
+                      className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 border border-slate-200/60 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5"
+                    >
+                      <span>{slugItem.name}</span>
+                      <ChevronRight size={13} className="text-slate-400" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 

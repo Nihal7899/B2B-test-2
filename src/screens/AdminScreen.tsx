@@ -101,7 +101,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
   ];
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 px-4 pb-6">
+    <div className="safe-top flex flex-col md:flex-row gap-4 px-4 pb-6">
       {/* Sidebar */}
       <div className="md:w-52 shrink-0">
         <div className="flex items-center gap-3 mb-4 md:hidden">

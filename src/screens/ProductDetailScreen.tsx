@@ -185,7 +185,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
   };
 
   return (
-    <div className="pb-6 space-y-5">
+    <div className="safe-top pb-6 space-y-5">
       {/* Image header with carousel */}
       <div className="relative h-[270px] bg-ink-50 overflow-hidden">
         <img

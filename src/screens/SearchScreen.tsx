@@ -112,7 +112,6 @@ export function SearchScreen({
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset search state completely on unmount/back
   const resetAllSearchState = useCallback(() => {
     setQuery('');
     setSubmittedQuery('');
@@ -133,7 +132,6 @@ export function SearchScreen({
     };
   }, [resetAllSearchState]);
 
-  // Load home banners, reorder, and recently viewed on mount
   useEffect(() => {
     let mounted = true;
     void Promise.all([
@@ -178,7 +176,6 @@ export function SearchScreen({
     localStorage.removeItem(RECENT_SEARCHES_KEY);
   };
 
-  // Real-time suggestions while typing
   useEffect(() => {
     let active = true;
     const timer = setTimeout(async () => {
@@ -243,7 +240,6 @@ export function SearchScreen({
     }
   };
 
-  // Instant In-Memory Filtration & Sorting
   const filteredAndSortedProducts = useMemo(() => {
     let result = [...products];
 
@@ -301,8 +297,8 @@ export function SearchScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-24">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-40 bg-[#02402c] shadow-md">
+      {/* Sticky Header with safe-top for native notch/status-bar spacing */}
+      <header className="sticky top-0 z-40 bg-[#02402c] shadow-md safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-2.5 text-white">
           {/* Search Input Row matching Home Screen dimensions */}
           <form onSubmit={handleSubmit} className="flex items-center gap-2.5">

@@ -55,7 +55,7 @@ export function AuthScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-ink-100 flex items-center justify-center p-0 sm:p-5">
+    <div className="safe-top min-h-screen bg-ink-100 flex items-center justify-center p-0 sm:p-5">
       <div className="relative min-h-screen sm:min-h-[720px] w-full max-w-[430px] overflow-hidden bg-white sm:rounded-[2rem] sm:shadow-2xl">
         <div className="relative h-[250px] overflow-hidden">
           <img src={groceryImage} alt="Fresh grocery supplies" className="h-full w-full object-cover" />

@@ -112,7 +112,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
   }
 
   return (
-    <div className="px-4 pb-6 space-y-4">
+    <div className="safe-top px-4 pb-6 space-y-4">
       <div>
         <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">
           Your cart{' '}

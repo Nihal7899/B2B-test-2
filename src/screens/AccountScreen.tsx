@@ -52,7 +52,7 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
   if (role === 'delivery_partner') staffItems.push({ icon: Package, label: 'Delivery Panel', screen: 'delivery' });
 
   return (
-    <div className="px-4 pb-6 space-y-4">
+    <div className="safe-top px-4 pb-6 space-y-4">
       <div>
         <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Account</h1>
         <p className="text-xs text-ink-500 mt-1">Manage your Stackknit profile</p>

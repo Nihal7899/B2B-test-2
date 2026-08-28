@@ -127,7 +127,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
   const isProcessing = (id: string) => processingId === id;
 
   return (
-    <div className="px-4 pb-6 space-y-4">
+    <div className="safe-top px-4 pb-6 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button

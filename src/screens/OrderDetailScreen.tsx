@@ -90,7 +90,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
   const canPrintBill = normalizedStatus === 'delivered' || normalizedStatus === 'confirmed';
 
   return (
-    <div className="px-4 pb-6 space-y-4">
+    <div className="safe-top px-4 pb-6 space-y-4">
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}

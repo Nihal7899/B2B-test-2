@@ -30,7 +30,7 @@ export function WishlistScreen({ cart, onProduct, onShop }: WishlistScreenProps)
   if (loading) return <div className="flex items-center justify-center min-h-[50vh]"><div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" /></div>;
 
   return (
-    <div className="px-4 pb-6 space-y-4">
+    <div className="safe-top px-4 pb-6 space-y-4">
       <div>
         <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Your wishlist</h1>
         <p className="text-xs text-ink-500 mt-1">{products.length} saved {products.length === 1 ? 'product' : 'products'}</p>

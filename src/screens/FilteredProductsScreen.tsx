@@ -50,7 +50,7 @@ export function FilteredProductsScreen({
   }
 
   return (
-    <div className="px-4 pb-6">
+    <div className="safe-top px-4 pb-6">
       <div className="flex items-center gap-3 mb-4">
         <button onClick={onBack} className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center">
           <ArrowLeft size={18} />

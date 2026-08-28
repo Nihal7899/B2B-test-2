@@ -334,9 +334,9 @@ export function HomeScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-6">
-      {/* 1. Header Location Bar (Normal Document Flow - scrolls away smoothly) */}
+      {/* 1. Header Location Bar (Increased by 3px gap to search bar) */}
       <div className="bg-[#02402c] text-white">
-        <div className="safe-top max-w-7xl mx-auto px-4 pt-3 pb-2">
+        <div className="safe-top max-w-7xl mx-auto px-4 pt-3 pb-[11px]">
           <button
             onClick={() => navigate('/addresses')}
             type="button"
@@ -360,8 +360,8 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 2. Header Sticky Search & Cart Bar (Pins natively at 120fps with zero JS scroll listeners) */}
-      <div className="sticky top-0 z-40 bg-[#02402c] text-white px-4 pt-2 pb-3.5 shadow-lg rounded-b-3xl safe-top">
+      {/* 2. Header Sticky Search & Cart Bar (3px gap when sticking) */}
+      <div className="sticky top-[3px] z-40 bg-[#02402c] text-white px-4 pt-2 pb-3.5 shadow-lg rounded-b-3xl safe-top">
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
           {/* Search Trigger Input */}
           <div

@@ -96,7 +96,6 @@ export default function BannersManager() {
     void load();
   }, [load]);
 
-  // Counts by position
   const tabCounts = useMemo(() => {
     return {
       all: banners.length,
@@ -107,7 +106,6 @@ export default function BannersManager() {
     };
   }, [banners]);
 
-  // Filtered & strictly sorted banner list
   const filteredBanners = useMemo(() => {
     let list = [...banners];
     if (activeTab === 'top') list = list.filter((b) => b.position === 'top');
@@ -166,7 +164,6 @@ export default function BannersManager() {
     }
   };
 
-  // Fixed Position-Scoped Reordering with Clean Sequence Indexing
   const handleReorder = async (banner: HomeBanner, direction: 'up' | 'down') => {
     const idx = filteredBanners.findIndex((b) => b.id === banner.id);
     if (idx === -1) return;
@@ -174,20 +171,18 @@ export default function BannersManager() {
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= filteredBanners.length) return;
 
-    const updatedList = [...filteredBanners];
-    const targetBanner = updatedList[swapIdx];
-    
-    // Swap positions within the current scope
-    updatedList[idx] = targetBanner;
-    updatedList[swapIdx] = banner;
+    const targetBanner = filteredBanners[swapIdx];
+    const currentOrder = banner.display_order ?? 0;
+    const targetOrder = targetBanner.display_order ?? 0;
+
+    const newCurrentOrder = currentOrder === targetOrder ? (direction === 'up' ? targetOrder - 10 : targetOrder + 10) : targetOrder;
+    const newTargetOrder = currentOrder === targetOrder ? targetOrder : currentOrder;
 
     try {
-      // Re-assign clean distinct display_orders within this position group
-      await Promise.all(
-        updatedList.map((item, index) =>
-          updateHomeBanner(item.id, { display_order: (index + 1) * 10 })
-        )
-      );
+      await Promise.all([
+        updateHomeBanner(banner.id, { display_order: newCurrentOrder }),
+        updateHomeBanner(targetBanner.id, { display_order: newTargetOrder }),
+      ]);
       await load();
     } catch {
       addToast('Failed to reorder banners', 'error');
@@ -372,6 +367,11 @@ export default function BannersManager() {
                     <span className="text-[9px] font-bold text-ink-600 bg-ink-50 px-2 py-0.5 rounded-full border border-ink-100">
                       Type: {banner.bg_type}
                     </span>
+                    {banner.overlay_enabled && (
+                      <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                        Tint: {banner.overlay_opacity ?? 40}%
+                      </span>
+                    )}
                     <span className="text-[9px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
                       Order: {banner.display_order}
                     </span>
@@ -508,7 +508,7 @@ function BannerForm({
     gradient_from: initial?.gradient_from ?? '#065f46',
     gradient_to: initial?.gradient_to ?? '#10b981',
     gradient_direction: initial?.gradient_direction ?? 'to right',
-    overlay_enabled: initial?.overlay_enabled ?? false,
+    overlay_enabled: Boolean(initial?.overlay_enabled),
     overlay_color: initial?.overlay_color ?? '#000000',
     overlay_opacity: initial?.overlay_opacity ?? 40,
     show_cta: initial?.show_cta ?? true,
@@ -845,6 +845,71 @@ function BannerForm({
             </div>
           )}
 
+          {/* Tint / Overlay Opacity & Color Controls */}
+          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.overlay_enabled}
+                  onChange={(e) => setForm({ ...form, overlay_enabled: e.target.checked })}
+                  className="accent-brand-600 rounded h-4 w-4"
+                />
+                Enable Tint / Dark Overlay
+              </label>
+              {form.overlay_enabled && (
+                <span className="text-xs font-mono font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200">
+                  {form.overlay_opacity}% Opacity
+                </span>
+              )}
+            </div>
+
+            {form.overlay_enabled && (
+              <div className="space-y-3 pt-2.5 border-t border-ink-200/60">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-ink-600 mb-1">Tint Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={form.overlay_color}
+                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                        className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={form.overlay_color}
+                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                        className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-[11px] font-semibold text-ink-600">Opacity Slider</label>
+                      <span className="text-[10px] font-mono font-bold text-ink-500">{form.overlay_opacity}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={form.overlay_opacity}
+                      onChange={(e) => setForm({ ...form, overlay_opacity: Number(e.target.value) })}
+                      className="w-full accent-brand-600 cursor-pointer h-2 bg-ink-200 rounded-lg"
+                    />
+                    <div className="flex justify-between text-[9px] text-ink-400 mt-1 font-mono">
+                      <span>0% (Transparent)</span>
+                      <span>50%</span>
+                      <span>100% (Solid)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {form.bg_type === 'gradient' && (
             <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
               <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Gradient Stop Configuration</p>
@@ -1136,15 +1201,6 @@ function BannerForm({
           </div>
 
           <div className="flex flex-wrap items-center gap-4 pt-1">
-            <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.overlay_enabled}
-                onChange={(e) => setForm({ ...form, overlay_enabled: e.target.checked })}
-                className="accent-brand-600 rounded"
-              />
-              Dark Overlay
-            </label>
             <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
               <input
                 type="checkbox"

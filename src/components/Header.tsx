@@ -29,7 +29,7 @@ export function Header({
   const [keywordIndex, setKeywordIndex] = useState(0);
   const [isFading, setIsFading] = useState(false);
 
-  // 1. Fetch user delivery address
+  // 1. Fetch user delivery address once
   useEffect(() => {
     let active = true;
     void fetchAddresses().then((addrs) => {
@@ -42,7 +42,7 @@ export function Header({
     };
   }, []);
 
-  // 2. Fetch catalog keywords dynamically for placeholder
+  // 2. Fetch catalog keywords dynamically
   useEffect(() => {
     let active = true;
     void getOrBuildSearchDictionary().then((dict) => {
@@ -55,7 +55,7 @@ export function Header({
     };
   }, []);
 
-  // 3. Animated placeholder cycling
+  // 3. Cycle animated placeholder
   useEffect(() => {
     const interval = setInterval(() => {
       setIsFading(true);
@@ -75,35 +75,35 @@ export function Header({
   }, [address]);
 
   return (
-    <header className="sticky -top-11 z-50 bg-[#02402c] text-white shadow-lg rounded-b-3xl safe-top transform-gpu">
-      <div className="max-w-7xl mx-auto px-4">
-        
-        {/* 1. Location Bar (Height fixed to 44px / h-11 so -top-11 scrolls it off exactly) */}
-        <div className="h-11 flex items-center">
-          <button
-            onClick={onLocationClick}
-            type="button"
-            className="group flex items-center gap-2 text-left active:opacity-80 transition-opacity"
-          >
-            <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm group-hover:bg-white/20 transition-colors shrink-0">
-              <MapPin size={15} className="text-white" />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1">
-                <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[240px] sm:max-w-xs">
-                  {locationText}
-                </span>
-                <ChevronDown size={14} className="text-white/80 shrink-0 group-hover:translate-y-0.5 transition-transform" />
-              </div>
-              <span className="text-[10px] font-medium text-white/60 leading-none">
-                {address ? 'Delivery location' : 'Tap to choose address'}
+    <div className="w-full bg-[#02402c]">
+      {/* 1. Location Bar: Standard document flow (scrolls off-screen smoothly with no GPU overhead) */}
+      <div className="safe-top max-w-7xl mx-auto px-4 pt-2.5 pb-1">
+        <button
+          onClick={onLocationClick}
+          type="button"
+          className="flex items-center gap-2 text-left active:opacity-80 transition-opacity"
+        >
+          <div className="h-7 w-7 rounded-full bg-[#0d4f3b] flex items-center justify-center shrink-0">
+            <MapPin size={15} className="text-white" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1">
+              <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[240px] sm:max-w-xs">
+                {locationText}
               </span>
+              <ChevronDown size={14} className="text-emerald-200 shrink-0" />
             </div>
-          </button>
-        </div>
+            <span className="text-[10px] font-medium text-emerald-100/70 leading-none">
+              {address ? 'Delivery location' : 'Tap to choose address'}
+            </span>
+          </div>
+        </button>
+      </div>
 
-        {/* 2. Search & Cart Row (Locks at the top) */}
-        <div className="pt-1 pb-3.5 flex items-center gap-2.5">
+      {/* 2. Sticky Bar: Pins to the top with pure native compositor acceleration */}
+      <div className="sticky top-0 z-40 bg-[#02402c] shadow-[0_4px_12px_rgba(0,0,0,0.15)] rounded-b-2xl">
+        <div className="max-w-7xl mx-auto px-4 pt-1.5 pb-3 flex items-center gap-2.5">
+          {/* Search Trigger Input */}
           <div
             onClick={onSearchClick}
             className="relative flex-1 h-11 px-3.5 rounded-xl bg-white text-slate-900 flex items-center gap-2.5 cursor-pointer shadow-sm active:scale-[0.99] transition-transform select-none"
@@ -112,8 +112,8 @@ export function Header({
             <div className="text-sm text-slate-400 flex items-center truncate">
               <span>Search for&nbsp;</span>
               <span
-                className={`font-semibold text-slate-700 transition-all duration-150 transform-gpu ${
-                  isFading ? 'opacity-0 -translate-y-1' : 'opacity-100 translate-y-0'
+                className={`font-semibold text-slate-700 transition-opacity duration-150 ${
+                  isFading ? 'opacity-0' : 'opacity-100'
                 }`}
               >
                 '{animatedWords[keywordIndex] || 'Groceries'}'
@@ -121,10 +121,11 @@ export function Header({
             </div>
           </div>
 
+          {/* Cart Button with Solid Contrast */}
           <button
             onClick={onCartClick}
             type="button"
-            className="relative h-11 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center gap-1.5 backdrop-blur-md border border-white/15 transition-all shrink-0 shadow-sm"
+            className="relative h-11 px-3.5 rounded-xl bg-[#0d4f3b] hover:bg-[#135d46] active:scale-95 text-white flex items-center justify-center gap-1.5 border border-[#16644c] transition-transform shrink-0 shadow-sm"
             aria-label="Cart"
           >
             <ShoppingBag size={20} className="text-white" />
@@ -137,8 +138,7 @@ export function Header({
             )}
           </button>
         </div>
-
       </div>
-    </header>
+    </div>
   );
 }

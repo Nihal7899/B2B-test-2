@@ -13,7 +13,14 @@ import {
   ChevronRight,
   Sparkle,
   Grid,
-  Percent,
+  ArrowUpDown,
+  ChevronDown,
+  Star,
+  SlidersHorizontal,
+  TrendingDown,
+  TrendingUp,
+  RotateCcw,
+  Filter,
 } from 'lucide-react';
 import type { Product, PromoBanner, Category } from '@/types';
 import type { useCart } from '@/store';
@@ -31,6 +38,23 @@ import {
 import { ProductCard, ProductCarousel } from '@/components/ProductCard';
 import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
+
+type SortOption = 'default' | 'price-asc' | 'price-desc' | 'rating' | 'discount';
+
+interface SortItem {
+  id: SortOption;
+  label: string;
+  subLabel: string;
+  icon: typeof Sparkles;
+}
+
+const SORT_OPTIONS: SortItem[] = [
+  { id: 'default', label: 'Relevancy', subLabel: 'Best match for everyday restocking', icon: SlidersHorizontal },
+  { id: 'price-asc', label: 'Price: Low to High', subLabel: 'Budget-friendly wholesale items first', icon: TrendingDown },
+  { id: 'price-desc', label: 'Price: High to Low', subLabel: 'Premium & bulk inventory first', icon: TrendingUp },
+  { id: 'rating', label: 'Top Rated', subLabel: 'Highest customer satisfaction (4★+)', icon: Star },
+  { id: 'discount', label: 'Best Discounts', subLabel: 'Biggest savings and promotional deals', icon: Sparkles },
+];
 
 interface SearchScreenProps {
   initialQuery?: string;
@@ -58,22 +82,25 @@ export function SearchScreen({
   const [suggestions, setSuggestions] = useState<SearchSuggestionItem[]>([]);
   const [didYouMean, setDidYouMean] = useState<string | null>(null);
 
-  // Real data modules from catalog service
+  // Real data modules
   const [banners, setBanners] = useState<PromoBanner[]>([]);
   const [reorderProducts, setReorderProducts] = useState<Product[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
 
-  // Search results state
+  // Raw fetched search state
   const [products, setProducts] = useState<Product[]>([]);
   const [alternativeProducts, setAlternativeProducts] = useState<Product[]>([]);
   const [relatedSlugs, setRelatedSlugs] = useState<RelatedSlugItem[]>([]);
-  const [matchedCategory, setMatchedCategory] = useState<Category | null>(null);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [filterInStock, setFilterInStock] = useState(false);
-  const [filterDeals, setFilterDeals] = useState(false);
+  // Filter & Sort States (Matching CategoryScreen)
+  const [sortBy, setSortBy] = useState<SortOption>('default');
+  const [isSortSheetOpen, setIsSortSheetOpen] = useState(false);
+  const [dealsOnly, setDealsOnly] = useState(false);
+  const [highRatingOnly, setHighRatingOnly] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(false);
 
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     try {
@@ -85,7 +112,7 @@ export function SearchScreen({
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Load exact same banners, reorders, and recently viewed products on mount
+  // Load home banners, reorder, and recently viewed on mount
   useEffect(() => {
     let mounted = true;
     void Promise.all([
@@ -148,30 +175,23 @@ export function SearchScreen({
     };
   }, [query, isFocused, submittedQuery]);
 
-  const performSearch = useCallback(
-    async (searchTerm: string) => {
-      const q = (searchTerm || '').trim();
-      setSubmittedQuery(q);
-      setIsFocused(false);
-      setLoading(true);
-      if (q) saveRecentSearch(q);
+  const performSearch = useCallback(async (searchTerm: string) => {
+    const q = (searchTerm || '').trim();
+    setSubmittedQuery(q);
+    setIsFocused(false);
+    setLoading(true);
+    if (q) saveRecentSearch(q);
 
-      const result = await executeFullSearch(q, {
-        inStockOnly: filterInStock,
-        hasDealsOnly: filterDeals,
-      });
+    const result = await executeFullSearch(q);
 
-      setProducts(result.products);
-      setAlternativeProducts(result.alternativeBrandProducts);
-      setRelatedSlugs(result.relatedSlugs);
-      setMatchedCategory(result.matchedCategory);
-      setAllCategories(result.allCategories);
-      setTrendingProducts(result.trendingProducts);
-      setDidYouMean(result.didYouMean);
-      setLoading(false);
-    },
-    [filterInStock, filterDeals]
-  );
+    setProducts(result.products);
+    setAlternativeProducts(result.alternativeBrandProducts);
+    setRelatedSlugs(result.relatedSlugs);
+    setAllCategories(result.allCategories);
+    setTrendingProducts(result.trendingProducts);
+    setDidYouMean(result.didYouMean);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     if (initialQuery) {
@@ -202,61 +222,205 @@ export function SearchScreen({
     }
   };
 
+  // Instant In-Memory Filtration & Sorting
+  const filteredAndSortedProducts = useMemo(() => {
+    let result = [...products];
+
+    if (dealsOnly) {
+      result = result.filter((p) => p.mrp > p.price);
+    }
+    if (highRatingOnly) {
+      result = result.filter((p) => (p.rating || 0) >= 4.0);
+    }
+    if (inStockOnly) {
+      result = result.filter((p) => p.inStock);
+    }
+
+    switch (sortBy) {
+      case 'price-asc':
+        result.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-desc':
+        result.sort((a, b) => b.price - a.price);
+        break;
+      case 'rating':
+        result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
+      case 'discount':
+        result.sort((a, b) => {
+          const discountA = a.mrp > 0 ? (a.mrp - a.price) / a.mrp : 0;
+          const discountB = b.mrp > 0 ? (b.mrp - b.price) / b.mrp : 0;
+          return discountB - discountA;
+        });
+        break;
+      default:
+        break;
+    }
+
+    return result;
+  }, [products, dealsOnly, highRatingOnly, inStockOnly, sortBy]);
+
+  // Active filters count
+  const activeFiltersCount =
+    (sortBy !== 'default' ? 1 : 0) +
+    (dealsOnly ? 1 : 0) +
+    (highRatingOnly ? 1 : 0) +
+    (inStockOnly ? 1 : 0);
+
+  const hasActiveFilters = activeFiltersCount > 0;
+
+  const resetFilters = () => {
+    setSortBy('default');
+    setDealsOnly(false);
+    setHighRatingOnly(false);
+    setInStockOnly(false);
+  };
+
+  const currentSortLabel =
+    SORT_OPTIONS.find((s) => s.id === sortBy)?.label || 'Relevancy';
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-24">
-      {/* Search Header */}
-      <div className="sticky top-0 z-40 bg-[#02402c] px-4 py-3 shadow-md">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-7xl mx-auto">
-          <button
-            type="button"
-            onClick={onBack}
-            className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all shrink-0"
-          >
-            <ArrowLeft size={20} />
-          </button>
+      {/* Sticky Header with Category-Style Filters */}
+      <header className="sticky top-0 z-40 bg-[#02402c] shadow-md">
+        <div className="max-w-7xl mx-auto px-4 pt-3 pb-2.5 text-white">
+          {/* Top Search Input Row */}
+          <form onSubmit={handleSubmit} className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all shrink-0"
+            >
+              <ArrowLeft size={20} />
+            </button>
 
-          <div className="relative flex-1 flex items-center">
-            <div className="absolute left-3.5 pointer-events-none text-emerald-900/60">
-              <Search size={18} />
+            <div className="relative flex-1 flex items-center">
+              <div className="absolute left-3.5 pointer-events-none text-emerald-900/60">
+                <Search size={18} />
+              </div>
+
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setIsFocused(true)}
+                placeholder="Search beverages, brands, atta, oils, pulses..."
+                className="w-full h-11 pl-10 pr-9 rounded-xl bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-sm placeholder:text-slate-400"
+              />
+
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery('');
+                    setSubmittedQuery('');
+                    searchInputRef.current?.focus();
+                  }}
+                  className="absolute right-3 p-1 rounded-full text-slate-400 hover:text-slate-600 active:scale-90"
+                >
+                  <X size={15} />
+                </button>
+              )}
             </div>
 
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => setIsFocused(true)}
-              placeholder="Search beverages, brands, atta, oils, pulses..."
-              className="w-full h-11 pl-10 pr-9 rounded-xl bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-sm placeholder:text-slate-400"
-            />
+            <button
+              type="submit"
+              className="h-11 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-extrabold text-xs tracking-wide active:scale-95 transition-transform shrink-0 shadow-sm"
+            >
+              Search
+            </button>
+          </form>
 
-            {query && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery('');
-                  setSubmittedQuery('');
-                  searchInputRef.current?.focus();
-                }}
-                className="absolute right-3 p-1 rounded-full text-slate-400 hover:text-slate-600 active:scale-90"
-              >
-                <X size={15} />
-              </button>
-            )}
+          {/* Horizontal Filter Bar (CategoryScreen UI Pattern) */}
+          <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+            {/* Sort Modal Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsSortSheetOpen(true)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
+                sortBy !== 'default'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
+              }`}
+            >
+              <ArrowUpDown size={12} />
+              <span>{currentSortLabel}</span>
+              <ChevronDown size={11} className="opacity-70" />
+            </button>
+
+            {/* Best Deals Pill */}
+            <button
+              type="button"
+              onClick={() => setDealsOnly(!dealsOnly)}
+              className={`flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
+                dealsOnly
+                  ? 'bg-white text-amber-600 shadow-sm'
+                  : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
+              }`}
+            >
+              <Sparkles size={11} />
+              Best Deals
+            </button>
+
+            {/* Top Rating Pill */}
+            <button
+              type="button"
+              onClick={() => setHighRatingOnly(!highRatingOnly)}
+              className={`flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
+                highRatingOnly
+                  ? 'bg-white text-amber-500 shadow-sm'
+                  : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
+              }`}
+            >
+              <Star size={11} className={highRatingOnly ? 'fill-amber-400' : ''} />
+              4.0+ Rated
+            </button>
+
+            {/* In Stock Pill */}
+            <button
+              type="button"
+              onClick={() => setInStockOnly(!inStockOnly)}
+              className={`flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
+                inStockOnly
+                  ? 'bg-white text-emerald-800 shadow-sm'
+                  : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
+              }`}
+            >
+              <Check size={11} />
+              In Stock
+            </button>
           </div>
+        </div>
 
-          <button
-            type="submit"
-            className="h-11 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-extrabold text-xs tracking-wide active:scale-95 transition-transform shrink-0 shadow-sm"
-          >
-            Search
-          </button>
-        </form>
-      </div>
+        {/* Slide-Down Reset Banner Strip */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            hasActiveFilters ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
+          }`}
+        >
+          <div className="mx-auto flex max-w-7xl items-center justify-between border-t border-white/15 bg-black/20 px-4 py-2 backdrop-blur-md">
+            <div className="flex items-center gap-1.5 text-white/90">
+              <Filter size={13} className="text-white" />
+              <span className="text-[11px] font-bold">
+                {activeFiltersCount} {activeFiltersCount === 1 ? 'filter' : 'filters'} applied
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="flex items-center gap-1.5 rounded-lg bg-white/95 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-rose-600 shadow-sm transition active:scale-95 hover:bg-white"
+            >
+              <RotateCcw size={11} strokeWidth={2.5} />
+              Reset All
+            </button>
+          </div>
+        </div>
+      </header>
 
       {/* Main Container */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-3 space-y-6">
-        
         {/* Real-time Typing Suggestions & Recents Dropdown */}
         {isFocused && (
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-card divide-y divide-slate-100 overflow-hidden">
@@ -339,54 +503,10 @@ export function SearchScreen({
         {/* Results Page */}
         {!isFocused && submittedQuery && (
           <div className="space-y-6">
-            
             {/* 1. Top Home Banner */}
             {topBanner && (
               <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
             )}
-
-            {/* Results Filter & Count Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
-              <div>
-                <h1 className="text-sm font-extrabold text-slate-900">
-                  Search results for <span className="text-emerald-700">"{submittedQuery}"</span>
-                </h1>
-                <p className="text-[11px] text-slate-500">
-                  {matchedCategory ? `Browsing category: ${matchedCategory.name} · ` : ''}
-                  {products.length} wholesale commodities found
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    setFilterInStock(!filterInStock);
-                    void performSearch(submittedQuery);
-                  }}
-                  className={`h-8 px-3 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition-all ${
-                    filterInStock
-                      ? 'bg-emerald-600 border-emerald-600 text-white'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {filterInStock && <Check size={13} />} In Stock
-                </button>
-
-                <button
-                  onClick={() => {
-                    setFilterDeals(!filterDeals);
-                    void performSearch(submittedQuery);
-                  }}
-                  className={`h-8 px-3 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition-all ${
-                    filterDeals
-                      ? 'bg-orange-500 border-orange-500 text-white'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {filterDeals && <Percent size={13} />} Deals
-                </button>
-              </div>
-            </div>
 
             {/* 2. Primary Matched Product Grid[cite: 5] */}
             {loading ? (
@@ -395,9 +515,9 @@ export function SearchScreen({
                   <div key={i} className="h-64 bg-slate-200 rounded-2xl animate-pulse" />
                 ))}
               </div>
-            ) : products.length > 0 ? (
+            ) : filteredAndSortedProducts.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {products.map((product) => (
+                {filteredAndSortedProducts.map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
@@ -414,8 +534,22 @@ export function SearchScreen({
             ) : (
               <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-2">
                 <AlertCircle size={32} className="mx-auto text-slate-400 mb-1" />
-                <h3 className="text-sm font-bold text-slate-800">No exact matches for "{submittedQuery}"</h3>
-                <p className="text-xs text-slate-400">Discover related categories and brand alternatives below.</p>
+                <h3 className="text-sm font-bold text-slate-800">No matching products found</h3>
+                <p className="text-xs text-slate-400">
+                  {hasActiveFilters
+                    ? 'Try clearing active filters to see all available products.'
+                    : 'Discover related categories and brand alternatives below.'}
+                </p>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 active:scale-95 transition-colors"
+                  >
+                    <RotateCcw size={13} />
+                    Reset All Filters
+                  </button>
+                )}
               </div>
             )}
 
@@ -513,7 +647,7 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 8. "Explore All Categories" Visual Grid[cite: 3] */}
+            {/* 8. Explore All Categories Visual Grid[cite: 3] */}
             {allCategories.length > 0 && (
               <section className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
@@ -572,11 +706,89 @@ export function SearchScreen({
                 />
               </div>
             )}
-
           </div>
         )}
-
       </div>
+
+      {/* Sort Sheet Modal (CategoryScreen Pattern)[cite: 9] */}
+      {isSortSheetOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+          <div
+            className="absolute inset-0"
+            onClick={() => setIsSortSheetOpen(false)}
+          />
+
+          <div className="relative z-10 w-full max-w-[720px] rounded-t-[32px] bg-white p-5 pb-8 safe-bottom shadow-2xl animate-in slide-in-from-bottom duration-300">
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200" />
+
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
+                  Sort & Filter Order
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Choose how search products are presented
+                </p>
+              </div>
+              <button
+                onClick={() => setIsSortSheetOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 active:scale-95"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-1.5 max-h-[60vh] overflow-y-auto">
+              {SORT_OPTIONS.map((opt) => {
+                const isSelected = sortBy === opt.id;
+                const Icon = opt.icon;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => {
+                      setSortBy(opt.id);
+                      setIsSortSheetOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-2xl p-3.5 text-left transition ${
+                      isSelected
+                        ? 'bg-emerald-50/60 ring-1.5 ring-emerald-600'
+                        : 'hover:bg-slate-50/70'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                          isSelected ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        <Icon size={18} />
+                      </div>
+                      <div>
+                        <p
+                          className={`text-xs font-bold leading-none ${
+                            isSelected ? 'text-slate-900' : 'text-slate-700'
+                          }`}
+                        >
+                          {opt.label}
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          {opt.subLabel}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isSelected && (
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-white shadow-sm">
+                        <Check size={14} strokeWidth={3} />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

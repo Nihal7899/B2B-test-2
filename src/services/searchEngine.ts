@@ -33,9 +33,8 @@ interface SearchDictionary {
 }
 
 let dictionaryCache: SearchDictionary | null = null;
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL = 10 * 60 * 1000;
 
-// 1. Build and cache Search Dictionary from Database Schema
 export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
   const now = Date.now();
   if (dictionaryCache && now - dictionaryCache.lastFetched < CACHE_TTL) {
@@ -64,16 +63,27 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
     ]);
 
     const productNames = Array.from(
-      new Set((productsRes.data || []).map((p) => p.name.trim()).filter(Boolean))
+      new Set(
+        (productsRes.data || [])
+          .map((p) => p.name?.trim())
+          .filter((name): name is string => Boolean(name))
+      )
     );
-    const brands = Array.from(
-      new Set([
-        ...(productsRes.data || []).map((p) => p.brand?.trim()),
-        ...(brandsRes.data || []).map((b) => b.name?.trim()),
-      ].filter(Boolean))
-    );
-    const categories = (categoriesRes.data || []).map((c) => ({ id: c.id, name: c.name.trim() }));
-    const subcategories = (subcategoriesRes.data || []).map((s) => ({ id: s.id, name: s.name.trim() }));
+
+    const rawBrands = [
+      ...(productsRes.data || []).map((p) => p.brand?.trim()),
+      ...(brandsRes.data || []).map((b) => b.name?.trim()),
+    ].filter((b): b is string => Boolean(b));
+
+    const brands = Array.from(new Set(rawBrands));
+
+    const categories = (categoriesRes.data || [])
+      .map((c) => ({ id: c.id, name: c.name?.trim() || '' }))
+      .filter((c) => Boolean(c.name));
+
+    const subcategories = (subcategoriesRes.data || [])
+      .map((s) => ({ id: s.id, name: s.name?.trim() || '' }))
+      .filter((s) => Boolean(s.name));
 
     const allKeywords: SearchDictionary['allKeywords'] = [];
 
@@ -105,10 +115,9 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
   }
 }
 
-// 2. High-performance Levenshtein Distance for Spell Correction
-function getLevenshteinDistance(a: string, b: string): number {
-  const an = a.length;
-  const bn = b.length;
+function getLevenshteinDistance(a = '', b = ''): number {
+  const an = a ? a.length : 0;
+  const bn = b ? b.length : 0;
   if (an === 0) return bn;
   if (bn === 0) return an;
 
@@ -118,13 +127,13 @@ function getLevenshteinDistance(a: string, b: string): number {
 
   for (let i = 1; i <= bn; i++) {
     for (let j = 1; j <= an; j++) {
-      if (b[i - 1] === a[j - 1]) {
+      if (b[i - 1] === a[i - 1]) {
         matrix[i][j] = matrix[i - 1][j - 1];
       } else {
         matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
         );
       }
     }
@@ -132,9 +141,8 @@ function getLevenshteinDistance(a: string, b: string): number {
   return matrix[bn][an];
 }
 
-// 3. Fast Suggestions & Spell Corrector (Runs strictly on memory without network calls)
-export async function getLiveSearchSuggestions(query: string): Promise<SearchAnalysisResult> {
-  const q = query.trim().toLowerCase();
+export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalysisResult> {
+  const q = (query || '').trim().toLowerCase();
   const dict = await getOrBuildSearchDictionary();
 
   if (!q) {
@@ -151,14 +159,12 @@ export async function getLiveSearchSuggestions(query: string): Promise<SearchAna
   }
 
   const queryTokens = q.split(/\s+/).filter(Boolean);
-
-  // Exact & Prefix matches
   const directMatches: SearchSuggestionItem[] = [];
   const matchedCategories: { id: string; name: string }[] = [];
   const matchedBrands: string[] = [];
 
   for (const item of dict.allKeywords) {
-    const itemLower = item.word.toLowerCase();
+    const itemLower = (item.word || '').toLowerCase();
     if (itemLower.includes(q) || queryTokens.every((t) => itemLower.includes(t))) {
       directMatches.push({ text: item.word, type: item.type, id: item.id });
       if (item.type === 'category' && item.id) {
@@ -170,12 +176,11 @@ export async function getLiveSearchSuggestions(query: string): Promise<SearchAna
     }
   }
 
-  // Typo & Fuzzy Matching for "Did You Mean"
   let bestCandidate: { word: string; distance: number } | null = null;
 
   if (directMatches.length === 0) {
     for (const item of dict.allKeywords) {
-      const itemTokens = item.word.toLowerCase().split(/\s+/);
+      const itemTokens = (item.word || '').toLowerCase().split(/\s+/);
       for (const qToken of queryTokens) {
         for (const iToken of itemTokens) {
           const dist = getLevenshteinDistance(qToken, iToken);
@@ -190,11 +195,10 @@ export async function getLiveSearchSuggestions(query: string): Promise<SearchAna
     }
   }
 
-  // Deduplicate and cap suggestions
   const seen = new Set<string>();
   const uniqueSuggestions: SearchSuggestionItem[] = [];
   for (const m of directMatches) {
-    if (!seen.has(m.text.toLowerCase())) {
+    if (m.text && !seen.has(m.text.toLowerCase())) {
       seen.add(m.text.toLowerCase());
       uniqueSuggestions.push(m);
       if (uniqueSuggestions.length >= 8) break;
@@ -209,9 +213,8 @@ export async function getLiveSearchSuggestions(query: string): Promise<SearchAna
   };
 }
 
-// 4. Full Search Query Execution (Only called when user submits search)
 export async function executeFullSearch(
-  query: string,
+  query = '',
   filter?: {
     categoryId?: string;
     brand?: string;
@@ -219,7 +222,7 @@ export async function executeFullSearch(
     hasDealsOnly?: boolean;
   }
 ): Promise<SearchExecutionResult> {
-  const cleanQuery = query.trim();
+  const cleanQuery = (query || '').trim();
   const analysis = await getLiveSearchSuggestions(cleanQuery);
   const effectiveQuery = cleanQuery || analysis.didYouMean || '';
 
@@ -244,7 +247,7 @@ export async function executeFullSearch(
 
     if (effectiveQuery) {
       dbQuery = dbQuery.or(
-        `name.ilike.%${effectiveQuery}\%,brand.ilike.\%${effectiveQuery}%,description.ilike.%${effectiveQuery}\%,product_code.ilike.\%${effectiveQuery}%`
+        `name.ilike.%${effectiveQuery}%,brand.ilike.%${effectiveQuery}%,description.ilike.%${effectiveQuery}%,product_code.ilike.%${effectiveQuery}%`
       );
     }
 
@@ -256,19 +259,18 @@ export async function executeFullSearch(
       name: p.name,
       brand: p.brand,
       category: p.category_id,
-      mrp: Number(p.mrp),
-      price: Number(p.wholesale_price),
-      packSize: p.pack_size,
+      mrp: Number(p.mrp || 0),
+      price: Number(p.wholesale_price || 0),
+      packSize: p.pack_size || '',
       moq: p.moq || p.min_order_quantity || 1,
       image: p.image_url || (p.image_urls && p.image_urls[0]) || '',
       rating: Number(p.rating || 4.5),
-      inStock: p.stock_quantity > 0,
+      inStock: (p.stock_quantity || 0) > 0,
       description: p.description || '',
       hsn_code: p.hsn_code,
       gst_percentage: p.gst_percentage,
     }));
 
-    // Fetch matching promo ad banner for the search result screen
     const { data: banners } = await supabase
       .from('home_banners')
       .select('*')
@@ -288,7 +290,6 @@ export async function executeFullSearch(
       actionConfig: banners[0].action_config,
     } : null;
 
-    // Fetch related fallback products if count is 0
     let relatedProducts: Product[] = [];
     if (mappedProducts.length === 0) {
       const { data: fallbackData } = await supabase
@@ -303,13 +304,13 @@ export async function executeFullSearch(
         name: p.name,
         brand: p.brand,
         category: p.category_id,
-        mrp: Number(p.mrp),
-        price: Number(p.wholesale_price),
-        packSize: p.pack_size,
+        mrp: Number(p.mrp || 0),
+        price: Number(p.wholesale_price || 0),
+        packSize: p.pack_size || '',
         moq: p.moq || p.min_order_quantity || 1,
         image: p.image_url || (p.image_urls && p.image_urls[0]) || '',
         rating: Number(p.rating || 4.5),
-        inStock: p.stock_quantity > 0,
+        inStock: (p.stock_quantity || 0) > 0,
         description: p.description || '',
       }));
     }

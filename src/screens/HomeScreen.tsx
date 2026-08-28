@@ -28,8 +28,8 @@ import {
 } from '@/services/catalog';
 
 interface HomeScreenProps {
-  search: string;
-  onSearchChange: (value: string) => void;
+  search?: string;
+  onSearchChange?: (value: string) => void;
   onCategory: (category: Category) => void;
   onProduct: (product: Product) => void;
   onViewAll: () => void;
@@ -39,7 +39,7 @@ interface HomeScreenProps {
 }
 
 export function HomeScreen({
-  search,
+  search = '',
   onProduct,
   onViewAll,
   onStoreClick,
@@ -64,7 +64,7 @@ export function HomeScreen({
   const [brands, setBrands] = useState<TrustedBrand[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fast background updater for dynamic personal sections
+  // Background updater for dynamic personal sections
   const refreshDynamicSections = useCallback(async () => {
     try {
       const [recent, reorder] = await Promise.all([
@@ -196,10 +196,10 @@ export function HomeScreen({
   }, [loadAllHomeData, refreshDynamicSections, refreshLayoutAndBanners]);
 
   const { filtered, deals, essentials } = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = (search || '').trim().toLowerCase();
     const filteredProducts = query
       ? products.filter((p) =>
-          `${p.brand} ${p.name} ${p.category || ''}`.toLowerCase().includes(query)
+          `${p.brand || ''} ${p.name || ''} ${p.category || ''}`.toLowerCase().includes(query)
         )
       : products;
 
@@ -214,7 +214,7 @@ export function HomeScreen({
 
     const staples = ['oil', 'atta', 'flour', 'rice', 'sugar', 'salt', 'milk', 'spice', 'tea', 'dal'];
     const essentialsList = filteredProducts
-      .filter((p) => staples.some((s) => `${p.name} ${p.brand}`.toLowerCase().includes(s)))
+      .filter((p) => staples.some((s) => `${p.name || ''} ${p.brand || ''}`.toLowerCase().includes(s)))
       .slice(0, 10);
 
     return {
@@ -248,7 +248,7 @@ export function HomeScreen({
     );
   }
 
-  const query = search.trim();
+  const query = (search || '').trim();
 
   const getSlotBanners = (slotPosition?: string) => {
     const target = slotPosition || 'middle_1';

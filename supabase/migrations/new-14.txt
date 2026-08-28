@@ -77,3 +77,33 @@ INSERT INTO public.whatsapp_templates (
   'cart?promo=SAVE20'
 )
 ON CONFLICT (template_name) DO NOTHING;
+
+
+-- Function to keep the latest N logs and remove older records
+CREATE OR REPLACE FUNCTION public.prune_whatsapp_logs(keep_count integer)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  deleted_count integer := 0;
+BEGIN
+  IF keep_count = 0 THEN
+    DELETE FROM public.whatsapp_message_logs;
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  ELSE
+    WITH logs_to_delete AS (
+      SELECT id
+      FROM public.whatsapp_message_logs
+      ORDER BY created_at DESC
+      OFFSET keep_count
+    )
+    DELETE FROM public.whatsapp_message_logs
+    WHERE id IN (SELECT id FROM logs_to_delete);
+    
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  END IF;
+
+  RETURN deleted_count;
+END;
+$$;

@@ -14,6 +14,8 @@ import {
   Sparkle,
   Grid,
   Percent,
+  Flame,
+  RotateCcw,
 } from 'lucide-react';
 import type { Product, PromoBanner, Category } from '@/types';
 import type { useCart } from '@/store';
@@ -23,8 +25,13 @@ import {
   type SearchSuggestionItem,
   type RelatedSlugItem,
 } from '@/services/searchEngine';
+import {
+  fetchUserReorderProducts,
+  fetchRecentlyViewedProducts,
+} from '@/services/catalog';
 import { ProductCard, ProductCarousel } from '@/components/ProductCard';
 import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
+import { PromoAdBanner } from '@/components/PromoAdBanner';
 
 interface SearchScreenProps {
   initialQuery?: string;
@@ -48,16 +55,23 @@ export function SearchScreen({
   const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
   const [isFocused, setIsFocused] = useState(!initialQuery);
 
+  // Suggestions state
   const [suggestions, setSuggestions] = useState<SearchSuggestionItem[]>([]);
   const [didYouMean, setDidYouMean] = useState<string | null>(null);
 
+  // Dynamic Personal Modules (Reorder & Recently Viewed)
+  const [reorderProducts, setReorderProducts] = useState<Product[]>([]);
+  const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
+
+  // Search Results & Layout state
   const [products, setProducts] = useState<Product[]>([]);
   const [alternativeProducts, setAlternativeProducts] = useState<Product[]>([]);
   const [relatedSlugs, setRelatedSlugs] = useState<RelatedSlugItem[]>([]);
   const [matchedCategory, setMatchedCategory] = useState<Category | null>(null);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
-  const [promoBanners, setPromoBanners] = useState<PromoBanner[]>([]);
+  const [topBanner, setTopBanner] = useState<PromoBanner | null>(null);
+  const [middleBanners, setMiddleBanners] = useState<PromoBanner[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [filterInStock, setFilterInStock] = useState(false);
@@ -73,6 +87,24 @@ export function SearchScreen({
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Load Reorder & Recently Viewed modules on mount
+  useEffect(() => {
+    let mounted = true;
+    void Promise.all([
+      fetchUserReorderProducts(10),
+      fetchRecentlyViewedProducts(),
+    ]).then(([reorder, recent]) => {
+      if (mounted) {
+        setReorderProducts(reorder || []);
+        setRecentlyViewed(recent || []);
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const saveRecentSearch = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -86,7 +118,7 @@ export function SearchScreen({
     localStorage.removeItem(RECENT_SEARCHES_KEY);
   };
 
-  // 1. Lightweight live suggestion generator while typing
+  // Real-time suggestions while typing
   useEffect(() => {
     let active = true;
     const timer = setTimeout(async () => {
@@ -104,7 +136,6 @@ export function SearchScreen({
     };
   }, [query, isFocused, submittedQuery]);
 
-  // 2. Perform deep multi-branch search
   const performSearch = useCallback(
     async (searchTerm: string) => {
       const q = (searchTerm || '').trim();
@@ -124,7 +155,8 @@ export function SearchScreen({
       setMatchedCategory(result.matchedCategory);
       setAllCategories(result.allCategories);
       setTrendingProducts(result.trendingProducts);
-      setPromoBanners(result.promoBanners);
+      setTopBanner(result.topBanner);
+      setMiddleBanners(result.middleBanners);
       setDidYouMean(result.didYouMean);
       setLoading(false);
     },
@@ -163,7 +195,7 @@ export function SearchScreen({
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-24">
       
-      {/* Top Search App Bar */}
+      {/* Sticky Top Search Header */}
       <div className="sticky top-0 z-40 bg-[#02402c] px-4 py-3 shadow-md">
         <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-7xl mx-auto">
           <button
@@ -216,7 +248,7 @@ export function SearchScreen({
       {/* Main Container */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-3 space-y-6">
         
-        {/* Realtime Typing Suggestions & Recents */}
+        {/* Real-time Typing Dropdown Overlay */}
         {isFocused && (
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-card divide-y divide-slate-100 overflow-hidden">
             {didYouMean && (
@@ -299,6 +331,13 @@ export function SearchScreen({
         {!isFocused && submittedQuery && (
           <div className="space-y-6">
             
+            {/* Top Fixed Promo Ad Banner */}
+            {topBanner && (
+              <div className="overflow-hidden rounded-2xl shadow-sm">
+                <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
+              </div>
+            )}
+
             {/* Header & Filter Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
               <div>
@@ -307,7 +346,7 @@ export function SearchScreen({
                 </h1>
                 <p className="text-[11px] text-slate-500">
                   {matchedCategory ? `Browsing category: ${matchedCategory.name} · ` : ''}
-                  {products.length} wholesale commodities
+                  {products.length} wholesale commodities found
                 </p>
               </div>
 
@@ -342,7 +381,7 @@ export function SearchScreen({
               </div>
             </div>
 
-            {/* 1. Primary Search Results using standard ProductCard[span_0](start_span)[span_0](end_span) */}
+            {/* 1. Primary Matched Products Grid */}
             {loading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {[...Array(6)].map((_, i) => (
@@ -373,18 +412,18 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 2. Dynamic Promo Banner from Home Layout[span_1](start_span)[span_1](end_span) */}
-            {promoBanners.length > 0 && (
+            {/* 2. Middle Promo Banner / Carousel */}
+            {middleBanners.length > 0 && (
               <div className="pt-2">
-                {promoBanners.length > 1 ? (
-                  <PromoCarousel banners={promoBanners} onAction={onBannerAction} />
+                {middleBanners.length > 1 ? (
+                  <PromoCarousel banners={middleBanners} onAction={onBannerAction} />
                 ) : (
-                  <PromoBannerCard banner={promoBanners[0]} onAction={onBannerAction} />
+                  <PromoBannerCard banner={middleBanners[0]} onAction={onBannerAction} />
                 )}
               </div>
             )}
 
-            {/* 3. Alternative Products from Other Brands using ProductCard[span_2](start_span)[span_2](end_span)[span_3](start_span)[span_3](end_span) */}
+            {/* 3. Alternative Products from Other Brands */}
             {alternativeProducts.length > 0 && (
               <div className="space-y-3 pt-2">
                 <div className="flex items-center gap-2">
@@ -433,7 +472,41 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 5. "Explore All Categories" Section from Home Screen[span_4](start_span)[span_4](end_span) */}
+            {/* 5. Quick Reorder (Buy Again) Carousel */}
+            {reorderProducts.length > 0 && (
+              <div className="pt-2">
+                <ProductCarousel
+                  title="Quick Reorder / Buy Again"
+                  subtitle="Frequent purchases for your business"
+                  products={reorderProducts}
+                  getQuantity={(id) => cart.getQuantity(id)}
+                  onAdd={(p) => cart.addToCart(p)}
+                  onIncrement={(p) => cart.addToCart(p)}
+                  onDecrement={(p) => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
+                  onProductClick={onProductClick}
+                  onViewAll={() => navigate('/orders')}
+                />
+              </div>
+            )}
+
+            {/* 6. Recently Viewed Products Carousel */}
+            {recentlyViewed.length > 0 && (
+              <div className="pt-2">
+                <ProductCarousel
+                  title="Recently Viewed Products"
+                  subtitle="Pick up where you left off"
+                  products={recentlyViewed}
+                  getQuantity={(id) => cart.getQuantity(id)}
+                  onAdd={(p) => cart.addToCart(p)}
+                  onIncrement={(p) => cart.addToCart(p)}
+                  onDecrement={(p) => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
+                  onProductClick={onProductClick}
+                  onViewAll={() => navigate('/categories')}
+                />
+              </div>
+            )}
+
+            {/* 7. "Explore All Categories" Visual Grid */}
             {allCategories.length > 0 && (
               <section className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
@@ -476,12 +549,12 @@ export function SearchScreen({
               </section>
             )}
 
-            {/* 6. Top Rated & Trending Wholesale Deals Carousel[span_5](start_span)[span_5](end_span) */}
+            {/* 8. Top Rated & Trending Wholesale Deals */}
             {trendingProducts.length > 0 && (
               <div className="pt-2">
                 <ProductCarousel
-                  title="Top Wholesale Deals"
-                  subtitle="Popular items businesses are ordering now"
+                  title="Trending Wholesale Commodities"
+                  subtitle="Best sellers and bulk deals across the catalog"
                   products={trendingProducts}
                   getQuantity={(id) => cart.getQuantity(id)}
                   onAdd={(p) => cart.addToCart(p)}

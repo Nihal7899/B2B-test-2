@@ -214,7 +214,6 @@ function App() {
     screen === 'brand' ||
     screen === 'banner';
 
-  // Prevent long press context menus globally except on editable inputs
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -232,7 +231,6 @@ function App() {
     return () => window.removeEventListener('contextmenu', handleContextMenu);
   }, []);
 
-  // Apply transparent edge-to-edge system bars
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
@@ -551,8 +549,11 @@ function App() {
       <div className="mx-auto flex-1 w-full max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col">
         {!isFullBleed && (
           <Header
+            search={search}
+            onSearchChange={setSearch}
             cartCount={cart.totalItems}
             onCartClick={() => goTo('cart')}
+            onLocationClick={() => goTo('addresses')}
           />
         )}
 

@@ -4,7 +4,6 @@ import { Truck, ShieldCheck, Tag, RotateCcw, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Category, Product, PromoBanner, Store, TrustedBrand, HomeSection } from '@/types';
 import type { useCart } from '@/store';
-import { SearchBar } from '@/components/SearchBar';
 import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
 import { ProductCarousel } from '@/components/ProductCard';
@@ -154,10 +153,8 @@ export function HomeScreen({
   useEffect(() => {
     let active = true;
 
-    // 1. Initial Load
     void loadAllHomeData(true);
 
-    // 2. Realtime listener for Admin Layout changes
     const homeChannel = supabase
       .channel('realtime:home_updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'home_sections' }, () => {
@@ -168,13 +165,11 @@ export function HomeScreen({
       })
       .subscribe();
 
-    // 3. Instant Event Listener for Recently Viewed additions
     const handleRecentlyViewedUpdate = () => {
       if (active) void fetchRecentlyViewedProducts().then(setRecentlyViewed);
     };
     window.addEventListener('recently-viewed-updated', handleRecentlyViewedUpdate);
 
-    // 4. KeepAlive Activation Listener (When user pops back to Home Screen)
     const handleKeepAliveFocus = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
       if (active && (customEvent.detail?.key === '/' || customEvent.detail?.key === 'home' || !customEvent.detail?.key)) {
@@ -184,7 +179,6 @@ export function HomeScreen({
     };
     window.addEventListener('keepalive:activated', handleKeepAliveFocus);
 
-    // 5. App resume from background
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && active) {
         void refreshDynamicSections();
@@ -269,8 +263,6 @@ export function HomeScreen({
 
   return (
     <div className="space-y-6 pb-6 transform-gpu">
-      <SearchBar value={search} onChange={onSearchChange} onFilter={() => undefined} />
-
       {!query && topBanner && (
         <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
       )}

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { MapPin, ChevronDown, Search, ShoppingBag } from 'lucide-react';
 import { fetchAddresses, type DbAddress } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
@@ -51,15 +51,12 @@ export function Header({
   onCartClick,
   onLocationClick,
 }: HeaderProps) {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const isScrolledRef = useRef(false);
-
   const [address, setAddress] = useState<DbAddress | null>(null);
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
   const [keywordIndex, setKeywordIndex] = useState(0);
   const [isFading, setIsFading] = useState(false);
 
-  // 1. Fetch user's active delivery address
+  // 1. Fetch active delivery address
   useEffect(() => {
     let active = true;
     void fetchAddresses().then((addrs) => {
@@ -86,22 +83,7 @@ export function Header({
     };
   }, []);
 
-  // 3. Ultra-smooth, zero-lag scroll threshold listener
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrolled = window.scrollY > 20;
-      // Only trigger a React state dispatch ONCE when the threshold state flips
-      if (scrolled !== isScrolledRef.current) {
-        isScrolledRef.current = scrolled;
-        setIsScrolled(scrolled);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // 4. Animated placeholder word cycling
+  // 3. Animated placeholder word cycle
   useEffect(() => {
     const interval = setInterval(() => {
       setIsFading(true);
@@ -121,41 +103,35 @@ export function Header({
   }, [address]);
 
   return (
-    <header className="sticky top-0 z-50 bg-[#02402c] text-white shadow-md rounded-b-3xl safe-top transform-gpu">
-      <div className="max-w-7xl mx-auto px-4 pt-3 pb-3.5">
-        
-        {/* Collapsible Location Bar */}
-        <div
-          className={`overflow-hidden transition-all duration-200 ease-out transform-gpu ${
-            isScrolled
-              ? 'max-h-0 opacity-0 -translate-y-2 mb-0 pointer-events-none'
-              : 'max-h-14 opacity-100 translate-y-0 mb-2.5'
-          }`}
+    <div className="w-full bg-[#02402c] text-white">
+      {/* 1. Location Bar: Scrolls away naturally with native scrolling */}
+      <div className="safe-top px-4 pt-3 pb-2 max-w-7xl mx-auto">
+        <button
+          onClick={onLocationClick}
+          type="button"
+          className="flex items-center gap-2 text-left active:opacity-80 transition-opacity"
         >
-          <button
-            onClick={onLocationClick}
-            type="button"
-            className="group flex items-center gap-2 text-left active:opacity-80 transition-opacity"
-          >
-            <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm group-hover:bg-white/20 transition-colors shrink-0">
-              <MapPin size={15} className="text-white" />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1">
-                <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[240px] sm:max-w-xs">
-                  {locationText}
-                </span>
-                <ChevronDown size={14} className="text-white/80 shrink-0 group-hover:translate-y-0.5 transition-transform" />
-              </div>
-              <span className="text-[10px] font-medium text-white/60 leading-none">
-                {address ? 'Delivery location' : 'Tap to choose address'}
+          <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+            <MapPin size={15} className="text-white" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1">
+              <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[240px] sm:max-w-xs">
+                {locationText}
               </span>
+              <ChevronDown size={14} className="text-white/80 shrink-0" />
             </div>
-          </button>
-        </div>
+            <span className="text-[10px] font-medium text-white/60 leading-none">
+              {address ? 'Delivery location' : 'Tap to choose address'}
+            </span>
+          </div>
+        </button>
+      </div>
 
-        {/* Sticky Search Input & Cart Row */}
-        <div className="flex items-center gap-2.5">
+      {/* 2. Sticky Bar: Pins natively to the top with safe-top padding */}
+      <div className="sticky top-0 z-40 bg-[#02402c] px-4 pt-2 pb-3.5 shadow-lg rounded-b-3xl safe-top">
+        <div className="max-w-7xl mx-auto flex items-center gap-2.5">
+          {/* Search Trigger Input */}
           <div
             onClick={onSearchClick}
             className="relative flex-1 h-11 px-3.5 rounded-xl bg-white text-slate-900 flex items-center gap-2.5 cursor-pointer shadow-sm active:scale-[0.99] transition-transform select-none"
@@ -173,6 +149,7 @@ export function Header({
             </div>
           </div>
 
+          {/* Cart Button */}
           <button
             onClick={onCartClick}
             type="button"
@@ -189,8 +166,7 @@ export function Header({
             )}
           </button>
         </div>
-
       </div>
-    </header>
+    </div>
   );
 }

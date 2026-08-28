@@ -9,8 +9,9 @@ import {
   Sparkles, 
   RefreshCw, 
   Plus, 
-  Image as ImageIcon,
-  X
+  Edit2, 
+  Trash2, 
+  X 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -39,7 +40,7 @@ export default function WhatsAppCampaignManager() {
   const [selectedTemplate, setSelectedTemplate] = useState<DBTemplate | null>(null);
   const [audience, setAudience] = useState<'all' | 'registered'>('all');
   
-  // Dynamic form state
+  // Dynamic message form state
   const [paramValues, setParamValues] = useState<Record<number, string>>({});
   const [headerMediaUrl, setHeaderMediaUrl] = useState<string>('');
   const [buttonParam, setButtonParam] = useState<string>('');
@@ -50,23 +51,24 @@ export default function WhatsAppCampaignManager() {
   const [result, setResult] = useState<{ total: number; sent: number; failed: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Modal State for adding new template
+  // Modal State for Add / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newTemplate, setNewTemplate] = useState({
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [formTemplate, setFormTemplate] = useState({
     template_name: '',
     display_name: '',
     description: '',
     language: 'en',
     header_type: 'NONE' as 'NONE' | 'IMAGE' | 'DOCUMENT',
     body_text: '',
-    varLabels: '', // comma separated labels
+    varLabels: '',
     has_dynamic_button: false,
     button_label: 'Visit Website',
     button_default_param: '',
   });
 
-  // 1. Fetch dynamic templates from DB
-  const loadTemplates = async () => {
+  // 1. Fetch templates from DB
+  const loadTemplates = async (selectIdAfterLoad?: string) => {
     setIsLoadingTemplates(true);
     const { data, error } = await supabase
       .from('whatsapp_templates')
@@ -74,9 +76,16 @@ export default function WhatsAppCampaignManager() {
       .eq('is_active', true)
       .order('created_at', { ascending: true });
 
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
       setTemplates(data);
-      selectTemplate(data[0]);
+      if (selectIdAfterLoad) {
+        const found = data.find((t) => t.id === selectIdAfterLoad);
+        if (found) selectTemplate(found);
+      } else if (data.length > 0 && !selectedTemplate) {
+        selectTemplate(data[0]);
+      } else if (data.length === 0) {
+        setSelectedTemplate(null);
+      }
     }
     setIsLoadingTemplates(false);
   };
@@ -90,7 +99,6 @@ export default function WhatsAppCampaignManager() {
     setButtonParam(tmpl.button_default_param || '');
     setHeaderMediaUrl('');
     
-    // Initialize default variable values
     const initialParams: Record<number, string> = {};
     (tmpl.variables_config || []).forEach((v, idx) => {
       initialParams[idx] = v.default || '';
@@ -98,7 +106,7 @@ export default function WhatsAppCampaignManager() {
     setParamValues(initialParams);
   };
 
-  // 2. Fetch Audience Count
+  // 2. Fetch audience count
   const loadRecipientCount = async () => {
     let query = supabase.from('profiles').select('id', { count: 'exact', head: true }).neq('phone', '');
     if (audience === 'registered') {
@@ -112,7 +120,7 @@ export default function WhatsAppCampaignManager() {
     loadRecipientCount();
   }, [audience]);
 
-  // 3. Construct Live Preview Text
+  // 3. Render Live Preview
   const renderLivePreview = () => {
     if (!selectedTemplate) return '';
     let preview = selectedTemplate.body_text;
@@ -124,7 +132,7 @@ export default function WhatsAppCampaignManager() {
     return preview;
   };
 
-  // 4. Submit Campaign
+  // 4. Send Campaign
   const handleSendCampaign = async () => {
     if (!selectedTemplate) return;
     if (!confirm(`Send "${selectedTemplate.display_name}" to ${recipientCount} recipients?`)) return;
@@ -157,7 +165,7 @@ export default function WhatsAppCampaignManager() {
       if (data?.success) {
         setResult({ total: data.total, sent: data.sent, failed: data.failed });
       } else {
-        throw new Error(data?.error || 'Broadcast failed.');
+        throw new Error(data?.error || 'Broadcast dispatch failed.');
       }
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -166,36 +174,117 @@ export default function WhatsAppCampaignManager() {
     }
   };
 
-  // 5. Save New Template to DB
+  // 5. Open Modal for Create
+  const handleOpenCreateModal = () => {
+    setEditingTemplateId(null);
+    setFormTemplate({
+      template_name: '',
+      display_name: '',
+      description: '',
+      language: 'en',
+      header_type: 'NONE',
+      body_text: '',
+      varLabels: '',
+      has_dynamic_button: false,
+      button_label: 'Visit Website',
+      button_default_param: '',
+    });
+    setIsModalOpen(true);
+  };
+
+  // 6. Open Modal for Edit
+  const handleOpenEditModal = (tmpl: DBTemplate, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingTemplateId(tmpl.id);
+    setFormTemplate({
+      template_name: tmpl.template_name,
+      display_name: tmpl.display_name,
+      description: tmpl.description || '',
+      language: tmpl.language || 'en',
+      header_type: tmpl.header_type || 'NONE',
+      body_text: tmpl.body_text || '',
+      varLabels: (tmpl.variables_config || []).map((v) => v.label).join(', '),
+      has_dynamic_button: tmpl.has_dynamic_button || false,
+      button_label: tmpl.button_label || 'Visit Website',
+      button_default_param: tmpl.button_default_param || '',
+    });
+    setIsModalOpen(true);
+  };
+
+  // 7. Delete Template
+  const handleDeleteTemplate = async (tmpl: DBTemplate, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const confirmed = confirm(
+      `Are you sure you want to delete "${tmpl.display_name}" (${tmpl.template_name})?`
+    );
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from('whatsapp_templates')
+      .delete()
+      .eq('id', tmpl.id);
+
+    if (error) {
+      alert(`Failed to delete template: ${error.message}`);
+      return;
+    }
+
+    if (selectedTemplate?.id === tmpl.id) {
+      setSelectedTemplate(null);
+    }
+    loadTemplates();
+  };
+
+  // 8. Submit Add / Update
   const handleSaveTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const parsedVariables: TemplateVarConfig[] = newTemplate.varLabels
+
+    const parsedVariables: TemplateVarConfig[] = formTemplate.varLabels
       .split(',')
       .map((item) => item.trim())
       .filter((item) => item.length > 0)
       .map((label) => ({ label, default: '' }));
 
-    const { error } = await supabase.from('whatsapp_templates').insert({
-      template_name: newTemplate.template_name.trim().toLowerCase(),
-      display_name: newTemplate.display_name.trim(),
-      description: newTemplate.description.trim(),
-      language: newTemplate.language,
-      has_header: newTemplate.header_type !== 'NONE',
-      header_type: newTemplate.header_type,
-      body_text: newTemplate.body_text.trim(),
+    const payload = {
+      template_name: formTemplate.template_name.trim().toLowerCase(),
+      display_name: formTemplate.display_name.trim(),
+      description: formTemplate.description.trim(),
+      language: formTemplate.language.trim(),
+      has_header: formTemplate.header_type !== 'NONE',
+      header_type: formTemplate.header_type,
+      body_text: formTemplate.body_text.trim(),
       variables_config: parsedVariables,
-      has_dynamic_button: newTemplate.has_dynamic_button,
-      button_label: newTemplate.button_label,
-      button_default_param: newTemplate.button_default_param,
-    });
+      has_dynamic_button: formTemplate.has_dynamic_button,
+      button_label: formTemplate.button_label,
+      button_default_param: formTemplate.button_default_param,
+    };
 
-    if (error) {
-      alert(`Error creating template: ${error.message}`);
-      return;
+    if (editingTemplateId) {
+      const { error } = await supabase
+        .from('whatsapp_templates')
+        .update(payload)
+        .eq('id', editingTemplateId);
+
+      if (error) {
+        alert(`Error updating template: ${error.message}`);
+        return;
+      }
+      setIsModalOpen(false);
+      loadTemplates(editingTemplateId);
+    } else {
+      const { data, error } = await supabase
+        .from('whatsapp_templates')
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        alert(`Error creating template: ${error.message}`);
+        return;
+      }
+      setIsModalOpen(false);
+      loadTemplates(data?.id);
     }
-
-    setIsModalOpen(false);
-    loadTemplates();
   };
 
   return (
@@ -206,11 +295,13 @@ export default function WhatsAppCampaignManager() {
           <h2 className="text-xl font-black text-ink-900 flex items-center gap-2">
             <Sparkles className="text-brand-600" size={22} /> WhatsApp Broadcast Manager
           </h2>
-          <p className="text-sm text-ink-500">Dynamically dispatch Meta-approved templates with images and custom links.</p>
+          <p className="text-sm text-ink-500">
+            Create, edit, and dispatch Meta-approved WhatsApp broadcast templates.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleOpenCreateModal}
             className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm transition-colors"
           >
             <Plus size={15} /> Add Template
@@ -226,43 +317,114 @@ export default function WhatsAppCampaignManager() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Form: 7 Columns */}
-        <div className="lg:col-span-7 space-y-5 bg-white p-6 rounded-2xl border border-ink-200">
-          {/* Template Selection */}
+        <div className="lg:col-span-7 space-y-5 bg-white p-6 rounded-2xl border border-ink-200 shadow-sm">
+          {/* Template Selection List with Edit & Delete */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">1. Select Template</label>
-            <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
-              {templates.map((tmpl) => (
-                <button
-                  key={tmpl.id}
-                  type="button"
-                  onClick={() => selectTemplate(tmpl)}
-                  className={`p-3 text-left rounded-xl border transition-all ${
-                    selectedTemplate?.id === tmpl.id
-                      ? 'border-brand-600 bg-brand-50/50 ring-2 ring-brand-500/20'
-                      : 'border-ink-200 hover:bg-ink-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm text-ink-900">{tmpl.display_name}</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-ink-100 text-ink-600">{tmpl.template_name} ({tmpl.language})</span>
-                  </div>
-                  {tmpl.description && <p className="text-xs text-ink-500 mt-0.5">{tmpl.description}</p>}
-                </button>
-              ))}
-            </div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">
+              1. Select Template
+            </label>
+            {templates.length === 0 && !isLoadingTemplates ? (
+              <div className="text-xs text-ink-500 p-4 border border-dashed border-ink-200 rounded-xl text-center">
+                No templates configured. Click "Add Template" above to register one.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto pr-1">
+                {templates.map((tmpl) => {
+                  const isSelected = selectedTemplate?.id === tmpl.id;
+                  return (
+                    <div
+                      key={tmpl.id}
+                      onClick={() => selectTemplate(tmpl)}
+                      className={`p-3.5 rounded-xl border transition-all flex items-start justify-between gap-3 cursor-pointer ${
+                        isSelected
+                          ? 'border-brand-600 bg-brand-50/50 ring-2 ring-brand-500/20 shadow-sm'
+                          : 'border-ink-200 hover:bg-ink-50/60'
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-ink-900 truncate">
+                            {tmpl.display_name}
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-ink-100 text-ink-600 shrink-0">
+                            {tmpl.template_name} ({tmpl.language})
+                          </span>
+                        </div>
+                        {tmpl.description && (
+                          <p className="text-xs text-ink-500 mt-0.5 line-clamp-1">{tmpl.description}</p>
+                        )}
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenEditModal(tmpl, e)}
+                          title="Edit Template Configuration"
+                          className="p-1.5 text-ink-400 hover:text-brand-600 hover:bg-white rounded-lg transition-colors"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteTemplate(tmpl, e)}
+                          title="Delete Template"
+                          className="p-1.5 text-ink-400 hover:text-rose-600 hover:bg-white rounded-lg transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Audience Filter */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">2. Target Audience</label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 text-sm font-medium text-ink-800 cursor-pointer">
-                <input type="radio" name="audience" checked={audience === 'all'} onChange={() => setAudience('all')} className="accent-brand-600" />
-                All Users ({recipientCount ?? '...'})
+            <label className="block text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">
+              2. Target Audience
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  audience === 'all'
+                    ? 'border-brand-600 bg-brand-50/30 ring-1 ring-brand-600'
+                    : 'border-ink-200 hover:bg-ink-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="audience"
+                  checked={audience === 'all'}
+                  onChange={() => setAudience('all')}
+                  className="mt-0.5 accent-brand-600"
+                />
+                <div>
+                  <div className="text-sm font-bold text-ink-900">All Customers</div>
+                  <div className="text-xs text-ink-500">All profiles with phone ({recipientCount ?? '...'})</div>
+                </div>
               </label>
-              <label className="flex items-center gap-2 text-sm font-medium text-ink-800 cursor-pointer">
-                <input type="radio" name="audience" checked={audience === 'registered'} onChange={() => setAudience('registered')} className="accent-brand-600" />
-                Registered Profiles Only
+
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  audience === 'registered'
+                    ? 'border-brand-600 bg-brand-50/30 ring-1 ring-brand-600'
+                    : 'border-ink-200 hover:bg-ink-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="audience"
+                  checked={audience === 'registered'}
+                  onChange={() => setAudience('registered')}
+                  className="mt-0.5 accent-brand-600"
+                />
+                <div>
+                  <div className="text-sm font-bold text-ink-900">Registered Accounts Only</div>
+                  <div className="text-xs text-ink-500">Verified business profiles</div>
+                </div>
               </label>
             </div>
           </div>
@@ -270,7 +432,9 @@ export default function WhatsAppCampaignManager() {
           {/* Dynamic Image Header Input */}
           {selectedTemplate?.header_type === 'IMAGE' && (
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-ink-500 mb-1">Header Image URL</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-ink-500 mb-1">
+                Header Image URL
+              </label>
               <input
                 type="url"
                 placeholder="https://yourstore.com/banner.jpg"
@@ -284,7 +448,9 @@ export default function WhatsAppCampaignManager() {
           {/* Dynamic Body Variables */}
           {selectedTemplate && (selectedTemplate.variables_config || []).length > 0 && (
             <div className="space-y-3">
-              <label className="block text-xs font-bold uppercase tracking-wider text-ink-500">3. Body Parameters</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-ink-500">
+                3. Body Parameters
+              </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {selectedTemplate.variables_config.map((field, idx) => (
                   <div key={idx} className="space-y-1">
@@ -294,7 +460,7 @@ export default function WhatsAppCampaignManager() {
                       value={paramValues[idx] || ''}
                       placeholder={field.default || field.label}
                       onChange={(e) => setParamValues({ ...paramValues, [idx]: e.target.value })}
-                      className="w-full px-3 py-2 border border-ink-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500"
+                      className="w-full px-3.5 py-2.5 border border-ink-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                 ))}
@@ -305,7 +471,9 @@ export default function WhatsAppCampaignManager() {
           {/* Dynamic Button Suffix */}
           {selectedTemplate?.has_dynamic_button && (
             <div className="space-y-1">
-              <label className="block text-xs font-bold uppercase tracking-wider text-ink-500">4. Button Link Suffix / Query</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-ink-500">
+                4. Dynamic Button Path / Query
+              </label>
               <input
                 type="text"
                 value={buttonParam}
@@ -316,32 +484,39 @@ export default function WhatsAppCampaignManager() {
             </div>
           )}
 
+          {/* Send Trigger Button */}
           <button
             onClick={handleSendCampaign}
             disabled={isSending || recipientCount === 0 || !selectedTemplate}
             className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all disabled:opacity-50"
           >
             <Send size={18} />
-            {isSending ? 'Sending Campaign...' : `Send to ${recipientCount ?? 0} Recipients`}
+            {isSending ? 'Broadcasting Messages...' : `Send to ${recipientCount ?? 0} Recipients`}
           </button>
         </div>
 
-        {/* Right Preview: 5 Columns */}
+        {/* Right Column: 5 Columns (Live Preview & Status Logs) */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-ink-950 p-5 rounded-2xl text-white shadow-md">
             <div className="flex items-center justify-between text-emerald-400 mb-3 pb-2 border-b border-ink-800 text-xs font-bold uppercase">
               <div className="flex items-center gap-1.5"><Eye size={15} /> WhatsApp Preview</div>
               <span className="font-mono text-[10px] bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/40">
-                {selectedTemplate?.template_name}
+                {selectedTemplate?.template_name || 'None selected'}
               </span>
             </div>
 
             <div className="bg-[#EFEAE2] p-4 rounded-xl shadow-inner min-h-[220px] flex flex-col justify-between text-ink-900">
-              <div className="bg-white p-3 rounded-xl rounded-tl-none shadow-sm space-y-2 border border-emerald-950/5">
+              <div className="bg-white p-3.5 rounded-xl rounded-tl-none shadow-sm space-y-2 border border-emerald-950/5">
                 {selectedTemplate?.header_type === 'IMAGE' && headerMediaUrl && (
-                  <img src={headerMediaUrl} alt="Header Preview" className="w-full h-32 object-cover rounded-lg mb-2" />
+                  <img
+                    src={headerMediaUrl}
+                    alt="Header Preview"
+                    className="w-full h-32 object-cover rounded-lg mb-2"
+                  />
                 )}
-                <p className="text-xs leading-relaxed whitespace-pre-line">{renderLivePreview()}</p>
+                <p className="text-xs leading-relaxed whitespace-pre-line">
+                  {selectedTemplate ? renderLivePreview() : 'Select a template from the left to preview.'}
+                </p>
                 <div className="text-[10px] text-ink-400 text-right">12:00 PM</div>
               </div>
 
@@ -355,8 +530,8 @@ export default function WhatsAppCampaignManager() {
 
           {errorMsg && (
             <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl flex items-start gap-2.5 text-rose-800 text-xs">
-              <AlertTriangle className="shrink-0 text-rose-600" size={16} />
-              <div><b>Error:</b> {errorMsg}</div>
+              <AlertTriangle className="shrink-0 text-rose-600 mt-0.5" size={16} />
+              <div><b>Broadcast Error:</b> {errorMsg}</div>
             </div>
           )}
 
@@ -375,26 +550,36 @@ export default function WhatsAppCampaignManager() {
         </div>
       </div>
 
-      {/* Add New Template Modal */}
+      {/* Add / Edit Template Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-ink-950/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white max-w-lg w-full rounded-2xl p-6 shadow-xl border border-ink-200 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-ink-100">
-              <h3 className="font-bold text-lg text-ink-900">Add Approved Meta Template</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-ink-400 hover:text-ink-700">
+              <h3 className="font-bold text-lg text-ink-900">
+                {editingTemplateId ? 'Edit WhatsApp Template' : 'Add Approved Meta Template'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="text-ink-400 hover:text-ink-700"
+              >
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleSaveTemplate} className="space-y-3.5 text-xs">
               <div>
-                <label className="font-bold text-ink-700 block mb-1">Meta Template Name (Exact)</label>
+                <label className="font-bold text-ink-700 block mb-1">
+                  Meta Template Name (Exact technical identifier)
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. new_arrivals_promo"
-                  value={newTemplate.template_name}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, template_name: e.target.value })}
+                  placeholder="e.g. flash_sale_promo"
+                  value={formTemplate.template_name}
+                  onChange={(e) =>
+                    setFormTemplate({ ...formTemplate, template_name: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-ink-200 rounded-xl text-xs font-mono"
                 />
               </div>
@@ -405,9 +590,11 @@ export default function WhatsAppCampaignManager() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. New Arrivals"
-                    value={newTemplate.display_name}
-                    onChange={(e) => setNewTemplate({ ...newTemplate, display_name: e.target.value })}
+                    placeholder="e.g. Flash Sale"
+                    value={formTemplate.display_name}
+                    onChange={(e) =>
+                      setFormTemplate({ ...formTemplate, display_name: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-ink-200 rounded-xl text-xs"
                   />
                 </div>
@@ -417,18 +604,35 @@ export default function WhatsAppCampaignManager() {
                     type="text"
                     required
                     placeholder="en or en_US"
-                    value={newTemplate.language}
-                    onChange={(e) => setNewTemplate({ ...newTemplate, language: e.target.value })}
+                    value={formTemplate.language}
+                    onChange={(e) =>
+                      setFormTemplate({ ...formTemplate, language: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-ink-200 rounded-xl text-xs"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="font-bold text-ink-700 block mb-1">Header Type</label>
+                <label className="font-bold text-ink-700 block mb-1">Description (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Brief summary of when to use this template"
+                  value={formTemplate.description}
+                  onChange={(e) =>
+                    setFormTemplate({ ...formTemplate, description: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-ink-200 rounded-xl text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-ink-700 block mb-1">Header Media Type</label>
                 <select
-                  value={newTemplate.header_type}
-                  onChange={(e: any) => setNewTemplate({ ...newTemplate, header_type: e.target.value })}
+                  value={formTemplate.header_type}
+                  onChange={(e: any) =>
+                    setFormTemplate({ ...formTemplate, header_type: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-ink-200 rounded-xl text-xs"
                 >
                   <option value="NONE">None</option>
@@ -438,53 +642,70 @@ export default function WhatsAppCampaignManager() {
               </div>
 
               <div>
-                <label className="font-bold text-ink-700 block mb-1">Body Text Template</label>
+                <label className="font-bold text-ink-700 block mb-1">Body Text Copy</label>
                 <textarea
                   rows={3}
                   required
-                  placeholder="Hello {{1}}, check out {{2}} at our store!"
-                  value={newTemplate.body_text}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, body_text: e.target.value })}
+                  placeholder="Hello {{1}}, check out our offer from {{2}}! Save {{3}}% off."
+                  value={formTemplate.body_text}
+                  onChange={(e) =>
+                    setFormTemplate({ ...formTemplate, body_text: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-ink-200 rounded-xl text-xs"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-ink-700 block mb-1">Body Variables Labels (Comma-separated for `&#123;&#123;2&#125;&#125;`, `&#123;&#123;3&#125;&#125;`...)</label>
+                <label className="font-bold text-ink-700 block mb-1">
+                  Variable Labels (Comma-separated for `&#123;&#123;2&#125;&#125;`, `&#123;&#123;3&#125;&#125;`...)
+                </label>
                 <input
                   type="text"
-                  placeholder="e.g. Category Name, Discount %"
-                  value={newTemplate.varLabels}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, varLabels: e.target.value })}
+                  placeholder="e.g. Store Name, Discount %, Promo Code"
+                  value={formTemplate.varLabels}
+                  onChange={(e) =>
+                    setFormTemplate({ ...formTemplate, varLabels: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-ink-200 rounded-xl text-xs"
                 />
-                <p className="text-[10px] text-ink-400 mt-0.5">`&#123;&#123;1&#125;&#125;` is automatically reserved for Customer Name.</p>
+                <p className="text-[10px] text-ink-400 mt-0.5">
+                  Note: `&#123;&#123;1&#125;&#125;` is always automatically mapped to Customer Name.
+                </p>
               </div>
 
               <div className="pt-2 border-t border-ink-100 space-y-2">
                 <label className="flex items-center gap-2 font-bold text-ink-800 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={newTemplate.has_dynamic_button}
-                    onChange={(e) => setNewTemplate({ ...newTemplate, has_dynamic_button: e.target.checked })}
+                    checked={formTemplate.has_dynamic_button}
+                    onChange={(e) =>
+                      setFormTemplate({ ...formTemplate, has_dynamic_button: e.target.checked })
+                    }
                     className="accent-brand-600"
                   />
                   Template has Dynamic URL Button
                 </label>
-                {newTemplate.has_dynamic_button && (
+                {formTemplate.has_dynamic_button && (
                   <div className="grid grid-cols-2 gap-3 pl-5">
                     <input
                       type="text"
-                      placeholder="Button Label (e.g. Shop Now)"
-                      value={newTemplate.button_label}
-                      onChange={(e) => setNewTemplate({ ...newTemplate, button_label: e.target.value })}
+                      placeholder="Button Text (e.g. Shop Now)"
+                      value={formTemplate.button_label}
+                      onChange={(e) =>
+                        setFormTemplate({ ...formTemplate, button_label: e.target.value })
+                      }
                       className="px-2.5 py-1.5 border border-ink-200 rounded-lg text-xs"
                     />
                     <input
                       type="text"
-                      placeholder="Default Path (e.g. cart?p=1)"
-                      value={newTemplate.button_default_param}
-                      onChange={(e) => setNewTemplate({ ...newTemplate, button_default_param: e.target.value })}
+                      placeholder="Default Suffix (e.g. cart?p=1)"
+                      value={formTemplate.button_default_param}
+                      onChange={(e) =>
+                        setFormTemplate({
+                          ...formTemplate,
+                          button_default_param: e.target.value,
+                        })
+                      }
                       className="px-2.5 py-1.5 border border-ink-200 rounded-lg text-xs"
                     />
                   </div>
@@ -503,7 +724,7 @@ export default function WhatsAppCampaignManager() {
                   type="submit"
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold"
                 >
-                  Save Template
+                  {editingTemplateId ? 'Update Template' : 'Save Template'}
                 </button>
               </div>
             </form>

@@ -59,6 +59,19 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
     );
   }
 
+  const handlePrint = async () => {
+    try {
+      setIsPrinting(true);
+      const html = await buildGstBillHtml(order.id);
+      await printHtml(html, order.order_number || `Invoice_${order.id.slice(0, 8)}`);
+    } catch (err) {
+      console.error('Print Error:', err);
+      alert('Failed to generate bill.');
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
   const statusSteps = [
     { key: 'pending', label: 'Order placed', icon: Clock },
     { key: 'confirmed', label: 'Confirmed', icon: Package },
@@ -72,19 +85,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
     order.status === 'cancelled'
       ? -1
       : statusSteps.findIndex((s) => s.key === order.status);
-
-  const handlePrintBill = async (id: string, orderNumber?: string) => {
-    try {
-      setIsPrinting(true);
-      const html = await buildGstBillHtml(id);
-      await printHtml(html, orderNumber || `Invoice_${id.slice(0, 8)}`);
-    } catch (err) {
-      console.error('Invoice Print Error:', err);
-      alert('Failed to generate or print invoice. Please try again.');
-    } finally {
-      setIsPrinting(false);
-    }
-  };
 
   const normalizedStatus = order.status?.trim().toLowerCase();
   const canPrintBill = normalizedStatus === 'delivered' || normalizedStatus === 'confirmed';
@@ -132,34 +132,17 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                 <div key={step.key} className="flex items-center gap-3">
                   <div
                     className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
-                      isDone
-                        ? 'bg-brand-600 text-white'
-                        : 'bg-ink-100 text-ink-400'
+                      isDone ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-400'
                     }`}
                   >
                     <Icon size={15} />
                   </div>
                   <div className="flex-1">
-                    <p
-                      className={`text-sm font-bold ${
-                        isDone ? 'text-ink-800' : 'text-ink-400'
-                      }`}
-                    >
+                    <p className={`text-sm font-bold ${isDone ? 'text-ink-800' : 'text-ink-400'}`}>
                       {step.label}
                     </p>
-                    {isCurrent && (
-                      <p className="text-[10px] text-brand-600 mt-0.5">
-                        Current status
-                      </p>
-                    )}
+                    {isCurrent && <p className="text-[10px] text-brand-600 mt-0.5">Current status</p>}
                   </div>
-                  {index < statusSteps.length - 1 && (
-                    <div
-                      className={`absolute left-[27px] w-0.5 h-3 ${
-                        isDone ? 'bg-brand-600' : 'bg-ink-200'
-                      }`}
-                    />
-                  )}
                 </div>
               );
             })}
@@ -168,9 +151,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
       )}
 
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
-        <h2 className="text-sm font-bold text-ink-900 mb-3">
-          Items ({items.length})
-        </h2>
+        <h2 className="text-sm font-bold text-ink-900 mb-3">Items ({items.length})</h2>
         <div className="space-y-3">
           {items.map((item) => (
             <div key={item.id} className="flex justify-between items-start gap-2">
@@ -249,7 +230,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
       {canPrintBill && (
         <button
           disabled={isPrinting}
-          onClick={() => void handlePrintBill(order.id, order.order_number)}
+          onClick={() => void handlePrint()}
           className="w-full h-11 rounded-lg bg-blue-600 disabled:bg-blue-400 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-blue-700 transition-colors"
         >
           {isPrinting ? (
@@ -258,7 +239,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             </>
           ) : (
             <>
-              <Printer size={18} /> Print Bill
+              <Printer size={18} /> Print / Save Bill (PDF)
             </>
           )}
         </button>

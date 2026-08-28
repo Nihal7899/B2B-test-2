@@ -1,91 +1,114 @@
-import { Capacitor } from '@capacitor/core';
-import { Geolocation } from '@capacitor/geolocation';
+import { Geolocation, type Position } from '@capacitor/geolocation';
 
-interface PositionResult {
+export interface LocationCoords {
   latitude: number;
   longitude: number;
+  accuracy?: number;
 }
 
-export async function getFastCurrentPosition(): Promise<PositionResult> {
-  // 1. Native Capacitor App Layer
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const permission = await Geolocation.checkPermissions();
-      if (permission.location !== 'granted') {
-        const requested = await Geolocation.requestPermissions();
-        if (requested.location !== 'granted') {
-          throw new Error('Location permission denied.');
-        }
-      }
+interface LocationOptions {
+  /** Maximum wait time before giving up. Default is 30,000ms (30 seconds). */
+  timeoutMs?: number;
+  /** Desired accuracy in meters to instantly accept without waiting for refinement. */
+  desiredAccuracy?: number;
+}
 
-      const position = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 5000,
-      });
+/**
+ * Retrieves the device's location with a 30-second safety ceiling.
+ * Resolves immediately as soon as the first valid position is received.
+ */
+export async function getFastCurrentPosition(
+  options: LocationOptions = {}
+): Promise<LocationCoords> {
+  const { timeoutMs = 30000, desiredAccuracy = 100 } = options;
 
-      return {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
-    } catch (err: any) {
-      if (err?.message?.toLowerCase().includes('denied')) {
-        throw new Error('Location permission denied in app settings.');
-      }
+  // 1. Verify permissions
+  let permStatus = await Geolocation.checkPermissions();
+  if (permStatus.location !== 'granted' && permStatus.coarseLocation !== 'granted') {
+    permStatus = await Geolocation.requestPermissions();
+    if (permStatus.location !== 'granted' && permStatus.coarseLocation !== 'granted') {
+      throw new Error('Location permission denied. Please grant permission in settings.');
     }
   }
 
-  // 2. Android Chrome / Mobile Browser Layer
-  if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-    if (!window.isSecureContext && window.location.hostname !== 'localhost') {
-      throw new Error(
-        'Location requires HTTPS. If testing on mobile via local network IP, enable HTTPS or Chrome insecure origin flags.'
-      );
-    }
+  // 2. Quick check for recent OS-cached position (within last 5 mins)
+  try {
+    const cached = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: false,
+      maximumAge: 300000,
+      timeout: 1500,
+    });
 
-    // Step A: Fast fix (uses Wi-Fi / Google Play Services network location)
-    try {
-      const quickPos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: false,
-          timeout: 10000, // 10 seconds for initial quick check
-          maximumAge: 60000,
-        });
-      });
-
-      return {
-        latitude: quickPos.coords.latitude,
-        longitude: quickPos.coords.longitude,
-      };
-    } catch (firstErr: any) {
-      if (firstErr.code === 1) {
-        throw new Error('Location permission denied. Tap the lock icon in Chrome to allow location.');
-      }
-
-      // Step B: Hardware GPS attempt with extended 35-second timeout
-      try {
-        const accuratePos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 35000, // 👈 35 seconds timeout for GPS hardware lock
-            maximumAge: 0,
-          });
-        });
-
+    if (cached?.coords?.latitude && cached?.coords?.longitude) {
+      // If cached location is accurate enough, return it immediately
+      if (!cached.coords.accuracy || cached.coords.accuracy <= desiredAccuracy) {
         return {
-          latitude: accuratePos.coords.latitude,
-          longitude: accuratePos.coords.longitude,
+          latitude: cached.coords.latitude,
+          longitude: cached.coords.longitude,
+          accuracy: cached.coords.accuracy,
         };
-      } catch (secondErr: any) {
-        if (secondErr.code === 1) {
-          throw new Error('Location permission denied.');
-        }
-        if (secondErr.code === 2) {
-          throw new Error('GPS signal unavailable. Enable Google Location Accuracy in Android settings.');
-        }
       }
     }
+  } catch {
+    // No recent cache available; proceed directly to active streaming
   }
 
-  throw new Error('Location request timed out. Please tap on the map or search your address.');
+  // 3. Active Stream with 30s timeout
+  return new Promise<LocationCoords>(async (resolve, reject) => {
+    let watchId: string | null = null;
+    let isSettled = false;
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = async () => {
+      isSettled = true;
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      if (watchId !== null) {
+        try {
+          await Geolocation.clearWatch({ id: watchId });
+        } catch {
+          /* ignore watch cleanup errors */
+        }
+      }
+    };
+
+    // 30-second maximum timeout ceiling
+    fallbackTimer = setTimeout(async () => {
+      if (isSettled) return;
+      await cleanup();
+      reject(new Error('Location request timed out (30s). Please ensure GPS/Location services are enabled.'));
+    }, timeoutMs);
+
+    try {
+      watchId = await Geolocation.watchPosition(
+        {
+          enableHighAccuracy: true,
+          maximumAge: 10000,
+          timeout: timeoutMs,
+        },
+        async (position: Position | null, err) => {
+          if (isSettled) return;
+
+          if (position?.coords) {
+            await cleanup();
+            resolve({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+            });
+            return;
+          }
+
+          if (err) {
+            await cleanup();
+            reject(new Error(err.message || 'Unable to retrieve location. Please check GPS settings.'));
+          }
+        }
+      );
+    } catch (err: any) {
+      if (!isSettled) {
+        await cleanup();
+        reject(new Error(err?.message || 'Failed to start GPS service.'));
+      }
+    }
+  });
 }

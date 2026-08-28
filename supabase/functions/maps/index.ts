@@ -1,130 +1,156 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const json = (body: Record<string, unknown>, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Authentication required" }, 401);
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return json({ error: "Authentication required" }, 401);
-
-    const key = Deno.env.get("GOOGLE_MAPS_API_KEY") ?? Deno.env.get("MAPS_API_KEY");
-    if (!key) return json({ error: "Maps service is unavailable" }, 503);
-
-    const body = await req.json() as { action?: string; lat?: number; lng?: number; query?: string };
-
-    if (body.action === "get_api_key") {
-      return json({ api_key: key });
+    const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'GOOGLE_MAPS_API_KEY is not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Autocomplete place predictions
-    if (body.action === "autocomplete" && typeof body.query === "string" && body.query.trim()) {
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(body.query.trim())}&components=country:in&key=${encodeURIComponent(key)}`;
-      const response = await fetch(url);
-      if (!response.ok) return json({ error: "Maps service is unavailable" }, 502);
-      const result = await response.json() as {
-        status?: string;
-        predictions?: Array<{
-          description?: string;
-          place_id?: string;
-          structured_formatting?: { main_text?: string; secondary_text?: string };
-        }>;
-      };
-      if (result.status !== "OK" && result.status !== "ZERO_RESULTS") {
-        return json({ predictions: [] });
+    const { action, lat, lng, query } = await req.json();
+
+    // 1. Return API Key for Maps JS SDK
+    if (action === 'get_api_key') {
+      return new Response(JSON.stringify({ api_key: apiKey }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. Google Cloud Geolocation (IP Fallback)
+    if (action === 'geolocate') {
+      const response = await fetch(
+        `https://www.googleapis.com/geolocation/v1/geolocate?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ considerIp: true }),
+        }
+      );
+      const data = await response.json();
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: response.status,
+      });
+    }
+
+    // 3. Reverse Geocode
+    if (action === 'reverse_geocode') {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
+      );
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.results.length > 0) {
+        const result = data.results[0];
+        const comps = result.address_components;
+
+        let line1 = '';
+        let city = '';
+        let state = '';
+        let postal_code = '';
+
+        const getComp = (type: string) => comps.find((c: any) => c.types.includes(type))?.long_name || '';
+
+        const premise = getComp('premise') || getComp('subpremise');
+        const route = getComp('route');
+        const sublocality = getComp('sublocality_level_1') || getComp('sublocality');
+        
+        line1 = [premise, route, sublocality].filter(Boolean).join(', ') || result.formatted_address;
+        city = getComp('locality') || getComp('administrative_area_level_2');
+        state = getComp('administrative_area_level_1');
+        postal_code = getComp('postal_code');
+
+        return new Response(
+          JSON.stringify({
+            address: {
+              line1,
+              city,
+              state,
+              postal_code,
+              place_id: result.place_id,
+              formatted_address: result.formatted_address,
+              latitude: lat,
+              longitude: lng,
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-      const predictions = (result.predictions ?? []).map((p) => ({
-        description: p.description ?? "",
-        place_id: p.place_id ?? "",
-        structured_formatting: {
-          main_text: p.structured_formatting?.main_text ?? "",
-          secondary_text: p.structured_formatting?.secondary_text ?? "",
-        },
-      }));
-      return json({ predictions });
-    }
 
-    // Reverse geocode lat/lng to address
-    if (body.action === "reverse_geocode" && typeof body.lat === "number" && typeof body.lng === "number") {
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${encodeURIComponent(`${body.lat},${body.lng}`)}&key=${encodeURIComponent(key)}`;
-      const response = await fetch(url);
-      if (!response.ok) return json({ error: "Maps service is unavailable" }, 502);
-      const result = await response.json() as {
-        status?: string;
-        results?: Array<{
-          formatted_address?: string;
-          place_id?: string;
-          geometry?: { location?: { lat?: number; lng?: number } };
-          address_components?: Array<{ long_name: string; types: string[] }>;
-        }>;
-      };
-      if (result.status !== "OK" || !result.results?.[0]) return json({ address: null });
-      const first = result.results[0];
-      const component = (type: string) =>
-        first.address_components?.find((item) => item.types.includes(type))?.long_name ?? "";
-      return json({
-        address: {
-          formatted_address: first.formatted_address ?? "",
-          place_id: first.place_id ?? null,
-          line1: `${component("street_number")} ${component("route")}`.trim(),
-          city: component("locality") || component("administrative_area_level_2"),
-          state: component("administrative_area_level_1"),
-          postal_code: component("postal_code"),
-          latitude: first.geometry?.location?.lat ?? null,
-          longitude: first.geometry?.location?.lng ?? null,
-        },
+      return new Response(JSON.stringify({ address: null }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Forward geocode (search by address string)
-    if (body.action === "search" && typeof body.query === "string" && body.query.trim()) {
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(body.query.trim())}&components=country:in&key=${encodeURIComponent(key)}`;
-      const response = await fetch(url);
-      if (!response.ok) return json({ error: "Maps service is unavailable" }, 502);
-      const result = await response.json() as {
-        status?: string;
-        results?: Array<{
-          formatted_address?: string;
-          place_id?: string;
-          geometry?: { location?: { lat?: number; lng?: number } };
-          address_components?: Array<{ long_name: string; types: string[] }>;
-        }>;
-      };
-      if (result.status !== "OK" || !result.results?.[0]) return json({ address: null });
-      const first = result.results[0];
-      const component = (type: string) =>
-        first.address_components?.find((item) => item.types.includes(type))?.long_name ?? "";
-      return json({
-        address: {
-          formatted_address: first.formatted_address ?? "",
-          place_id: first.place_id ?? null,
-          line1: `${component("street_number")} ${component("route")}`.trim(),
-          city: component("locality") || component("administrative_area_level_2"),
-          state: component("administrative_area_level_1"),
-          postal_code: component("postal_code"),
-          latitude: first.geometry?.location?.lat ?? null,
-          longitude: first.geometry?.location?.lng ?? null,
-        },
+    // 4. Places Autocomplete
+    if (action === 'autocomplete') {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+          query
+        )}&key=${apiKey}`
+      );
+      const data = await response.json();
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    return json({ error: "Invalid map request" }, 400);
-  } catch {
-    return json({ error: "Could not complete map request" }, 500);
+    // 5. Geocode Search Query
+    if (action === 'search') {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+          query
+        )}&key=${apiKey}`
+      );
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.results.length > 0) {
+        const result = data.results[0];
+        const comps = result.address_components;
+        const getComp = (type: string) => comps.find((c: any) => c.types.includes(type))?.long_name || '';
+
+        return new Response(
+          JSON.stringify({
+            address: {
+              line1: result.formatted_address,
+              city: getComp('locality') || getComp('administrative_area_level_2'),
+              state: getComp('administrative_area_level_1'),
+              postal_code: getComp('postal_code'),
+              place_id: result.place_id,
+              latitude: result.geometry.location.lat,
+              longitude: result.geometry.location.lng,
+              formatted_address: result.formatted_address,
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(JSON.stringify({ address: null }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: 'Invalid action' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

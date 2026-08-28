@@ -1,10 +1,19 @@
 // screens/CheckoutScreen.tsx
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { ArrowLeft, MapPin, Tag, Truck, Loader2, CheckCircle2, CreditCard, Banknote, AlertCircle, X, Gift } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Checkout } from 'capacitor-razorpay';
+import logoImg from './logo.png';
 import type { useCart } from '@/store';
 import type { DbAddress } from '@/services/catalog';
 import { fetchAddresses, getDeliveryCharge, computeGST } from '@/services/catalog';
 import { supabase } from '@/lib/supabase';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 interface CheckoutScreenProps {
   cart: ReturnType<typeof useCart>;
@@ -32,6 +41,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
   const keepAliveIntervalRef = useRef<number | null>(null);
   const isSubmittingRef = useRef(false);
+  const isNative = Capacitor.isNativePlatform();
 
   const effectiveSubtotal = cart.subtotal;
   const promoDiscount = cart.appliedPromo?.discount || 0;
@@ -52,6 +62,21 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  // Dynamically load web script ONLY in the browser
+  useEffect(() => {
+    if (!isNative && typeof window !== 'undefined' && !window.Razorpay) {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+      return () => {
+        try {
+          document.body.removeChild(script);
+        } catch (_) {}
+      };
+    }
+  }, [isNative]);
 
   // Recalculate delivery and GST with pro-rated promo discount
   useEffect(() => {
@@ -125,6 +150,47 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     setApplyingPromo(false);
   };
 
+  const verifyAndCompleteOrder = async (
+    orderId: string,
+    paymentId: string,
+    signature: string | null
+  ) => {
+    try {
+      stopKeepAlive();
+      const verification = await supabase.functions.invoke('razorpay', {
+        body: {
+          action: 'verify_payment',
+          order_id: orderId,
+          payment_id: paymentId,
+          signature: signature || undefined,
+        },
+      });
+
+      if (verification.error || !verification.data?.verified) {
+        setPaymentAlertMsg('Payment could not be verified. Your order is on hold.');
+        setShowPaymentAlert(true);
+        setPlacing(false);
+        sessionStorage.removeItem('active_checkout');
+        sessionStorage.removeItem('checkout_order_id');
+        isSubmittingRef.current = false;
+        return;
+      }
+
+      sessionStorage.removeItem('active_checkout');
+      sessionStorage.removeItem('checkout_order_id');
+      cart.clearCart();
+      cart.clearPromo();
+      onOrderPlaced(orderId);
+    } catch {
+      setPaymentAlertMsg('Payment verification failed.');
+      setShowPaymentAlert(true);
+      setPlacing(false);
+      sessionStorage.removeItem('active_checkout');
+      sessionStorage.removeItem('checkout_order_id');
+      isSubmittingRef.current = false;
+    }
+  };
+
   const handlePlaceOrder = async () => {
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
@@ -150,7 +216,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
       });
 
       if (orderError || !orderId) {
-        throw new Error(orderError?.message || 'Order creation failed');
+        throw new Error(orderError?.message || 'Database Order creation failed');
       }
 
       sessionStorage.setItem('checkout_order_id', orderId);
@@ -161,6 +227,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         const { data: payData, error: payErr } = await supabase.functions.invoke('razorpay', {
           body: { action: 'create_order', order_id: orderId, amount: total },
         });
+
         if (payErr || !payData?.razorpay_order_id) {
           await supabase.functions.invoke('razorpay', {
             body: { action: 'cancel_order', order_id: orderId },
@@ -174,83 +241,110 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
           return;
         }
 
-        if (typeof window === 'undefined' || !(window as any).Razorpay) {
-          await supabase.functions.invoke('razorpay', {
-            body: { action: 'cancel_order', order_id: orderId },
-          });
-          setPaymentAlertMsg('Online payment is not available right now. Please try again or use cash on delivery.');
-          setShowPaymentAlert(true);
-          setPlacing(false);
-          sessionStorage.removeItem('active_checkout');
-          sessionStorage.removeItem('checkout_order_id');
-          isSubmittingRef.current = false;
-          return;
-        }
-
-        const Razorpay = (window as any).Razorpay as new (opts: Record<string, unknown>) => { open: () => void };
-        let paymentSucceeded = false;
+        const currentAddr = addresses.find((a) => a.id === selectedAddr);
         startKeepAlive(orderId);
 
-        const rzp = new Razorpay({
+        const options = {
           key: payData.key_id,
           amount: Math.round(total * 100),
+          currency: 'INR',
           order_id: payData.razorpay_order_id,
           name: 'Stackknit',
           description: 'Wholesale order',
-          handler: async (response: { razorpay_payment_id: string; razorpay_signature: string }) => {
-            try {
-              stopKeepAlive();
-              const verification = await supabase.functions.invoke('razorpay', {
-                body: {
-                  action: 'verify_payment',
-                  order_id: orderId,
-                  payment_id: response.razorpay_payment_id,
-                  signature: response.razorpay_signature,
-                },
-              });
-              if (verification.error || !verification.data?.verified) {
-                setPaymentAlertMsg('Payment could not be verified. Your order is on hold.');
-                setShowPaymentAlert(true);
-                setPlacing(false);
-                sessionStorage.removeItem('active_checkout');
-                sessionStorage.removeItem('checkout_order_id');
-                isSubmittingRef.current = false;
-                return;
-              }
-              paymentSucceeded = true;
-              sessionStorage.removeItem('active_checkout');
-              sessionStorage.removeItem('checkout_order_id');
-              cart.clearCart();
-              cart.clearPromo();
-              onOrderPlaced(orderId);
-            } catch {
-              setPaymentAlertMsg('Payment verification failed.');
-              setShowPaymentAlert(true);
-              setPlacing(false);
-              sessionStorage.removeItem('active_checkout');
-              sessionStorage.removeItem('checkout_order_id');
-              isSubmittingRef.current = false;
-            }
+          image: logoImg, // Displays brand logo on opening screen
+          prefill: {
+            contact: currentAddr?.phone || '',
+            name: currentAddr?.recipient_name || '',
           },
           modal: {
-            ondismiss: () => {
-              stopKeepAlive();
-              if (!paymentSucceeded) {
-                void supabase.functions.invoke('razorpay', {
-                  body: { action: 'cancel_order', order_id: orderId },
-                });
-                setPaymentAlertMsg('Payment was cancelled.');
-                setShowPaymentAlert(true);
-                setPlacing(false);
-                sessionStorage.removeItem('active_checkout');
-                sessionStorage.removeItem('checkout_order_id');
-                isSubmittingRef.current = false;
-              }
-            },
+            animation: false,
+            backdropclose: false,
+          },
+          send_sms_hash: false,
+          retry: {
+            enabled: false,
           },
           theme: { color: '#16a34a' },
-        });
-        rzp.open();
+        };
+
+        if (isNative) {
+          // Native Android / iOS Razorpay SDK
+          try {
+            const data = await Checkout.open(options);
+            let resObj: any = data;
+            
+            if (data && typeof (data as any).response === 'string') {
+              try {
+                resObj = JSON.parse((data as any).response);
+              } catch (_) {
+                resObj = (data as any).response;
+              }
+            } else if (data && typeof (data as any).response === 'object') {
+              resObj = (data as any).response;
+            }
+
+            const paymentId = resObj?.razorpay_payment_id || resObj?.payment_id || (typeof resObj === 'string' ? resObj : null);
+            const signature = resObj?.razorpay_signature || resObj?.signature || null;
+
+            if (paymentId) {
+              await verifyAndCompleteOrder(orderId, paymentId, signature);
+            } else {
+              throw new Error('Payment was cancelled or no payment ID was received');
+            }
+          } catch (err: any) {
+            stopKeepAlive();
+            await supabase.functions.invoke('razorpay', {
+              body: { action: 'cancel_order', order_id: orderId },
+            });
+
+            let errorDescription = 'Payment was cancelled.';
+            if (err?.code) {
+              try {
+                const parsed = typeof err.code === 'string' ? JSON.parse(err.code) : err.code;
+                errorDescription = parsed.description || errorDescription;
+              } catch (_) {
+                errorDescription = err.description || err.message || errorDescription;
+              }
+            } else if (err?.description || err?.message) {
+              errorDescription = err.description || err.message;
+            }
+
+            setPaymentAlertMsg(errorDescription);
+            setShowPaymentAlert(true);
+            setPlacing(false);
+            sessionStorage.removeItem('active_checkout');
+            sessionStorage.removeItem('checkout_order_id');
+            isSubmittingRef.current = false;
+          }
+        } else {
+          // Web fallback
+          let paymentSucceeded = false;
+          const rzp = new window.Razorpay({
+            ...options,
+            handler: async (response: { razorpay_payment_id: string; razorpay_signature: string }) => {
+              paymentSucceeded = true;
+              void verifyAndCompleteOrder(orderId, response.razorpay_payment_id, response.razorpay_signature);
+            },
+            modal: {
+              animation: false,
+              ondismiss: () => {
+                stopKeepAlive();
+                if (!paymentSucceeded) {
+                  void supabase.functions.invoke('razorpay', {
+                    body: { action: 'cancel_order', order_id: orderId },
+                  });
+                  setPaymentAlertMsg('Payment was cancelled.');
+                  setShowPaymentAlert(true);
+                  setPlacing(false);
+                  sessionStorage.removeItem('active_checkout');
+                  sessionStorage.removeItem('checkout_order_id');
+                  isSubmittingRef.current = false;
+                }
+              },
+            },
+          });
+          rzp.open();
+        }
       } else {
         const { error: codPayError } = await supabase.functions.invoke('razorpay', {
           body: { action: 'create_cod_payment', order_id: orderId, amount: total },
@@ -267,8 +361,8 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         cart.clearPromo();
         onOrderPlaced(orderId);
       }
-    } catch (err) {
-      setError('Could not place order. Please try again.');
+    } catch (err: any) {
+      setError(err?.message || 'Could not place order. Please try again.');
       sessionStorage.removeItem('active_checkout');
       sessionStorage.removeItem('checkout_order_id');
       stopKeepAlive();
@@ -443,7 +537,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         </div>
       </section>
 
-      {error && <p className="text-xs text-red-500 text-center">{error}</p>}
+      {error && <p className="text-xs text-red-500 text-center font-medium">{error}</p>}
 
       <button
         onClick={handlePlaceOrder}
@@ -465,7 +559,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                 <AlertCircle size={22} />
               </div>
               <div className="flex-1">
-                <h3 className="text-sm font-bold text-ink-900">Payment not completed</h3>
+                <h3 className="text-sm font-bold text-ink-900">Payment Alert</h3>
                 <p className="text-xs text-ink-500 mt-1.5 leading-relaxed">{paymentAlertMsg}</p>
               </div>
               <button onClick={() => setShowPaymentAlert(false)} className="text-ink-400 shrink-0">
@@ -473,7 +567,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
               </button>
             </div>
             <button onClick={() => setShowPaymentAlert(false)} className="w-full h-10 rounded-xl bg-ink-900 text-white text-sm font-bold">
-              Got it
+              Dismiss
             </button>
           </div>
         </div>

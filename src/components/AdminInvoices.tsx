@@ -1,12 +1,11 @@
 // src/components/AdminInvoices.tsx
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Printer, Loader2, Search, X, Calendar } from 'lucide-react';
+import { Printer, Loader2, Search, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { buildGstBillHtml } from '@/services/gstBill';
 import { printHtml } from '@/utils/printHtml';
 import type { DbOrder } from '@/services/catalog';
 
-// --- Helpers ---
 const useDebounce = (value: string, delay: number) => {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -29,7 +28,6 @@ const SkeletonCard = () => (
   </div>
 );
 
-// --- Main Component ---
 export default function AdminInvoices() {
   const [orders, setOrders] = useState<(DbOrder & { customer_name: string })[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -41,18 +39,14 @@ export default function AdminInvoices() {
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState<number | null>(null);
 
-  // Filters
   const [filterType, setFilterType] = useState<'today' | 'yesterday' | 'week' | 'month' | 'custom'>('today');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
-
-  // Printing
   const [printing, setPrinting] = useState<string | null>(null);
 
   const LIMIT = 20;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  // --- Compute date range from filter type ---
   const getDateRange = useCallback(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -102,7 +96,6 @@ export default function AdminInvoices() {
     return { start, end };
   }, [filterType, customStart, customEnd]);
 
-  // --- Fetch logic ---
   const fetchOrders = useCallback(async (reset: boolean) => {
     if (reset) {
       setListLoading(true);
@@ -197,7 +190,7 @@ export default function AdminInvoices() {
   useEffect(() => {
     setPage(0);
     fetchOrders(true);
-  }, [debouncedSearch, filterType, customStart, customEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, filterType, customStart, customEnd]);
 
   useEffect(() => {
     if (!sentinelRef.current || !hasMore || listLoading) return;
@@ -340,7 +333,7 @@ export default function AdminInvoices() {
                   <button
                     onClick={() => void handlePrint(order.id, order.order_number)}
                     disabled={printing === order.id}
-                    className="h-9 px-4 rounded-lg bg-brand-600 text-white text-xs font-bold flex items-center gap-2 disabled:opacity-60 hover:bg-brand-700 transition"
+                    className="h-9 px-4 rounded-lg bg-brand-600 disabled:bg-brand-400 text-white text-xs font-bold flex items-center gap-2 hover:bg-brand-700 transition"
                   >
                     {printing === order.id ? (
                       <Loader2 size={14} className="animate-spin" />

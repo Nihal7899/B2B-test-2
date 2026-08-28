@@ -1,4 +1,4 @@
-// services/gstBill.ts
+// src/services/gstBill.ts
 import { supabase } from '@/lib/supabase';
 import { getInvoiceConfig, getInvoiceDesign, type InvoiceConfig, type InvoiceDesignSettings } from './invoice.service';
 import type { DbOrder, DbOrderItem, DbAddress } from './catalog';
@@ -10,6 +10,7 @@ export interface OrderBillData {
   customerName: string;
   customerPhone: string;
   customerGst?: string;
+  payment?: { status: string; provider: string } | null;
 }
 
 export async function fetchOrderBillData(orderId: string): Promise<OrderBillData> {
@@ -35,6 +36,13 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
       .maybeSingle();
     address = addr as DbAddress | null;
   }
+
+  // Fetch payment record to verify true payment status (COD vs Prepaid)
+  const { data: payment } = await supabase
+    .from('payments')
+    .select('status, provider')
+    .eq('order_id', orderId)
+    .maybeSingle();
 
   const { data: business } = await supabase
     .from('businesses')
@@ -65,6 +73,7 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     customerName: customerName || address?.recipient_name || 'Customer',
     customerPhone: customerPhone || address?.phone || '',
     customerGst: customerGst || '',
+    payment: payment || null,
   };
 }
 
@@ -75,17 +84,42 @@ export async function buildGstBillHtml(orderId: string): Promise<string> {
   return buildA4InvoiceHtml(data, config, design);
 }
 
-// ─── MAIN HTML BUILDER ──────────────────────────────────────────────
 function buildA4InvoiceHtml(
   data: OrderBillData,
   config: InvoiceConfig | null,
   design: InvoiceDesignSettings
 ): string {
-  const { order, items, address, customerName, customerPhone, customerGst } = data;
+  const { order, items, address, customerName, customerPhone, customerGst, payment } = data;
 
   const totalDiscount = Number(order.discount || 0);
   const deliveryFee = Number(order.delivery_fee || 0);
   const rawSubtotal = items.reduce((sum, item) => sum + Number(item.line_total || 0), 0);
+
+  // Dynamic Payment & Order Status Calculation
+  const isCod = (order as any).payment_method === 'cod' || payment?.provider === 'cod';
+  const isPaid = payment?.status === 'paid' || order.status === 'delivered';
+
+  let paymentStatusText = 'PAID';
+  let paymentStatusBg = '#dcfce7'; // green-100
+  let paymentStatusColor = '#15803d'; // green-700
+
+  if (order.status === 'cancelled') {
+    paymentStatusText = 'CANCELLED';
+    paymentStatusBg = '#fee2e2';
+    paymentStatusColor = '#b91c1c';
+  } else if (isCod && !isPaid) {
+    paymentStatusText = 'CASH ON DELIVERY (PENDING)';
+    paymentStatusBg = '#fef3c7'; // amber-100
+    paymentStatusColor = '#b45309'; // amber-700
+  } else if (isCod && isPaid) {
+    paymentStatusText = 'PAID (COD)';
+    paymentStatusBg = '#dcfce7';
+    paymentStatusColor = '#15803d';
+  } else if (!isPaid) {
+    paymentStatusText = 'PAYMENT PENDING';
+    paymentStatusBg = '#fef3c7';
+    paymentStatusColor = '#b45309';
+  }
 
   // 1. Pro-rata discount per line item under Section 15(3) CGST Act
   const itemsWithDetails = items.map((item, idx) => {
@@ -119,7 +153,7 @@ function buildA4InvoiceHtml(
     };
   });
 
-  // 2. Delivery Fee as a taxable service line item (SAC 9968 @ 18% GST)
+  // 2. Delivery Fee SAC 9968
   if (deliveryFee > 0) {
     const deliveryTaxable = deliveryFee / 1.18;
     const deliveryGst = deliveryFee - deliveryTaxable;
@@ -142,7 +176,6 @@ function buildA4InvoiceHtml(
     });
   }
 
-  // 3. Overall Totals
   const overallTaxable = itemsWithDetails.reduce((sum, i) => sum + i.taxable_value, 0);
   const overallCgst = itemsWithDetails.reduce((sum, i) => sum + i.cgst, 0);
   const overallSgst = itemsWithDetails.reduce((sum, i) => sum + i.sgst, 0);
@@ -152,7 +185,6 @@ function buildA4InvoiceHtml(
   const invoiceNumber = order.order_number || `INV-${order.id.slice(0, 8)}`;
   const template = design.gstTemplate || 'template1';
   const fontSize = design.gstFont === 'small' ? 9.5 : design.gstFont === 'large' ? 13 : 11;
-  const isCompact = design.invoiceLayout === 'compact';
   const primaryColor = design.primaryColor || '#1d4ed8';
   const colorOpacity = design.colorOpacity ?? 1;
   const printMode = design.gstPrintMode || 'sliced';
@@ -174,7 +206,6 @@ function buildA4InvoiceHtml(
     day: '2-digit', month: 'short', year: 'numeric'
   });
 
-  // 4. Multi-Page Capacity Slicing
   const computePageSlices = (totalItems: number, firstCapacity: number, nextCapacity: number) => {
     const slices: { start: number; end: number }[] = [];
     let start = 0;
@@ -211,7 +242,6 @@ function buildA4InvoiceHtml(
   const { first, next } = getPageRowCounts(template, design.gstFont);
   const slices = printMode === 'sliced' ? computePageSlices(itemsWithDetails.length, first, next) : [{ start: 0, end: itemsWithDetails.length }];
 
-  // 5. Common Sections
   const bankSection = design.showBankDetails && config?.bank_name ? `
     <div style="margin-top:12px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:5px;font-size:10.5px;background:#fafafa;">
       <div style="font-weight:700;margin-bottom:2px;color:#0f172a;">Bank Details</div>
@@ -234,10 +264,25 @@ function buildA4InvoiceHtml(
       ${design.showAuthorisedSignature ? `<div style="border-top:1px solid #0f172a;padding-top:4px;width:32%;text-align:center;">Authorised Signatory</div>` : '<div></div>'}
     </div>` : '';
 
+  // Critical Print Styles (Forces exact background colors & cleans margins)
   const sharedPrintRules = `
-    @page { size: A4 portrait; margin: 5mm 6mm 6mm 6mm; }
-    body { width: 100% !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box; }
-    * { box-sizing: border-box; }
+    @page { 
+      size: A4 portrait; 
+      margin: 6mm 6mm 6mm 6mm; 
+    }
+    *, *:before, *:after { 
+      box-sizing: border-box; 
+      -webkit-print-color-adjust: exact !important; 
+      print-color-adjust: exact !important; 
+      color-adjust: exact !important; 
+    }
+    body { 
+      width: 100% !important; 
+      margin: 0 !important; 
+      padding: 0 !important; 
+      -webkit-print-color-adjust: exact !important; 
+      print-color-adjust: exact !important; 
+    }
     table { width: 100% !important; border-collapse: collapse; }
     tr { page-break-inside: avoid; }
     thead { display: table-header-group; }
@@ -298,13 +343,12 @@ function buildA4InvoiceHtml(
           <div style="font-size:18px;font-weight:900;letter-spacing:1px;">${design.headerText || 'TAX INVOICE'}</div>
           <div style="font-size:10px;font-weight:700;">(Under Section 31 of GST Act, 2017)</div>
         </div>
-        <!-- 2-Box Split: Seller vs Buyer -->
         <div style="display:flex;border:1px solid #000;margin-bottom:8px;">
           <div style="flex:1.2;padding:6px;border-right:1px solid #000;font-size:10.5px;line-height:1.4;">
             <div style="font-size:9px;font-weight:bold;text-transform:uppercase;color:#555;">Details of Supplier / Seller</div>
             <div style="font-size:13px;font-weight:bold;margin-top:2px;">${config?.company_name || 'Store'}</div>
             <div>${config?.company_address || ''}</div>
-            <div><strong>GSTIN:</strong> ${config?.company_gst || '-'} | <strong>State:</strong> Local</div>
+            <div><strong>GSTIN:</strong> ${config?.company_gst || '-'}</div>
             <div><strong>Phone:</strong> ${config?.company_phone || '-'}</div>
           </div>
           <div style="flex:1;padding:6px;font-size:10.5px;line-height:1.4;">
@@ -313,6 +357,7 @@ function buildA4InvoiceHtml(
             <div>${address ? `${address.line1}, ${address.city} - ${address.postal_code}` : 'Walk-in'}</div>
             <div><strong>GSTIN:</strong> ${customerGstDisplay || 'Unregistered'}</div>
             <div><strong>Invoice No:</strong> ${invoiceNumber} | <strong>Date:</strong> ${currentDate}</div>
+            <div style="margin-top:3px;"><span style="background:${paymentStatusBg};color:${paymentStatusColor};font-weight:800;padding:1px 6px;border-radius:4px;font-size:9.5px;">${paymentStatusText}</span></div>
           </div>
         </div>
         ${tablesHtml}
@@ -333,10 +378,10 @@ function buildA4InvoiceHtml(
       </div>
     `;
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: Arial, sans-serif; font-size: ${fontSize}px; }</style></head><body>${bodyContent}</body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: Arial, sans-serif; font-size: ${fontSize}px; }</style></head><body>${bodyContent}</body></html>`;
   }
 
-  // ─── TEMPLATE 2: MODERN GRADIENT / COLOR BANNER ──────────────────────────────────
+  // ─── TEMPLATE 2: MODERN COLOR BANNER ─────────────────────────────────────────────
   if (template === 'template2') {
     const buildT2Table = (startIdx: number, endIdx: number) => {
       const pageItems = itemsWithDetails.slice(startIdx, endIdx);
@@ -391,7 +436,6 @@ function buildA4InvoiceHtml(
 
     const bodyContent = `
       <div style="background:#ffffff;">
-        <!-- Top Full Width Colored Banner -->
         <div style="background:${primaryRgba};color:#ffffff;padding:14px 18px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div>
             ${config?.company_logo ? `<img src="${config.company_logo}" style="max-height:48px;margin-bottom:4px;filter:brightness(0) invert(1);" />` : ''}
@@ -405,7 +449,6 @@ function buildA4InvoiceHtml(
           </div>
         </div>
 
-        <!-- Rounded Customer Info Bar -->
         <div style="display:flex;gap:10px;margin-bottom:12px;">
           <div style="flex:1.2;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:10.5px;">
             <span style="font-size:9px;font-weight:800;color:${primaryColor};text-transform:uppercase;">Billed To</span>
@@ -414,15 +457,14 @@ function buildA4InvoiceHtml(
             <div style="color:#64748b;margin-top:2px;">Phone: ${customerPhoneDisplay || '-'} | GSTIN: ${customerGstDisplay || 'Unregistered'}</div>
           </div>
           <div style="flex:0.8;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:10.5px;text-align:right;">
-            <span style="font-size:9px;font-weight:800;color:#64748b;text-transform:uppercase;">Status</span>
-            <div style="margin-top:2px;"><span style="background:#dcfce7;color:#15803d;font-weight:800;padding:2px 8px;border-radius:20px;font-size:10px;">PAID / COMPLETED</span></div>
+            <span style="font-size:9px;font-weight:800;color:#64748b;text-transform:uppercase;">Payment Status</span>
+            <div style="margin-top:2px;"><span style="background:${paymentStatusBg};color:${paymentStatusColor};font-weight:800;padding:2px 8px;border-radius:20px;font-size:10px;">${paymentStatusText}</span></div>
             <div style="color:#64748b;margin-top:6px;">Place of Supply: <strong>${address?.state || 'Local'}</strong></div>
           </div>
         </div>
 
         ${tablesHtml}
 
-        <!-- Gradient Accent Summary Card -->
         <div style="display:flex;justify-content:flex-end;margin-top:12px;">
           <div style="width:300px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:11px;line-height:1.6;">
             <div style="display:flex;justify-content:space-between;color:#475569;"><span>Gross Subtotal:</span><span>₹${rawSubtotal.toFixed(2)}</span></div>
@@ -431,7 +473,7 @@ function buildA4InvoiceHtml(
             <div style="display:flex;justify-content:space-between;color:#64748b;"><span>CGST:</span><span>₹${overallCgst.toFixed(2)}</span></div>
             <div style="display:flex;justify-content:space-between;color:#64748b;"><span>SGST:</span><span>₹${overallSgst.toFixed(2)}</span></div>
             <div style="display:flex;justify-content:space-between;font-weight:900;font-size:14px;color:#ffffff;background:${primaryRgba};padding:4px 8px;border-radius:6px;margin-top:6px;">
-              <span>TOTAL PAID:</span><span>₹${overallGrand.toFixed(2)}</span>
+              <span>TOTAL DUE:</span><span>₹${overallGrand.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -443,10 +485,10 @@ function buildA4InvoiceHtml(
       </div>
     `;
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: 'Segoe UI', Arial, sans-serif; font-size: ${fontSize}px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: 'Segoe UI', Arial, sans-serif; font-size: ${fontSize}px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
   }
 
-  // ─── TEMPLATE 3: MINIMALIST MONOCHROME / SWISS CLEAN ─────────────────────────────
+  // ─── TEMPLATE 3: MINIMALIST MONOCHROME ───────────────────────────────────────────
   if (template === 'template3') {
     const buildT3Table = (startIdx: number, endIdx: number) => {
       const pageItems = itemsWithDetails.slice(startIdx, endIdx);
@@ -499,7 +541,6 @@ function buildA4InvoiceHtml(
 
     const bodyContent = `
       <div style="color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
-        <!-- Clean Airy Header -->
         <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px;">
           <div>
             <div style="font-size:24px;font-weight:300;letter-spacing:2px;text-transform:uppercase;color:#0f172a;">${config?.company_name || 'TAX INVOICE'}</div>
@@ -511,7 +552,6 @@ function buildA4InvoiceHtml(
           </div>
         </div>
 
-        <!-- Hairline Two Column Meta -->
         <div style="display:flex;justify-content:space-between;margin-bottom:14px;font-size:10.5px;color:#334155;line-height:1.5;">
           <div>
             <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:#94a3b8;text-transform:uppercase;">Billed To</div>
@@ -520,15 +560,14 @@ function buildA4InvoiceHtml(
             <div>Phone: ${customerPhoneDisplay || '-'} | GST: ${customerGstDisplay || 'Unregistered'}</div>
           </div>
           <div style="text-align:right;">
-            <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:#94a3b8;text-transform:uppercase;">Order Meta</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:#94a3b8;text-transform:uppercase;">Status</div>
+            <div>Payment: <strong>${paymentStatusText}</strong></div>
             <div>Place of Supply: ${address?.state || 'Local'}</div>
-            <div>Payment Mode: PREPAID / COD</div>
           </div>
         </div>
 
         ${tablesHtml}
 
-        <!-- Clean Right-Aligned Summary -->
         <div style="display:flex;justify-content:flex-end;margin-top:16px;">
           <div style="width:260px;font-size:10.5px;line-height:1.7;">
             <div style="display:flex;justify-content:space-between;color:#64748b;"><span>Taxable Amount:</span><span>₹${overallTaxable.toFixed(2)}</span></div>
@@ -548,10 +587,10 @@ function buildA4InvoiceHtml(
       </div>
     `;
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: -apple-system, sans-serif; font-size: ${fontSize}px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: -apple-system, sans-serif; font-size: ${fontSize}px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
   }
 
-  // ─── TEMPLATE 4: EXECUTIVE ENTERPRISE (The Master Professional) ──────────────────
+  // ─── TEMPLATE 4: EXECUTIVE ENTERPRISE ───────────────────────────────────────────
   if (template === 'template4') {
     const buildT4Table = (startIdx: number, endIdx: number, pageNum: number, totalPages: number) => {
       const pageItems = itemsWithDetails.slice(startIdx, endIdx);
@@ -607,7 +646,6 @@ function buildA4InvoiceHtml(
 
     const bodyContent = `
       <div>
-        <!-- Executive Split Branding Header -->
         <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;margin-bottom:12px;border-bottom:2px solid ${primaryColor};">
           <div style="display:flex;align-items:center;gap:14px;max-width:65%;">
             ${config?.company_logo ? `<img src="${config.company_logo}" style="max-height:58px;max-width:160px;object-fit:contain;" />` : ''}
@@ -627,7 +665,6 @@ function buildA4InvoiceHtml(
           </div>
         </div>
 
-        <!-- 2 Column Executive Card Section -->
         <div style="display:flex;gap:10px;margin-bottom:12px;width:100%;">
           <div style="flex:1.2;border:1px solid #cbd5e1;border-top:3.5px solid ${primaryColor};border-radius:6px;padding:8px 10px;background:#f8fafc;">
             <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;color:${primaryColor};">Billed To / Consignee</div>
@@ -639,7 +676,7 @@ function buildA4InvoiceHtml(
             <div style="display:flex;justify-content:space-between;"><span>Invoice No:</span><strong>${invoiceNumber}</strong></div>
             <div style="display:flex;justify-content:space-between;margin-top:2px;"><span>Invoice Date:</span><span>${currentDate}</span></div>
             <div style="display:flex;justify-content:space-between;margin-top:2px;"><span>Place of Supply:</span><span>${address?.state || 'Local'}</span></div>
-            <div style="display:flex;justify-content:space-between;margin-top:2px;"><span>Status:</span><strong style="color:#166534;">PAID</strong></div>
+            <div style="display:flex;justify-content:space-between;margin-top:2px;"><span>Payment Status:</span><strong style="color:${paymentStatusColor};">${paymentStatusText}</strong></div>
           </div>
         </div>
 
@@ -665,10 +702,10 @@ function buildA4InvoiceHtml(
       </div>
     `;
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: Arial, sans-serif; font-size: ${fontSize}px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: Arial, sans-serif; font-size: ${fontSize}px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
   }
 
-  // ─── TEMPLATE 5: COMPACT HIGH-DENSITY (Dense / Paper-Saving) ─────────────────────
+  // ─── TEMPLATE 5: COMPACT HIGH-DENSITY ───────────────────────────────────────────
   if (template === 'template5') {
     const buildT5Table = (startIdx: number, endIdx: number) => {
       const pageItems = itemsWithDetails.slice(startIdx, endIdx);
@@ -718,7 +755,6 @@ function buildA4InvoiceHtml(
 
     const bodyContent = `
       <div style="font-size:9px;line-height:1.3;">
-        <!-- Compact 2-Column Header -->
         <div style="display:flex;justify-content:space-between;border-bottom:1.5px solid #0f172a;padding-bottom:4px;margin-bottom:6px;">
           <div>
             <div style="font-size:14px;font-weight:900;">${config?.company_name || 'STORE'}</div>
@@ -732,7 +768,7 @@ function buildA4InvoiceHtml(
 
         <div style="display:flex;justify-content:space-between;background:#f8fafc;border:1px solid #cbd5e1;padding:4px 6px;margin-bottom:4px;font-size:8.5px;">
           <div><strong>Customer:</strong> ${customerNameDisplay} (${customerPhoneDisplay || '-'}) | GST: ${customerGstDisplay || 'Unreg'}</div>
-          <div><strong>Place of Supply:</strong> ${address?.state || 'Local'}</div>
+          <div><strong>Status:</strong> ${paymentStatusText}</div>
         </div>
 
         ${tablesHtml}
@@ -741,7 +777,7 @@ function buildA4InvoiceHtml(
           <div style="width:230px;border:1px solid #cbd5e1;padding:4px 6px;background:#f8fafc;font-size:9px;line-height:1.5;">
             <div style="display:flex;justify-content:space-between;"><span>Taxable Subtotal:</span><span>₹${overallTaxable.toFixed(2)}</span></div>
             ${totalDiscount > 0 ? `<div style="display:flex;justify-content:space-between;color:green;"><span>Discount:</span><span>-₹${totalDiscount.toFixed(2)}</span></div>` : ''}
-            <div style="display:flex;justify-content:space-between;"><span>Total Tax (CGST+SGST):</span><span>₹${overallGst.toFixed(2)}</span></div>
+            <div style="display:flex;justify-content:space-between;"><span>Total Tax:</span><span>₹${overallGst.toFixed(2)}</span></div>
             <div style="display:flex;justify-content:space-between;font-weight:900;border-top:1px solid #000;margin-top:2px;padding-top:2px;font-size:11px;">
               <span>TOTAL DUE:</span><span>₹${overallGrand.toFixed(2)}</span>
             </div>
@@ -754,9 +790,8 @@ function buildA4InvoiceHtml(
       </div>
     `;
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: Arial, sans-serif; font-size: 8.5px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${invoiceNumber}</title><style>${sharedPrintRules} body { font-family: Arial, sans-serif; font-size: 8.5px; color:#0f172a; }</style></head><body>${bodyContent}</body></html>`;
   }
 
-  // Fallback default
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${invoiceNumber}</title><style>${sharedPrintRules}</style></head><body>${buildA4InvoiceHtml(data, config, { ...design, gstTemplate: 'template4' })}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${invoiceNumber}</title><style>${sharedPrintRules}</style></head><body>${buildA4InvoiceHtml(data, config, { ...design, gstTemplate: 'template4' })}</body></html>`;
 }

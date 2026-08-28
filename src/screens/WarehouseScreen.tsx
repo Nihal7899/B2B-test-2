@@ -1,6 +1,6 @@
 // src/components/WarehouseScreen.tsx
 import { useEffect, useState, useCallback } from 'react';
-import { ArrowLeft, Package, Truck, CheckCircle2, Loader2, Search, ClipboardList, Boxes, Printer } from 'lucide-react';
+import { ArrowLeft, Loader2, Search, ClipboardList, Printer } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DbProduct, DbOrder, DbOrderItem } from '@/services/catalog';
 import { buildGstBillHtml } from '@/services/gstBill';
@@ -61,7 +61,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
 }
 
 function OrdersTab() {
-  const [orders, setOrders] = useState<(DbOrder & { customer_name: string; payment?: { status: string; provider: string } })[]>([]);
+  const [orders, setOrders] = useState<(DbOrder & { customer_name: string; payment?: { status: string; provider: string; amount: number } | null })[]>([]);
   const [items, setItems] = useState<Record<string, DbOrderItem[]>>({});
   const [loading, setLoading] = useState(true);
   const [printingId, setPrintingId] = useState<string | null>(null);
@@ -87,7 +87,7 @@ function OrdersTab() {
       if (orderIds.length > 0) {
         const { data: payments } = await supabase
           .from('payments')
-          .select('*')
+          .select('id, order_id, provider, status, amount, provider_payment_id')
           .in('order_id', orderIds);
 
         if (payments) {
@@ -97,15 +97,27 @@ function OrdersTab() {
         }
       }
 
+      // Filter: Exclude all Razorpay pending payments and incomplete checkouts
       const actionable = (ordersData || [])
         .map((order) => ({
           ...order,
           payment: paymentsByOrder[order.id] || null,
         }))
         .filter((order) => {
-          if (order.status !== 'pending') return true;
           const p = order.payment;
-          return p && (p.status === 'paid' || p.provider === 'cod');
+
+          // 1. Never show Razorpay orders where payment is still pending or failed
+          if (p && p.provider === 'razorpay' && p.status !== 'paid') {
+            return false;
+          }
+
+          // 2. If order status is pending, only show if paid or explicitly marked as COD
+          if (order.status === 'pending') {
+            if (!p) return false;
+            return p.status === 'paid' || p.provider === 'cod';
+          }
+
+          return true;
         });
 
       const { data: partnerRoles } = await supabase
@@ -272,8 +284,8 @@ function OrdersTab() {
         </div>
       ) : (
         filtered.map((order) => {
-          const hasValidPayment = order.status !== 'pending' ||
-            (order.payment && (order.payment.status === 'paid' || order.payment.provider === 'cod'));
+          const isCod = order.payment?.provider === 'cod';
+          const isPaid = order.payment?.status === 'paid';
 
           return (
             <div
@@ -293,10 +305,12 @@ function OrdersTab() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 flex-wrap">
-                  {order.payment && order.payment.provider === 'cod' && (
-                    <span className="text-[8px] font-bold bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">COD</span>
+                  {isCod && (
+                    <span className="text-[8px] font-bold bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">
+                      COD {isPaid ? '(PAID)' : '(PENDING)'}
+                    </span>
                   )}
-                  {order.payment && order.payment.status === 'paid' && (
+                  {!isCod && isPaid && (
                     <span className="text-[8px] font-bold bg-green-100 text-green-700 rounded-full px-2 py-0.5">PAID</span>
                   )}
                   <span
@@ -329,10 +343,7 @@ function OrdersTab() {
                 {order.status === 'pending' && (
                   <button
                     onClick={() => void confirmOrder(order.id)}
-                    disabled={!hasValidPayment}
-                    className={`flex-1 h-9 rounded-lg text-white text-xs font-bold ${
-                      hasValidPayment ? 'bg-brand-600 hover:bg-brand-700' : 'bg-ink-300 cursor-not-allowed'
-                    }`}
+                    className="flex-1 h-9 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold"
                   >
                     Confirm
                   </button>

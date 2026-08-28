@@ -56,7 +56,7 @@ export function Header({
     };
   }, []);
 
-  // 3. Smooth hysteresis scroll handler (collapses at > 40px, restores at < 10px)
+  // 3. Smooth scroll collapse handler
   useEffect(() => {
     let ticking = false;
     const onScroll = () => {
@@ -98,10 +98,10 @@ export function Header({
   }, [address]);
 
   return (
-    <header className="sticky top-0 z-50 bg-[#02402c] text-white shadow-md transform-gpu will-change-transform">
-      <div className="max-w-7xl mx-auto px-4 pt-3 pb-3">
+    <header className="sticky top-0 z-50 bg-[#02402c] text-white shadow-lg rounded-b-3xl transform-gpu will-change-transform">
+      <div className="max-w-7xl mx-auto px-4 pt-3 pb-3.5">
         
-        {/* Collapsible Location Bar (CSS Grid with zero reflow stutter) */}
+        {/* Collapsible Location Bar */}
         <div
           className={`grid transition-all duration-300 ease-out ${
             isScrolled
@@ -115,17 +115,20 @@ export function Header({
               type="button"
               className="group flex items-center gap-2 text-left active:opacity-80 transition-opacity"
             >
+              {/* White Location Icon */}
               <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm group-hover:bg-white/20 transition-colors shrink-0">
-                <MapPin size={15} className="text-emerald-300" />
+                <MapPin size={15} className="text-white" />
               </div>
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1">
+                  {/* Delivery Address Text (Solid White) */}
                   <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[240px] sm:max-w-xs">
                     {locationText}
                   </span>
-                  <ChevronDown size={14} className="text-emerald-300 shrink-0 group-hover:translate-y-0.5 transition-transform" />
+                  <ChevronDown size={14} className="text-white/80 shrink-0 group-hover:translate-y-0.5 transition-transform" />
                 </div>
-                <span className="text-[10px] font-medium text-emerald-200/80 leading-none">
+                {/* Delivery Location Label (Dim White) */}
+                <span className="text-[10px] font-medium text-white/60 leading-none">
                   {address ? 'Delivery location' : 'Tap to choose address'}
                 </span>
               </div>
@@ -133,10 +136,8 @@ export function Header({
           </div>
         </div>
 
-        {/* Sticky Search Trigger & Cart */}
+        {/* Search Trigger & Cart Row */}
         <div className="flex items-center gap-2.5">
-          
-          {/* Tapping opens the Advanced Search Screen */}
           <div
             onClick={onSearchClick}
             className="relative flex-1 h-11 px-3.5 rounded-xl bg-white text-slate-900 flex items-center gap-2.5 cursor-pointer shadow-sm active:scale-[0.99] transition-transform select-none"
@@ -154,7 +155,6 @@ export function Header({
             </div>
           </div>
 
-          {/* Cart Button */}
           <button
             onClick={onCartClick}
             type="button"
@@ -170,7 +170,6 @@ export function Header({
               </span>
             )}
           </button>
-
         </div>
       </div>
     </header>

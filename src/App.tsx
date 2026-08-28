@@ -326,7 +326,7 @@ function App() {
         return (
           <SearchScreen
             cart={cart}
-            onBack={() => goTo('home')}
+            onCartClick={() => goTo('cart')}
             onProductClick={openProduct}
             onBannerAction={handleBannerAction}
           />

@@ -894,7 +894,7 @@ function BannerForm({
                       type="range"
                       min={0}
                       max={100}
-                      step={5}
+                      step={1}
                       value={form.overlay_opacity}
                       onChange={(e) => setForm({ ...form, overlay_opacity: Number(e.target.value) })}
                       className="w-full accent-brand-600 cursor-pointer h-2 bg-ink-200 rounded-lg"

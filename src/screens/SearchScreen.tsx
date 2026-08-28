@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   Search,
   X,
   History,
@@ -21,6 +20,7 @@ import {
   TrendingUp,
   RotateCcw,
   Filter,
+  ShoppingBag,
 } from 'lucide-react';
 import type { Product, PromoBanner, Category } from '@/types';
 import type { useCart } from '@/store';
@@ -59,7 +59,7 @@ const SORT_OPTIONS: SortItem[] = [
 interface SearchScreenProps {
   initialQuery?: string;
   cart: ReturnType<typeof useCart>;
-  onBack: () => void;
+  onCartClick: () => void;
   onProductClick: (product: Product) => void;
   onBannerAction?: (banner: PromoBanner) => void;
 }
@@ -69,7 +69,7 @@ const RECENT_SEARCHES_KEY = 'stackknit_recent_searches_v1';
 export function SearchScreen({
   initialQuery = '',
   cart,
-  onBack,
+  onCartClick,
   onProductClick,
   onBannerAction,
 }: SearchScreenProps) {
@@ -87,7 +87,7 @@ export function SearchScreen({
   const [reorderProducts, setReorderProducts] = useState<Product[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
 
-  // Raw fetched search state
+  // Search results state
   const [products, setProducts] = useState<Product[]>([]);
   const [alternativeProducts, setAlternativeProducts] = useState<Product[]>([]);
   const [relatedSlugs, setRelatedSlugs] = useState<RelatedSlugItem[]>([]);
@@ -95,7 +95,7 @@ export function SearchScreen({
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Filter & Sort States (Matching CategoryScreen)
+  // Filter & Sort States
   const [sortBy, setSortBy] = useState<SortOption>('default');
   const [isSortSheetOpen, setIsSortSheetOpen] = useState(false);
   const [dealsOnly, setDealsOnly] = useState(false);
@@ -111,6 +111,27 @@ export function SearchScreen({
   });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset search state completely on unmount/back
+  const resetAllSearchState = useCallback(() => {
+    setQuery('');
+    setSubmittedQuery('');
+    setIsFocused(false);
+    setProducts([]);
+    setAlternativeProducts([]);
+    setRelatedSlugs([]);
+    setDidYouMean(null);
+    setSortBy('default');
+    setDealsOnly(false);
+    setHighRatingOnly(false);
+    setInStockOnly(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      resetAllSearchState();
+    };
+  }, [resetAllSearchState]);
 
   // Load home banners, reorder, and recently viewed on mount
   useEffect(() => {
@@ -260,7 +281,6 @@ export function SearchScreen({
     return result;
   }, [products, dealsOnly, highRatingOnly, inStockOnly, sortBy]);
 
-  // Active filters count
   const activeFiltersCount =
     (sortBy !== 'default' ? 1 : 0) +
     (dealsOnly ? 1 : 0) +
@@ -281,19 +301,11 @@ export function SearchScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-24">
-      {/* Sticky Header with Category-Style Filters */}
+      {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-[#02402c] shadow-md">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-2.5 text-white">
-          {/* Top Search Input Row */}
-          <form onSubmit={handleSubmit} className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onBack}
-              className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all shrink-0"
-            >
-              <ArrowLeft size={20} />
-            </button>
-
+          {/* Search Input Row matching Home Screen dimensions */}
+          <form onSubmit={handleSubmit} className="flex items-center gap-2.5">
             <div className="relative flex-1 flex items-center">
               <div className="absolute left-3.5 pointer-events-none text-emerald-900/60">
                 <Search size={18} />
@@ -324,17 +336,26 @@ export function SearchScreen({
               )}
             </div>
 
+            {/* Cart Button */}
             <button
-              type="submit"
-              className="h-11 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-extrabold text-xs tracking-wide active:scale-95 transition-transform shrink-0 shadow-sm"
+              onClick={onCartClick}
+              type="button"
+              className="relative h-11 px-3.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center gap-1.5 backdrop-blur-md border border-white/15 transition-all shrink-0 shadow-sm"
+              aria-label="View Cart"
             >
-              Search
+              <ShoppingBag size={20} className="text-white" />
+              <span className="hidden sm:inline text-xs font-bold">Cart</span>
+
+              {cart?.totalItems > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-emerald-400 text-emerald-950 text-[11px] font-black shadow-md">
+                  {cart.totalItems}
+                </span>
+              )}
             </button>
           </form>
 
-          {/* Horizontal Filter Bar (CategoryScreen UI Pattern) */}
+          {/* Horizontal Filter Bar[cite: 9] */}
           <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
-            {/* Sort Modal Trigger */}
             <button
               type="button"
               onClick={() => setIsSortSheetOpen(true)}
@@ -349,7 +370,6 @@ export function SearchScreen({
               <ChevronDown size={11} className="opacity-70" />
             </button>
 
-            {/* Best Deals Pill */}
             <button
               type="button"
               onClick={() => setDealsOnly(!dealsOnly)}
@@ -363,7 +383,6 @@ export function SearchScreen({
               Best Deals
             </button>
 
-            {/* Top Rating Pill */}
             <button
               type="button"
               onClick={() => setHighRatingOnly(!highRatingOnly)}
@@ -377,7 +396,6 @@ export function SearchScreen({
               4.0+ Rated
             </button>
 
-            {/* In Stock Pill */}
             <button
               type="button"
               onClick={() => setInStockOnly(!inStockOnly)}
@@ -393,7 +411,7 @@ export function SearchScreen({
           </div>
         </div>
 
-        {/* Slide-Down Reset Banner Strip */}
+        {/* Slide-Down Reset Banner Strip[cite: 9] */}
         <div
           className={`overflow-hidden transition-all duration-300 ease-in-out ${
             hasActiveFilters ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
@@ -420,10 +438,10 @@ export function SearchScreen({
       </header>
 
       {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-3 space-y-6">
+      <div className="flex-1 max-w-7xl w-full mx-auto py-3 space-y-6">
         {/* Real-time Typing Suggestions & Recents Dropdown */}
         {isFocused && (
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-card divide-y divide-slate-100 overflow-hidden">
+          <div className="mx-4 bg-white rounded-2xl border border-slate-200/80 shadow-card divide-y divide-slate-100 overflow-hidden">
             {didYouMean && (
               <div
                 onClick={() => handleSelectKeyword(didYouMean)}
@@ -508,50 +526,52 @@ export function SearchScreen({
               <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
             )}
 
-            {/* 2. Primary Matched Product Grid[cite: 5] */}
-            {loading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-64 bg-slate-200 rounded-2xl animate-pulse" />
-                ))}
-              </div>
-            ) : filteredAndSortedProducts.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {filteredAndSortedProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    quantity={cart.getQuantity(product.id)}
-                    onAdd={() => cart.addToCart(product)}
-                    onIncrement={() => cart.addToCart(product)}
-                    onDecrement={() =>
-                      cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)
-                    }
-                    onClick={() => onProductClick(product)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-2">
-                <AlertCircle size={32} className="mx-auto text-slate-400 mb-1" />
-                <h3 className="text-sm font-bold text-slate-800">No matching products found</h3>
-                <p className="text-xs text-slate-400">
-                  {hasActiveFilters
-                    ? 'Try clearing active filters to see all available products.'
-                    : 'Discover related categories and brand alternatives below.'}
-                </p>
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    onClick={resetFilters}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 active:scale-95 transition-colors"
-                  >
-                    <RotateCcw size={13} />
-                    Reset All Filters
-                  </button>
-                )}
-              </div>
-            )}
+            {/* 2. Primary Product Grid[cite: 5] */}
+            <div className="px-4">
+              {loading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-64 bg-slate-200 rounded-2xl animate-pulse" />
+                  ))}
+                </div>
+              ) : filteredAndSortedProducts.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {filteredAndSortedProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      quantity={cart.getQuantity(product.id)}
+                      onAdd={() => cart.addToCart(product)}
+                      onIncrement={() => cart.addToCart(product)}
+                      onDecrement={() =>
+                        cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)
+                      }
+                      onClick={() => onProductClick(product)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-2">
+                  <AlertCircle size={32} className="mx-auto text-slate-400 mb-1" />
+                  <h3 className="text-sm font-bold text-slate-800">No matching products found</h3>
+                  <p className="text-xs text-slate-400">
+                    {hasActiveFilters
+                      ? 'Try clearing active filters to see all available products.'
+                      : 'Discover related categories and brand alternatives below.'}
+                  </p>
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 active:scale-95 transition-colors"
+                    >
+                      <RotateCcw size={13} />
+                      Reset All Filters
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* 3. Middle Home Promo Carousel */}
             {carouselBanners.length > 0 && (
@@ -559,14 +579,16 @@ export function SearchScreen({
                 {carouselBanners.length > 1 ? (
                   <PromoCarousel banners={carouselBanners} onAction={onBannerAction} />
                 ) : (
-                  <PromoBannerCard banner={carouselBanners[0]} onAction={onBannerAction} />
+                  <div className="px-4">
+                    <PromoBannerCard banner={carouselBanners[0]} onAction={onBannerAction} />
+                  </div>
                 )}
               </div>
             )}
 
             {/* 4. Alternative Brand Products[cite: 5, 7] */}
             {alternativeProducts.length > 0 && (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 px-4 pt-2">
                 <div className="flex items-center gap-2">
                   <Sparkle size={17} className="text-emerald-600 fill-emerald-100" />
                   <h2 className="text-sm font-extrabold text-slate-900">
@@ -594,21 +616,23 @@ export function SearchScreen({
 
             {/* 5. Related Slugs & Category Navigation */}
             {relatedSlugs.length > 0 && (
-              <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
-                <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Layers size={14} className="text-purple-600" /> Related Collections & Categories
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {relatedSlugs.map((slugItem) => (
-                    <button
-                      key={slugItem.slug}
-                      onClick={() => handleSlugClick(slugItem)}
-                      className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 border border-slate-200/60 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5"
-                    >
-                      <span>{slugItem.name}</span>
-                      <ChevronRight size={13} className="text-slate-400" />
-                    </button>
-                  ))}
+              <div className="px-4">
+                <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                  <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers size={14} className="text-purple-600" /> Related Collections & Categories
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {relatedSlugs.map((slugItem) => (
+                      <button
+                        key={slugItem.slug}
+                        onClick={() => handleSlugClick(slugItem)}
+                        className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 border border-slate-200/60 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5"
+                      >
+                        <span>{slugItem.name}</span>
+                        <ChevronRight size={13} className="text-slate-400" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -647,47 +671,49 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 8. Explore All Categories Visual Grid[cite: 3] */}
+            {/* 8. "Explore All Categories" Visual Grid[cite: 3] */}
             {allCategories.length > 0 && (
-              <section className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Grid size={16} className="text-emerald-600" />
-                    <h3 className="text-sm font-black text-slate-900 tracking-tight">Explore Categories</h3>
-                  </div>
-                  <button
-                    onClick={() => navigate('/categories')}
-                    className="flex items-center text-xs font-bold text-emerald-600"
-                  >
-                    See all <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-4 gap-3">
-                  {allCategories.slice(0, 8).map((category) => (
+              <div className="px-4">
+                <section className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Grid size={16} className="text-emerald-600" />
+                      <h3 className="text-sm font-black text-slate-900 tracking-tight">Explore Categories</h3>
+                    </div>
                     <button
-                      key={category.id}
-                      onClick={() => navigate(`/category?id=${category.id}`)}
-                      className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
+                      onClick={() => navigate('/categories')}
+                      className="flex items-center text-xs font-bold text-emerald-600"
                     >
-                      <div
-                        className="relative h-16 w-16 overflow-hidden rounded-2xl p-0.5 shadow-sm ring-1 ring-slate-100"
-                        style={{ background: category.gradient || '#10b981' }}
-                      >
-                        <img
-                          src={category.image}
-                          alt={category.name}
-                          decoding="async"
-                          className="h-full w-full rounded-[14px] object-cover"
-                        />
-                      </div>
-                      <span className="line-clamp-2 text-center text-[10px] font-bold leading-tight text-slate-700">
-                        {category.name}
-                      </span>
+                      See all <ChevronRight className="h-3.5 w-3.5" />
                     </button>
-                  ))}
-                </div>
-              </section>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-3">
+                    {allCategories.slice(0, 8).map((category) => (
+                      <button
+                        key={category.id}
+                        onClick={() => navigate(`/category?id=${category.id}`)}
+                        className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
+                      >
+                        <div
+                          className="relative h-16 w-16 overflow-hidden rounded-2xl p-0.5 shadow-sm ring-1 ring-slate-100"
+                          style={{ background: category.gradient || '#10b981' }}
+                        >
+                          <img
+                            src={category.image}
+                            alt={category.name}
+                            decoding="async"
+                            className="h-full w-full rounded-[14px] object-cover"
+                          />
+                        </div>
+                        <span className="line-clamp-2 text-center text-[10px] font-bold leading-tight text-slate-700">
+                          {category.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </div>
             )}
 
             {/* 9. Trending Wholesale Deals */}

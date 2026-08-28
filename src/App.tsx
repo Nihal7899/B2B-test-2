@@ -1,7 +1,6 @@
 import {
   useMemo,
   useRef,
-  useState,
   type ReactNode,
   useEffect,
 } from 'react';
@@ -14,7 +13,6 @@ import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import toast from 'react-hot-toast';
 
-import { Header } from '@/components/Header';
 import { BottomNavigation } from '@/components/BottomNavigation';
 import { SplashScreen } from '@/components/SplashScreen';
 import { KeepAliveRenderer } from '@/components/KeepAliveRenderer';
@@ -181,7 +179,6 @@ function App() {
 
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
-  const [showSplash, setShowSplash] = useState(true);
 
   const { screen } = useMemo(() => parseRoute(location.pathname), [location.pathname]);
 
@@ -209,6 +206,7 @@ function App() {
   }, [screen, location.pathname, location.search]);
 
   const isFullBleed = 
+    screen === 'home' ||
     screen === 'store' || 
     screen === 'categories' || 
     screen === 'categoryDetail' || 
@@ -218,10 +216,10 @@ function App() {
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const darkHeaderScreens = ['store', 'brand', 'categoryDetail', 'search'];
-    const isDarkBg = showSplash || darkHeaderScreens.includes(screen);
+    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search'];
+    const isDarkBg = darkHeaderScreens.includes(screen);
     setFullScreenSystemBars(!isDarkBg);
-  }, [screen, showSplash]);
+  }, [screen]);
 
   const initPushRef = useRef(false);
 
@@ -300,12 +298,7 @@ function App() {
   }
 
   if (!user) {
-    return (
-      <>
-        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-        {!showSplash && <AuthScreen />}
-      </>
-    );
+    return <AuthScreen />;
   }
 
   const renderScreen = (): ReactNode => {
@@ -382,17 +375,41 @@ function App() {
         return <AccountScreen onNavigate={openProtected} />;
 
       case 'admin':
-        return role === 'admin' ? <AdminScreen onBack={() => goTo('account')} /> : <HomeScreen onCategory={openCategory} onProduct={openProduct} onViewAll={() => goTo('categories')} onStoreClick={openStore} cart={cart} />;
+        return role === 'admin' ? <AdminScreen onBack={() => goTo('account')} /> : (
+          <HomeScreen
+            onCategory={openCategory}
+            onProduct={openProduct}
+            onViewAll={() => goTo('categories')}
+            onStoreClick={openStore}
+            cart={cart}
+          />
+        );
 
       case 'warehouse':
         return role === 'admin' || role === 'warehouse_manager'
           ? <WarehouseScreen onBack={() => goTo('account')} />
-          : <HomeScreen onCategory={openCategory} onProduct={openProduct} onViewAll={() => goTo('categories')} onStoreClick={openStore} cart={cart} />;
+          : (
+            <HomeScreen
+              onCategory={openCategory}
+              onProduct={openProduct}
+              onViewAll={() => goTo('categories')}
+              onStoreClick={openStore}
+              cart={cart}
+            />
+          );
 
       case 'delivery':
         return role === 'admin' || role === 'delivery_partner'
           ? <DeliveryScreen onBack={() => goTo('account')} />
-          : <HomeScreen onCategory={openCategory} onProduct={openProduct} onViewAll={() => goTo('categories')} onStoreClick={openStore} cart={cart} />;
+          : (
+            <HomeScreen
+              onCategory={openCategory}
+              onProduct={openProduct}
+              onViewAll={() => goTo('categories')}
+              onStoreClick={openStore}
+              cart={cart}
+            />
+          );
 
       case 'product': {
         const productId = new URLSearchParams(location.search).get('id');
@@ -457,21 +474,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
-      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-
       <div className="mx-auto flex-1 w-full max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col">
-        
-        {/* Header strictly displays only on the Home Screen */}
-        {screen === 'home' && (
-          <Header
-            onSearchClick={() => goTo('search')}
-            cartCount={cart.totalItems}
-            onCartClick={() => goTo('cart')}
-            onLocationClick={() => goTo('addresses')}
-          />
-        )}
-
-        <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : screen === 'home' ? 'pt-2 pb-24' : 'pt-4 pb-24'}`}>
+        <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
           <BackButtonHandler />
           <KeepAliveRenderer
             currentKey={key}

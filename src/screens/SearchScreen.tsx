@@ -7,16 +7,15 @@ import {
   History,
   Sparkles,
   Check,
-  Plus,
-  Minus,
   AlertCircle,
   Package,
   Layers,
-  Building2,
   ChevronRight,
   Sparkle,
+  Grid,
+  Percent,
 } from 'lucide-react';
-import type { Product, PromoBanner } from '@/types';
+import type { Product, PromoBanner, Category } from '@/types';
 import type { useCart } from '@/store';
 import {
   getLiveSearchSuggestions,
@@ -24,7 +23,8 @@ import {
   type SearchSuggestionItem,
   type RelatedSlugItem,
 } from '@/services/searchEngine';
-import { PromoAdBanner } from '@/components/PromoAdBanner';
+import { ProductCard, ProductCarousel } from '@/components/ProductCard';
+import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
 
 interface SearchScreenProps {
   initialQuery?: string;
@@ -54,7 +54,10 @@ export function SearchScreen({
   const [products, setProducts] = useState<Product[]>([]);
   const [alternativeProducts, setAlternativeProducts] = useState<Product[]>([]);
   const [relatedSlugs, setRelatedSlugs] = useState<RelatedSlugItem[]>([]);
-  const [promoAd, setPromoAd] = useState<PromoBanner | null>(null);
+  const [matchedCategory, setMatchedCategory] = useState<Category | null>(null);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
+  const [promoBanners, setPromoBanners] = useState<PromoBanner[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [filterInStock, setFilterInStock] = useState(false);
@@ -83,6 +86,7 @@ export function SearchScreen({
     localStorage.removeItem(RECENT_SEARCHES_KEY);
   };
 
+  // 1. Lightweight live suggestion generator while typing
   useEffect(() => {
     let active = true;
     const timer = setTimeout(async () => {
@@ -100,6 +104,7 @@ export function SearchScreen({
     };
   }, [query, isFocused, submittedQuery]);
 
+  // 2. Perform deep multi-branch search
   const performSearch = useCallback(
     async (searchTerm: string) => {
       const q = (searchTerm || '').trim();
@@ -116,8 +121,11 @@ export function SearchScreen({
       setProducts(result.products);
       setAlternativeProducts(result.alternativeBrandProducts);
       setRelatedSlugs(result.relatedSlugs);
+      setMatchedCategory(result.matchedCategory);
+      setAllCategories(result.allCategories);
+      setTrendingProducts(result.trendingProducts);
+      setPromoBanners(result.promoBanners);
       setDidYouMean(result.didYouMean);
-      setPromoAd(result.promoAd);
       setLoading(false);
     },
     [filterInStock, filterDeals]
@@ -154,7 +162,8 @@ export function SearchScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-24">
-      {/* Sticky Search Header */}
+      
+      {/* Top Search App Bar */}
       <div className="sticky top-0 z-40 bg-[#02402c] px-4 py-3 shadow-md">
         <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-7xl mx-auto">
           <button
@@ -176,7 +185,7 @@ export function SearchScreen({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setIsFocused(true)}
-              placeholder="Search by Brand, Product, or Pack (e.g. Aashirvaad Atta 10kg)..."
+              placeholder="Search beverages, brands, atta, oils, pulses..."
               className="w-full h-11 pl-10 pr-9 rounded-xl bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-sm placeholder:text-slate-400"
             />
 
@@ -205,9 +214,9 @@ export function SearchScreen({
       </div>
 
       {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-3 space-y-4">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-3 space-y-6">
         
-        {/* Realtime Typing Suggestions */}
+        {/* Realtime Typing Suggestions & Recents */}
         {isFocused && (
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-card divide-y divide-slate-100 overflow-hidden">
             {didYouMean && (
@@ -291,12 +300,15 @@ export function SearchScreen({
           <div className="space-y-6">
             
             {/* Header & Filter Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
               <div>
                 <h1 className="text-sm font-extrabold text-slate-900">
                   Search results for <span className="text-emerald-700">"{submittedQuery}"</span>
                 </h1>
-                <p className="text-[11px] text-slate-500">{products.length} matching products</p>
+                <p className="text-[11px] text-slate-500">
+                  {matchedCategory ? `Browsing category: ${matchedCategory.name} · ` : ''}
+                  {products.length} wholesale commodities
+                </p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -325,193 +337,82 @@ export function SearchScreen({
                       : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  {filterDeals && <Check size={13} />} Deals
+                  {filterDeals && <Percent size={13} />} Deals
                 </button>
               </div>
             </div>
 
-            {/* 1. Primary Matched Search Results */}
+            {/* 1. Primary Search Results using standard ProductCard[span_0](start_span)[span_0](end_span) */}
             {loading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-56 bg-slate-200 rounded-2xl animate-pulse" />
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-64 bg-slate-200 rounded-2xl animate-pulse" />
                 ))}
               </div>
             ) : products.length > 0 ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {products.map((product) => {
-                    const qty = cart.getQuantity(product.id);
-                    return (
-                      <div
-                        key={product.id}
-                        className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group"
-                      >
-                        <div
-                          className="h-32 w-full overflow-hidden rounded-xl bg-slate-50 mb-2 cursor-pointer relative"
-                          onClick={() => onProductClick(product)}
-                        >
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                          {product.mrp > product.price && (
-                            <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-orange-500 text-white text-[9px] font-black uppercase tracking-wider">
-                              {Math.round(((product.mrp - product.price) / product.mrp) * 100)}% OFF
-                            </span>
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
-                            {product.brand}
-                          </p>
-                          <h3
-                            onClick={() => onProductClick(product)}
-                            className="text-xs font-bold text-slate-800 line-clamp-2 cursor-pointer mt-0.5"
-                          >
-                            {product.name}
-                          </h3>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
-                            {product.packSize} · MOQ: {product.moq}
-                          </p>
-                        </div>
-
-                        <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                          <div>
-                            <span className="text-sm font-extrabold text-slate-900">₹{product.price}</span>
-                            {product.mrp > product.price && (
-                              <span className="text-[10px] text-slate-400 line-through ml-1.5">
-                                ₹{product.mrp}
-                              </span>
-                            )}
-                          </div>
-
-                          {qty > 0 ? (
-                            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg p-0.5">
-                              <button
-                                onClick={() => cart.updateQuantity(product.id, qty - 1)}
-                                className="h-6 w-6 rounded bg-emerald-600 text-white flex items-center justify-center active:scale-95"
-                              >
-                                <Minus size={13} />
-                              </button>
-                              <span className="text-xs font-extrabold text-emerald-900 px-1">{qty}</span>
-                              <button
-                                onClick={() => cart.addToCart(product)}
-                                className="h-6 w-6 rounded bg-emerald-600 text-white flex items-center justify-center active:scale-95"
-                              >
-                                <Plus size={13} />
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => cart.addToCart(product)}
-                              className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold shadow-sm transition-all"
-                            >
-                              Add
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    quantity={cart.getQuantity(product.id)}
+                    onAdd={() => cart.addToCart(product)}
+                    onIncrement={() => cart.addToCart(product)}
+                    onDecrement={() =>
+                      cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)
+                    }
+                    onClick={() => onProductClick(product)}
+                  />
+                ))}
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center">
-                <AlertCircle size={32} className="mx-auto text-slate-400 mb-2" />
+              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-2">
+                <AlertCircle size={32} className="mx-auto text-slate-400 mb-1" />
                 <h3 className="text-sm font-bold text-slate-800">No exact matches for "{submittedQuery}"</h3>
-                <p className="text-xs text-slate-400 mt-1">Check out available alternatives below.</p>
+                <p className="text-xs text-slate-400">Discover related categories and brand alternatives below.</p>
               </div>
             )}
 
-            {/* Promo Banner Placement */}
-            {promoAd && (
-              <div>
-                <PromoAdBanner banner={promoAd} onAction={onBannerAction} />
+            {/* 2. Dynamic Promo Banner from Home Layout[span_1](start_span)[span_1](end_span) */}
+            {promoBanners.length > 0 && (
+              <div className="pt-2">
+                {promoBanners.length > 1 ? (
+                  <PromoCarousel banners={promoBanners} onAction={onBannerAction} />
+                ) : (
+                  <PromoBannerCard banner={promoBanners[0]} onAction={onBannerAction} />
+                )}
               </div>
             )}
 
-            {/* 2. Alternative Products from Other Brands */}
+            {/* 3. Alternative Products from Other Brands using ProductCard[span_2](start_span)[span_2](end_span)[span_3](start_span)[span_3](end_span) */}
             {alternativeProducts.length > 0 && (
               <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkle size={17} className="text-emerald-600 fill-emerald-100" />
-                    <h2 className="text-sm font-extrabold text-slate-900">
-                      Explore Alternatives from Other Brands
-                    </h2>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Sparkle size={17} className="text-emerald-600 fill-emerald-100" />
+                  <h2 className="text-sm font-extrabold text-slate-900">
+                    Explore Alternatives from Other Brands
+                  </h2>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {alternativeProducts.map((product) => {
-                    const qty = cart.getQuantity(product.id);
-                    return (
-                      <div
-                        key={product.id}
-                        className="bg-white border border-slate-200/80 rounded-2xl p-3 shadow-sm flex flex-col justify-between group"
-                      >
-                        <div
-                          className="h-28 w-full overflow-hidden rounded-xl bg-slate-50 mb-2 cursor-pointer relative"
-                          onClick={() => onProductClick(product)}
-                        >
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
-                            {product.brand}
-                          </p>
-                          <h3
-                            onClick={() => onProductClick(product)}
-                            className="text-xs font-bold text-slate-800 line-clamp-2 cursor-pointer mt-0.5"
-                          >
-                            {product.name}
-                          </h3>
-                          <p className="text-[11px] text-slate-400 mt-0.5">{product.packSize}</p>
-                        </div>
-
-                        <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                          <span className="text-sm font-extrabold text-slate-900">₹{product.price}</span>
-                          {qty > 0 ? (
-                            <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-lg p-0.5">
-                              <button
-                                onClick={() => cart.updateQuantity(product.id, qty - 1)}
-                                className="h-6 w-6 rounded bg-emerald-600 text-white flex items-center justify-center active:scale-95"
-                              >
-                                <Minus size={12} />
-                              </button>
-                              <span className="text-xs font-extrabold text-emerald-900 px-1">{qty}</span>
-                              <button
-                                onClick={() => cart.addToCart(product)}
-                                className="h-6 w-6 rounded bg-emerald-600 text-white flex items-center justify-center active:scale-95"
-                              >
-                                <Plus size={12} />
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => cart.addToCart(product)}
-                              className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold shadow-sm"
-                            >
-                              Add
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {alternativeProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      quantity={cart.getQuantity(product.id)}
+                      onAdd={() => cart.addToCart(product)}
+                      onIncrement={() => cart.addToCart(product)}
+                      onDecrement={() =>
+                        cart.updateQuantity(product.id, cart.getQuantity(product.id) - 1)
+                      }
+                      onClick={() => onProductClick(product)}
+                    />
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* 3. Related Slugs & Category Navigation */}
+            {/* 4. Related Slugs & Category Navigation */}
             {relatedSlugs.length > 0 && (
               <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
                 <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
@@ -529,6 +430,66 @@ export function SearchScreen({
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* 5. "Explore All Categories" Section from Home Screen[span_4](start_span)[span_4](end_span) */}
+            {allCategories.length > 0 && (
+              <section className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Grid size={16} className="text-emerald-600" />
+                    <h3 className="text-sm font-black text-slate-900 tracking-tight">Explore Categories</h3>
+                  </div>
+                  <button
+                    onClick={() => navigate('/categories')}
+                    className="flex items-center text-xs font-bold text-emerald-600"
+                  >
+                    See all <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3">
+                  {allCategories.slice(0, 8).map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => navigate(`/category?id=${category.id}`)}
+                      className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
+                    >
+                      <div
+                        className="relative h-16 w-16 overflow-hidden rounded-2xl p-0.5 shadow-sm ring-1 ring-slate-100"
+                        style={{ background: category.gradient || '#10b981' }}
+                      >
+                        <img
+                          src={category.image}
+                          alt={category.name}
+                          decoding="async"
+                          className="h-full w-full rounded-[14px] object-cover"
+                        />
+                      </div>
+                      <span className="line-clamp-2 text-center text-[10px] font-bold leading-tight text-slate-700">
+                        {category.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 6. Top Rated & Trending Wholesale Deals Carousel[span_5](start_span)[span_5](end_span) */}
+            {trendingProducts.length > 0 && (
+              <div className="pt-2">
+                <ProductCarousel
+                  title="Top Wholesale Deals"
+                  subtitle="Popular items businesses are ordering now"
+                  products={trendingProducts}
+                  getQuantity={(id) => cart.getQuantity(id)}
+                  onAdd={(p) => cart.addToCart(p)}
+                  onIncrement={(p) => cart.addToCart(p)}
+                  onDecrement={(p) => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
+                  onProductClick={onProductClick}
+                  onViewAll={() => navigate('/categories')}
+                />
               </div>
             )}
 

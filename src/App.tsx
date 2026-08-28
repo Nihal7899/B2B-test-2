@@ -214,23 +214,7 @@ function App() {
     screen === 'brand' ||
     screen === 'banner';
 
-  useEffect(() => {
-    const handleContextMenu = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-        target &&
-        target.tagName !== 'INPUT' &&
-        target.tagName !== 'TEXTAREA' &&
-        !target.isContentEditable
-      ) {
-        e.preventDefault();
-      }
-    };
-
-    window.addEventListener('contextmenu', handleContextMenu);
-    return () => window.removeEventListener('contextmenu', handleContextMenu);
-  }, []);
-
+  // Apply transparent edge-to-edge system bars
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
@@ -250,74 +234,6 @@ function App() {
     initPushRef.current = true;
     initializePushNotifications(user.id);
   }, [user, loading]);
-
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    if (!user) return;
-
-    const setupListener = async () => {
-      try {
-        const module = await import('@onesignal/capacitor-plugin');
-        const OneSignal = module.default || module.OneSignal || module;
-        if (!OneSignal?.Notifications) return;
-
-        OneSignal.Notifications.addEventListener('click', (event: any) => {
-          const actionId = event.result?.actionId;
-          const additionalData = event.notification?.additionalData || {};
-
-          if (actionId) {
-            switch (actionId) {
-              case 'view_order': {
-                const orderId = additionalData.order_id;
-                navigate(orderId ? pathFor('orderDetail', { id: orderId }) : pathFor('orders'));
-                break;
-              }
-              case 'view_product': {
-                const productId = additionalData.product_id;
-                navigate(productId ? pathFor('product', { id: productId }) : pathFor('home'));
-                break;
-              }
-              case 'view_cart':
-                navigate(pathFor('cart'));
-                break;
-              case 'track_delivery': {
-                const orderId = additionalData.order_id;
-                navigate(orderId ? pathFor('orderDetail', { id: orderId }) : pathFor('orders'));
-                break;
-              }
-              case 'contact_support': {
-                const supportUrl = additionalData.support_url || 'tel:+123456789';
-                window.open(supportUrl, '_system');
-                break;
-              }
-              case 'accept':
-              case 'decline': {
-                const orderId = additionalData.order_id;
-                if (orderId) {
-                  navigate(pathFor('orders'));
-                }
-                break;
-              }
-              default:
-                navigate(pathFor('home'));
-            }
-          } else {
-            if (additionalData.order_id) {
-              navigate(pathFor('orderDetail', { id: additionalData.order_id }));
-            } else if (additionalData.product_id) {
-              navigate(pathFor('product', { id: additionalData.product_id }));
-            } else {
-              navigate(pathFor('home'));
-            }
-          }
-        });
-      } catch (e) {
-        console.error("OneSignal setup error:", e);
-      }
-    };
-
-    setupListener();
-  }, [user, navigate]);
 
   const goTo = (next: ScreenName) => {
     navigate(pathFor(next));
@@ -547,7 +463,9 @@ function App() {
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
 
       <div className="mx-auto flex-1 w-full max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col">
-        {!isFullBleed && (
+        
+        {/* Header strictly renders ONLY on the Home Screen */}
+        {screen === 'home' && (
           <Header
             search={search}
             onSearchChange={setSearch}
@@ -557,7 +475,7 @@ function App() {
           />
         )}
 
-        <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'py-4 pb-24'}`}>
+        <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : screen === 'home' ? 'pt-2 pb-24' : 'pt-4 pb-24'}`}>
           <BackButtonHandler />
           <KeepAliveRenderer
             currentKey={key}

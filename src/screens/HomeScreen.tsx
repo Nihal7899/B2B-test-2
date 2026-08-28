@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck, ShieldCheck, Tag, RotateCcw, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -40,7 +40,6 @@ interface HomeScreenProps {
 
 export function HomeScreen({
   search,
-  onSearchChange,
   onProduct,
   onViewAll,
   onStoreClick,
@@ -239,7 +238,6 @@ export function HomeScreen({
   if (loading) {
     return (
       <div className="space-y-4 p-4 animate-pulse">
-        <div className="h-10 bg-slate-200 rounded-xl w-full" />
         <div className="h-36 bg-slate-200 rounded-2xl w-full" />
         <div className="grid grid-cols-4 gap-3">
           {[...Array(8)].map((_, i) => (

@@ -29,7 +29,7 @@ export function Header({
   const [keywordIndex, setKeywordIndex] = useState(0);
   const [isFading, setIsFading] = useState(false);
 
-  // 1. Fetch user's active delivery address once
+  // 1. Fetch user delivery address
   useEffect(() => {
     let active = true;
     void fetchAddresses().then((addrs) => {
@@ -55,7 +55,7 @@ export function Header({
     };
   }, []);
 
-  // 3. Cycle animated placeholder
+  // 3. Animated placeholder cycling
   useEffect(() => {
     const interval = setInterval(() => {
       setIsFading(true);
@@ -75,35 +75,35 @@ export function Header({
   }, [address]);
 
   return (
-    <div className="bg-[#02402c] text-white">
-      {/* 1. Location Bar: Scrolls away naturally with the page */}
-      <div className="safe-top max-w-7xl mx-auto px-4 pt-3 pb-1">
-        <button
-          onClick={onLocationClick}
-          type="button"
-          className="group flex items-center gap-2 text-left active:opacity-80 transition-opacity"
-        >
-          <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm group-hover:bg-white/20 transition-colors shrink-0">
-            <MapPin size={15} className="text-white" />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-1">
-              <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[240px] sm:max-w-xs">
-                {locationText}
-              </span>
-              <ChevronDown size={14} className="text-white/80 shrink-0 group-hover:translate-y-0.5 transition-transform" />
+    <header className="sticky -top-11 z-50 bg-[#02402c] text-white shadow-lg rounded-b-3xl safe-top transform-gpu">
+      <div className="max-w-7xl mx-auto px-4">
+        
+        {/* 1. Location Bar (Height fixed to 44px / h-11 so -top-11 scrolls it off exactly) */}
+        <div className="h-11 flex items-center">
+          <button
+            onClick={onLocationClick}
+            type="button"
+            className="group flex items-center gap-2 text-left active:opacity-80 transition-opacity"
+          >
+            <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm group-hover:bg-white/20 transition-colors shrink-0">
+              <MapPin size={15} className="text-white" />
             </div>
-            <span className="text-[10px] font-medium text-white/60 leading-none">
-              {address ? 'Delivery location' : 'Tap to choose address'}
-            </span>
-          </div>
-        </button>
-      </div>
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1">
+                <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[240px] sm:max-w-xs">
+                  {locationText}
+                </span>
+                <ChevronDown size={14} className="text-white/80 shrink-0 group-hover:translate-y-0.5 transition-transform" />
+              </div>
+              <span className="text-[10px] font-medium text-white/60 leading-none">
+                {address ? 'Delivery location' : 'Tap to choose address'}
+              </span>
+            </div>
+          </button>
+        </div>
 
-      {/* 2. Sticky Bar: Pins to the top at 120fps with zero JavaScript listeners */}
-      <div className="sticky top-0 z-40 bg-[#02402c] shadow-lg rounded-b-3xl">
-        <div className="max-w-7xl mx-auto px-4 pt-2 pb-3.5 flex items-center gap-2.5">
-          {/* Search Trigger */}
+        {/* 2. Search & Cart Row (Locks at the top) */}
+        <div className="pt-1 pb-3.5 flex items-center gap-2.5">
           <div
             onClick={onSearchClick}
             className="relative flex-1 h-11 px-3.5 rounded-xl bg-white text-slate-900 flex items-center gap-2.5 cursor-pointer shadow-sm active:scale-[0.99] transition-transform select-none"
@@ -121,7 +121,6 @@ export function Header({
             </div>
           </div>
 
-          {/* Cart Button */}
           <button
             onClick={onCartClick}
             type="button"
@@ -138,7 +137,8 @@ export function Header({
             )}
           </button>
         </div>
+
       </div>
-    </div>
+    </header>
   );
 }

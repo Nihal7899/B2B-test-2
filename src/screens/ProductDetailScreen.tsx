@@ -4,7 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Heart,
-  Share2,
+  ShoppingBag,
   Star,
   Truck,
   ShieldCheck,
@@ -198,7 +198,6 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     setWishlistBusy(false);
   };
 
-  // Handles adding to cart if item doesn't exist, or updating existing quantity
   const handleApplyTierQuantity = (targetQty: number) => {
     if (!product) return;
     const currentQty = cart.getQuantity(product.id);
@@ -257,24 +256,40 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
           </>
         )}
 
+        {/* Back Button */}
         <button
           onClick={onBack}
           className="absolute top-4 left-4 h-9 w-9 rounded-xl bg-white/90 text-ink-700 flex items-center justify-center shadow-soft"
         >
           <ArrowLeft size={18} />
         </button>
-        <div className="absolute top-4 right-4 flex gap-2">
-          <button className="h-9 w-9 rounded-xl bg-white/90 text-ink-600 flex items-center justify-center shadow-soft">
-            <Share2 size={16} />
-          </button>
+
+        {/* Top Right Actions: Wishlist & Cart */}
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          {/* Wishlist Button */}
           <button
             onClick={handleWishlist}
             disabled={wishlistBusy}
-            className={`h-9 w-9 rounded-xl bg-white/90 flex items-center justify-center shadow-soft transition-colors ${
+            className={`h-9 w-9 rounded-xl bg-white/90 flex items-center justify-center shadow-soft transition-colors active:scale-95 ${
               wishlisted ? 'text-red-500' : 'text-ink-600'
             }`}
+            aria-label="Wishlist"
           >
             <Heart size={17} className={wishlisted ? 'fill-red-500' : ''} />
+          </button>
+
+          {/* Cart Button with Count Badge */}
+          <button
+            onClick={() => navigate('/cart')}
+            className="relative h-9 w-9 rounded-xl bg-white/90 text-ink-700 flex items-center justify-center shadow-soft active:scale-95 transition-transform"
+            aria-label="Go to Cart"
+          >
+            <ShoppingBag size={17} />
+            {cart.totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-accent-500 text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
+                {cart.totalItems}
+              </span>
+            )}
           </button>
         </div>
       </div>

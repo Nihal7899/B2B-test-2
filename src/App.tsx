@@ -1,4 +1,5 @@
 import {
+  useState,
   useMemo,
   useRef,
   type ReactNode,
@@ -177,6 +178,8 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [splashFinished, setSplashFinished] = useState(false);
+
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
 
@@ -293,12 +296,15 @@ function App() {
     goTo(allowed ? next : 'home');
   };
 
-  if (loading) {
-    return <SplashScreen onFinish={() => undefined} />;
-  }
+  const showSplash = !splashFinished || loading;
 
-  if (!user) {
-    return <AuthScreen />;
+  if (!user && !loading) {
+    return (
+      <>
+        {showSplash && <SplashScreen onFinish={() => setSplashFinished(true)} />}
+        <AuthScreen />
+      </>
+    );
   }
 
   const renderScreen = (): ReactNode => {
@@ -473,7 +479,9 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
+    <div className="min-h-screen bg-ink-100 flex flex-col justify-between relative">
+      {showSplash && <SplashScreen onFinish={() => setSplashFinished(true)} />}
+
       <div className="mx-auto flex-1 w-full max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col">
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
           <BackButtonHandler />

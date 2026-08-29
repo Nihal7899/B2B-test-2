@@ -12,20 +12,25 @@ export default function LowStockTab() {
 
   const load = useCallback(async () => {
     try {
-      // Fetch products where stock_quantity < stock_threshold and threshold > 0
+      // 1. Fetch all products that have a threshold > 0
       const { data, error } = await supabase
         .from('products')
         .select('*')
         .gt('stock_threshold', 0)
-        .filter('stock_quantity', 'lt', 'stock_threshold')
         .order('name');
 
       if (error) {
-        console.error('Error loading low stock products:', error);
+        console.error('Error loading products with threshold:', error);
         setProducts([]);
-      } else {
-        setProducts((data as DbProduct[]) ?? []);
+        setLoading(false);
+        return;
       }
+
+      // 2. Filter in JavaScript: only those where stock < threshold
+      const lowStock = (data as DbProduct[] ?? [])
+        .filter(p => p.stock_quantity < p.stock_threshold);
+
+      setProducts(lowStock);
     } catch (err) {
       console.error('Unexpected error:', err);
       setProducts([]);

@@ -72,6 +72,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
   const [volumeTiers, setVolumeTiers] = useState<VolumePricingTier[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const {
     primaryColor = '#10b981',
@@ -79,6 +80,20 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     textColor = '#1f2937',
     borderColor = '#e5e7eb',
   } = theme;
+
+  // Track scroll position to transition header background
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 180) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     if (storeId && !getStoreTheme(storeId)) {
@@ -218,15 +233,84 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
   };
 
   return (
-    <div className="safe-top pb-6 space-y-5">
+    <div className="pb-6 space-y-5 relative">
+      {/* Sticky/Fixed Dynamic Header */}
+      <header
+        className={`fixed top-0 left-0 right-0 z-30 mx-auto max-w-[720px] px-4 py-3 flex items-center justify-between transition-all duration-300 ease-in-out ${
+          isScrolled
+            ? 'bg-white/95 backdrop-blur-md shadow-sm border-b border-ink-100'
+            : 'bg-gradient-to-b from-black/40 via-black/15 to-transparent'
+        }`}
+      >
+        {/* Back Button */}
+        <button
+          onClick={onBack}
+          className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
+            isScrolled
+              ? 'bg-ink-100 text-ink-800'
+              : 'bg-white/90 text-ink-700 shadow-soft backdrop-blur-xs'
+          }`}
+          aria-label="Back"
+        >
+          <ArrowLeft size={18} />
+        </button>
+
+        {/* Product Title on Scroll */}
+        <div
+          className={`flex-1 mx-3 truncate transition-opacity duration-300 ${
+            isScrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+        >
+          <p className="text-xs font-bold text-ink-900 truncate">{product.name}</p>
+          <p className="text-[11px] font-extrabold" style={{ color: primaryColor }}>
+            ₹{effectivePrice}
+          </p>
+        </div>
+
+        {/* Top Right Actions: Wishlist & Cart */}
+        <div className="flex items-center gap-2">
+          {/* Wishlist Button */}
+          <button
+            onClick={handleWishlist}
+            disabled={wishlistBusy}
+            className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
+              isScrolled
+                ? 'bg-ink-100'
+                : 'bg-white/90 shadow-soft backdrop-blur-xs'
+            } ${wishlisted ? 'text-red-500' : 'text-ink-600'}`}
+            aria-label="Wishlist"
+          >
+            <Heart size={17} className={wishlisted ? 'fill-red-500' : ''} />
+          </button>
+
+          {/* Cart Button with Count Badge */}
+          <button
+            onClick={() => navigate('/cart')}
+            className={`relative h-9 w-9 rounded-xl flex items-center justify-center text-ink-700 transition-all active:scale-95 ${
+              isScrolled
+                ? 'bg-ink-100'
+                : 'bg-white/90 shadow-soft backdrop-blur-xs'
+            }`}
+            aria-label="Go to Cart"
+          >
+            <ShoppingBag size={17} />
+            {cart.totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-accent-500 text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
+                {cart.totalItems}
+              </span>
+            )}
+          </button>
+        </div>
+      </header>
+
       {/* Image Carousel */}
-      <div className="relative h-[270px] bg-ink-50 overflow-hidden">
+      <div className="relative h-[280px] bg-ink-50 overflow-hidden">
         <img
           src={images[activeImageIndex] || ''}
           alt={product.name}
           className="h-full w-full object-cover transition-opacity duration-300"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
 
         {images.length > 1 && (
           <>
@@ -255,43 +339,6 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
             </div>
           </>
         )}
-
-        {/* Back Button */}
-        <button
-          onClick={onBack}
-          className="absolute top-4 left-4 h-9 w-9 rounded-xl bg-white/90 text-ink-700 flex items-center justify-center shadow-soft"
-        >
-          <ArrowLeft size={18} />
-        </button>
-
-        {/* Top Right Actions: Wishlist & Cart */}
-        <div className="absolute top-4 right-4 flex items-center gap-2">
-          {/* Wishlist Button */}
-          <button
-            onClick={handleWishlist}
-            disabled={wishlistBusy}
-            className={`h-9 w-9 rounded-xl bg-white/90 flex items-center justify-center shadow-soft transition-colors active:scale-95 ${
-              wishlisted ? 'text-red-500' : 'text-ink-600'
-            }`}
-            aria-label="Wishlist"
-          >
-            <Heart size={17} className={wishlisted ? 'fill-red-500' : ''} />
-          </button>
-
-          {/* Cart Button with Count Badge */}
-          <button
-            onClick={() => navigate('/cart')}
-            className="relative h-9 w-9 rounded-xl bg-white/90 text-ink-700 flex items-center justify-center shadow-soft active:scale-95 transition-transform"
-            aria-label="Go to Cart"
-          >
-            <ShoppingBag size={17} />
-            {cart.totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-accent-500 text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
-                {cart.totalItems}
-              </span>
-            )}
-          </button>
-        </div>
       </div>
 
       <div className="px-4 space-y-4">

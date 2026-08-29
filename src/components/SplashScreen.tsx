@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+[29/08, 1:07 pm] Mom: import { useEffect, useState } from 'react';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -120,6 +120,49 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       <p className="absolute bottom-7 text-[10px] font-medium tracking-wide text-[#74BBA7]">
         Wholesale made simple
       </p>
+    </div>
+  );
+}
+[29/08, 1:11 pm] Mom: import { useEffect, useRef, useState } from 'react';
+
+interface SplashScreenProps {
+  onFinish: () => void;
+}
+
+export function SplashScreen({ onFinish }: SplashScreenProps) {
+  const [exiting, setExiting] = useState(false);
+
+  // Keep the latest onFinish function without restarting the splash timer
+  const onFinishRef = useRef(onFinish);
+
+  useEffect(() => {
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
+
+  useEffect(() => {
+    // Show splash normally for 2.3 seconds
+    const exitTimer = window.setTimeout(() => {
+      setExiting(true);
+    }, 2300);
+
+    // Total splash duration: 2.9 seconds
+    const doneTimer = window.setTimeout(() => {
+      onFinishRef.current();
+    }, 2900);
+
+    return () => {
+      window.clearTimeout(exitTimer);
+      window.clearTimeout(doneTimer);
+    };
+  }, []);
+
+  return (
+    <div
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden bg-[#021f1b] ${
+        exiting ? 'splash-fade-out' : ''
+      }`}
+    >
+      {/* Your existing CafKart logo and splash content here */}
     </div>
   );
 }

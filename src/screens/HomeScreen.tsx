@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -84,6 +84,14 @@ const STATIC_B2B_KEYWORDS = [
   'Edible Oils',
 ];
 
+// Helper to pre-cache image assets into device memory while splash screen is visible
+function preloadImages(urls: string[]) {
+  urls.filter(Boolean).forEach((url) => {
+    const img = new Image();
+    img.src = url;
+  });
+}
+
 export function HomeScreen({
   onCategory: _onCategory,
   onProduct,
@@ -116,6 +124,8 @@ export function HomeScreen({
   const [stores, setStores] = useState<Store[]>([]);
   const [brands, setBrands] = useState<TrustedBrand[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const initialLoadedRef = useRef(false);
 
   // 1. Fetch address for header
   useEffect(() => {
@@ -156,88 +166,54 @@ export function HomeScreen({
     return () => clearInterval(interval);
   }, [displayKeywords]);
 
-  // Background updater for dynamic personal sections
-  const refreshDynamicSections = useCallback(async () => {
-    try {
-      const [recent, reorder] = await Promise.all([
-        fetchRecentlyViewedProducts(),
-        fetchUserReorderProducts(10),
-      ]);
-      setRecentlyViewed(recent);
-      setReorderProducts(reorder);
-    } catch (e) {
-      console.warn('Failed to refresh dynamic personal sections:', e);
-    }
-  }, []);
-
-  // Background updater for layout & banners
-  const refreshLayoutAndBanners = useCallback(async () => {
-    try {
-      const [secRes, banRes] = await Promise.all([
-        fetchHomeSections(),
-        fetchHomeBanners(),
-      ]);
-      setSections(secRes.filter((s) => s.isActive));
-      setBanners(banRes);
-    } catch (e) {
-      console.warn('Failed to refresh layout:', e);
-    }
-  }, []);
-
+  // Fast Tier 1 & Secondary Tier 2 Pipeline
   const loadAllHomeData = useCallback(async (isInitial = false) => {
-    if (isInitial) setLoading(true);
+    if (isInitial && !initialLoadedRef.current) setLoading(true);
 
     try {
-      const [
-        secRes,
-        banRes,
-        catRes,
-        prodRes,
-        popRes,
-        reorderRes,
-        recentRes,
-        volumeRes,
-        newArrRes,
-        topRatedRes,
-        limitedRes,
-        spotlightRes,
-        storeRes,
-        brandRes,
-      ] = await Promise.all([
+      // ⚡ TIER 1 (CRITICAL ABOVE-THE-FOLD): Loads in ~400ms
+      const [secRes, banRes, catRes, prodRes, popRes, dealsRes] = await Promise.all([
         fetchHomeSections(),
         fetchHomeBanners(),
         fetchCategories(),
         fetchProducts(),
         fetchPopularProducts(12),
-        fetchUserReorderProducts(10),
-        fetchRecentlyViewedProducts(),
         fetchVolumeDealsProducts(10),
-        fetchNewArrivalsProducts(10),
-        fetchTopRatedProducts(10),
-        fetchLimitedStockProducts(10),
-        fetchBrandSpotlight(),
-        fetchStores(),
-        fetchTrustedBrands(),
       ]);
 
-      setSections(secRes.filter((s) => s.isActive));
+      const activeSections = secRes.filter((s) => s.isActive);
+      const activeCategories = catRes.categories || [];
+
+      setSections(activeSections);
       setBanners(banRes);
-      setCategories(catRes.categories || []);
+      setCategories(activeCategories);
       setProducts(prodRes.products || []);
       setPopularProducts(popRes || []);
-      setReorderProducts(reorderRes || []);
-      setRecentlyViewed(recentRes || []);
-      setVolumeDeals(volumeRes || []);
-      setNewArrivals(newArrRes || []);
-      setTopRated(topRatedRes || []);
-      setLimitedStock(limitedRes || []);
-      setBrandSpotlight(spotlightRes);
-      setStores(storeRes || []);
-      setBrands(brandRes || []);
+      setVolumeDeals(dealsRes || []);
+
+      // Pre-cache visible hero banners and category thumbnails instantly
+      const bannerImages = banRes.map((b) => b.image_url);
+      const categoryImages = activeCategories.slice(0, 12).map((c) => c.image);
+      preloadImages([...bannerImages, ...categoryImages]);
+
+      // Release skeleton loading immediately
+      setLoading(false);
+      initialLoadedRef.current = true;
+
+      // ⏳ TIER 2 (SECONDARY BELOW-THE-FOLD): Streams concurrently without blocking
+      void Promise.allSettled([
+        fetchUserReorderProducts(10).then((r) => setReorderProducts(r || [])),
+        fetchRecentlyViewedProducts().then((r) => setRecentlyViewed(r || [])),
+        fetchNewArrivalsProducts(10).then((r) => setNewArrivals(r || [])),
+        fetchTopRatedProducts(10).then((r) => setTopRated(r || [])),
+        fetchLimitedStockProducts(10).then((r) => setLimitedStock(r || [])),
+        fetchBrandSpotlight().then((r) => setBrandSpotlight(r)),
+        fetchStores().then((r) => setStores(r || [])),
+        fetchTrustedBrands().then((r) => setBrands(r || [])),
+      ]);
     } catch (err) {
       console.error('Failed to load home catalog data:', err);
-    } finally {
-      if (isInitial) setLoading(false);
+      setLoading(false);
     }
   }, []);
 
@@ -249,10 +225,10 @@ export function HomeScreen({
     const homeChannel = supabase
       .channel('realtime:home_updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'home_sections' }, () => {
-        if (active) void refreshLayoutAndBanners();
+        if (active) void loadAllHomeData(false);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'home_banners' }, () => {
-        if (active) void refreshLayoutAndBanners();
+        if (active) void loadAllHomeData(false);
       })
       .subscribe();
 
@@ -264,16 +240,14 @@ export function HomeScreen({
     const handleKeepAliveFocus = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
       if (active && (customEvent.detail?.key === '/' || customEvent.detail?.key === 'home' || !customEvent.detail?.key)) {
-        void refreshDynamicSections();
-        void refreshLayoutAndBanners();
+        void loadAllHomeData(false);
       }
     };
     window.addEventListener('keepalive:activated', handleKeepAliveFocus);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && active) {
-        void refreshDynamicSections();
-        void refreshLayoutAndBanners();
+        void loadAllHomeData(false);
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);
@@ -285,7 +259,7 @@ export function HomeScreen({
       window.removeEventListener('visibilitychange', handleVisibilityChange);
       void supabase.removeChannel(homeChannel);
     };
-  }, [loadAllHomeData, refreshDynamicSections, refreshLayoutAndBanners]);
+  }, [loadAllHomeData]);
 
   const deals = useMemo(() => {
     return products
@@ -334,13 +308,13 @@ export function HomeScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-6">
-      {/* 1. Hardware Status Bar Mask (Ensures solid green background behind transparent status bar) */}
+      {/* 1. Hardware Status Bar Mask */}
       <div 
         className="fixed top-0 left-0 right-0 z-50 bg-[#02402c] pointer-events-none" 
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      {/* 2. Header Location Bar (Smooth scroll flow, ample bottom padding) */}
+      {/* 2. Header Location Bar */}
       <div className="bg-[#02402c] text-white safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-2">
           <button
@@ -366,13 +340,12 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 3. Header Sticky Search Bar (Sticks early, ample top padding to protect cart badge) */}
+      {/* 3. Header Sticky Search Bar */}
       <div 
         className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
-          {/* Search Trigger Input */}
           <div
             onClick={() => navigate('/search')}
             className="relative flex-1 h-11 px-3.5 rounded-xl bg-white text-slate-900 flex items-center gap-2.5 cursor-pointer shadow-sm active:scale-[0.99] transition-transform select-none"
@@ -390,7 +363,6 @@ export function HomeScreen({
             </div>
           </div>
 
-          {/* Cart Button with unclipped badge */}
           <button
             onClick={() => navigate('/cart')}
             type="button"

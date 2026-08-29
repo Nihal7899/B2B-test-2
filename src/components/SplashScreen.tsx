@@ -79,7 +79,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
         <div className="mt-3.5 flex items-center gap-2.5">
           <div className="h-[1.5px] w-6 sm:w-8 bg-[#59D9B6]/80 rounded-full" />
           <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.32em] text-[#D3F6EB]">
-            B 2 B . S I M P L I F I E D
+            B 2 B . H O R E C A
           </span>
           <div className="h-[1.5px] w-6 sm:w-8 bg-[#59D9B6]/80 rounded-full" />
         </div>

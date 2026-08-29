@@ -7,7 +7,6 @@ interface SplashScreenProps {
 export function SplashScreen({ onFinish }: SplashScreenProps) {
   const [exiting, setExiting] = useState(false);
 
-  // Keep the latest onFinish function without restarting the splash timer
   const onFinishRef = useRef(onFinish);
 
   useEffect(() => {
@@ -15,12 +14,12 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
   }, [onFinish]);
 
   useEffect(() => {
-    // Show splash normally for 2.3 seconds
+    // Keep splash visible for 2.4 seconds, then start fade out
     const exitTimer = window.setTimeout(() => {
       setExiting(true);
-    }, 2300);
+    }, 2400);
 
-    // Total splash duration: 2.9 seconds
+    // Total duration: 2.9 seconds
     const doneTimer = window.setTimeout(() => {
       onFinishRef.current();
     }, 2900);
@@ -33,105 +32,90 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden bg-[#021f1b] ${
-        exiting ? 'splash-fade-out' : ''
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden bg-[#011f1a] transition-opacity duration-500 ease-out ${
+        exiting ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
-      {/* Subtle background glow */}
-      <div className="absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[#38d8a3]/10 blur-[120px]" />
+      {/* Subtle background ambient glow */}
+      <div className="absolute -top-32 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-[#5CE5B4]/10 blur-[140px]" />
 
-      {/* Logo */}
-      <div className="splash-logo-in flex flex-col items-center">
-        <div className="splash-float">
+      {/* Main Logo & Branding Container */}
+      <div className="flex flex-col items-center justify-center px-4">
+        {/* Exact Icon SVG */}
+        <div className="relative flex items-center justify-center">
           <svg
-            width="190"
-            height="190"
-            viewBox="0 0 200 200"
+            width="170"
+            height="150"
+            viewBox="0 0 240 210"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
+            className="drop-shadow-[0_4px_20px_rgba(0,0,0,0.25)]"
           >
-            <defs>
-              <linearGradient
-                id="mintGradient"
-                x1="0"
-                y1="0"
-                x2="1"
-                y2="1"
-              >
-                <stop stopColor="#7DE5C2" />
-                <stop offset="1" stopColor="#36B98D" />
-              </linearGradient>
-            </defs>
-
-            {/* White C */}
+            {/* White "C" Body */}
             <path
-              d="M92 37C57 37 32 63 32 100C32 137 57 163 92 163H113V137H93C74 137 61 122 61 100C61 78 74 63 93 63H113V37H92Z"
-              fill="#F8FAFC"
+              d="M 174 46 L 118 46 A 46 46 0 0 0 118 138 L 158 138"
+              stroke="#FFFFFF"
+              strokeWidth="24"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
 
-            {/* Mint K */}
+            {/* Mint "K" Chevron / Cart Back Angle */}
             <path
-              d="M125 72L162 37H190L150 80L192 125H162L125 88V72Z"
-              fill="url(#mintGradient)"
+              d="M 216 64 L 166 114 L 214 162"
+              stroke="#5CE5B4"
+              strokeWidth="24"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
 
-            {/* Bottom part of K */}
+            {/* Upper Speed Line */}
             <path
-              d="M125 98L157 135H188L125 77V98Z"
-              fill="url(#mintGradient)"
+              d="M 80 142 H 104"
+              stroke="#5CE5B4"
+              strokeWidth="8"
+              strokeLinecap="round"
             />
 
-            {/* Minimal motion lines */}
-            <rect
-              x="24"
-              y="153"
-              width="28"
-              height="8"
-              rx="4"
-              fill="#63D9B3"
-            />
-            <rect
-              x="34"
-              y="170"
-              width="38"
-              height="8"
-              rx="4"
-              fill="#63D9B3"
+            {/* Lower Speed Line */}
+            <path
+              d="M 92 160 H 118"
+              stroke="#5CE5B4"
+              strokeWidth="8"
+              strokeLinecap="round"
             />
 
-            {/* Wheels */}
-            <circle cx="86" cy="177" r="8" fill="#63D9B3" />
-            <circle cx="128" cy="177" r="8" fill="#63D9B3" />
+            {/* Front Wheel */}
+            <circle cx="140" cy="160" r="7.5" fill="#5CE5B4" />
+
+            {/* Rear Wheel */}
+            <circle cx="174" cy="160" r="7.5" fill="#5CE5B4" />
           </svg>
         </div>
 
         {/* Brand Name */}
-        <h1 className="splash-word-in mt-4 text-5xl font-extrabold tracking-[-0.05em]">
+        <h1 className="mt-3 flex items-center text-4xl sm:text-5xl font-black tracking-tight select-none font-sans">
           <span className="text-white">Caf</span>
-          <span className="bg-gradient-to-r from-[#73E5C0] to-[#36B98D] bg-clip-text text-transparent">
-            Kart
-          </span>
+          <span className="text-[#5CE5B4]">Kart</span>
         </h1>
 
         {/* Tagline */}
-        <div className="splash-tag-in mt-5 flex items-center gap-3">
-          <div className="h-px w-8 bg-[#49CFA5]/60" />
-
-          <span className="text-[10px] font-semibold uppercase tracking-[0.35em] text-[#8EDCC5]">
-            B2B · Simplified
+        <div className="mt-4 flex items-center gap-2.5">
+          <div className="h-[1.5px] w-6 sm:w-8 bg-[#5CE5B4]/80 rounded-full" />
+          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.32em] text-[#E0F7EF] select-none">
+            B 2 B . S I M P L I F I E D
           </span>
-
-          <div className="h-px w-8 bg-[#49CFA5]/60" />
+          <div className="h-[1.5px] w-6 sm:w-8 bg-[#5CE5B4]/80 rounded-full" />
         </div>
       </div>
 
-      {/* Bottom loading bar */}
-      <div className="absolute bottom-16 h-[3px] w-32 overflow-hidden rounded-full bg-white/10">
-        <div className="splash-bar h-full rounded-full bg-gradient-to-r from-[#38B98D] via-[#70E4BE] to-[#F8FAFC]" />
+      {/* Sleek bottom loading line */}
+      <div className="absolute bottom-14 h-[3px] w-32 overflow-hidden rounded-full bg-white/10">
+        <div className="splash-bar h-full rounded-full bg-gradient-to-r from-[#5CE5B4] via-[#9af0d4] to-white" />
       </div>
 
-      {/* Bottom text */}
-      <p className="absolute bottom-7 text-[10px] font-medium tracking-wide text-[#74BBA7]">
+      {/* Footer Text */}
+      <p className="absolute bottom-6 text-[10px] font-semibold tracking-wider text-[#5CE5B4]/70 uppercase">
         Wholesale made simple
       </p>
     </div>

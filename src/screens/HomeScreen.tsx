@@ -334,9 +334,15 @@ export function HomeScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-6">
-      {/* 1. Header Location Bar (Reduced padding-bottom) */}
-      <div className="bg-[#02402c] text-white">
-        <div className="safe-top max-w-7xl mx-auto px-4 pt-2.5 pb-1">
+      {/* 1. Hardware-level Status Bar Mask (Prevents text bleeding behind transparent status bar without JS) */}
+      <div 
+        className="fixed top-0 left-0 right-0 z-50 bg-[#02402c] pointer-events-none" 
+        style={{ height: 'env(safe-area-inset-top, 0px)' }} 
+      />
+
+      {/* 2. Header Location Bar (Normal flow, slides smoothly behind the status bar cover on scroll) */}
+      <div className="bg-[#02402c] text-white safe-top">
+        <div className="max-w-7xl mx-auto px-4 pt-2.5 pb-1">
           <button
             onClick={() => navigate('/addresses')}
             type="button"
@@ -360,8 +366,11 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 2. Header Sticky Search & Cart Bar (Tight 5-6px total gap from address bar) */}
-      <div className="sticky top-0 z-40 bg-[#02402c] text-white px-4 pt-0.5 pb-3 shadow-lg rounded-b-3xl">
+      {/* 3. Header Sticky Search Bar (Sticks cleanly right below status bar with a strict 5.5px gap initially) */}
+      <div 
+        className="sticky z-40 bg-[#02402c] text-white px-4 pt-0.5 pb-3 shadow-md rounded-b-3xl"
+        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+      >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
           {/* Search Trigger Input */}
           <div
@@ -400,7 +409,7 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 3. Main Catalog Content */}
+      {/* 4. Main Catalog Content */}
       <div className="space-y-6 pt-4">
         {loading ? (
           <div className="space-y-4 p-4 animate-pulse">

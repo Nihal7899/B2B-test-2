@@ -2,23 +2,19 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Check, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/auth';
 
-// Original image from your project matching the screenshot exactly
-const groceryImage =
-  'https://images.pexels.com/photos/7363163/pexels-photo-7363163.jpeg?auto=compress&cs=tinysrgb&h=1200&w=1200';
+const heroImage =
+  'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=85';
 
-// Fixed Normalizer: Never corrupts typing, safely handles pasted 11/12-digit numbers
+// Fix: Handles typing without stripping valid numbers starting with 91,
+// while correctly stripping leading 91/+91 or 0 when pasted as 11/12-digit numbers
 function normalizeIndianPhone(value: string): string {
-  let digits = value.replace(/\D/g, '');
-  
-  // If pasted with 91 country code (12 digits), strip country code
-  if (digits.length === 12 && digits.startsWith('91')) {
-    digits = digits.slice(2);
+  const digits = value.replace(/\D/g, '');
+  if (digits.length > 10 && digits.startsWith('91')) {
+    return digits.slice(2, 12);
   }
-  // If pasted with leading 0 (11 digits), strip 0
-  else if (digits.length === 11 && digits.startsWith('0')) {
-    digits = digits.slice(1);
+  if (digits.length > 10 && digits.startsWith('0')) {
+    return digits.slice(1, 11);
   }
-  
   return digits.slice(0, 10);
 }
 
@@ -35,7 +31,7 @@ export function AuthScreen() {
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // 30s Countdown timer for resend
+  // Countdown timer for resending OTP
   useEffect(() => {
     if (seconds <= 0) return;
     const timer = window.setInterval(() => setSeconds((c) => Math.max(c - 1, 0)), 1000);
@@ -52,58 +48,40 @@ export function AuthScreen() {
     }
     setBusy(true);
     setError('');
+    const result = await sendOtp(`+91${phone}`);
+    setBusy(false);
 
-    try {
-      const result = await sendOtp(`+91${phone}`);
-      if (result?.error) {
-        setError(typeof result.error === 'string' ? result.error : result.error.message || 'Failed to send OTP.');
-        return;
-      }
-      setStep('otp');
-      setSeconds(30);
-      setOtp(['', '', '', '', '', '']);
-      setVerifyStatus('idle');
-      setTimeout(() => inputRefs.current[0]?.focus(), 150);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to send OTP. Please check your number.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleVerifyOtp = async (codeToVerify: string) => {
-    if (codeToVerify.length !== 6) {
-      setError('Enter the 6-digit code sent to your phone.');
+    if (result?.error) {
+      setError(result.error);
       return;
     }
+    setStep('otp');
+    setSeconds(30);
+    setOtp(['', '', '', '', '', '']);
+    setVerifyStatus('idle');
+    setTimeout(() => inputRefs.current[0]?.focus(), 150);
+  };
 
+  const triggerVerification = async (otpValue: string) => {
     setBusy(true);
     setVerifyStatus('verifying');
     setError('');
 
-    try {
-      const result = await verifyOtp(`+91${phone}`, codeToVerify);
-      if (result?.error) {
-        setVerifyStatus('error');
-        setError(typeof result.error === 'string' ? result.error : result.error.message || 'Invalid OTP code.');
-        setShake(true);
-        setTimeout(() => setShake(false), 600);
-      } else {
-        setVerifyStatus('success');
-      }
-    } catch (err: any) {
+    const result = await verifyOtp(`+91${phone}`, otpValue);
+    setBusy(false);
+
+    if (result?.error) {
       setVerifyStatus('error');
-      setError(err?.message || 'Verification failed. Please try again.');
+      setError(result.error || 'Invalid OTP code. Please try again.');
       setShake(true);
       setTimeout(() => setShake(false), 600);
-    } finally {
-      setBusy(false);
+    } else {
+      setVerifyStatus('success');
     }
   };
 
   const handleOtpChange = (index: number, value: string) => {
     const cleanVal = value.replace(/\D/g, '');
-
     if (!cleanVal) {
       const updated = [...otp];
       updated[index] = '';
@@ -112,6 +90,7 @@ export function AuthScreen() {
       return;
     }
 
+    // Handle single digit or pasted sequence
     const updated = [...otp];
     if (cleanVal.length > 1) {
       const pasted = cleanVal.slice(0, 6).split('');
@@ -123,7 +102,7 @@ export function AuthScreen() {
       inputRefs.current[nextIdx]?.focus();
 
       if (updated.every((d) => d !== '')) {
-        handleVerifyOtp(updated.join(''));
+        triggerVerification(updated.join(''));
       }
       return;
     }
@@ -136,11 +115,11 @@ export function AuthScreen() {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // Auto-verify when 6th digit is typed
+    // Auto-verify when 6th digit is entered
     if (index === 5 || updated.every((d) => d !== '')) {
       const fullOtp = updated.join('');
       if (fullOtp.length === 6) {
-        handleVerifyOtp(fullOtp);
+        triggerVerification(fullOtp);
       }
     }
   };
@@ -155,57 +134,53 @@ export function AuthScreen() {
     if (seconds > 0 || busy) return;
     setBusy(true);
     setError('');
+    const result = await resendOtp(`+91${phone}`);
+    setBusy(false);
 
-    try {
-      const result = await resendOtp(`+91${phone}`);
-      if (result?.error) {
-        setError(typeof result.error === 'string' ? result.error : result.error.message || 'Failed to resend code');
-        return;
-      }
-      setSeconds(30);
-      setOtp(['', '', '', '', '', '']);
-      setVerifyStatus('idle');
-      inputRefs.current[0]?.focus();
-    } catch (err: any) {
-      setError(err?.message || 'Failed to resend OTP.');
-    } finally {
-      setBusy(false);
+    if (result?.error) {
+      setError(result.error);
+      return;
     }
+    setSeconds(30);
+    setOtp(['', '', '', '', '', '']);
+    setVerifyStatus('idle');
+    inputRefs.current[0]?.focus();
   };
 
   return (
     <div className="relative min-h-[100dvh] w-full bg-zinc-950 sm:flex sm:items-center sm:justify-center sm:p-6">
-      {/* Container: Full bleed on mobile (100dvh), framed on tablet/desktop */}
-      <div className="relative flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-[#0c3e33] sm:h-[844px] sm:max-w-[420px] sm:rounded-[40px] sm:shadow-2xl">
+      {/* Container: Full bleed on mobile (100dvh), framed on desktop */}
+      <div className="relative flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-[#0a3d31] sm:h-[844px] sm:max-w-[420px] sm:rounded-[40px] sm:shadow-2xl">
         
-        {/* Full-bleed Top Food Image */}
-        <div className="absolute inset-x-0 top-0 h-[62%] w-full overflow-hidden">
+        {/* Top Food Background Image */}
+        <div className="absolute inset-x-0 top-0 h-[60%] w-full overflow-hidden">
           <img
-            src={groceryImage}
-            alt="Fresh ingredients backdrop"
+            src={heroImage}
+            alt="Fresh produce background"
             className="h-full w-full object-cover object-center"
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/10" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/20" />
         </div>
 
         {/* Bottom Floating White Sheet */}
         <div className="relative z-10 mt-auto flex w-full flex-col rounded-t-[36px] bg-white px-6 pt-7 pb-8 shadow-[0_-16px_40px_rgba(0,0,0,0.2)] [padding-bottom:max(2rem,env(safe-area-inset-bottom))]">
           {step === 'phone' ? (
             <div className="flex flex-col">
+              {/* Heading */}
               <h1 className="text-center text-[23px] font-extrabold leading-snug tracking-tight text-[#1a2e26]">
                 All your restaurant needs <br /> delivered next day
               </h1>
 
-              {/* Phone Input Box */}
+              {/* Phone Input */}
               <div className="mt-8">
                 <div
                   className={`flex h-14 items-center rounded-2xl border px-4 transition-all duration-200 ${
                     error
-                      ? 'border-red-400 bg-red-50/20'
+                      ? 'border-red-400 bg-red-50/30'
                       : 'border-slate-200 bg-white focus-within:border-[#0f7760] focus-within:ring-4 focus-within:ring-[#0f7760]/10'
                   }`}
                 >
-                  <div className="flex items-center gap-2 pr-3 text-base font-semibold text-slate-800">
+                  <div className="flex items-center gap-2 pr-3 text-base font-medium text-slate-800">
                     <span className="text-xl leading-none">🇮🇳</span>
                     <span>+91</span>
                   </div>
@@ -225,7 +200,7 @@ export function AuthScreen() {
                 {error && <p className="mt-2 text-xs font-semibold text-red-500">{error}</p>}
               </div>
 
-              {/* Header-Themed Green Continue Button */}
+              {/* Green Continue Button */}
               <button
                 type="button"
                 disabled={busy}
@@ -237,7 +212,7 @@ export function AuthScreen() {
             </div>
           ) : (
             <div className="flex flex-col">
-              {/* Back Link & Phone Details */}
+              {/* Back Button & Phone Info */}
               <div className="flex items-center justify-between">
                 <button
                   type="button"
@@ -246,9 +221,9 @@ export function AuthScreen() {
                     setError('');
                     setVerifyStatus('idle');
                   }}
-                  className="flex items-center gap-1.5 text-xs font-bold text-[#0f7760] transition hover:text-[#0c624f]"
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#0f7760] hover:text-[#0c624f]"
                 >
-                  <ArrowLeft size={16} /> Edit number
+                  <ArrowLeft size={16} /> Change number
                 </button>
                 <span className="text-xs font-bold text-slate-500">{formattedPhone}</span>
               </div>
@@ -260,14 +235,14 @@ export function AuthScreen() {
                 We sent a 6-digit code to your phone
               </p>
 
-              {/* 6 Connected Digit Boxes */}
+              {/* 6-Box Connected OTP Inputs */}
               <div className="relative mt-8">
-                {/* Visual Connection Bar Behind Boxes */}
+                {/* Visual Connection Wire */}
                 <div className="absolute top-1/2 left-4 right-4 h-[3px] -translate-y-1/2 overflow-hidden rounded-full bg-slate-100">
                   <div
                     className={`h-full transition-all duration-500 ${
                       verifyStatus === 'success'
-                        ? 'w-full bg-[#0f7760]'
+                        ? 'w-full bg-emerald-500'
                         : verifyStatus === 'error'
                         ? 'w-full bg-red-500'
                         : verifyStatus === 'verifying'
@@ -288,7 +263,7 @@ export function AuthScreen() {
                     let borderClass = 'border-slate-200 bg-white text-slate-900';
 
                     if (verifyStatus === 'success') {
-                      borderClass = 'border-[#0f7760] bg-emerald-50 text-[#0f7760] shadow-[0_0_12px_rgba(15,119,96,0.3)]';
+                      borderClass = 'border-emerald-500 bg-emerald-50 text-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.3)]';
                     } else if (verifyStatus === 'error') {
                       borderClass = 'border-red-500 bg-red-50 text-red-600 shadow-[0_0_12px_rgba(239,68,68,0.3)]';
                     } else if (verifyStatus === 'verifying') {
@@ -339,14 +314,14 @@ export function AuthScreen() {
                 </button>
               </div>
 
-              {/* Header Green Verify Button */}
+              {/* Green Verify / Continue Button */}
               <button
                 type="button"
                 disabled={busy || otp.join('').length < 6 || verifyStatus === 'success'}
-                onClick={() => handleVerifyOtp(otp.join(''))}
+                onClick={() => triggerVerification(otp.join(''))}
                 className={`mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-base font-bold text-white shadow-lg transition-all duration-300 active:scale-[0.98] ${
                   verifyStatus === 'success'
-                    ? 'bg-[#0f7760] shadow-[#0f7760]/25'
+                    ? 'bg-emerald-500 shadow-emerald-500/25'
                     : verifyStatus === 'error'
                     ? 'bg-red-500 shadow-red-500/25'
                     : 'bg-[#0f7760] shadow-[#0f7760]/25 hover:bg-[#0c624f]'
@@ -368,6 +343,7 @@ export function AuthScreen() {
         </div>
       </div>
 
+      {/* Shake Keyframe Animation */}
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }

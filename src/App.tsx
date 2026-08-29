@@ -218,12 +218,21 @@ function App() {
     screen === 'search' ||
     screen === 'product'; // <-- ADDED
   
+
+  // 1. Sync System Bar full bleed for unauthenticated (AuthScreen) state:
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product']; // <-- ADDED
+    if (!user && !loading && !showSplash) {
+      // Enable transparent overlay system bars for AuthScreen image bleed
+      setFullScreenSystemBars(false);
+      return;
+    }
+  
+    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product'];
     const isDarkBg = darkHeaderScreens.includes(screen);
     setFullScreenSystemBars(!isDarkBg);
-  }, [screen]);
+  }, [screen, user, loading, showSplash]);
+
 
   const initPushRef = useRef(false);
 

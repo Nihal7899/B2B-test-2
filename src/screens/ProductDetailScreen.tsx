@@ -84,20 +84,22 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     borderColor = '#e5e7eb',
   } = theme;
 
-  // Track scroll and smoothly fade header to white ONLY when reaching the bottom of the image container
+  // Track scroll and smoothly transition to white ONLY when the bottom of the image passes the header
   useEffect(() => {
     const handleScroll = () => {
       const containerHeight = imageContainerRef.current?.offsetHeight || 320;
-      const headerHeight = 64; // approximate height including safe-area
-      const triggerPoint = containerHeight - headerHeight;
       const scrollY = window.scrollY;
+      
+      // Start transitioning only in the final 50px as the image leaves view
+      const start = Math.max(0, containerHeight - 50);
+      const end = containerHeight;
 
-      if (scrollY <= triggerPoint) {
+      if (scrollY <= start) {
         setHeaderOpacity(0);
+      } else if (scrollY >= end) {
+        setHeaderOpacity(1);
       } else {
-        // Smoothly ramp opacity from 0 to 1 over the last 40px of crossing
-        const progress = Math.min(1, (scrollY - triggerPoint) / 40);
-        setHeaderOpacity(progress);
+        setHeaderOpacity((scrollY - start) / (end - start));
       }
     };
 
@@ -243,23 +245,23 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
   };
 
   return (
-    <div className="pb-8 space-y-5 relative -mt-0">
+    <div className="pb-10 relative">
       {/* Dynamic Header */}
       <header
-        className="fixed top-0 left-0 right-0 z-30 mx-auto max-w-[720px] px-4 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-3 flex items-center justify-between transition-colors duration-150"
+        className="fixed top-0 left-0 right-0 z-30 mx-auto max-w-[720px] px-4 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-3 flex items-center justify-between pointer-events-auto"
         style={{
           backgroundColor: `rgba(255, 255, 255, ${headerOpacity * 0.98})`,
           backdropFilter: headerOpacity > 0 ? 'blur(12px)' : 'none',
           WebkitBackdropFilter: headerOpacity > 0 ? 'blur(12px)' : 'none',
-          borderBottom: headerOpacity > 0.8 ? '1px solid #f1f5f9' : '1px solid transparent',
-          boxShadow: headerOpacity > 0.8 ? '0 1px 3px 0 rgba(0, 0, 0, 0.05)' : 'none',
+          borderBottom: headerOpacity > 0.9 ? '1px solid #f1f5f9' : '1px solid transparent',
+          boxShadow: headerOpacity > 0.9 ? '0 1px 3px 0 rgba(0, 0, 0, 0.05)' : 'none',
         }}
       >
         {/* Back Button */}
         <button
           onClick={onBack}
           className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
-            headerOpacity > 0.6
+            headerOpacity > 0.5
               ? 'bg-ink-100 text-ink-800'
               : 'bg-white/90 text-ink-700 shadow-soft'
           }`}
@@ -270,7 +272,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
 
         {/* Product Title in Header */}
         <div
-          className="flex-1 mx-3 truncate transition-opacity duration-200"
+          className="flex-1 mx-3 truncate transition-opacity duration-150"
           style={{ opacity: headerOpacity }}
         >
           <p className="text-xs font-bold text-ink-900 truncate">{product.name}</p>
@@ -285,7 +287,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
             onClick={handleWishlist}
             disabled={wishlistBusy}
             className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
-              headerOpacity > 0.6
+              headerOpacity > 0.5
                 ? 'bg-ink-100'
                 : 'bg-white/90 shadow-soft'
             } ${wishlisted ? 'text-red-500' : 'text-ink-600'}`}
@@ -297,7 +299,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
           <button
             onClick={() => navigate('/cart')}
             className={`relative h-9 w-9 rounded-xl flex items-center justify-center text-ink-700 transition-all active:scale-95 ${
-              headerOpacity > 0.6
+              headerOpacity > 0.5
                 ? 'bg-ink-100'
                 : 'bg-white/90 shadow-soft'
             }`}
@@ -313,14 +315,14 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
         </div>
       </header>
 
-      {/* Image Carousel - Flush Full Bleed */}
-      <div ref={imageContainerRef} className="relative h-[320px] bg-ink-100 overflow-hidden">
+      {/* Image Carousel - Flush 0px Top */}
+      <div ref={imageContainerRef} className="relative w-full h-[320px] bg-ink-100 overflow-hidden m-0 p-0">
         <img
           src={images[activeImageIndex] || ''}
           alt={product.name}
           className="h-full w-full object-cover transition-opacity duration-300"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/10 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/10 pointer-events-none" />
 
         {images.length > 1 && (
           <>
@@ -351,7 +353,8 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
         )}
       </div>
 
-      <div className="px-4 space-y-4">
+      {/* Main Content Area */}
+      <div className="px-4 mt-4 space-y-4">
         {/* Brand, Name, Specs */}
         <div>
           <div className="flex items-center justify-between gap-2">
@@ -587,7 +590,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
 
       {/* Related Products */}
       {related.length > 0 && (
-        <div>
+        <div className="mt-6">
           <SectionHeader title="You may also like" onViewAll={() => undefined} />
           <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-4 pb-1">
             {related.map((item) => (

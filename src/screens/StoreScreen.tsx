@@ -204,7 +204,7 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
         <div className="pointer-events-none absolute right-4 top-20 h-20 w-20 rounded-full border-4 border-white/10" />
 
         <div className="relative mx-auto max-w-md">
-          <div className="flex items-center justify-between">
+          <div className="safe-top flex items-center justify-between">
             <button
               onClick={() => navigate(-1)}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur transition hover:bg-white/30"

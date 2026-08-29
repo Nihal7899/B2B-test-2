@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand & Splash Colors -->
+    <color name="splash_background">#011f1a</color>
+    <color name="brand_mint">#59D9B6</color>
+
+    <!-- AppTheme Default Colors -->
+    <color name="colorPrimary">#011f1a</color>
+    <color name="colorPrimaryDark">#011612</color>
+    <color name="colorAccent">#59D9B6</color>
+</resources>

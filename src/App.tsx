@@ -14,8 +14,8 @@ import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import toast from 'react-hot-toast';
 
-import { BottomNavigation } from '@/components/BottomNavigation';
 import { SplashScreen } from '@/components/SplashScreen';
+import { BottomNavigation } from '@/components/BottomNavigation';
 import { KeepAliveRenderer } from '@/components/KeepAliveRenderer';
 import { setFullScreenSystemBars } from '@/hooks/useSystemBars';
 
@@ -178,7 +178,7 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [splashFinished, setSplashFinished] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
@@ -296,15 +296,8 @@ function App() {
     goTo(allowed ? next : 'home');
   };
 
-  const showSplash = !splashFinished || loading;
-
-  if (!user && !loading) {
-    return (
-      <>
-        {showSplash && <SplashScreen onFinish={() => setSplashFinished(true)} />}
-        <AuthScreen />
-      </>
-    );
+  if (!user && !loading && !showSplash) {
+    return <AuthScreen />;
   }
 
   const renderScreen = (): ReactNode => {
@@ -479,9 +472,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-ink-100 flex flex-col justify-between relative">
-      {showSplash && <SplashScreen onFinish={() => setSplashFinished(true)} />}
-
+    <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
       <div className="mx-auto flex-1 w-full max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col">
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
           <BackButtonHandler />
@@ -500,6 +491,15 @@ function App() {
             />
           </div>
         )}
+
+        {/* React Splash Screen with complete typography and animations */}
+        {showSplash && (
+          <SplashScreen
+            onFinish={() => {
+              setShowSplash(false);
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -512,3 +512,4 @@ export default function RootApp() {
     </NavigationProvider>
   );
 }
+

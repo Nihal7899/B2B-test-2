@@ -1,5 +1,5 @@
-// screens/CartScreen.tsx
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -27,9 +27,11 @@ interface CartScreenProps {
   onProduct: (product: Product) => void;
   onShop: () => void;
   onCheckout: () => void;
+  onBack?: () => void;
 }
 
-export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenProps) {
+export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: CartScreenProps) {
+  const navigate = useNavigate();
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState<string | null>(null);
   const [applyingPromo, setApplyingPromo] = useState(false);
@@ -38,6 +40,14 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
   const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [gstTotal, setGstTotal] = useState(0);
   const [gstBreakdown, setGstBreakdown] = useState<Record<number, number>>({});
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      navigate(-1);
+    }
+  };
 
   useEffect(() => {
     async function loadDefaultAddress() {
@@ -93,34 +103,58 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
 
   if (cart.items.length === 0) {
     return (
-      <div className="px-4 pb-6 min-h-[65vh] flex flex-col items-center justify-center text-center">
-        <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600">
-          <ShoppingBag size={36} strokeWidth={1.5} />
+      <div className="safe-top px-4 pb-6 min-h-[75vh] flex flex-col justify-between">
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="h-9 w-9 rounded-xl bg-white border border-ink-100 flex items-center justify-center text-ink-700 shadow-soft active:scale-95"
+            aria-label="Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
         </div>
-        <h1 className="text-lg font-extrabold text-ink-900 mt-5">Your cart is empty</h1>
-        <p className="text-sm text-ink-500 mt-1 max-w-[250px]">
-          Add products you need for your next business restock.
-        </p>
-        <button
-          onClick={onShop}
-          className="mt-5 h-11 px-5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-2 shadow-soft"
-        >
-          Start shopping <ArrowRight size={16} />
-        </button>
+
+        <div className="flex flex-col items-center justify-center text-center my-auto">
+          <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600">
+            <ShoppingBag size={36} strokeWidth={1.5} />
+          </div>
+          <h1 className="text-lg font-extrabold text-ink-900 mt-5">Your cart is empty</h1>
+          <p className="text-sm text-ink-500 mt-1 max-w-[250px]">
+            Add products you need for your next business restock.
+          </p>
+          <button
+            onClick={onShop}
+            className="mt-5 h-11 px-5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-2 shadow-soft active:scale-95 transition-transform"
+          >
+            Start shopping <ArrowRight size={16} />
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="safe-top px-4 pb-6 space-y-4">
-      <div>
-        <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">
-          Your cart{' '}
-          <span className="text-sm font-semibold text-ink-400">
-            ({cart.totalItems} items)
-          </span>
-        </h1>
-        <p className="text-xs text-ink-500 mt-1">Review your wholesale order</p>
+    <div className="safe-top px-4 pb-8 space-y-4">
+      {/* Header with Back Button */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="h-9 w-9 rounded-xl bg-white border border-ink-100 flex items-center justify-center text-ink-700 shadow-soft active:scale-95 shrink-0"
+          aria-label="Back"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div>
+          <h1 className="text-xl font-extrabold text-ink-900 tracking-tight flex items-center gap-1.5">
+            Your cart{' '}
+            <span className="text-sm font-semibold text-ink-400">
+              ({cart.totalItems} items)
+            </span>
+          </h1>
+          <p className="text-xs text-ink-500">Review your wholesale order</p>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 rounded-xl bg-brand-50 border border-brand-100 p-3">
@@ -300,8 +334,8 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout }: CartScreenPr
       </section>
 
       <button
-        onClick={onShop}
-        className="w-full flex items-center justify-center gap-2 text-xs font-bold text-brand-600"
+        onClick={handleBack}
+        className="w-full flex items-center justify-center gap-2 text-xs font-bold text-brand-600 active:opacity-75"
       >
         <ArrowLeft size={14} /> Continue shopping
       </button>

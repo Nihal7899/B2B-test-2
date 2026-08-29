@@ -3,7 +3,7 @@ import { ArrowLeft, Check, Delete } from 'lucide-react';
 import { useAuth } from '@/auth';
 
 const groceryImage =
-  'https://images.pexels.com/photos/7363163/pexels-photo-7363163.jpeg?auto=compress&cs=tinysrgb&h=1200&w=1200';
+  'https://images.pexels.com/photos/27854616/pexels-photo-27854616.jpeg?auto=compress&cs=tinysrgb&h=1200&w=1200';
 
 function normalizeIndianPhone(value: string): string {
   let digits = value.replace(/\D/g, '');

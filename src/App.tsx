@@ -135,9 +135,10 @@ function BackButtonHandler() {
       if (triggerBack()) return;
 
       const now = Date.now();
-      const mainRoutes = ['/', '/categories', '/orders', '/cart', '/account'];
+      // Only Home screen ('/') is the root screen that triggers app exit
+      const isHomeScreen = location.pathname === '/';
 
-      if (mainRoutes.includes(location.pathname)) {
+      if (isHomeScreen) {
         if (now - lastBackPress.current < 2000) {
           if (toastId.current) toast.dismiss(toastId.current);
           CapApp.exitApp();
@@ -216,23 +217,14 @@ function App() {
     screen === 'brand' ||
     screen === 'banner' ||
     screen === 'search' ||
-    screen === 'product'; // <-- ADDED
+    screen === 'product';
   
-
-  // 1. Sync System Bar full bleed for unauthenticated (AuthScreen) state:
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    if (!user && !loading && !showSplash) {
-      // Enable transparent overlay system bars for AuthScreen image bleed
-      setFullScreenSystemBars(false);
-      return;
-    }
-  
     const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product'];
     const isDarkBg = darkHeaderScreens.includes(screen);
     setFullScreenSystemBars(!isDarkBg);
-  }, [screen, user, loading, showSplash]);
-
+  }, [screen]);
 
   const initPushRef = useRef(false);
 
@@ -347,6 +339,7 @@ function App() {
             onProduct={openProduct}
             onShop={() => goTo('home')}
             onCheckout={() => goTo('checkout')}
+            onBack={() => navigate(-1)}
           />
         );
 
@@ -496,15 +489,11 @@ function App() {
           <div className="safe-bottom bg-white border-t border-gray-100">
             <BottomNavigation
               active={screen}
-              cartCount={cart.totalItems}
               onNavigate={goTo}
             />
           </div>
         )}
 
-
-
-        {/* React Splash Screen with complete typography and animations */}
         {showSplash && (
           <SplashScreen
             onFinish={() => {
@@ -524,4 +513,3 @@ export default function RootApp() {
     </NavigationProvider>
   );
 }
-

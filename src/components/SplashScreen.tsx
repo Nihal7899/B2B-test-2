@@ -1,4 +1,4 @@
-[29/08, 1:07 pm] Mom: import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface SplashScreenProps {
   onFinish: () => void;

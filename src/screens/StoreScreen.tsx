@@ -1,5 +1,4 @@
-// screens/StoreScreen.tsx
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { useCart } from '@/store';
@@ -105,9 +104,29 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
       .finally(() => setProductsLoading(false));
   }, [allProductIds]);
 
-  useEffect(() => {
-    fetchWishlist().then(setWishlist).catch(() => {});
+  const loadWishlist = useCallback(async () => {
+    try {
+      const wl = await fetchWishlist();
+      setWishlist(wl);
+    } catch (err) {
+      console.error(err);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadWishlist();
+
+    const handleWishlistChange = () => {
+      void loadWishlist();
+    };
+
+    window.addEventListener('wishlist-updated', handleWishlistChange);
+    window.addEventListener('focus', handleWishlistChange);
+    return () => {
+      window.removeEventListener('wishlist-updated', handleWishlistChange);
+      window.removeEventListener('focus', handleWishlistChange);
+    };
+  }, [loadWishlist]);
 
   const filteredProducts = useMemo(() => {
     let result = products;
@@ -177,11 +196,22 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
 
   const handleWishlistToggle = async (productId: string) => {
     const isWishlisted = wishlist.includes(productId);
-    await toggleWishlist(productId, isWishlisted);
-    if (isWishlisted) {
-      setWishlist(wishlist.filter((id) => id !== productId));
-    } else {
-      setWishlist([...wishlist, productId]);
+    const nextState = !isWishlisted;
+
+    setWishlist((prev) =>
+      isWishlisted ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+
+    try {
+      await toggleWishlist(productId, isWishlisted);
+      window.dispatchEvent(
+        new CustomEvent('wishlist-updated', {
+          detail: { productId, wishlisted: nextState },
+        })
+      );
+    } catch (err) {
+      console.error('Failed to toggle wishlist', err);
+      void loadWishlist();
     }
   };
 
@@ -194,7 +224,6 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
-      {/* Hero header */}
       <div
         className="relative overflow-hidden px-4 pb-6 pt-4 safe-top text-white shadow-xl"
         style={{ background: `linear-gradient(135deg, ${themeFrom}, ${themeTo})` }}
@@ -252,7 +281,6 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
         </div>
       </div>
 
-      {/* Highlights icon strip */}
       {highlights.length > 0 && (
         <div className="mx-auto max-w-md px-4 mt-4">
           <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-lg">
@@ -282,7 +310,6 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
         </div>
       )}
 
-      {/* Sticky search bar with safe-top */}
       <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg safe-top">
         <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-white p-2 shadow-md ring-1 ring-black/5">
           <div className="flex flex-1 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
@@ -312,7 +339,6 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
       </div>
 
       <div className="mx-auto max-w-md px-4">
-        {/* Bulk Deal Banner */}
         {bulkDeal.enabled && (
           <div className="mt-3">
             <BulkDealBanner
@@ -330,7 +356,6 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
           </div>
         )}
 
-        {/* Search results or categories */}
         {hasActiveFilter ? (
           <div className="mt-4">
             <h3 className="mb-3 text-sm font-bold text-gray-800">
@@ -430,7 +455,6 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
           </div>
         )}
 
-        {/* Trust footer */}
         <div className="mt-6 flex items-center justify-around rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <TrustItem icon={ShieldCheck} label="Verified" sub="Sellers" />
           <div className="h-8 w-px bg-gray-100" />

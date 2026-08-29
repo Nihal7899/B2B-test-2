@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -18,7 +18,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
-import { fetchCategories, fetchProductsBySubcategory } from '@/services/catalog';
+import { fetchCategories, fetchProductsBySubcategory, fetchWishlist, toggleWishlist } from '@/services/catalog';
 import type { Category, Subcategory, Product } from '@/types';
 
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'rating' | 'discount';
@@ -53,6 +53,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [activeSubId, setActiveSubId] = useState<string>('all');
   const [products, setProducts] = useState<Product[]>([]);
+  const [wishlist, setWishlist] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(false);
   const [query, setQuery] = useState('');
@@ -62,6 +63,52 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
   const [isSortSheetOpen, setIsSortSheetOpen] = useState(false);
   const [dealsOnly, setDealsOnly] = useState(false);
   const [highRatingOnly, setHighRatingOnly] = useState(false);
+
+  // Load wishlist & set up listeners
+  const loadWishlist = useCallback(async () => {
+    try {
+      const wl = await fetchWishlist();
+      setWishlist(wl);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadWishlist();
+
+    const handleWishlistChange = () => {
+      void loadWishlist();
+    };
+
+    window.addEventListener('wishlist-updated', handleWishlistChange);
+    window.addEventListener('focus', handleWishlistChange);
+    return () => {
+      window.removeEventListener('wishlist-updated', handleWishlistChange);
+      window.removeEventListener('focus', handleWishlistChange);
+    };
+  }, [loadWishlist]);
+
+  const handleWishlistToggle = async (productId: string) => {
+    const isWishlisted = wishlist.includes(productId);
+    const nextState = !isWishlisted;
+    
+    setWishlist((prev) =>
+      isWishlisted ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+
+    try {
+      await toggleWishlist(productId, isWishlisted);
+      window.dispatchEvent(
+        new CustomEvent('wishlist-updated', {
+          detail: { productId, wishlisted: nextState },
+        })
+      );
+    } catch (err) {
+      console.error('Failed to toggle wishlist', err);
+      void loadWishlist();
+    }
+  };
 
   // Load category and subcategories
   useEffect(() => {
@@ -178,7 +225,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
 
   const primaryCol = categoryTheme?.primaryColor || '#10b981';
 
-  // Count active filters
   const activeFiltersCount =
     (sortBy !== 'default' ? 1 : 0) +
     (dealsOnly ? 1 : 0) +
@@ -211,13 +257,11 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-slate-50">
-      {/* Category Header with safe-top for gradient status bar */}
       <header
         className="shrink-0 shadow-md transition-all z-20 safe-top"
         style={{ background: category.gradient || primaryCol }}
       >
         <div className="mx-auto max-w-[720px] px-4 pt-3 pb-2.5 text-white">
-          {/* Header Bar */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <button
@@ -236,7 +280,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
               </div>
             </div>
 
-            {/* Cart Button with Count Badge */}
             <button
               onClick={() => navigate('/cart')}
               className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md shadow-sm transition active:scale-95"
@@ -251,7 +294,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
             </button>
           </div>
 
-          {/* Search Input */}
           <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-inner">
             <Search size={15} className="text-slate-400 shrink-0" />
             <input
@@ -267,9 +309,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
             )}
           </div>
 
-          {/* Horizontal Filter Bar */}
           <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-            {/* Custom Bottom Sheet Sort Trigger */}
             <button
               onClick={() => setIsSortSheetOpen(true)}
               className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
@@ -283,7 +323,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
               <ChevronDown size={11} className="opacity-70" />
             </button>
 
-            {/* Deals Filter Pill */}
             <button
               onClick={() => setDealsOnly(!dealsOnly)}
               className={`flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
@@ -296,7 +335,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
               Best Deals
             </button>
 
-            {/* Top Rating Pill */}
             <button
               onClick={() => setHighRatingOnly(!highRatingOnly)}
               className={`flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
@@ -311,7 +349,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
           </div>
         </div>
 
-        {/* Slide-Down Reset Banner Strip */}
         <div
           className={`overflow-hidden transition-all duration-300 ease-in-out ${
             hasActiveFilters ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
@@ -336,11 +373,8 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
         </div>
       </header>
 
-      {/* Dual Independent Scroll Panes with safe-bottom */}
       <div className="mx-auto flex flex-1 min-h-0 w-full max-w-[720px] overflow-hidden safe-bottom">
-        {/* Left Subcategory Strip */}
         <aside className="w-20 md:w-24 shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white py-2 scrollbar-none">
-          {/* Default 'All Items' Tab */}
           <button
             onClick={() => setActiveSubId('all')}
             className={`relative flex w-full flex-col items-center gap-1.5 px-1 py-2.5 transition ${
@@ -377,7 +411,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
             )}
           </button>
 
-          {/* Subcategories list */}
           {subcategories.map((sc) => {
             const active = sc.id === activeSubId;
             return (
@@ -425,7 +458,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
           })}
         </aside>
 
-        {/* Right Products Feed */}
         <main className="flex-1 overflow-y-auto px-3 py-3 scrollbar-none">
           <div className="mb-2.5 flex items-center justify-between">
             <h2 className="text-xs font-black uppercase tracking-wider text-slate-700">
@@ -479,6 +511,8 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
                   onClick={() => handleProductSelect(p)}
                   horizontal={false}
                   theme={categoryTheme}
+                  isWishlisted={wishlist.includes(p.id)}
+                  onWishlistToggle={handleWishlistToggle}
                 />
               ))}
             </div>
@@ -486,7 +520,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
         </main>
       </div>
 
-      {/* Sort Sheet Modal with safe-bottom */}
       {isSortSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
           <div

@@ -1,5 +1,4 @@
-// screens/BrandScreen.tsx
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, ChevronRight, ShieldCheck, Truck, Star, Search, X } from 'lucide-react';
 import { fetchBrandById, fetchProducts, fetchWishlist, toggleWishlist } from '@/services/catalog';
@@ -84,6 +83,30 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
 
+  const loadWishlist = useCallback(async () => {
+    try {
+      const wl = await fetchWishlist();
+      setWishlist(wl);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadWishlist();
+
+    const handleWishlistChange = () => {
+      void loadWishlist();
+    };
+
+    window.addEventListener('wishlist-updated', handleWishlistChange);
+    window.addEventListener('focus', handleWishlistChange);
+    return () => {
+      window.removeEventListener('wishlist-updated', handleWishlistChange);
+      window.removeEventListener('focus', handleWishlistChange);
+    };
+  }, [loadWishlist]);
+
   useEffect(() => {
     if (!brandId) {
       navigate('/');
@@ -99,19 +122,28 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
       const { products: allProducts } = await fetchProducts();
       const filtered = allProducts.filter(p => p.brand.toLowerCase() === b.name.toLowerCase());
       setProducts(filtered);
-      const wl = await fetchWishlist();
-      setWishlist(wl);
       setLoading(false);
     })();
   }, [brandId, navigate]);
 
   const handleWishlistToggle = async (productId: string) => {
     const isWishlisted = wishlist.includes(productId);
-    await toggleWishlist(productId, isWishlisted);
-    if (isWishlisted) {
-      setWishlist(wishlist.filter(id => id !== productId));
-    } else {
-      setWishlist([...wishlist, productId]);
+    const nextState = !isWishlisted;
+
+    setWishlist((prev) =>
+      isWishlisted ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+
+    try {
+      await toggleWishlist(productId, isWishlisted);
+      window.dispatchEvent(
+        new CustomEvent('wishlist-updated', {
+          detail: { productId, wishlisted: nextState },
+        })
+      );
+    } catch (err) {
+      console.error('Failed to toggle wishlist', err);
+      void loadWishlist();
     }
   };
 
@@ -194,7 +226,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
-      {/* HERO with safe-top */}
       <div className="relative overflow-hidden pt-12 pb-8 px-4 isolate safe-top">
         <div
           className="absolute inset-0"
@@ -236,7 +267,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         </div>
         <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 h-[80px] bg-gradient-to-b from-white/[0.12] to-transparent" />
 
-        {/* Back button */}
         <button
           onClick={() => navigate(-1)}
           className="absolute top-4 left-4 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white shadow-md"
@@ -244,7 +274,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
           <ArrowLeft size={20} />
         </button>
 
-        {/* Hero Content */}
         <div className="relative z-20 flex flex-col items-center text-center" style={{ color: textColor }}>
           <div className="h-24 w-24 rounded-2xl border-2 border-white/40 bg-white p-2 shadow-lg mb-4 flex items-center justify-center">
             <img src={logo_url} alt={name} className="max-h-full max-w-full object-contain" />
@@ -270,7 +299,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         </div>
       </div>
 
-      {/* Highlights strip */}
       {highlights.length > 0 && (
         <div className="mx-auto max-w-md px-4 mt-4">
           <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-lg">
@@ -296,7 +324,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         </div>
       )}
 
-      {/* Sticky search bar with safe-top */}
       <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg safe-top">
         <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-white p-2 shadow-md ring-1 ring-black/5">
           <div className="flex flex-1 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
@@ -326,7 +353,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
       </div>
 
       <div className="mx-auto max-w-md px-4 mt-4 space-y-6">
-        {/* Bulk Deal Banner */}
         {bulkDeal.enabled && !hasActiveFilter && (
           <div>
             <div
@@ -357,7 +383,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
           </div>
         )}
 
-        {/* Search Results or Categories */}
         {hasActiveFilter ? (
           <div>
             <h3 className="mb-3 text-sm font-bold text-gray-800">Search results ({filteredProducts.length})</h3>
@@ -490,7 +515,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         )}
       </div>
 
-      {/* Trust footer */}
       <div className="mx-auto max-w-md px-4 mt-6">
         <div className="flex items-center justify-around rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <TrustItem icon={ShieldCheck} label="Quality" sub="Assured" />

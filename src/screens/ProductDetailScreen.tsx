@@ -114,7 +114,6 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
         setWishlist(wl);
         setWishlisted(wl.includes(productId));
         const tiers = await fetchVolumePricing(productId);
-        // Sort tiers ascending by min_quantity
         setVolumeTiers(tiers.sort((a, b) => a.min_quantity - b.min_quantity));
 
         if (brandId) {
@@ -183,7 +182,6 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const quantity = cart.getQuantity(product.id);
 
-  // Find currently active tier based on selected quantity
   const activeTier = volumeTiers.find(
     (t) => quantity >= t.min_quantity && (t.max_quantity === null || quantity <= t.max_quantity)
   );
@@ -200,8 +198,15 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     setWishlistBusy(false);
   };
 
-  const handleApplyTierQuantity = (minQty: number) => {
-    cart.updateQuantity(product.id, minQty);
+  // Handles adding to cart if item doesn't exist, or updating existing quantity
+  const handleApplyTierQuantity = (targetQty: number) => {
+    if (!product) return;
+    const currentQty = cart.getQuantity(product.id);
+    if (currentQty === 0) {
+      cart.addToCart(product, targetQty);
+    } else {
+      cart.updateQuantity(product.id, targetQty);
+    }
   };
 
   const handleProductClick = (p: Product) => {
@@ -405,7 +410,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
 
                     <button
                       onClick={() => handleApplyTierQuantity(tier.min_quantity)}
-                      className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 shrink-0"
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 shrink-0 cursor-pointer"
                       style={
                         isApplied
                           ? { backgroundColor: `${primaryColor}15`, color: primaryColor }
@@ -470,7 +475,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
               >
                 <button
                   onClick={() => cart.updateQuantity(product.id, quantity - 1)}
-                  className="h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform active:scale-95"
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform active:scale-95 cursor-pointer"
                   style={{ backgroundColor: primaryColor }}
                 >
                   <Minus size={16} />
@@ -480,7 +485,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
                 </span>
                 <button
                   onClick={() => cart.addToCart(product)}
-                  className="h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform active:scale-95"
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform active:scale-95 cursor-pointer"
                   style={{ backgroundColor: primaryColor }}
                 >
                   <Plus size={16} />
@@ -489,7 +494,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
             ) : (
               <button
                 onClick={() => cart.addToCart(product)}
-                className="w-full h-12 rounded-xl text-white text-sm font-bold shadow-md transition-transform active:scale-[0.98]"
+                className="w-full h-12 rounded-xl text-white text-sm font-bold shadow-md transition-transform active:scale-[0.98] cursor-pointer"
                 style={{ backgroundColor: primaryColor }}
               >
                 Add to cart
@@ -499,7 +504,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
           <button
             onClick={handleWishlist}
             disabled={wishlistBusy}
-            className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-colors ${
+            className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-colors cursor-pointer ${
               wishlisted ? 'border-red-200 text-red-500' : 'border-ink-200 text-ink-600'
             }`}
           >

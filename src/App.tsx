@@ -215,11 +215,12 @@ function App() {
     screen === 'categoryDetail' || 
     screen === 'brand' ||
     screen === 'banner' ||
-    screen === 'search';
-
+    screen === 'search' ||
+    screen === 'product'; // <-- ADDED
+  
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search'];
+    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product']; // <-- ADDED
     const isDarkBg = darkHeaderScreens.includes(screen);
     setFullScreenSystemBars(!isDarkBg);
   }, [screen]);

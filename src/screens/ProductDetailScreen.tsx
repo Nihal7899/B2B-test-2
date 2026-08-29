@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -72,7 +72,10 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
   const [volumeTiers, setVolumeTiers] = useState<VolumePricingTier[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [isScrolled, setIsScrolled] = useState(false);
+  
+  // Smooth scroll opacity state (0 to 1)
+  const [headerOpacity, setHeaderOpacity] = useState(0);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const {
     primaryColor = '#10b981',
@@ -81,13 +84,20 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
     borderColor = '#e5e7eb',
   } = theme;
 
-  // Track scroll position to transition header background
+  // Track scroll and smoothly fade header to white ONLY when reaching the bottom of the image container
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 180) {
-        setIsScrolled(true);
+      const containerHeight = imageContainerRef.current?.offsetHeight || 320;
+      const headerHeight = 64; // approximate height including safe-area
+      const triggerPoint = containerHeight - headerHeight;
+      const scrollY = window.scrollY;
+
+      if (scrollY <= triggerPoint) {
+        setHeaderOpacity(0);
       } else {
-        setIsScrolled(false);
+        // Smoothly ramp opacity from 0 to 1 over the last 40px of crossing
+        const progress = Math.min(1, (scrollY - triggerPoint) / 40);
+        setHeaderOpacity(progress);
       }
     };
 
@@ -233,33 +243,35 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
   };
 
   return (
-    <div className="pb-6 space-y-5 relative">
-      {/* Sticky/Fixed Dynamic Header */}
+    <div className="pb-8 space-y-5 relative -mt-0">
+      {/* Dynamic Header */}
       <header
-        className={`fixed top-0 left-0 right-0 z-30 mx-auto max-w-[720px] px-4 py-3 flex items-center justify-between transition-all duration-300 ease-in-out ${
-          isScrolled
-            ? 'bg-white/95 backdrop-blur-md shadow-sm border-b border-ink-100'
-            : 'bg-gradient-to-b from-black/40 via-black/15 to-transparent'
-        }`}
+        className="fixed top-0 left-0 right-0 z-30 mx-auto max-w-[720px] px-4 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-3 flex items-center justify-between transition-colors duration-150"
+        style={{
+          backgroundColor: `rgba(255, 255, 255, ${headerOpacity * 0.98})`,
+          backdropFilter: headerOpacity > 0 ? 'blur(12px)' : 'none',
+          WebkitBackdropFilter: headerOpacity > 0 ? 'blur(12px)' : 'none',
+          borderBottom: headerOpacity > 0.8 ? '1px solid #f1f5f9' : '1px solid transparent',
+          boxShadow: headerOpacity > 0.8 ? '0 1px 3px 0 rgba(0, 0, 0, 0.05)' : 'none',
+        }}
       >
         {/* Back Button */}
         <button
           onClick={onBack}
           className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
-            isScrolled
+            headerOpacity > 0.6
               ? 'bg-ink-100 text-ink-800'
-              : 'bg-white/90 text-ink-700 shadow-soft backdrop-blur-xs'
+              : 'bg-white/90 text-ink-700 shadow-soft'
           }`}
           aria-label="Back"
         >
           <ArrowLeft size={18} />
         </button>
 
-        {/* Product Title on Scroll */}
+        {/* Product Title in Header */}
         <div
-          className={`flex-1 mx-3 truncate transition-opacity duration-300 ${
-            isScrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}
+          className="flex-1 mx-3 truncate transition-opacity duration-200"
+          style={{ opacity: headerOpacity }}
         >
           <p className="text-xs font-bold text-ink-900 truncate">{product.name}</p>
           <p className="text-[11px] font-extrabold" style={{ color: primaryColor }}>
@@ -267,29 +279,27 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
           </p>
         </div>
 
-        {/* Top Right Actions: Wishlist & Cart */}
+        {/* Top Right: Wishlist & Cart */}
         <div className="flex items-center gap-2">
-          {/* Wishlist Button */}
           <button
             onClick={handleWishlist}
             disabled={wishlistBusy}
             className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
-              isScrolled
+              headerOpacity > 0.6
                 ? 'bg-ink-100'
-                : 'bg-white/90 shadow-soft backdrop-blur-xs'
+                : 'bg-white/90 shadow-soft'
             } ${wishlisted ? 'text-red-500' : 'text-ink-600'}`}
             aria-label="Wishlist"
           >
             <Heart size={17} className={wishlisted ? 'fill-red-500' : ''} />
           </button>
 
-          {/* Cart Button with Count Badge */}
           <button
             onClick={() => navigate('/cart')}
             className={`relative h-9 w-9 rounded-xl flex items-center justify-center text-ink-700 transition-all active:scale-95 ${
-              isScrolled
+              headerOpacity > 0.6
                 ? 'bg-ink-100'
-                : 'bg-white/90 shadow-soft backdrop-blur-xs'
+                : 'bg-white/90 shadow-soft'
             }`}
             aria-label="Go to Cart"
           >
@@ -303,14 +313,14 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
         </div>
       </header>
 
-      {/* Image Carousel */}
-      <div className="relative h-[280px] bg-ink-50 overflow-hidden">
+      {/* Image Carousel - Flush Full Bleed */}
+      <div ref={imageContainerRef} className="relative h-[320px] bg-ink-100 overflow-hidden">
         <img
           src={images[activeImageIndex] || ''}
           alt={product.name}
           className="h-full w-full object-cover transition-opacity duration-300"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/10 pointer-events-none" />
 
         {images.length > 1 && (
           <>
@@ -412,7 +422,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
           )}
         </div>
 
-        {/* Interactive Volume Pricing Tier Cards */}
+        {/* Volume Pricing Tiers */}
         {volumeTiers.length > 0 && (
           <div className="space-y-2.5">
             <div className="flex items-center gap-1.5">

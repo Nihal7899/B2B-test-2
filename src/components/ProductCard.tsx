@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Heart,
   Star,
@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { Product } from '@/types';
+import { toggleWishlist } from '@/services/catalog';
 
 interface ThemeProps {
   primaryColor?: string;
@@ -70,7 +71,25 @@ export const ProductCard = React.memo(function ProductCard({
       ? Math.round(((product.mrp - product.price) / product.mrp) * 100)
       : 0;
 
+  const [localWishlisted, setLocalWishlisted] = useState(isWishlisted);
   const [added, setAdded] = useState(false);
+
+  // Synchronize local state with prop updates
+  useEffect(() => {
+    setLocalWishlisted(isWishlisted);
+  }, [isWishlisted]);
+
+  // Synchronize with external wishlist events without reloading
+  useEffect(() => {
+    const handleGlobalUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ productId: string; wishlisted: boolean }>;
+      if (customEvent.detail?.productId === product.id) {
+        setLocalWishlisted(customEvent.detail.wishlisted);
+      }
+    };
+    window.addEventListener('wishlist-updated', handleGlobalUpdate);
+    return () => window.removeEventListener('wishlist-updated', handleGlobalUpdate);
+  }, [product.id]);
 
   const handleAdd = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -81,12 +100,27 @@ export const ProductCard = React.memo(function ProductCard({
     }, 1200);
   }, [onAdd, product]);
 
-  const handleWishlistClick = useCallback((e: React.MouseEvent) => {
+  const handleWishlistClick = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onWishlistToggle) {
-      onWishlistToggle(product.id);
+    const nextState = !localWishlisted;
+    setLocalWishlisted(nextState);
+
+    try {
+      if (onWishlistToggle) {
+        onWishlistToggle(product.id);
+      } else {
+        await toggleWishlist(product.id, localWishlisted);
+      }
+      window.dispatchEvent(
+        new CustomEvent('wishlist-updated', {
+          detail: { productId: product.id, wishlisted: nextState },
+        })
+      );
+    } catch (err) {
+      console.error('Failed to toggle wishlist', err);
+      setLocalWishlisted(!nextState); // Rollback optimistic update
     }
-  }, [onWishlistToggle, product.id]);
+  }, [localWishlisted, onWishlistToggle, product.id]);
 
   const handleIncrement = useCallback(() => onIncrement(product), [onIncrement, product]);
   const handleDecrement = useCallback(() => onDecrement(product), [onDecrement, product]);
@@ -179,11 +213,12 @@ export const ProductCard = React.memo(function ProductCard({
           )}
         </div>
 
-        {/* Wishlist */}
+        {/* Wishlist Button */}
         <button
+          type="button"
           onClick={handleWishlistClick}
           className="
-            absolute right-2.5 top-2.5
+            absolute right-2.5 top-2.5 z-10
             flex h-8 w-8
             items-center justify-center
             rounded-full
@@ -196,7 +231,7 @@ export const ProductCard = React.memo(function ProductCard({
             active:scale-90
           "
           aria-label={
-            isWishlisted
+            localWishlisted
               ? 'Remove from wishlist'
               : 'Add to wishlist'
           }
@@ -205,7 +240,7 @@ export const ProductCard = React.memo(function ProductCard({
             size={14}
             strokeWidth={2.2}
             className={
-              isWishlisted
+              localWishlisted
                 ? 'fill-red-500 text-red-500'
                 : 'text-slate-600'
             }
@@ -415,6 +450,7 @@ export const ProductCard = React.memo(function ProductCard({
               </span>
             ) : (
               <button
+                type="button"
                 onClick={handleAdd}
                 className="
                   flex
@@ -494,6 +530,7 @@ export const QuantitySelector = React.memo(function QuantitySelector({
       }}
     >
       <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           onDecrement();
@@ -528,6 +565,7 @@ export const QuantitySelector = React.memo(function QuantitySelector({
       </span>
 
       <button
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           onIncrement();
@@ -600,6 +638,7 @@ export const ProductCarousel = React.memo(function ProductCarousel({
         </div>
 
         <button
+          type="button"
           onClick={onViewAll}
           className="
             flex

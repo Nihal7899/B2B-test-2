@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { ShoppingBag, Truck, ShieldCheck, Tag } from 'lucide-react';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -11,6 +10,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
   useEffect(() => {
     const exitTimer = setTimeout(() => setExiting(true), 2300);
     const doneTimer = setTimeout(onFinish, 2900);
+
     return () => {
       clearTimeout(exitTimer);
       clearTimeout(doneTimer);
@@ -19,83 +19,107 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-brand-800 via-brand-900 to-brand-950 safe-top safe-bottom ${
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden bg-[#021f1b] ${
         exiting ? 'splash-fade-out' : ''
       }`}
     >
-      {/* Ambient glow orbs */}
-      <div className="pointer-events-none absolute -top-24 -left-20 h-72 w-72 rounded-full bg-brand-500/20 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-28 -right-16 h-80 w-80 rounded-full bg-brand-400/15 blur-3xl" />
-      <div className="pointer-events-none absolute top-1/3 right-10 h-32 w-32 rounded-full bg-accent-500/15 blur-2xl" />
+      {/* Subtle background glow */}
+      <div className="absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-[#38d8a3]/10 blur-[120px]" />
 
-      {/* Expanding rings behind logo */}
-      <div className="pointer-events-none absolute">
-        <div className="splash-ring h-28 w-28 rounded-full border-2 border-brand-300/40" />
-        <div
-          className="splash-ring h-28 w-28 rounded-full border-2 border-brand-300/40"
-          style={{ animationDelay: '0.7s' }}
-        />
-      </div>
-
-      {/* Logo mark */}
-      <div className="splash-logo-in relative">
-        <div className="splash-float flex items-center justify-center h-20 w-20 rounded-3xl bg-white shadow-2xl shadow-brand-950/50 relative overflow-hidden">
-          <div className="absolute inset-0 splash-shimmer" />
+      {/* Logo */}
+      <div className="splash-logo-in flex flex-col items-center">
+        <div className="splash-float">
           <svg
-            width="40"
-            height="40"
-            viewBox="0 0 24 24"
+            width="190"
+            height="190"
+            viewBox="0 0 200 200"
             fill="none"
-            stroke="#0f7760"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="relative z-10"
+            xmlns="http://www.w3.org/2000/svg"
           >
-            <path d="M3 7l9-4 9 4-9 4-9-4z" />
-            <path d="M3 12l9 4 9-4" />
-            <path d="M3 17l9 4 9-4" />
+            <defs>
+              <linearGradient
+                id="mintGradient"
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="1"
+              >
+                <stop stopColor="#7DE5C2" />
+                <stop offset="1" stopColor="#36B98D" />
+              </linearGradient>
+            </defs>
+
+            {/* White C */}
+            <path
+              d="M92 37C57 37 32 63 32 100C32 137 57 163 92 163H113V137H93C74 137 61 122 61 100C61 78 74 63 93 63H113V37H92Z"
+              fill="#F8FAFC"
+            />
+
+            {/* Mint K */}
+            <path
+              d="M125 72L162 37H190L150 80L192 125H162L125 88V72Z"
+              fill="url(#mintGradient)"
+            />
+
+            {/* Bottom part of K */}
+            <path
+              d="M125 98L157 135H188L125 77V98Z"
+              fill="url(#mintGradient)"
+            />
+
+            {/* Minimal motion lines */}
+            <rect
+              x="24"
+              y="153"
+              width="28"
+              height="8"
+              rx="4"
+              fill="#63D9B3"
+            />
+            <rect
+              x="34"
+              y="170"
+              width="38"
+              height="8"
+              rx="4"
+              fill="#63D9B3"
+            />
+
+            {/* Wheels */}
+            <circle cx="86" cy="177" r="8" fill="#63D9B3" />
+            <circle cx="128" cy="177" r="8" fill="#63D9B3" />
           </svg>
+        </div>
+
+        {/* Brand Name */}
+        <h1 className="splash-word-in mt-4 text-5xl font-extrabold tracking-[-0.05em]">
+          <span className="text-white">Caf</span>
+          <span className="bg-gradient-to-r from-[#73E5C0] to-[#36B98D] bg-clip-text text-transparent">
+            Kart
+          </span>
+        </h1>
+
+        {/* Tagline */}
+        <div className="splash-tag-in mt-5 flex items-center gap-3">
+          <div className="h-px w-8 bg-[#49CFA5]/60" />
+
+          <span className="text-[10px] font-semibold uppercase tracking-[0.35em] text-[#8EDCC5]">
+            B2B · Simplified
+          </span>
+
+          <div className="h-px w-8 bg-[#49CFA5]/60" />
         </div>
       </div>
 
-      {/* Wordmark */}
-      <h1 className="splash-word-in mt-6 text-3xl font-extrabold text-white tracking-tight">
-        Stackknit
-      </h1>
-      <p className="splash-tag-in mt-1.5 text-[11px] font-semibold uppercase tracking-[0.25em] text-brand-200">
-        B2B Grocery Wholesale
+      {/* Bottom loading bar */}
+      <div className="absolute bottom-16 h-[3px] w-32 overflow-hidden rounded-full bg-white/10">
+        <div className="splash-bar h-full rounded-full bg-gradient-to-r from-[#38B98D] via-[#70E4BE] to-[#F8FAFC]" />
+      </div>
+
+      {/* Bottom text */}
+      <p className="absolute bottom-7 text-[10px] font-medium tracking-wide text-[#74BBA7]">
+        Wholesale made simple
       </p>
-
-      {/* Feature pills */}
-      <div className="splash-tag-in mt-7 flex items-center gap-2">
-        {[
-          { icon: Truck, label: 'Fast delivery' },
-          { icon: ShieldCheck, label: 'Verified quality' },
-          { icon: Tag, label: 'Best prices' },
-        ].map(({ icon: Icon, label }) => (
-          <div
-            key={label}
-            className="flex items-center gap-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 px-3 py-1.5"
-          >
-            <Icon size={13} className="text-brand-200" strokeWidth={2.2} />
-            <span className="text-[10px] font-semibold text-brand-100">{label}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Progress bar */}
-      <div className="absolute bottom-20 w-44 h-1 rounded-full bg-white/15 overflow-hidden">
-        <div className="splash-bar h-full rounded-full bg-gradient-to-r from-brand-300 to-white" />
-      </div>
-
-      {/* Footer text with safe area padding */}
-      <div className="absolute bottom-6 flex items-center gap-1.5 text-brand-300">
-        <ShoppingBag size={12} strokeWidth={2.2} />
-        <span className="text-[10px] font-medium tracking-wide">
-          Built for growing businesses
-        </span>
-      </div>
     </div>
   );
 }

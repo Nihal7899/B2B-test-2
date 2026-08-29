@@ -38,62 +38,63 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
 
       {/* Main Logo & Text Container */}
       <div className="flex flex-col items-center justify-center px-4 select-none">
+        {/* Adjusted SVG with tighter bounds */}
         <div className="relative flex items-center justify-center">
           <svg
-            width="180"
-            height="160"
-            viewBox="0 0 210 190"
+            width="170"
+            height="136"
+            viewBox="20 20 170 145"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
             {/* White "C" Body */}
             <path
-              d="M 130 46 L 82 46 A 36 36 0 0 0 82 118 L 120 118"
+              d="M 136 40 L 80 40 A 36 36 0 0 0 80 112 L 120 112"
               stroke="#FFFFFF"
-              strokeWidth="20"
+              strokeWidth="22"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
 
-            {/* Mint "K" Chevron (snapped flush against the C with zero gap) */}
+            {/* Mint "K" Chevron (Equal leg lengths, shifted up smoothly against C) */}
             <path
-              d="M 164 56 L 122 108 L 164 146"
+              d="M 164 58 L 120 102 L 164 146"
               stroke="#5CE5B4"
-              strokeWidth="20"
+              strokeWidth="22"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
 
-            {/* Upper Speed Line (shifted back under the C's curve) */}
+            {/* Upper Speed Line (shifted back) */}
             <path
-              d="M 38 134 H 66"
+              d="M 32 126 H 58"
               stroke="#5CE5B4"
-              strokeWidth="7"
+              strokeWidth="8"
               strokeLinecap="round"
             />
 
-            {/* Lower Speed Line (shifted back to the left of the wheels) */}
+            {/* Lower Speed Line (shifted back) */}
             <path
-              d="M 54 150 H 82"
+              d="M 44 142 H 72"
               stroke="#5CE5B4"
-              strokeWidth="7"
+              strokeWidth="8"
               strokeLinecap="round"
             />
 
-            {/* Cart Wheels (aligned directly under the C base) */}
-            <circle cx="106" cy="150" r="7" fill="#5CE5B4" />
-            <circle cx="134" cy="150" r="7" fill="#5CE5B4" />
+            {/* Cart Wheels (Larger dot size & shifted under C body) */}
+            <circle cx="96" cy="142" r="9.5" fill="#5CE5B4" />
+            <circle cx="126" cy="142" r="9.5" fill="#5CE5B4" />
           </svg>
         </div>
 
-        {/* Brand Name */}
-        <h1 className="mt-3 flex items-center text-4xl sm:text-5xl font-black tracking-tight font-sans">
+        {/* Brand Name (pulled closer to logo) */}
+        <h1 className="-mt-1 flex items-center text-4xl sm:text-5xl font-black tracking-tight font-sans">
           <span className="text-white">Caf</span>
           <span className="text-[#5CE5B4]">Kart</span>
         </h1>
 
         {/* Tagline */}
-        <div className="mt-3.5 flex items-center gap-2.5">
+        <div className="mt-2.5 flex items-center gap-2.5">
           <div className="h-[1.5px] w-6 sm:w-8 bg-[#5CE5B4]/80 rounded-full" />
           <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.32em] text-[#D3F6EB]">
             B 2 B . S I M P L I F I E D

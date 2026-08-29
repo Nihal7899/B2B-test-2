@@ -334,15 +334,15 @@ export function HomeScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-6">
-      {/* 1. Hardware-level Status Bar Mask (Prevents text bleeding behind transparent status bar without JS) */}
+      {/* 1. Hardware Status Bar Mask (Ensures solid green background behind transparent status bar) */}
       <div 
         className="fixed top-0 left-0 right-0 z-50 bg-[#02402c] pointer-events-none" 
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      {/* 2. Header Location Bar (Normal flow, slides smoothly behind the status bar cover on scroll) */}
+      {/* 2. Header Location Bar (Smooth scroll flow, ample bottom padding) */}
       <div className="bg-[#02402c] text-white safe-top">
-        <div className="max-w-7xl mx-auto px-4 pt-2.5 pb-1">
+        <div className="max-w-7xl mx-auto px-4 pt-3 pb-2">
           <button
             onClick={() => navigate('/addresses')}
             type="button"
@@ -366,9 +366,9 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 3. Header Sticky Search Bar (Sticks cleanly right below status bar with a strict 5.5px gap initially) */}
+      {/* 3. Header Sticky Search Bar (Sticks early, ample top padding to protect cart badge) */}
       <div 
-        className="sticky z-40 bg-[#02402c] text-white px-4 pt-0.5 pb-3 shadow-md rounded-b-3xl"
+        className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
@@ -390,7 +390,7 @@ export function HomeScreen({
             </div>
           </div>
 
-          {/* Cart Button */}
+          {/* Cart Button with unclipped badge */}
           <button
             onClick={() => navigate('/cart')}
             type="button"
@@ -401,7 +401,7 @@ export function HomeScreen({
             <span className="hidden sm:inline text-xs font-bold">Cart</span>
 
             {cart.totalItems > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-emerald-400 text-emerald-950 text-[11px] font-black shadow-md">
+              <span className="absolute -top-1 -right-1 z-10 flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-emerald-400 text-emerald-950 text-[11px] font-black shadow-md border border-[#02402c]">
                 {cart.totalItems}
               </span>
             )}

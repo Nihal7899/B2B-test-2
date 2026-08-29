@@ -17,7 +17,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { Product, VolumePricingTier } from '@/types';
-import type { useCart } from '@/store';
+import { useCart } from '@/store';
 import { OfferBadge } from '@/components/OfferBadge';
 import { ProductCard } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
@@ -35,7 +35,7 @@ import { recordRecentlyViewed } from '@/lib/recentlyViewed';
 
 interface ProductDetailScreenProps {
   productId: string;
-  cart: ReturnType<typeof useCart>;
+  cart?: ReturnType<typeof useCart>;
   onBack: () => void;
   onProduct: (product: Product) => void;
 }
@@ -50,8 +50,10 @@ const defaultTheme = {
   gradientTo: '#16a34a',
 };
 
-export function ProductDetailScreen({ productId, cart, onBack, onProduct }: ProductDetailScreenProps) {
+export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDetailScreenProps) {
   const navigate = useNavigate();
+  // Direct subscription to CartContext ensures live reactivity on back navigation
+  const cart = useCart();
   const [searchParams] = useSearchParams();
   const storeId = searchParams.get('storeId');
   const brandId = searchParams.get('brandId');
@@ -90,7 +92,6 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
       const containerHeight = imageContainerRef.current?.offsetHeight || 320;
       const scrollY = window.scrollY;
       
-      // Start transitioning only in the final 50px as the image leaves view
       const start = Math.max(0, containerHeight - 50);
       const end = containerHeight;
 
@@ -209,9 +210,12 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const quantity = cart.getQuantity(product.id);
 
-  const activeTier = volumeTiers.find(
-    (t) => quantity >= t.min_quantity && (t.max_quantity === null || quantity <= t.max_quantity)
-  );
+  // Active tier requires an active positive quantity in cart
+  const activeTier = quantity > 0
+    ? volumeTiers.find(
+        (t) => quantity >= t.min_quantity && (t.max_quantity === null || quantity <= t.max_quantity)
+      )
+    : undefined;
 
   const effectivePrice = activeTier ? activeTier.unit_price : product.price;
   const totalPrice = effectivePrice * quantity;
@@ -315,7 +319,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
         </div>
       </header>
 
-      {/* Image Carousel - Flush 0px Top */}
+      {/* Image Carousel */}
       <div ref={imageContainerRef} className="relative w-full h-[320px] bg-ink-100 overflow-hidden m-0 p-0">
         <img
           src={images[activeImageIndex] || ''}
@@ -440,6 +444,7 @@ export function ProductDetailScreen({ productId, cart, onBack, onProduct }: Prod
                   Math.round(((product.price - tier.unit_price) / product.price) * 100);
 
                 const isApplied =
+                  quantity > 0 &&
                   quantity >= tier.min_quantity &&
                   (tier.max_quantity === null || quantity <= tier.max_quantity);
 

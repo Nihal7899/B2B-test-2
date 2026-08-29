@@ -29,65 +29,65 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden bg-[#02201b] transition-opacity duration-500 ease-out ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden bg-[#011f1a] transition-opacity duration-500 ease-out ${
         exiting ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
-      {/* Ambient background glow */}
+      {/* Background ambient glow */}
       <div className="absolute -top-32 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-[#5ce5b4]/10 blur-[130px]" />
 
-      {/* Main Logo Container */}
+      {/* Main Logo & Text Container */}
       <div className="flex flex-col items-center justify-center px-4 select-none">
         <div className="relative flex items-center justify-center">
           <svg
-            width="170"
-            height="150"
-            viewBox="0 0 220 190"
+            width="180"
+            height="160"
+            viewBox="0 0 210 190"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {/* White "C" Frame */}
+            {/* White "C" Body */}
             <path
-              d="M 136 50 L 88 50 A 38 38 0 0 0 88 126 L 122 126"
+              d="M 130 46 L 82 46 A 36 36 0 0 0 82 118 L 120 118"
               stroke="#FFFFFF"
-              strokeWidth="22"
+              strokeWidth="20"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
 
-            {/* Mint "K" Chevron */}
+            {/* Mint "K" Chevron (snapped flush against the C with zero gap) */}
             <path
-              d="M 166 74 L 128 112 L 166 150"
+              d="M 164 56 L 122 108 L 164 146"
               stroke="#5CE5B4"
-              strokeWidth="22"
+              strokeWidth="20"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
 
-            {/* Top Speed Line */}
+            {/* Upper Speed Line (shifted back under the C's curve) */}
             <path
-              d="M 72 144 H 90"
+              d="M 38 134 H 66"
               stroke="#5CE5B4"
               strokeWidth="7"
               strokeLinecap="round"
             />
 
-            {/* Bottom Speed Line */}
+            {/* Lower Speed Line (shifted back to the left of the wheels) */}
             <path
-              d="M 82 156 H 102"
+              d="M 54 150 H 82"
               stroke="#5CE5B4"
               strokeWidth="7"
               strokeLinecap="round"
             />
 
-            {/* Cart Wheels (aligned with bottom speed line) */}
-            <circle cx="118" cy="156" r="7.5" fill="#5CE5B4" />
-            <circle cx="146" cy="156" r="7.5" fill="#5CE5B4" />
+            {/* Cart Wheels (aligned directly under the C base) */}
+            <circle cx="106" cy="150" r="7" fill="#5CE5B4" />
+            <circle cx="134" cy="150" r="7" fill="#5CE5B4" />
           </svg>
         </div>
 
         {/* Brand Name */}
-        <h1 className="mt-2 flex items-center text-4xl sm:text-5xl font-black tracking-tight font-sans">
+        <h1 className="mt-3 flex items-center text-4xl sm:text-5xl font-black tracking-tight font-sans">
           <span className="text-white">Caf</span>
           <span className="text-[#5CE5B4]">Kart</span>
         </h1>

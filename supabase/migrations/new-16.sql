@@ -21,3 +21,6 @@ ALTER TABLE public.home_sections
     'banner_slot'::text,
     'custom_products'::text
   ]));
+
+ALTER TABLE public.products 
+ADD COLUMN stock_threshold integer NOT NULL DEFAULT 0;

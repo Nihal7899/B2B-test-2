@@ -43,14 +43,15 @@ export interface DbProduct {
   wholesale_price: number;
   moq: number;
   stock_quantity: number;
+  stock_threshold: number; // <-- NEW
   image_url: string;
-  image_urls?: string[]; // NEW
+  image_urls?: string[];
   description: string;
   rating: number;
   is_active: boolean;
   hsn_code?: string;
   gst_percentage?: number;
-  subcategory_id?: string; // <-- added
+  subcategory_id?: string;
 }
 
 export interface DbOrder {
@@ -171,6 +172,7 @@ export function mapProduct(db: DbProduct, categoryId: string, subcategory?: Subc
     gst_percentage: db.gst_percentage || 0,
     subcategory_id: db.subcategory_id,
     subcategory,
+    stock_threshold: db.stock_threshold ?? 0, // <-- NEW
   };
 }
 

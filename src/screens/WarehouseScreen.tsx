@@ -1,15 +1,16 @@
 // src/components/WarehouseScreen.tsx
 import { useEffect, useState, useCallback } from 'react';
-import { ArrowLeft, Loader2, Search, ClipboardList, Printer } from 'lucide-react';
+import { ArrowLeft, Loader2, Search, ClipboardList, Printer, CheckCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DbProduct, DbOrder, DbOrderItem } from '@/services/catalog';
 import { buildGstBillHtml } from '@/services/gstBill';
 import { printHtml } from '@/utils/printHtml';
 import AdminInvoices from '@/components/AdminInvoices';
+import LowStockTab from '@/components/LowStockTab'; // <-- new component
 
 interface WarehouseScreenProps { onBack: () => void; }
 
-type Tab = 'orders' | 'stock' | 'invoices';
+type Tab = 'orders' | 'stock' | 'invoices' | 'lowstock';
 
 export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   const [tab, setTab] = useState<Tab>('orders');
@@ -26,7 +27,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setTab('orders')}
           className={`flex-1 h-10 rounded-xl text-sm font-bold transition-colors ${
@@ -51,15 +52,25 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         >
           Invoices
         </button>
+        <button
+          onClick={() => setTab('lowstock')}
+          className={`flex-1 h-10 rounded-xl text-sm font-bold transition-colors ${
+            tab === 'lowstock' ? 'bg-brand-600 text-white' : 'bg-white border border-ink-200 text-ink-600'
+          }`}
+        >
+          Low Stock
+        </button>
       </div>
 
       {tab === 'orders' && <OrdersTab />}
       {tab === 'stock' && <StockTab />}
       {tab === 'invoices' && <AdminInvoices />}
+      {tab === 'lowstock' && <LowStockTab />}
     </div>
   );
 }
 
+// ---- OrdersTab (unchanged) ----
 function OrdersTab() {
   const [orders, setOrders] = useState<(DbOrder & { customer_name: string; payment?: { status: string; provider: string; amount: number } | null })[]>([]);
   const [items, setItems] = useState<Record<string, DbOrderItem[]>>({});
@@ -97,7 +108,6 @@ function OrdersTab() {
         }
       }
 
-      // Filter: Exclude all Razorpay pending payments and incomplete checkouts
       const actionable = (ordersData || [])
         .map((order) => ({
           ...order,
@@ -105,18 +115,13 @@ function OrdersTab() {
         }))
         .filter((order) => {
           const p = order.payment;
-
-          // 1. Never show Razorpay orders where payment is still pending or failed
           if (p && p.provider === 'razorpay' && p.status !== 'paid') {
             return false;
           }
-
-          // 2. If order status is pending, only show if paid or explicitly marked as COD
           if (order.status === 'pending') {
             if (!p) return false;
             return p.status === 'paid' || p.provider === 'cod';
           }
-
           return true;
         });
 
@@ -402,6 +407,7 @@ function OrdersTab() {
   );
 }
 
+// ---- StockTab (unchanged) ----
 function StockTab() {
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [search, setSearch] = useState('');

@@ -27,7 +27,6 @@ export default function ProductsManager() {
     title: '',
     message: '',
   });
-  // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
   const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
@@ -96,7 +95,6 @@ export default function ProductsManager() {
     addToast('Product saved successfully', 'success');
   };
 
-  // Filter products: by brand or name
   const filteredProducts = products.filter(prod =>
     (prod.brand + ' ' + prod.name).toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -123,7 +121,6 @@ export default function ProductsManager() {
         ))}
       </ToastContainer>
 
-      {/* Search Bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
         <input
@@ -178,8 +175,6 @@ export default function ProductsManager() {
   );
 }
 
-
-
 // ---- ProductForm ----
 function ProductForm({
   initial,
@@ -229,6 +224,7 @@ function ProductForm({
     wholesale_price: initial?.wholesale_price ?? 0,
     moq: initial?.moq ?? 1,
     stock_quantity: initial?.stock_quantity ?? 0,
+    stock_threshold: initial?.stock_threshold ?? 0,  // <-- NEW
     description: initial?.description ?? '',
     rating: initial?.rating ?? 0,
     is_active: initial?.is_active ?? true,
@@ -352,7 +348,6 @@ function ProductForm({
         setUploading(false);
       }
 
-      // Delete images that were removed
       const removedUrls = originalUrls.filter(url => !finalImageUrls.includes(url));
       for (const url of removedUrls) {
         await deleteProductImage(url);
@@ -363,6 +358,7 @@ function ProductForm({
         ...form,
         image_url: mainImage,
         image_urls: finalImageUrls,
+        stock_threshold: form.stock_threshold, // <-- ensure included
       };
 
       if (initial) {
@@ -516,8 +512,8 @@ function ProductForm({
         </div>
       </div>
 
-      {/* Stock + Rating */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Stock + Threshold + Rating */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Stock quantity</label>
           <input
@@ -526,6 +522,17 @@ function ProductForm({
             onChange={(e) => setForm({ ...form, stock_quantity: Number(e.target.value) })}
             className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
           />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-ink-600 mb-1">Stock threshold</label>
+          <input
+            type="number"
+            min="0"
+            value={form.stock_threshold}
+            onChange={(e) => setForm({ ...form, stock_threshold: Number(e.target.value) })}
+            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+          />
+          <p className="text-[10px] text-ink-400 mt-1">Alert when stock falls below this</p>
         </div>
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Rating</label>

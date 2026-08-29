@@ -333,14 +333,14 @@ export function HomeScreen({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 safe-bottom">
-      {/* 1. Hardware Status Bar Mask (Ensures solid green background behind transparent status bar) */}
+    <div className="min-h-screen bg-slate-50 pb-36 safe-bottom">
+      {/* 1. Hardware Status Bar Mask */}
       <div 
         className="fixed top-0 left-0 right-0 z-50 bg-[#02402c] pointer-events-none" 
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      {/* 2. Header Location Bar (Smooth scroll flow, ample bottom padding) */}
+      {/* 2. Header Location Bar */}
       <div className="bg-[#02402c] text-white safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-2">
           <button
@@ -366,13 +366,12 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 3. Header Sticky Search Bar (Sticks early, ample top padding to protect cart badge) */}
+      {/* 3. Header Sticky Search Bar */}
       <div 
         className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
-          {/* Search Trigger Input */}
           <div
             onClick={() => navigate('/search')}
             className="relative flex-1 h-11 px-3.5 rounded-xl bg-white text-slate-900 flex items-center gap-2.5 cursor-pointer shadow-sm active:scale-[0.99] transition-transform select-none"
@@ -390,7 +389,6 @@ export function HomeScreen({
             </div>
           </div>
 
-          {/* Cart Button with unclipped badge */}
           <button
             onClick={() => navigate('/cart')}
             type="button"
@@ -409,8 +407,8 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 4. Main Catalog Content */}
-      <div className="space-y-6 pt-4">
+      {/* 4. Main Catalog Content with ample bottom clearance */}
+      <div className="space-y-6 pt-4 pb-16">
         {loading ? (
           <div className="space-y-4 p-4 animate-pulse">
             <div className="h-36 bg-slate-200 rounded-2xl w-full" />

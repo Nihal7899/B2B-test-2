@@ -1,37 +1,261 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, RefreshCw } from 'lucide-react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { ArrowLeft, Check, Delete } from 'lucide-react';
 import { useAuth } from '@/auth';
 
-const heroImage =
-  'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=85';
+const groceryImage =
+  'https://images.pexels.com/photos/7363163/pexels-photo-7363163.jpeg?auto=compress&cs=tinysrgb&h=1200&w=1200';
 
-// Fix: Handles typing without stripping valid numbers starting with 91,
-// while correctly stripping leading 91/+91 or 0 when pasted as 11/12-digit numbers
 function normalizeIndianPhone(value: string): string {
-  const digits = value.replace(/\D/g, '');
-  if (digits.length > 10 && digits.startsWith('91')) {
-    return digits.slice(2, 12);
-  }
-  if (digits.length > 10 && digits.startsWith('0')) {
-    return digits.slice(1, 11);
+  let digits = value.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) {
+    digits = digits.slice(2);
+  } else if (digits.length === 11 && digits.startsWith('0')) {
+    digits = digits.slice(1);
   }
   return digits.slice(0, 10);
 }
 
+// ==========================================
+// 1. TOP ILLUSTRATION COMPONENT (GREEN THEME)
+// ==========================================
+function OtpIllustration() {
+  return (
+    <div className="relative mx-auto flex h-44 w-full items-center justify-center pt-2">
+      {/* Soft Green Semicircle Backdrop */}
+      <div className="absolute bottom-2 h-32 w-52 rounded-t-full bg-gradient-to-t from-[#0f7760]/15 to-[#0f7760]/5" />
+
+      {/* Modern Smartphone Mockup */}
+      <div className="relative z-10 flex h-36 w-24 flex-col items-center justify-between rounded-2xl border-[3px] border-slate-800 bg-white p-2 shadow-xl shadow-slate-200/50">
+        <div className="h-1 w-6 rounded-full bg-slate-300" />
+
+        {/* Floating Message Bubbles */}
+        <div className="flex w-full flex-col gap-2">
+          <div className="h-2.5 w-10 animate-pulse rounded-full bg-slate-100" />
+          <div className="h-2.5 w-14 self-end rounded-full bg-[#0f7760]/20" />
+          <div className="h-2.5 w-8 rounded-full bg-slate-100" />
+        </div>
+
+        <div className="h-1 w-7 rounded-full bg-slate-200" />
+      </div>
+
+      {/* Floating Animated Badge Bubble */}
+      <div className="animate-float absolute z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#0f7760] text-white shadow-lg shadow-[#0f7760]/40 -translate-x-6">
+        <div className="flex flex-col items-center justify-center">
+          <span className="text-[10px] font-black uppercase tracking-wider">OTP</span>
+          <span className="text-[8px] font-medium opacity-80">CODE</span>
+        </div>
+      </div>
+
+      {/* Decorative Character Silhouette */}
+      <div className="absolute left-[24%] bottom-2 z-10 hidden sm:block">
+        <div className="h-16 w-5 rounded-t-full bg-slate-800" />
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 2. OTP VERIFICATION SCREEN COMPONENT
+// ==========================================
+interface OtpViewProps {
+  phone: string;
+  formattedPhone: string;
+  onBack: () => void;
+  onVerify: (otp: string) => Promise<void>;
+  onResend: () => Promise<void>;
+  busy: boolean;
+  error: string;
+  verifyStatus: 'idle' | 'verifying' | 'success' | 'error';
+  seconds: number;
+}
+
+function OtpVerificationView({
+  formattedPhone,
+  onBack,
+  onVerify,
+  onResend,
+  busy,
+  error,
+  verifyStatus,
+  seconds,
+}: OtpViewProps) {
+  const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
+
+  // Handle number press
+  const handleKeyPress = useCallback(
+    (key: string) => {
+      if (busy || verifyStatus === 'success') return;
+
+      const firstEmptyIndex = digits.findIndex((d) => d === '');
+      if (firstEmptyIndex !== -1) {
+        const updated = [...digits];
+        updated[firstEmptyIndex] = key;
+        setDigits(updated);
+
+        // Auto verify upon 6th digit
+        if (firstEmptyIndex === 5) {
+          onVerify(updated.join(''));
+        }
+      }
+    },
+    [digits, busy, verifyStatus, onVerify]
+  );
+
+  // Handle Backspace
+  const handleDelete = useCallback(() => {
+    if (busy || verifyStatus === 'success') return;
+
+    const lastFilledIndex = [...digits].reverse().findIndex((d) => d !== '');
+    if (lastFilledIndex !== -1) {
+      const targetIndex = 5 - lastFilledIndex;
+      const updated = [...digits];
+      updated[targetIndex] = '';
+      setDigits(updated);
+    }
+  }, [digits, busy, verifyStatus]);
+
+  // Support physical hardware keyboard typing
+  useEffect(() => {
+    const handlePhysicalKeyDown = (e: KeyboardEvent) => {
+      if (/^[0-9]$/.test(e.key)) {
+        handleKeyPress(e.key);
+      } else if (e.key === 'Backspace') {
+        handleDelete();
+      }
+    };
+    window.addEventListener('keydown', handlePhysicalKeyDown);
+    return () => window.removeEventListener('keydown', handlePhysicalKeyDown);
+  }, [handleKeyPress, handleDelete]);
+
+  return (
+    <div className="flex h-full flex-col justify-between px-6 pt-4 pb-6 select-none">
+      {/* Top Header & Illustration */}
+      <div>
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 transition hover:text-slate-800"
+          >
+            <ArrowLeft size={16} /> Edit number
+          </button>
+          <span className="text-xs font-bold text-[#0f7760]">{formattedPhone}</span>
+        </div>
+
+        <OtpIllustration />
+
+        <div className="mt-3 text-center">
+          <h2 className="text-2xl font-black tracking-tight text-slate-900">
+            Enter Verification code
+          </h2>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            We have sent a 6-digit confirmation code to your mobile number
+          </p>
+        </div>
+
+        {/* 6 Animated OTP Pill Boxes */}
+        <div className="mt-6">
+          <div
+            className={`flex items-center justify-center gap-2 transition-transform ${
+              verifyStatus === 'error' ? 'animate-shake' : ''
+            }`}
+          >
+            {digits.map((digit, i) => {
+              const isFilled = digit !== '';
+              const isCurrent = digits.findIndex((d) => d === '') === i;
+
+              let style =
+                'bg-[#0f7760]/10 text-transparent border-transparent';
+
+              if (verifyStatus === 'success') {
+                style =
+                  'bg-emerald-500 text-white shadow-md shadow-emerald-500/30 scale-105';
+              } else if (verifyStatus === 'error') {
+                style =
+                  'bg-red-500 text-white shadow-md shadow-red-500/30';
+              } else if (isFilled) {
+                style =
+                  'bg-[#0f7760] text-white shadow-md shadow-[#0f7760]/25 scale-105 animate-pop';
+              } else if (isCurrent) {
+                style =
+                  'bg-[#0f7760]/15 border-2 border-[#0f7760] shadow-sm animate-pulse-glow';
+              }
+
+              return (
+                <div
+                  key={i}
+                  className={`flex h-12 w-11 sm:h-13 sm:w-12 items-center justify-center rounded-2xl text-xl font-black transition-all duration-200 ${style}`}
+                >
+                  {isFilled ? digit : ''}
+                </div>
+              );
+            })}
+          </div>
+
+          {error && (
+            <p className="mt-2 text-center text-xs font-bold text-red-500">{error}</p>
+          )}
+
+          {/* Resend Link */}
+          <div className="mt-3.5 text-center">
+            <span className="text-xs text-slate-500">Didn&apos;t receive code? </span>
+            <button
+              type="button"
+              disabled={seconds > 0 || busy}
+              onClick={onResend}
+              className="text-xs font-bold text-[#0f7760] hover:underline disabled:opacity-50"
+            >
+              {seconds > 0 ? `Resend code (${seconds}s)` : 'Resend code'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* On-Screen Numeric Keypad */}
+      <div className="mt-4 grid grid-cols-3 gap-y-3 gap-x-6 px-4">
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
+          <button
+            key={num}
+            type="button"
+            onClick={() => handleKeyPress(num)}
+            className="flex h-12 items-center justify-center rounded-2xl text-2xl font-extrabold text-slate-800 transition active:scale-90 active:bg-slate-100"
+          >
+            {num}
+          </button>
+        ))}
+        <div />
+        <button
+          type="button"
+          onClick={() => handleKeyPress('0')}
+          className="flex h-12 items-center justify-center rounded-2xl text-2xl font-extrabold text-slate-800 transition active:scale-90 active:bg-slate-100"
+        >
+          0
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          className="flex h-12 items-center justify-center rounded-2xl text-slate-700 transition active:scale-90 active:bg-slate-100"
+        >
+          <Delete size={22} strokeWidth={2.2} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 3. MAIN AUTH SCREEN CONTROLLER
+// ==========================================
 export function AuthScreen() {
   const { sendOtp, verifyOtp, resendOtp } = useAuth();
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
   const [seconds, setSeconds] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [shake, setShake] = useState(false);
 
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  // Countdown timer for resending OTP
+  // 30s Countdown timer
   useEffect(() => {
     if (seconds <= 0) return;
     const timer = window.setInterval(() => setSeconds((c) => Math.max(c - 1, 0)), 1000);
@@ -48,85 +272,41 @@ export function AuthScreen() {
     }
     setBusy(true);
     setError('');
-    const result = await sendOtp(`+91${phone}`);
-    setBusy(false);
 
-    if (result?.error) {
-      setError(result.error);
-      return;
+    try {
+      const result = await sendOtp(`+91${phone}`);
+      if (result?.error) {
+        setError(typeof result.error === 'string' ? result.error : result.error.message || 'Failed to send OTP.');
+        return;
+      }
+      setStep('otp');
+      setSeconds(30);
+      setVerifyStatus('idle');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to send OTP. Please check your number.');
+    } finally {
+      setBusy(false);
     }
-    setStep('otp');
-    setSeconds(30);
-    setOtp(['', '', '', '', '', '']);
-    setVerifyStatus('idle');
-    setTimeout(() => inputRefs.current[0]?.focus(), 150);
   };
 
-  const triggerVerification = async (otpValue: string) => {
+  const handleVerifyOtp = async (codeToVerify: string) => {
     setBusy(true);
     setVerifyStatus('verifying');
     setError('');
 
-    const result = await verifyOtp(`+91${phone}`, otpValue);
-    setBusy(false);
-
-    if (result?.error) {
+    try {
+      const result = await verifyOtp(`+91${phone}`, codeToVerify);
+      if (result?.error) {
+        setVerifyStatus('error');
+        setError(typeof result.error === 'string' ? result.error : result.error.message || 'Invalid verification code.');
+      } else {
+        setVerifyStatus('success');
+      }
+    } catch (err: any) {
       setVerifyStatus('error');
-      setError(result.error || 'Invalid OTP code. Please try again.');
-      setShake(true);
-      setTimeout(() => setShake(false), 600);
-    } else {
-      setVerifyStatus('success');
-    }
-  };
-
-  const handleOtpChange = (index: number, value: string) => {
-    const cleanVal = value.replace(/\D/g, '');
-    if (!cleanVal) {
-      const updated = [...otp];
-      updated[index] = '';
-      setOtp(updated);
-      setVerifyStatus('idle');
-      return;
-    }
-
-    // Handle single digit or pasted sequence
-    const updated = [...otp];
-    if (cleanVal.length > 1) {
-      const pasted = cleanVal.slice(0, 6).split('');
-      pasted.forEach((char, i) => {
-        if (i < 6) updated[i] = char;
-      });
-      setOtp(updated);
-      const nextIdx = Math.min(pasted.length, 5);
-      inputRefs.current[nextIdx]?.focus();
-
-      if (updated.every((d) => d !== '')) {
-        triggerVerification(updated.join(''));
-      }
-      return;
-    }
-
-    updated[index] = cleanVal[0];
-    setOtp(updated);
-    setVerifyStatus('idle');
-
-    if (index < 5 && cleanVal[0]) {
-      inputRefs.current[index + 1]?.focus();
-    }
-
-    // Auto-verify when 6th digit is entered
-    if (index === 5 || updated.every((d) => d !== '')) {
-      const fullOtp = updated.join('');
-      if (fullOtp.length === 6) {
-        triggerVerification(fullOtp);
-      }
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
+      setError(err?.message || 'Verification failed. Please try again.');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -134,53 +314,53 @@ export function AuthScreen() {
     if (seconds > 0 || busy) return;
     setBusy(true);
     setError('');
-    const result = await resendOtp(`+91${phone}`);
-    setBusy(false);
 
-    if (result?.error) {
-      setError(result.error);
-      return;
+    try {
+      const result = await resendOtp(`+91${phone}`);
+      if (result?.error) {
+        setError(typeof result.error === 'string' ? result.error : result.error.message || 'Failed to resend code');
+        return;
+      }
+      setSeconds(30);
+      setVerifyStatus('idle');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to resend OTP.');
+    } finally {
+      setBusy(false);
     }
-    setSeconds(30);
-    setOtp(['', '', '', '', '', '']);
-    setVerifyStatus('idle');
-    inputRefs.current[0]?.focus();
   };
 
   return (
     <div className="relative min-h-[100dvh] w-full bg-zinc-950 sm:flex sm:items-center sm:justify-center sm:p-6">
-      {/* Container: Full bleed on mobile (100dvh), framed on desktop */}
-      <div className="relative flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-[#0a3d31] sm:h-[844px] sm:max-w-[420px] sm:rounded-[40px] sm:shadow-2xl">
-        
-        {/* Top Food Background Image */}
-        <div className="absolute inset-x-0 top-0 h-[60%] w-full overflow-hidden">
-          <img
-            src={heroImage}
-            alt="Fresh produce background"
-            className="h-full w-full object-cover object-center"
-          />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/20" />
-        </div>
+      {/* Mobile Card Container */}
+      <div className="relative flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-white sm:h-[844px] sm:max-w-[420px] sm:rounded-[40px] sm:shadow-2xl">
+        {step === 'phone' ? (
+          <div className="relative flex h-full flex-col justify-between bg-[#0c3e33]">
+            {/* Top Hero image (Only present on phone step) */}
+            <div className="absolute inset-x-0 top-0 h-[62%] w-full overflow-hidden">
+              <img
+                src={groceryImage}
+                alt="Fresh ingredients"
+                className="h-full w-full object-cover object-center"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/10" />
+            </div>
 
-        {/* Bottom Floating White Sheet */}
-        <div className="relative z-10 mt-auto flex w-full flex-col rounded-t-[36px] bg-white px-6 pt-7 pb-8 shadow-[0_-16px_40px_rgba(0,0,0,0.2)] [padding-bottom:max(2rem,env(safe-area-inset-bottom))]">
-          {step === 'phone' ? (
-            <div className="flex flex-col">
-              {/* Heading */}
+            {/* Bottom Form Sheet */}
+            <div className="relative z-10 mt-auto flex w-full flex-col rounded-t-[36px] bg-white px-6 pt-7 pb-8 shadow-[0_-16px_40px_rgba(0,0,0,0.2)] [padding-bottom:max(2rem,env(safe-area-inset-bottom))]">
               <h1 className="text-center text-[23px] font-extrabold leading-snug tracking-tight text-[#1a2e26]">
                 All your restaurant needs <br /> delivered next day
               </h1>
 
-              {/* Phone Input */}
               <div className="mt-8">
                 <div
                   className={`flex h-14 items-center rounded-2xl border px-4 transition-all duration-200 ${
                     error
-                      ? 'border-red-400 bg-red-50/30'
+                      ? 'border-red-400 bg-red-50/20'
                       : 'border-slate-200 bg-white focus-within:border-[#0f7760] focus-within:ring-4 focus-within:ring-[#0f7760]/10'
                   }`}
                 >
-                  <div className="flex items-center gap-2 pr-3 text-base font-medium text-slate-800">
+                  <div className="flex items-center gap-2 pr-3 text-base font-semibold text-slate-800">
                     <span className="text-xl leading-none">🇮🇳</span>
                     <span>+91</span>
                   </div>
@@ -200,7 +380,6 @@ export function AuthScreen() {
                 {error && <p className="mt-2 text-xs font-semibold text-red-500">{error}</p>}
               </div>
 
-              {/* Green Continue Button */}
               <button
                 type="button"
                 disabled={busy}
@@ -210,141 +389,44 @@ export function AuthScreen() {
                 {busy ? 'Sending code...' : 'Continue'}
               </button>
             </div>
-          ) : (
-            <div className="flex flex-col">
-              {/* Back Button & Phone Info */}
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep('phone');
-                    setError('');
-                    setVerifyStatus('idle');
-                  }}
-                  className="flex items-center gap-1.5 text-xs font-bold text-[#0f7760] hover:text-[#0c624f]"
-                >
-                  <ArrowLeft size={16} /> Change number
-                </button>
-                <span className="text-xs font-bold text-slate-500">{formattedPhone}</span>
-              </div>
-
-              <h2 className="mt-4 text-center text-[22px] font-extrabold text-[#1a2e26]">
-                Enter verification code
-              </h2>
-              <p className="mt-1 text-center text-xs text-slate-500">
-                We sent a 6-digit code to your phone
-              </p>
-
-              {/* 6-Box Connected OTP Inputs */}
-              <div className="relative mt-8">
-                {/* Visual Connection Wire */}
-                <div className="absolute top-1/2 left-4 right-4 h-[3px] -translate-y-1/2 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={`h-full transition-all duration-500 ${
-                      verifyStatus === 'success'
-                        ? 'w-full bg-emerald-500'
-                        : verifyStatus === 'error'
-                        ? 'w-full bg-red-500'
-                        : verifyStatus === 'verifying'
-                        ? 'w-full animate-pulse bg-[#0f7760]'
-                        : otp.some((d) => d !== '')
-                        ? 'w-full bg-[#0f7760]/40'
-                        : 'w-0'
-                    }`}
-                  />
-                </div>
-
-                <div
-                  className={`relative z-10 flex items-center justify-between gap-1.5 ${
-                    shake ? 'animate-shake' : ''
-                  }`}
-                >
-                  {otp.map((digit, idx) => {
-                    let borderClass = 'border-slate-200 bg-white text-slate-900';
-
-                    if (verifyStatus === 'success') {
-                      borderClass = 'border-emerald-500 bg-emerald-50 text-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.3)]';
-                    } else if (verifyStatus === 'error') {
-                      borderClass = 'border-red-500 bg-red-50 text-red-600 shadow-[0_0_12px_rgba(239,68,68,0.3)]';
-                    } else if (verifyStatus === 'verifying') {
-                      borderClass = 'border-[#0f7760] bg-emerald-50/40 text-[#0f7760] animate-pulse';
-                    } else if (digit) {
-                      borderClass = 'border-[#0f7760] bg-emerald-50/20 text-[#0f7760] ring-2 ring-[#0f7760]/10';
-                    }
-
-                    return (
-                      <input
-                        key={idx}
-                        ref={(el) => {
-                          inputRefs.current[idx] = el;
-                        }}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) => handleOtpChange(idx, e.target.value)}
-                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                        className={`h-13 w-12 rounded-xl border-2 text-center text-xl font-extrabold outline-none transition-all duration-300 sm:h-14 sm:w-12 ${borderClass}`}
-                      />
-                    );
-                  })}
-                </div>
-
-                {error && (
-                  <p className="mt-3 text-center text-xs font-semibold text-red-500">{error}</p>
-                )}
-              </div>
-
-              {/* Resend Code Button */}
-              <div className="mt-5 flex justify-center">
-                <button
-                  type="button"
-                  disabled={seconds > 0 || busy}
-                  onClick={handleResend}
-                  className="flex items-center gap-1.5 text-xs font-bold text-[#0f7760] transition hover:text-[#0c624f] disabled:text-slate-400"
-                >
-                  {seconds > 0 ? (
-                    <span>Resend code in {seconds}s</span>
-                  ) : (
-                    <>
-                      <span>Resend OTP</span>
-                      <RefreshCw size={13} className={busy ? 'animate-spin' : ''} />
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Green Verify / Continue Button */}
-              <button
-                type="button"
-                disabled={busy || otp.join('').length < 6 || verifyStatus === 'success'}
-                onClick={() => triggerVerification(otp.join(''))}
-                className={`mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-base font-bold text-white shadow-lg transition-all duration-300 active:scale-[0.98] ${
-                  verifyStatus === 'success'
-                    ? 'bg-emerald-500 shadow-emerald-500/25'
-                    : verifyStatus === 'error'
-                    ? 'bg-red-500 shadow-red-500/25'
-                    : 'bg-[#0f7760] shadow-[#0f7760]/25 hover:bg-[#0c624f]'
-                } disabled:opacity-50`}
-              >
-                {verifyStatus === 'verifying' ? (
-                  'Verifying...'
-                ) : verifyStatus === 'success' ? (
-                  <>
-                    <span>Verified</span>
-                    <Check size={18} strokeWidth={3} />
-                  </>
-                ) : (
-                  'Verify & Continue'
-                )}
-              </button>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          /* Step 2: Dedicated OTP Component with Keypad & Vector Graphic (No Hero Image) */
+          <OtpVerificationView
+            phone={phone}
+            formattedPhone={formattedPhone}
+            onBack={() => {
+              setStep('phone');
+              setError('');
+              setVerifyStatus('idle');
+            }}
+            onVerify={handleVerifyOtp}
+            onResend={handleResend}
+            busy={busy}
+            error={error}
+            verifyStatus={verifyStatus}
+            seconds={seconds}
+          />
+        )}
       </div>
 
-      {/* Shake Keyframe Animation */}
+      {/* Smooth Animations */}
       <style>{`
+        @keyframes pop {
+          0% { transform: scale(0.85); }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1.05); }
+        }
+        .animate-pop {
+          animation: pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) translateX(-24px); }
+          50% { transform: translateY(-8px) translateX(-24px); }
+        }
+        .animate-float {
+          animation: float 3s ease-in-out infinite;
+        }
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
           20%, 60% { transform: translateX(-6px); }

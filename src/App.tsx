@@ -482,8 +482,8 @@ function App() {
             render={renderScreen}
           />
         </main>
-
-        {screen !== 'categoryDetail' && screen !== 'search' && (
+        
+        {screen !== 'categoryDetail' && screen !== 'search' && screen !== 'product' && (
           <div className="safe-bottom bg-white border-t border-gray-100">
             <BottomNavigation
               active={screen}
@@ -492,6 +492,7 @@ function App() {
             />
           </div>
         )}
+
 
         {/* React Splash Screen with complete typography and animations */}
         {showSplash && (

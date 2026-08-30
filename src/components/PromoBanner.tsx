@@ -15,7 +15,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
   className = '',
 }: PromoBannerCardProps) {
   const size = sizeProp || banner.size || 'medium';
-  const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');[span_4](start_span)[span_4](end_span)
+  const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
 
   const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
   const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
@@ -48,12 +48,12 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
     }
 
     return { computedBgStyle, tailwindBgClass };
-  }, [banner]);[span_5](start_span)[span_5](end_span)
+  }, 
 
   const overlayStyle: React.CSSProperties = {
     backgroundColor: banner.overlayColor || '#000000',
     opacity: (banner.overlayOpacity ?? 40) / 100,
-  };[span_6](start_span)[span_6](end_span)
+  };
 
   const sizeConfig = useMemo(() => {
     switch (size) {
@@ -89,7 +89,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
           imageWidth: 'w-[42%]',
         };
     }
-  }, [size]);[span_7](start_span)[span_7](end_span)
+  }, [size]);
 
   return (
     <div

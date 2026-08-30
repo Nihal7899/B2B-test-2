@@ -41,13 +41,13 @@ interface ProductDetailScreenProps {
 }
 
 const defaultTheme = {
-  primaryColor: '#10b981',
-  secondaryColor: '#059669',
+  primaryColor: '#02402c',
+  secondaryColor: '#03543a',
   textColor: '#1f2937',
   borderColor: '#e5e7eb',
   buttonStyle: 'brand' as const,
-  gradientFrom: '#065f46',
-  gradientTo: '#16a34a',
+  gradientFrom: '#02402c',
+  gradientTo: '#03543a',
 };
 
 export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDetailScreenProps) {
@@ -80,8 +80,8 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const {
-    primaryColor = '#10b981',
-    secondaryColor = '#059669',
+    primaryColor = '#02402c',
+    secondaryColor = '#03543a',
     textColor = '#1f2937',
     borderColor = '#e5e7eb',
   } = theme;
@@ -113,13 +113,13 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
       fetchStoreConfig(storeId)
         .then((config) => {
           const t = {
-            primaryColor: config?.hero?.gradientFrom || '#10b981',
-            secondaryColor: config?.hero?.gradientTo || '#059669',
+            primaryColor: config?.hero?.gradientFrom || '#02402c',
+            secondaryColor: config?.hero?.gradientTo || '#03543a',
             textColor: '#1f2937',
             borderColor: '#e5e7eb',
             buttonStyle: 'brand' as const,
-            gradientFrom: config?.hero?.gradientFrom || '#065f46',
-            gradientTo: config?.hero?.gradientTo || '#16a34a',
+            gradientFrom: config?.hero?.gradientFrom || '#02402c',
+            gradientTo: config?.hero?.gradientTo || '#03543a',
           };
           setStoreTheme(storeId, t);
           setTheme(t);
@@ -148,13 +148,13 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
           const brand = await fetchBrandById(brandId);
           if (brand) {
             const t = {
-              primaryColor: brand.primary_color || '#10b981',
-              secondaryColor: brand.secondary_color || '#059669',
+              primaryColor: brand.primary_color || '#02402c',
+              secondaryColor: brand.secondary_color || '#03543a',
               textColor: '#1f2937',
               borderColor: '#e5e7eb',
               buttonStyle: 'brand' as const,
-              gradientFrom: brand.primary_color || '#065f46',
-              gradientTo: brand.secondary_color || '#16a34a',
+              gradientFrom: brand.primary_color || '#02402c',
+              gradientTo: brand.secondary_color || '#03543a',
             };
             setTheme(t);
             setStoreTheme(`brand_${brandId}`, t);
@@ -163,11 +163,11 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
           const { categories } = await fetchCategories();
           const category = categories.find((c) => c.id === categoryId);
           if (category) {
-            const gradient = category.gradient || '#10b981';
+            const gradient = category.gradient || '#02402c';
             const hexes = gradient.match(/#(?:[0-9a-fA-F]{3}){1,2}/g);
             const expandHex = (hex: string) =>
               hex.length === 4 ? '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3] : hex;
-            const pColor = hexes ? expandHex(hexes[0]) : '#10b981';
+            const pColor = hexes ? expandHex(hexes[0]) : '#02402c';
             const sColor = hexes && hexes.length > 1 ? expandHex(hexes[1]) : pColor;
             const t = {
               primaryColor: pColor,
@@ -190,7 +190,10 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
+        <div 
+          className="h-8 w-8 rounded-full border-2 border-slate-200 animate-spin" 
+          style={{ borderTopColor: primaryColor }}
+        />
       </div>
     );
   }
@@ -199,7 +202,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
         <p className="text-sm text-ink-500">Product not found</p>
-        <button onClick={onBack} className="mt-3 text-sm font-bold text-brand-600">
+        <button onClick={onBack} className="mt-3 text-sm font-bold" style={{ color: primaryColor }}>
           Go back
         </button>
       </div>
@@ -311,7 +314,10 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
           >
             <ShoppingBag size={17} />
             {cart.totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-accent-500 text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
+              <span 
+                className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full text-white text-[9px] font-bold flex items-center justify-center shadow-xs"
+                style={{ backgroundColor: primaryColor }}
+              >
                 {cart.totalItems}
               </span>
             )}
@@ -376,7 +382,10 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
               <Star size={14} className="fill-amber-400 text-amber-400" /> {product.rating}
             </span>
             <span className="text-xs text-ink-300">|</span>
-            <span className={`text-xs font-semibold ${product.inStock ? 'text-brand-600' : 'text-red-500'}`}>
+            <span 
+              className="text-xs font-semibold" 
+              style={{ color: product.inStock ? primaryColor : '#ef4444' }}
+            >
               {product.inStock ? 'In stock' : 'Out of stock'}
             </span>
           </div>

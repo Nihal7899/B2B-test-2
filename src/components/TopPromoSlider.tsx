@@ -75,17 +75,18 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
     opacity: (banner.overlayOpacity ?? 40) / 100,
   };
 
+  // Exact 1:1 size presets matching PromoBannerCard
   const sizeConfig = useMemo(() => {
     switch (size) {
       case 'small':
         return {
-          container: 'h-[140px] min-h-[140px]',
+          container: 'h-[150px] min-h-[150px]',
           padding: 'px-4 py-3',
           badge: 'text-[9px] px-2 py-0.5 mb-1.5',
-          headline: 'text-[15px] sm:text-[16px] font-extrabold leading-tight line-clamp-2',
-          subtext: 'text-[11px] opacity-85 mt-0.5 line-clamp-2',
-          cta: 'text-xs font-bold px-3.5 py-1.5 mt-2 shadow-xs',
-          imageWidth: 'w-2/5 sm:w-[35%]',
+          headline: 'text-[16px] sm:text-[17px] font-extrabold leading-tight line-clamp-2',
+          subtext: 'text-[11px] opacity-80 mt-0.5 line-clamp-2',
+          cta: 'text-xs font-bold px-3.5 py-1.5 mt-2 shadow-sm',
+          imageWidth: 'w-2/5 sm:w-[38%]',
         };
       case 'large':
         return {
@@ -93,20 +94,20 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
           padding: 'p-5 sm:p-6',
           badge: 'text-[10px] px-3 py-1 mb-2',
           headline: 'text-xl sm:text-2xl font-black leading-snug line-clamp-2',
-          subtext: 'text-xs sm:text-sm opacity-90 mt-1 line-clamp-2',
+          subtext: 'text-xs sm:text-sm opacity-90 mt-1 leading-relaxed line-clamp-2',
           cta: 'text-xs sm:text-sm font-bold px-4 py-2 mt-3 shadow-md',
           imageWidth: 'w-[45%]',
         };
       case 'medium':
       default:
         return {
-          container: 'h-[175px] min-h-[175px]',
+          container: 'h-[180px] min-h-[180px]',
           padding: 'p-4',
           badge: 'text-[9px] px-2 py-0.5 mb-2',
           headline: 'text-[17px] font-extrabold leading-tight tracking-tight line-clamp-2',
-          subtext: 'text-[11px] opacity-90 mt-1 line-clamp-2',
+          subtext: 'text-[11px] opacity-90 mt-1 leading-snug line-clamp-2',
           cta: 'text-xs font-bold px-3.5 py-1.5 mt-2 shadow-sm',
-          imageWidth: 'w-[40%]',
+          imageWidth: 'w-[42%]',
         };
     }
   }, [size]);

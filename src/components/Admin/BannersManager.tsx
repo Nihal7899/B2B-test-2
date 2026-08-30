@@ -15,6 +15,7 @@ import {
   CornerDownLeft,
   LayoutTemplate,
   Palette,
+  Smartphone,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ActionType, PromoBanner, BannerPosition, BannerSize, BannerBgType, HomeBanner } from '@/types';
@@ -457,26 +458,29 @@ export default function BannersManager() {
         >
           <div className="max-w-md w-full space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft">
-              <h3 className="text-sm font-bold text-ink-900">
-                Live Preview (
-                {previewBanner.position === 'top_slider'
-                  ? `Top Slider (${previewBanner.size?.toUpperCase() || 'MEDIUM'})`
-                  : previewBanner.position === 'top'
-                  ? 'Top Promo Ad'
-                  : previewBanner.size?.toUpperCase() || 'MEDIUM'}
-                )
-              </h3>
+              <div className="flex items-center gap-2">
+                <Smartphone size={16} className="text-brand-600" />
+                <h3 className="text-sm font-bold text-ink-900">
+                  {previewBanner.position === 'top_slider'
+                    ? `Top Slider (Exact ${previewBanner.size === 'small' ? '150px' : previewBanner.size === 'large' ? '220px' : '180px'})`
+                    : previewBanner.position === 'top'
+                    ? 'Top Promo Ad (110px)'
+                    : `Slot Banner (${previewBanner.size?.toUpperCase() || 'MEDIUM'})`}
+                </h3>
+              </div>
               <button onClick={() => setPreviewBanner(null)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
               </button>
             </div>
-            {previewBanner.position === 'top_slider' ? (
-              <TopPromoSlider banners={[toPromoBanner(previewBanner)]} className="mx-0 w-full" />
-            ) : previewBanner.position === 'top' ? (
-              <PromoAdBanner banner={toPromoBanner(previewBanner)} className="mx-0 w-full" />
-            ) : (
-              <PromoBannerCard banner={toPromoBanner(previewBanner)} className="w-full" />
-            )}
+            <div className="bg-slate-100 p-3 rounded-2xl">
+              {previewBanner.position === 'top_slider' ? (
+                <TopPromoSlider banners={[toPromoBanner(previewBanner)]} sizeOverride={previewBanner.size} className="mx-0 w-full" />
+              ) : previewBanner.position === 'top' ? (
+                <PromoAdBanner banner={toPromoBanner(previewBanner)} className="mx-0 w-full" />
+              ) : (
+                <PromoBannerCard banner={toPromoBanner(previewBanner)} size={previewBanner.size} className="w-full" />
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -789,7 +793,7 @@ function BannerForm({
             />
           </div>
 
-          {/* Detailed Color Customization (Stored in action_config) */}
+          {/* Detailed Color Customization */}
           <div className="p-3.5 bg-ink-50/70 border border-ink-100 rounded-2xl space-y-3.5">
             <p className="text-[10px] font-black uppercase tracking-wider text-ink-700 flex items-center gap-1.5">
               <Palette size={13} className="text-brand-600" /> Typography & Element Colors
@@ -989,8 +993,8 @@ function BannerForm({
                 onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
                 className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
               >
-                <option value="small">Small (140-150px - Action Banner)</option>
-                <option value="medium">Medium (175-180px - Slider)</option>
+                <option value="small">Small (150px - Action Banner)</option>
+                <option value="medium">Medium (180px - Slider)</option>
                 <option value="large">Large (220px - Hero Banner)</option>
               </select>
             </div>
@@ -1416,24 +1420,30 @@ function BannerForm({
         {/* Live Preview Panel */}
         <div className="lg:col-span-5 flex flex-col justify-between bg-ink-50/70 p-4 rounded-2xl border border-ink-100">
           <div>
-            <p className="text-xs font-black uppercase tracking-wider text-ink-500 mb-3 flex items-center gap-1.5">
-              <Eye size={14} /> Live Preview (
-              {form.position === 'top_slider'
-                ? `Top Slider (${previewBannerObject.size?.toUpperCase() || 'MEDIUM'})`
-                : form.position === 'top'
-                ? 'Top Promo Ad'
-                : previewBannerObject.size?.toUpperCase() || 'MEDIUM'}
-              )
-            </p>
-            <div className="w-full">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-black uppercase tracking-wider text-ink-600 flex items-center gap-1.5">
+                <Eye size={14} className="text-brand-600" /> Live Preview
+              </p>
+              <span className="text-[10px] font-mono font-bold bg-white text-ink-600 px-2 py-0.5 rounded-full border border-ink-200">
+                {form.position === 'top_slider'
+                  ? `Top Slider (${form.size === 'small' ? '150px' : form.size === 'large' ? '220px' : '180px'})`
+                  : form.position === 'top'
+                  ? 'Top Promo Ad (110px)'
+                  : `${form.position.toUpperCase()} (${form.size?.toUpperCase() || 'MEDIUM'})`}
+              </span>
+            </div>
+
+            {/* Exact Canvas Preview Box */}
+            <div className="w-full bg-slate-100 p-2.5 rounded-2xl border border-slate-200/80 shadow-inner">
               {form.position === 'top_slider' ? (
-                <TopPromoSlider banners={[previewBannerObject]} className="mx-0 w-full" />
+                <TopPromoSlider banners={[previewBannerObject]} sizeOverride={form.size} className="mx-0 w-full" />
               ) : form.position === 'top' ? (
                 <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
               ) : (
-                <PromoBannerCard banner={previewBannerObject} className="w-full" />
+                <PromoBannerCard banner={previewBannerObject} size={form.size} className="w-full" />
               )}
             </div>
+
             <p className="text-[10px] text-ink-400 mt-3 leading-relaxed">
               * Text wraps automatically to the next line and spans 100% width when no image is uploaded.
             </p>

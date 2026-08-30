@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Category, Product, PromoBanner, Store, TrustedBrand, HomeSection } from '@/types';
-import type { useCart } from '@/store';
+import { useCart } from '@/store';
 import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
 import { TopPromoSlider } from '@/components/TopPromoSlider';
@@ -46,7 +46,7 @@ interface HomeScreenProps {
   onProduct: (product: Product) => void;
   onViewAll: () => void;
   onStoreClick: (store: Store) => void;
-  cart: ReturnType<typeof useCart>;
+  cart?: ReturnType<typeof useCart>;
   onBannerAction?: (banner: PromoBanner) => void;
 }
 
@@ -90,10 +90,11 @@ export function HomeScreen({
   onProduct,
   onViewAll,
   onStoreClick,
-  cart,
   onBannerAction,
 }: HomeScreenProps) {
   const navigate = useNavigate();
+  // Direct live subscription to cart store
+  const cart = useCart();
 
   // Header state
   const [address, setAddress] = useState<DbAddress | null>(null);
@@ -422,17 +423,14 @@ export function HomeScreen({
           </div>
         ) : (
           <>
-            {/* Standard Promo Ad Banner */}
             {topBanner && (
               <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
             )}
 
-            {/* Top Fixed Auto-Rotating Convertible Slider */}
             {topSliderBanners.length > 0 && (
               <TopPromoSlider banners={topSliderBanners} onAction={onBannerAction} />
             )}
 
-            {/* Top Carousel Banner Slot */}
             {carouselBanners.length > 0 && (
               <PromoCarousel banners={carouselBanners} onAction={onBannerAction} />
             )}
@@ -487,6 +485,7 @@ export function HomeScreen({
                       key={section.id}
                       title={section.title || 'Buy Again'}
                       products={reorderProducts}
+                      cartVersion={cart.items}
                       getQuantity={handleGetQuantity}
                       onAdd={handleAddToCart}
                       onIncrement={handleIncrement}
@@ -502,6 +501,7 @@ export function HomeScreen({
                       key={section.id}
                       title={section.title || 'Recently Viewed'}
                       products={recentlyViewed}
+                      cartVersion={cart.items}
                       getQuantity={handleGetQuantity}
                       onAdd={handleAddToCart}
                       onIncrement={handleIncrement}
@@ -517,6 +517,7 @@ export function HomeScreen({
                       key={section.id}
                       title={section.title || 'Popular Products'}
                       products={popularProducts}
+                      cartVersion={cart.items}
                       getQuantity={handleGetQuantity}
                       onAdd={handleAddToCart}
                       onIncrement={handleIncrement}
@@ -532,6 +533,7 @@ export function HomeScreen({
                       key={section.id}
                       title={section.title || 'Volume Savings'}
                       products={volumeDeals}
+                      cartVersion={cart.items}
                       getQuantity={handleGetQuantity}
                       onAdd={handleAddToCart}
                       onIncrement={handleIncrement}
@@ -547,6 +549,7 @@ export function HomeScreen({
                       key={section.id}
                       title={section.title || 'Wholesale Deals'}
                       products={deals}
+                      cartVersion={cart.items}
                       getQuantity={handleGetQuantity}
                       onAdd={handleAddToCart}
                       onIncrement={handleIncrement}
@@ -562,6 +565,7 @@ export function HomeScreen({
                       key={section.id}
                       title={section.title || 'New Arrivals'}
                       products={newArrivals}
+                      cartVersion={cart.items}
                       getQuantity={handleGetQuantity}
                       onAdd={handleAddToCart}
                       onIncrement={handleIncrement}
@@ -577,6 +581,7 @@ export function HomeScreen({
                       key={section.id}
                       title={section.title || 'Top Rated by Businesses'}
                       products={topRated}
+                      cartVersion={cart.items}
                       getQuantity={handleGetQuantity}
                       onAdd={handleAddToCart}
                       onIncrement={handleIncrement}
@@ -592,6 +597,7 @@ export function HomeScreen({
                       key={section.id}
                       title={section.title || 'Fast Selling / Low Stock'}
                       products={limitedStock}
+                      cartVersion={cart.items}
                       getQuantity={handleGetQuantity}
                       onAdd={handleAddToCart}
                       onIncrement={handleIncrement}
@@ -607,6 +613,7 @@ export function HomeScreen({
                       key={section.id}
                       title={section.title || `Spotlight: ${brandSpotlight.brandName}`}
                       products={brandSpotlight.products}
+                      cartVersion={cart.items}
                       getQuantity={handleGetQuantity}
                       onAdd={handleAddToCart}
                       onIncrement={handleIncrement}
@@ -622,6 +629,7 @@ export function HomeScreen({
                       key={section.id}
                       title={section.title || 'Everyday Essentials'}
                       products={essentials}
+                      cartVersion={cart.items}
                       getQuantity={handleGetQuantity}
                       onAdd={handleAddToCart}
                       onIncrement={handleIncrement}

@@ -23,7 +23,7 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import type { Product, PromoBanner, Category } from '@/types';
-import type { useCart } from '@/store';
+import { useCart } from '@/store';
 import {
   getLiveSearchSuggestions,
   executeFullSearch,
@@ -58,7 +58,7 @@ const SORT_OPTIONS: SortItem[] = [
 
 interface SearchScreenProps {
   initialQuery?: string;
-  cart: ReturnType<typeof useCart>;
+  cart?: ReturnType<typeof useCart>;
   onCartClick: () => void;
   onProductClick: (product: Product) => void;
   onBannerAction?: (banner: PromoBanner) => void;
@@ -68,12 +68,14 @@ const RECENT_SEARCHES_KEY = 'stackknit_recent_searches_v1';
 
 export function SearchScreen({
   initialQuery = '',
-  cart,
   onCartClick,
   onProductClick,
   onBannerAction,
 }: SearchScreenProps) {
   const navigate = useNavigate();
+  // Direct live subscription to cart store
+  const cart = useCart();
+
   const [query, setQuery] = useState(initialQuery);
   const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
   const [isFocused, setIsFocused] = useState(!initialQuery);
@@ -300,7 +302,6 @@ export function SearchScreen({
       {/* Sticky Header with safe-top for native notch/status-bar spacing */}
       <header className="sticky top-0 z-40 bg-[#02402c] shadow-md safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-2.5 text-white">
-          {/* Search Input Row matching Home Screen dimensions */}
           <form onSubmit={handleSubmit} className="flex items-center gap-2.5">
             <div className="relative flex-1 flex items-center">
               <div className="absolute left-3.5 pointer-events-none text-emerald-900/60">
@@ -342,7 +343,7 @@ export function SearchScreen({
               <ShoppingBag size={20} className="text-white" />
               <span className="hidden sm:inline text-xs font-bold">Cart</span>
 
-              {cart?.totalItems > 0 && (
+              {cart.totalItems > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-emerald-400 text-emerald-950 text-[11px] font-black shadow-md">
                   {cart.totalItems}
                 </span>
@@ -350,7 +351,7 @@ export function SearchScreen({
             </button>
           </form>
 
-          {/* Horizontal Filter Bar[cite: 9] */}
+          {/* Horizontal Filter Bar */}
           <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
             <button
               type="button"
@@ -407,7 +408,7 @@ export function SearchScreen({
           </div>
         </div>
 
-        {/* Slide-Down Reset Banner Strip[cite: 9] */}
+        {/* Slide-Down Reset Banner Strip */}
         <div
           className={`overflow-hidden transition-all duration-300 ease-in-out ${
             hasActiveFilters ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
@@ -522,7 +523,7 @@ export function SearchScreen({
               <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
             )}
 
-            {/* 2. Primary Product Grid[cite: 5] */}
+            {/* 2. Primary Product Grid */}
             <div className="px-4">
               {loading ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -582,7 +583,7 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 4. Alternative Brand Products[cite: 5, 7] */}
+            {/* 4. Alternative Brand Products */}
             {alternativeProducts.length > 0 && (
               <div className="space-y-3 px-4 pt-2">
                 <div className="flex items-center gap-2">
@@ -633,13 +634,14 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 6. Quick Reorder (Buy Again) Carousel */}
+            {/* 6. Quick Reorder Carousel */}
             {reorderProducts.length > 0 && (
               <div className="pt-2">
                 <ProductCarousel
                   title="Quick Reorder / Buy Again"
                   subtitle="Frequent purchases for your business"
                   products={reorderProducts}
+                  cartVersion={cart.items}
                   getQuantity={(id) => cart.getQuantity(id)}
                   onAdd={(p) => cart.addToCart(p)}
                   onIncrement={(p) => cart.addToCart(p)}
@@ -650,13 +652,14 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 7. Recently Viewed Products Carousel */}
+            {/* 7. Recently Viewed Carousel */}
             {recentlyViewed.length > 0 && (
               <div className="pt-2">
                 <ProductCarousel
                   title="Recently Viewed Products"
                   subtitle="Pick up where you left off"
                   products={recentlyViewed}
+                  cartVersion={cart.items}
                   getQuantity={(id) => cart.getQuantity(id)}
                   onAdd={(p) => cart.addToCart(p)}
                   onIncrement={(p) => cart.addToCart(p)}
@@ -667,7 +670,7 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 8. "Explore All Categories" Visual Grid[cite: 3] */}
+            {/* 8. "Explore All Categories" Visual Grid */}
             {allCategories.length > 0 && (
               <div className="px-4">
                 <section className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
@@ -719,6 +722,7 @@ export function SearchScreen({
                   title="Trending Wholesale Commodities"
                   subtitle="Best sellers and bulk deals across the catalog"
                   products={trendingProducts}
+                  cartVersion={cart.items}
                   getQuantity={(id) => cart.getQuantity(id)}
                   onAdd={(p) => cart.addToCart(p)}
                   onIncrement={(p) => cart.addToCart(p)}
@@ -732,7 +736,7 @@ export function SearchScreen({
         )}
       </div>
 
-      {/* Sort Sheet Modal (CategoryScreen Pattern)[cite: 9] */}
+      {/* Sort Sheet Modal */}
       {isSortSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
           <div

@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { Product } from '@/types';
+import type { useCart } from '@/store';
 import { toggleWishlist } from '@/services/catalog';
 
 export interface ThemeProps {
@@ -162,7 +163,7 @@ export const ProductCard = React.memo(function ProductCard({
         boxShadow: '0 4px 16px rgba(15, 23, 42, 0.06)',
       }}
     >
-      {/* Product Image - Container Height Retained at h-[144px] */}
+      {/* Product Image */}
       <div className="relative h-[144px] w-full overflow-hidden bg-slate-50">
         <img
           src={product.image}
@@ -575,13 +576,16 @@ export const QuantitySelector = React.memo(function QuantitySelector({
 
 interface ProductCarouselProps {
   title: string;
+  subtitle?: string;
   products: Product[];
-  getQuantity: (id: string) => number;
+  getQuantity?: (id: string) => number;
+  cart?: ReturnType<typeof useCart>;
+  cartVersion?: unknown;
   onAdd: (product: Product) => void;
   onIncrement: (product: Product) => void;
   onDecrement: (product: Product) => void;
   onProductClick: (product: Product) => void;
-  onViewAll: () => void;
+  onViewAll?: () => void;
   theme?: ThemeProps;
   wishlist?: string[];
   onWishlistToggle?: (id: string) => void;
@@ -589,8 +593,11 @@ interface ProductCarouselProps {
 
 export const ProductCarousel = React.memo(function ProductCarousel({
   title,
+  subtitle,
   products,
   getQuantity,
+  cart,
+  cartVersion: _cartVersion,
   onAdd,
   onIncrement,
   onDecrement,
@@ -601,6 +608,15 @@ export const ProductCarousel = React.memo(function ProductCarousel({
   onWishlistToggle,
 }: ProductCarouselProps) {
   const activePrimary = theme.primaryColor || '#02402c';
+
+  const getItemQuantity = useCallback(
+    (id: string) => {
+      if (getQuantity) return getQuantity(id);
+      if (cart) return cart.getQuantity(id);
+      return 0;
+    },
+    [getQuantity, cart]
+  );
 
   return (
     <section className="transform-gpu">
@@ -617,36 +633,38 @@ export const ProductCarousel = React.memo(function ProductCarousel({
               {title}
             </h2>
             <p className="text-[9px] font-medium text-slate-400">
-              Fresh deals for your business
+              {subtitle || 'Fresh deals for your business'}
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onViewAll}
-          className="
-            flex
-            items-center
-            gap-1
-            rounded-full
-            border
-            px-2.5
-            py-1
-            text-[9.5px]
-            font-extrabold
-            transition-transform
-            active:scale-95
-          "
-          style={{
-            color: activePrimary,
-            borderColor: `${activePrimary}35`,
-            backgroundColor: `${activePrimary}08`,
-          }}
-        >
-          View All
-          <span className="text-[11px]">→</span>
-        </button>
+        {onViewAll && (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="
+              flex
+              items-center
+              gap-1
+              rounded-full
+              border
+              px-2.5
+              py-1
+              text-[9.5px]
+              font-extrabold
+              transition-transform
+              active:scale-95
+            "
+            style={{
+              color: activePrimary,
+              borderColor: `${activePrimary}35`,
+              backgroundColor: `${activePrimary}08`,
+            }}
+          >
+            View All
+            <span className="text-[11px]">→</span>
+          </button>
+        )}
       </div>
 
       <div className="flex gap-2.5 overflow-x-auto px-4 pb-2 no-scrollbar scroll-touch transform-gpu">
@@ -654,7 +672,7 @@ export const ProductCarousel = React.memo(function ProductCarousel({
           <ProductCard
             key={product.id}
             product={product}
-            quantity={getQuantity(product.id)}
+            quantity={getItemQuantity(product.id)}
             onAdd={onAdd}
             onIncrement={onIncrement}
             onDecrement={onDecrement}

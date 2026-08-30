@@ -15,6 +15,7 @@ import {
   Sparkles,
   Check,
   Zap,
+  Package,
 } from 'lucide-react';
 import type { Product, VolumePricingTier } from '@/types';
 import { useCart } from '@/store';
@@ -74,6 +75,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
   const [volumeTiers, setVolumeTiers] = useState<VolumePricingTier[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
   
   // Smooth scroll opacity state (0 to 1)
   const [headerOpacity, setHeaderOpacity] = useState(0);
@@ -209,7 +211,10 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
     );
   }
 
-  const images = product.image_urls?.length ? product.image_urls : [product.image];
+  const rawImages = product.image_urls?.length ? product.image_urls : [product.image];
+  const images = rawImages.filter(Boolean);
+  const currentImage = images[activeImageIndex];
+  const isCurrentImageValid = Boolean(currentImage && !imageErrors[activeImageIndex]);
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const quantity = cart.getQuantity(product.id);
 
@@ -325,14 +330,20 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
         </div>
       </header>
 
-      {/* Image Carousel */}
-      <div ref={imageContainerRef} className="relative w-full h-[320px] bg-ink-100 overflow-hidden m-0 p-0">
-        <img
-          src={images[activeImageIndex] || ''}
-          alt={product.name}
-          className="h-full w-full object-cover transition-opacity duration-300"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/10 pointer-events-none" />
+      {/* Image Carousel / Container without Background */}
+      <div ref={imageContainerRef} className="relative w-full h-[320px] flex items-center justify-center overflow-hidden m-0 p-0">
+        {isCurrentImageValid ? (
+          <img
+            src={currentImage}
+            alt={product.name}
+            onError={() => setImageErrors((prev) => ({ ...prev, [activeImageIndex]: true }))}
+            className="h-full w-full object-cover transition-opacity duration-300"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-slate-300">
+            <Package size={64} strokeWidth={1.5} />
+          </div>
+        )}
 
         {images.length > 1 && (
           <>
@@ -354,7 +365,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
                   key={idx}
                   onClick={() => setActiveImageIndex(idx)}
                   className={`h-2 w-2 rounded-full transition-colors ${
-                    idx === activeImageIndex ? 'bg-white' : 'bg-white/40'
+                    idx === activeImageIndex ? 'bg-slate-800' : 'bg-slate-300'
                   }`}
                 />
               ))}

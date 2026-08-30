@@ -30,7 +30,7 @@ import {
   type DbCategory,
   type DbProduct,
 } from '@/services/catalog';
-import { PromoBannerCard } from '@/components/PromoBanner';
+import { PromoBannerCard, PromoCarousel } from '@/components/PromoBanner';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
 import { TopPromoSlider } from '@/components/TopPromoSlider';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
@@ -55,6 +55,82 @@ const ACTION_TYPES: ActionType[] = [
 ];
 
 type PositionTab = 'all' | 'top' | 'top_slider' | 'carousel' | 'middle' | 'bottom';
+
+// 1:1 Mobile Canvas Device Mockup matching HomeScreen layout
+function BannerPreviewDevice({
+  banner,
+  sizeOverride,
+}: {
+  banner: PromoBanner;
+  sizeOverride?: BannerSize;
+}) {
+  const position = banner.position || 'middle_1';
+
+  return (
+    <div className="w-full max-w-[360px] mx-auto bg-slate-50 rounded-[28px] border-[5px] border-slate-900 shadow-2xl overflow-hidden flex flex-col">
+      {/* Top status bar & mock location bar */}
+      <div className="bg-[#02402c] text-white px-4 pt-2.5 pb-3 shrink-0">
+        <div className="flex justify-between items-center text-[10px] text-white/70 font-mono mb-2">
+          <span>9:41</span>
+          <div className="h-2.5 w-12 bg-black/40 rounded-full" />
+          <span>5G 100%</span>
+        </div>
+        <div className="flex items-center gap-1.5 opacity-90">
+          <div className="h-2 w-2 rounded-full bg-emerald-400" />
+          <div className="h-2 w-24 bg-white/30 rounded-full" />
+        </div>
+      </div>
+
+      {/* Simulated Home Screen Body */}
+      <div className="bg-slate-50 py-3.5 flex-1 space-y-3 min-h-[310px]">
+        {position === 'top' && (
+          <div className="w-full">
+            <PromoAdBanner banner={banner} className="mx-3.5 shadow-card" />
+          </div>
+        )}
+
+        {position === 'top_slider' && (
+          <div className="w-full">
+            <TopPromoSlider
+              banners={[banner]}
+              sizeOverride={sizeOverride || banner.size}
+              className="mx-3.5 shadow-card"
+            />
+          </div>
+        )}
+
+        {position === 'carousel' && (
+          <div className="w-full">
+            <PromoCarousel
+              banners={[banner]}
+              size={sizeOverride || banner.size}
+            />
+          </div>
+        )}
+
+        {['middle', 'middle_1', 'middle_2', 'middle_3', 'bottom'].includes(position) && (
+          <div className="px-3.5 w-full">
+            <PromoBannerCard
+              banner={banner}
+              size={sizeOverride || banner.size}
+              className="w-full shadow-card"
+            />
+          </div>
+        )}
+
+        {/* Realistic Home Skeleton Context */}
+        <div className="px-3.5 pt-2 space-y-2.5 opacity-30 pointer-events-none select-none">
+          <div className="h-2.5 w-24 bg-slate-400 rounded-full" />
+          <div className="grid grid-cols-4 gap-2">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-14 bg-slate-300/80 rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function BannersManager() {
   const [banners, setBanners] = useState<HomeBanner[]>([]);
@@ -233,7 +309,7 @@ export default function BannersManager() {
       badge: b.badge ?? undefined,
       actionType: b.action_type,
       actionConfig: b.action_config,
-      position: b.position || 'middle_1',
+      position: (b.position as BannerPosition) || 'middle_1',
       size: b.size || 'medium',
       bgType: b.bg_type || 'gradient',
       bgColor: b.bg_color || '#16a34a',
@@ -394,7 +470,7 @@ export default function BannersManager() {
                   <button
                     onClick={() => setPreviewBanner(banner)}
                     className="h-8 w-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center hover:bg-sky-100"
-                    title="Preview"
+                    title="Preview Live Canvas"
                   >
                     <Eye size={14} />
                   </button>
@@ -425,7 +501,7 @@ export default function BannersManager() {
                   <button
                     onClick={() => handleDuplicateClick(banner)}
                     className="h-8 w-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center hover:bg-brand-100"
-                    title="Duplicate with safe new storage image"
+                    title="Duplicate Banner"
                   >
                     <Copy size={14} />
                   </button>
@@ -450,37 +526,28 @@ export default function BannersManager() {
         </div>
       )}
 
-      {/* Preview Modal */}
+      {/* 1:1 Live Device Preview Modal */}
       {previewBanner && (
         <div
-          className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
           onClick={() => setPreviewBanner(null)}
         >
-          <div className="max-w-md w-full space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div className="max-w-sm w-full space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft">
               <div className="flex items-center gap-2">
                 <Smartphone size={16} className="text-brand-600" />
-                <h3 className="text-sm font-bold text-ink-900">
-                  {previewBanner.position === 'top_slider'
-                    ? `Top Slider (Exact ${previewBanner.size === 'small' ? '150px' : previewBanner.size === 'large' ? '220px' : '180px'})`
-                    : previewBanner.position === 'top'
-                    ? 'Top Promo Ad (110px)'
-                    : `Slot Banner (${previewBanner.size?.toUpperCase() || 'MEDIUM'})`}
+                <h3 className="text-xs font-black text-ink-900 uppercase tracking-wider">
+                  Live Mobile View ({previewBanner.position?.toUpperCase()})
                 </h3>
               </div>
               <button onClick={() => setPreviewBanner(null)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
               </button>
             </div>
-            <div className="bg-slate-100 p-3 rounded-2xl">
-              {previewBanner.position === 'top_slider' ? (
-                <TopPromoSlider banners={[toPromoBanner(previewBanner)]} sizeOverride={previewBanner.size} className="mx-0 w-full" />
-              ) : previewBanner.position === 'top' ? (
-                <PromoAdBanner banner={toPromoBanner(previewBanner)} className="mx-0 w-full" />
-              ) : (
-                <PromoBannerCard banner={toPromoBanner(previewBanner)} size={previewBanner.size} className="w-full" />
-              )}
-            </div>
+            <BannerPreviewDevice
+              banner={toPromoBanner(previewBanner)}
+              sizeOverride={previewBanner.size}
+            />
           </div>
         </div>
       )}
@@ -589,8 +656,8 @@ function BannerForm({
   const previewBannerObject = useMemo<PromoBanner>(() => {
     return {
       id: initial?.id || 'temp-id',
-      headline: form.title || 'Banner Title Headline',
-      subtext: form.description || 'Short subtext and promotional details',
+      headline: form.title || 'Special Bulk Discounts\non Everyday Edible Oils',
+      subtext: form.description || 'Order in volume and save up to 25% on wholesale packs',
       cta: form.button_text || 'Shop now',
       image: previewUrl,
       badge: form.badge || undefined,
@@ -731,7 +798,7 @@ function BannerForm({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-7 space-y-4">
           {/* Position Slot Selection */}
           <div className="p-3 bg-brand-50/50 border border-brand-100 rounded-2xl">
@@ -1417,39 +1484,30 @@ function BannerForm({
           </div>
         </div>
 
-        {/* Live Preview Panel */}
-        <div className="lg:col-span-5 flex flex-col justify-between bg-ink-50/70 p-4 rounded-2xl border border-ink-100">
+        {/* 1:1 Live Mobile Canvas Side Preview */}
+        <div className="lg:col-span-5 flex flex-col justify-between bg-ink-50/70 p-4 rounded-3xl border border-ink-100 sticky top-4">
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-black uppercase tracking-wider text-ink-600 flex items-center gap-1.5">
-                <Eye size={14} className="text-brand-600" /> Live Preview
+            <div className="flex items-center justify-between mb-3 px-1">
+              <p className="text-xs font-black uppercase tracking-wider text-ink-700 flex items-center gap-1.5">
+                <Eye size={14} className="text-brand-600" /> Live Mobile View
               </p>
-              <span className="text-[10px] font-mono font-bold bg-white text-ink-600 px-2 py-0.5 rounded-full border border-ink-200">
-                {form.position === 'top_slider'
-                  ? `Top Slider (${form.size === 'small' ? '150px' : form.size === 'large' ? '220px' : '180px'})`
-                  : form.position === 'top'
-                  ? 'Top Promo Ad (110px)'
-                  : `${form.position.toUpperCase()} (${form.size?.toUpperCase() || 'MEDIUM'})`}
+              <span className="text-[10px] font-mono font-bold bg-white text-ink-600 px-2 py-0.5 rounded-full border border-ink-200 shadow-xs">
+                {form.position.toUpperCase()} • {form.size?.toUpperCase() || 'MEDIUM'}
               </span>
             </div>
 
-            {/* Exact Canvas Preview Box */}
-            <div className="w-full bg-slate-100 p-2.5 rounded-2xl border border-slate-200/80 shadow-inner">
-              {form.position === 'top_slider' ? (
-                <TopPromoSlider banners={[previewBannerObject]} sizeOverride={form.size} className="mx-0 w-full" />
-              ) : form.position === 'top' ? (
-                <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
-              ) : (
-                <PromoBannerCard banner={previewBannerObject} size={form.size} className="w-full" />
-              )}
-            </div>
+            {/* Simulated Live Device */}
+            <BannerPreviewDevice
+              banner={previewBannerObject}
+              sizeOverride={form.size}
+            />
 
-            <p className="text-[10px] text-ink-400 mt-3 leading-relaxed">
-              * Text wraps automatically to the next line and spans 100% width when no image is uploaded.
+            <p className="text-[10px] text-ink-400 text-center mt-3 leading-relaxed font-medium">
+              * Exact 1:1 view scaled to mobile viewport with realistic margins and wrapping.
             </p>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-ink-200 mt-6">
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-ink-200 mt-5">
             <button
               type="button"
               onClick={onClose}

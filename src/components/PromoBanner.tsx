@@ -269,7 +269,7 @@ export const PromoCarousel = React.memo(function PromoCarousel({
         <div
           key={`${banner.id}-${index}`}
           /* Increased card width by +5px more: w-[calc(85%+16px)] max-w-[356px] */
-          className="shrink-0 w-[calc(85%+16px)] max-w-[356px] snap-center snap-always"
+          className="shrink-0 w-[calc(85%+23px)] max-w-[363px] snap-center snap-always"
         >
           <PromoBannerCard banner={banner} size={size} onAction={onAction} />
         </div>

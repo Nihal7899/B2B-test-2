@@ -177,59 +177,68 @@ export const PromoCarousel = React.memo(function PromoCarousel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const isLoopable = banners.length > 1;
 
-  // Triplicate banners to provide a smooth infinite circular buffer
+  // Triplicate banners to ensure infinite buffer
   const displayBanners = useMemo(() => {
     return isLoopable ? [...banners, ...banners, ...banners] : banners;
   }, [banners, isLoopable]);
 
-  // Position viewport at the middle set on mount
+  // Center the first card of the middle set exactly in the viewport on mount
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !isLoopable) return;
 
     requestAnimationFrame(() => {
-      const singleSetWidth = el.scrollWidth / 3;
-      el.style.scrollBehavior = 'auto';
-      el.scrollLeft = singleSetWidth;
-      requestAnimationFrame(() => {
-        if (el) el.style.scrollBehavior = '';
-      });
+      const targetCard = el.children[banners.length] as HTMLElement;
+      if (targetCard) {
+        const centerPos = targetCard.offsetLeft - (el.clientWidth - targetCard.clientWidth) / 2;
+        el.style.scrollBehavior = 'auto';
+        el.scrollLeft = centerPos;
+        requestAnimationFrame(() => {
+          if (el) el.style.scrollBehavior = '';
+        });
+      }
     });
   }, [isLoopable, banners.length]);
 
-  // Seamless jump without stuttering between boundary edges
+  // Infinite jump handler between identical relative set positions
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
-    if (!el || !isLoopable) return;
+    if (!el || !isLoopable || el.children.length < banners.length * 3) return;
 
-    const singleSetWidth = el.scrollWidth / 3;
+    const firstCard = el.children[0] as HTMLElement;
+    const middleFirstCard = el.children[banners.length] as HTMLElement;
+    if (!firstCard || !middleFirstCard) return;
 
-    if (el.scrollLeft <= 5) {
+    const singleSetWidth = middleFirstCard.offsetLeft - firstCard.offsetLeft;
+    const minCenterPos = middleFirstCard.offsetLeft - (el.clientWidth - middleFirstCard.clientWidth) / 2;
+
+    // Shift left/right by exact set offset when reaching edges
+    if (el.scrollLeft <= minCenterPos - singleSetWidth / 2) {
       el.style.scrollBehavior = 'auto';
       el.scrollLeft += singleSetWidth;
       requestAnimationFrame(() => {
         if (el) el.style.scrollBehavior = '';
       });
-    } else if (el.scrollLeft >= singleSetWidth * 2 - 5) {
+    } else if (el.scrollLeft >= minCenterPos + singleSetWidth / 2) {
       el.style.scrollBehavior = 'auto';
       el.scrollLeft -= singleSetWidth;
       requestAnimationFrame(() => {
         if (el) el.style.scrollBehavior = '';
       });
     }
-  }, [isLoopable]);
+  }, [isLoopable, banners.length]);
 
   return (
     <div
       ref={scrollRef}
       onScroll={handleScroll}
-      className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-3 pb-1 snap-x snap-mandatory scroll-smooth transform-gpu"
+      className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 snap-x snap-mandatory scroll-smooth transform-gpu"
     >
       {displayBanners.map((banner, index) => (
         <div
           key={`${banner.id}-${index}`}
-          /* Increased width by +6px across carousel cards */
-          className="shrink-0 w-[calc(85%+6px)] max-w-[346px] snap-center"
+          /* Increased card width: w-[calc(85%+11px)] max-w-[351px] */
+          className="shrink-0 w-[calc(85%+11px)] max-w-[351px] snap-center snap-always"
         >
           <PromoBannerCard banner={banner} size={size} onAction={onAction} />
         </div>

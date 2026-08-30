@@ -48,7 +48,7 @@
   }
 }
 
-/* Smooth momentum scrolling on touch */
+/* Smooth touch scrolling momentum */
 .scroll-touch {
   -webkit-overflow-scrolling: touch;
 }

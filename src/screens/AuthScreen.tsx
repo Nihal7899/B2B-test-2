@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { ArrowLeft, Delete } from 'lucide-react';
 import { useAuth } from '@/auth';
+import { preloadHomeScreenDataAndImages } from '@/services/homePreload';
 import heroImage from './hero.jpg';
 
 function normalizeIndianPhone(value: string): string {
@@ -225,6 +226,10 @@ export function AuthScreen() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    void preloadHomeScreenDataAndImages();
+  }, []);
+
+  useEffect(() => {
     if (seconds <= 0) return;
     const timer = window.setInterval(() => setSeconds((c) => Math.max(c - 1, 0)), 1000);
     return () => window.clearInterval(timer);
@@ -300,11 +305,9 @@ export function AuthScreen() {
 
   return (
     <div className="relative min-h-[100dvh] w-full bg-slate-900 sm:flex sm:items-center sm:justify-center sm:p-6">
-      {/* Container flush to top on mobile */}
       <div className="relative flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-white sm:h-[844px] sm:max-w-[420px] sm:rounded-[40px] sm:shadow-2xl">
         {step === 'phone' ? (
           <div className="relative flex h-full flex-col justify-between bg-slate-900">
-            {/* Top Hero Image: Flush to the absolute top edge and extending 72% down to bleed behind bottom card */}
             <div className="absolute inset-x-0 top-0 h-[72%] w-full overflow-hidden">
               <img
                 src={heroImage}
@@ -314,7 +317,6 @@ export function AuthScreen() {
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/10" />
             </div>
 
-            {/* Bottom Card Sheet */}
             <div className="relative z-10 mt-auto flex w-full flex-col rounded-t-[36px] bg-white px-6 pt-7 pb-8 shadow-[0_-16px_40px_rgba(0,0,0,0.25)] [padding-bottom:max(2rem,env(safe-area-inset-bottom))]">
               <h1 className="text-center text-[23px] font-extrabold leading-snug tracking-tight text-[#1a2e26]">
                 All your restaurant needs <br /> delivered next day

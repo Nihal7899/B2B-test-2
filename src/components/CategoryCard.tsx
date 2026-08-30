@@ -27,7 +27,8 @@ export const CategoryCard = React.memo(function CategoryCard({
         <img
           src={category.image}
           alt={category.name}
-          decoding="async"
+          loading="eager"
+          decoding="sync"
           className="h-full w-full object-cover mix-blend-multiply opacity-85"
         />
         <div className="absolute inset-0 bg-white/10" />

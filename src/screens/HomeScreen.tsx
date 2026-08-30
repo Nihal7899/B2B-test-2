@@ -26,20 +26,11 @@ import {
   type DbAddress,
   fetchHomeSections,
   fetchHomeBanners,
-  fetchCategories,
-  fetchProducts,
-  fetchPopularProducts,
   fetchUserReorderProducts,
   fetchRecentlyViewedProducts,
-  fetchVolumeDealsProducts,
-  fetchNewArrivalsProducts,
-  fetchTopRatedProducts,
-  fetchLimitedStockProducts,
-  fetchBrandSpotlight,
-  fetchStores,
-  fetchTrustedBrands,
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
+import { getCachedHomeData, preloadHomeScreenDataAndImages } from '@/services/homePreload';
 
 interface HomeScreenProps {
   onCategory: (category: Category) => void;
@@ -95,30 +86,31 @@ export function HomeScreen({
   const navigate = useNavigate();
   const cart = useCart();
 
-  // Header state
-  const [address, setAddress] = useState<DbAddress | null>(null);
+  const initialCache = useMemo(() => getCachedHomeData(), []);
+
+  const [address, setAddress] = useState<DbAddress | null>(initialCache?.address || null);
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
   const [keywordIndex, setKeywordIndex] = useState(0);
   const [isFading, setIsFading] = useState(false);
 
-  // Home catalog state
-  const [sections, setSections] = useState<HomeSection[]>([]);
-  const [banners, setBanners] = useState<PromoBanner[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [popularProducts, setPopularProducts] = useState<Product[]>([]);
-  const [reorderProducts, setReorderProducts] = useState<Product[]>([]);
-  const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
-  const [volumeDeals, setVolumeDeals] = useState<Product[]>([]);
-  const [newArrivals, setNewArrivals] = useState<Product[]>([]);
-  const [topRated, setTopRated] = useState<Product[]>([]);
-  const [limitedStock, setLimitedStock] = useState<Product[]>([]);
-  const [brandSpotlight, setBrandSpotlight] = useState<{ brandName: string; products: Product[] } | null>(null);
-  const [stores, setStores] = useState<Store[]>([]);
-  const [brands, setBrands] = useState<TrustedBrand[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [sections, setSections] = useState<HomeSection[]>(initialCache?.sections || []);
+  const [banners, setBanners] = useState<PromoBanner[]>(initialCache?.banners || []);
+  const [categories, setCategories] = useState<Category[]>(initialCache?.categories || []);
+  const [products, setProducts] = useState<Product[]>(initialCache?.products || []);
+  const [popularProducts, setPopularProducts] = useState<Product[]>(initialCache?.popularProducts || []);
+  const [reorderProducts, setReorderProducts] = useState<Product[]>(initialCache?.reorderProducts || []);
+  const [recentlyViewed, setRecentlyViewed] = useState<Product[]>(initialCache?.recentlyViewed || []);
+  const [volumeDeals, setVolumeDeals] = useState<Product[]>(initialCache?.volumeDeals || []);
+  const [newArrivals, setNewArrivals] = useState<Product[]>(initialCache?.newArrivals || []);
+  const [topRated, setTopRated] = useState<Product[]>(initialCache?.topRated || []);
+  const [limitedStock, setLimitedStock] = useState<Product[]>(initialCache?.limitedStock || []);
+  const [brandSpotlight, setBrandSpotlight] = useState<{ brandName: string; products: Product[] } | null>(
+    initialCache?.brandSpotlight || null
+  );
+  const [stores, setStores] = useState<Store[]>(initialCache?.stores || []);
+  const [brands, setBrands] = useState<TrustedBrand[]>(initialCache?.brands || []);
+  const [loading, setLoading] = useState(!initialCache);
 
-  // 1. Fetch address for header
   useEffect(() => {
     let active = true;
     void fetchAddresses().then((addrs) => {
@@ -131,7 +123,6 @@ export function HomeScreen({
     };
   }, []);
 
-  // 2. Dynamic keywords for search placeholder
   useEffect(() => {
     let active = true;
     void getOrBuildSearchDictionary().then((dict) => {
@@ -144,7 +135,6 @@ export function HomeScreen({
     };
   }, []);
 
-  // 3. Cycle animated placeholder
   useEffect(() => {
     const interval = setInterval(() => {
       setIsFading(true);
@@ -157,7 +147,33 @@ export function HomeScreen({
     return () => clearInterval(interval);
   }, [displayKeywords]);
 
-  // Background updater for dynamic personal sections
+  const loadAllHomeData = useCallback(async (isInitial = false) => {
+    if (isInitial && !initialCache) setLoading(true);
+
+    try {
+      const data = await preloadHomeScreenDataAndImages();
+      setSections(data.sections);
+      setBanners(data.banners);
+      setCategories(data.categories);
+      setProducts(data.products);
+      setPopularProducts(data.popularProducts);
+      setReorderProducts(data.reorderProducts);
+      setRecentlyViewed(data.recentlyViewed);
+      setVolumeDeals(data.volumeDeals);
+      setNewArrivals(data.newArrivals);
+      setTopRated(data.topRated);
+      setLimitedStock(data.limitedStock);
+      setBrandSpotlight(data.brandSpotlight);
+      setStores(data.stores);
+      setBrands(data.brands);
+      if (data.address) setAddress(data.address);
+    } catch (err) {
+      console.error('Failed to load home catalog data:', err);
+    } finally {
+      if (isInitial) setLoading(false);
+    }
+  }, [initialCache]);
+
   const refreshDynamicSections = useCallback(async () => {
     try {
       const [recent, reorder] = await Promise.all([
@@ -171,7 +187,6 @@ export function HomeScreen({
     }
   }, []);
 
-  // Background updater for layout & banners
   const refreshLayoutAndBanners = useCallback(async () => {
     try {
       const [secRes, banRes] = await Promise.all([
@@ -185,67 +200,10 @@ export function HomeScreen({
     }
   }, []);
 
-  const loadAllHomeData = useCallback(async (isInitial = false) => {
-    if (isInitial) setLoading(true);
-
-    try {
-      const [
-        secRes,
-        banRes,
-        catRes,
-        prodRes,
-        popRes,
-        reorderRes,
-        recentRes,
-        volumeRes,
-        newArrRes,
-        topRatedRes,
-        limitedRes,
-        spotlightRes,
-        storeRes,
-        brandRes,
-      ] = await Promise.all([
-        fetchHomeSections(),
-        fetchHomeBanners(),
-        fetchCategories(),
-        fetchProducts(),
-        fetchPopularProducts(12),
-        fetchUserReorderProducts(10),
-        fetchRecentlyViewedProducts(),
-        fetchVolumeDealsProducts(10),
-        fetchNewArrivalsProducts(10),
-        fetchTopRatedProducts(10),
-        fetchLimitedStockProducts(10),
-        fetchBrandSpotlight(),
-        fetchStores(),
-        fetchTrustedBrands(),
-      ]);
-
-      setSections(secRes.filter((s) => s.isActive));
-      setBanners(banRes);
-      setCategories(catRes.categories || []);
-      setProducts(prodRes.products || []);
-      setPopularProducts(popRes || []);
-      setReorderProducts(reorderRes || []);
-      setRecentlyViewed(recentRes || []);
-      setVolumeDeals(volumeRes || []);
-      setNewArrivals(newArrRes || []);
-      setTopRated(topRatedRes || []);
-      setLimitedStock(limitedRes || []);
-      setBrandSpotlight(spotlightRes);
-      setStores(storeRes || []);
-      setBrands(brandRes || []);
-    } catch (err) {
-      console.error('Failed to load home catalog data:', err);
-    } finally {
-      if (isInitial) setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     let active = true;
 
-    void loadAllHomeData(true);
+    void loadAllHomeData(!initialCache);
 
     const homeChannel = supabase
       .channel('realtime:home_updates')
@@ -286,7 +244,7 @@ export function HomeScreen({
       window.removeEventListener('visibilitychange', handleVisibilityChange);
       void supabase.removeChannel(homeChannel);
     };
-  }, [loadAllHomeData, refreshDynamicSections, refreshLayoutAndBanners]);
+  }, [loadAllHomeData, refreshDynamicSections, refreshLayoutAndBanners, initialCache]);
 
   const deals = useMemo(() => {
     return products
@@ -336,13 +294,11 @@ export function HomeScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-36 safe-bottom">
-      {/* 1. Hardware Status Bar Mask */}
       <div 
         className="fixed top-0 left-0 right-0 z-50 bg-[#02402c] pointer-events-none" 
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      {/* 2. Header Location Bar */}
       <div className="bg-[#02402c] text-white safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-2">
           <button
@@ -368,7 +324,6 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 3. Header Sticky Search Bar */}
       <div 
         className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
@@ -409,7 +364,6 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 4. Main Catalog Content */}
       <div className="space-y-6 pt-4 pb-16">
         {loading ? (
           <div className="space-y-4 p-4 animate-pulse">
@@ -465,7 +419,8 @@ export function HomeScreen({
                               <img
                                 src={category.image}
                                 alt={category.name}
-                                decoding="async"
+                                loading="eager"
+                                decoding="sync"
                                 className="h-full w-full rounded-[14px] object-cover"
                               />
                             </div>
@@ -650,7 +605,6 @@ export function HomeScreen({
                           onAction={onBannerAction}
                         />
                       ) : (
-                        /* Adjusted to px-3 to widen single middle/bottom cards by 8px */
                         <div className="px-3">
                           <PromoBannerCard
                             banner={matching[0]}

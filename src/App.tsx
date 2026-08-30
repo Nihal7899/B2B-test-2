@@ -68,6 +68,8 @@ import {
   initializePushNotifications,
 } from '@/services/push';
 
+import { preloadHomeScreenDataAndImages } from '@/services/homePreload';
+
 const SCREEN_TO_PATH: Record<ScreenName, string> = {
   home: '/',
   search: '/search',
@@ -135,7 +137,6 @@ function BackButtonHandler() {
       if (triggerBack()) return;
 
       const now = Date.now();
-      // Only Home screen ('/') is the root screen that triggers app exit
       const isHomeScreen = location.pathname === '/';
 
       if (isHomeScreen) {
@@ -180,6 +181,17 @@ function App() {
   const location = useLocation();
 
   const [showSplash, setShowSplash] = useState(true);
+  const [isAppReady, setIsAppReady] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    void preloadHomeScreenDataAndImages().then(() => {
+      if (mounted) setIsAppReady(true);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
@@ -496,6 +508,7 @@ function App() {
 
         {showSplash && (
           <SplashScreen
+            isReady={!loading && isAppReady}
             onFinish={() => {
               setShowSplash(false);
             }}

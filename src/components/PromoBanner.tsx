@@ -17,7 +17,6 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
   const size = sizeProp || banner.size || 'medium';
   const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
 
-  // Customizable colors from actionConfig
   const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
   const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
   const badgeBg = (banner.actionConfig?.badgeBg as string) || '';
@@ -149,7 +148,8 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
           <img
             src={banner.image}
             alt={banner.headline}
-            decoding="async"
+            loading="eager"
+            decoding="sync"
             className="h-full w-full object-cover"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
@@ -178,7 +178,6 @@ export const PromoCarousel = React.memo(function PromoCarousel({
   const isLoopable = banners.length > 1;
   const isResetting = useRef(false);
 
-  // Triplicate banners for seamless circular buffer
   const displayBanners = useMemo(() => {
     return isLoopable ? [...banners, ...banners, ...banners] : banners;
   }, [banners, isLoopable]);
@@ -193,7 +192,6 @@ export const PromoCarousel = React.memo(function PromoCarousel({
     el.scrollLeft = targetLeft;
   }, []);
 
-  // Initial center on the middle set
   useEffect(() => {
     if (!isLoopable) return;
     const timer = setTimeout(() => {
@@ -203,7 +201,6 @@ export const PromoCarousel = React.memo(function PromoCarousel({
     return () => clearTimeout(timer);
   }, [isLoopable, banners.length, centerCardByIndex]);
 
-  // Seamless jump to center set once scrolling comes to rest
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !isLoopable) return;
@@ -268,8 +265,7 @@ export const PromoCarousel = React.memo(function PromoCarousel({
       {displayBanners.map((banner, index) => (
         <div
           key={`${banner.id}-${index}`}
-          /* Increased card width by +5px more: w-[calc(85%+16px)] max-w-[356px] */
-          className="shrink-0 w-[calc(85%+23px)] max-w-[363px] snap-center snap-always"
+          className="shrink-0 w-[calc(85%+24px)] max-w-[364px] snap-center snap-always"
         >
           <PromoBannerCard banner={banner} size={size} onAction={onAction} />
         </div>

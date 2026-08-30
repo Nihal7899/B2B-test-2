@@ -98,7 +98,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl flex shadow-soft transform-gpu ${sizeConfig.container} ${tailwindBgClass} ${className}`}
+      className={`relative overflow-hidden rounded-2xl flex shadow-soft ${sizeConfig.container} ${tailwindBgClass} ${className}`}
     >
       <div className="absolute inset-0 z-0" style={computedBgStyle} />
 
@@ -176,68 +176,101 @@ export const PromoCarousel = React.memo(function PromoCarousel({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isLoopable = banners.length > 1;
+  const isResetting = useRef(false);
 
-  // Triplicate banners to ensure infinite buffer
+  // Triplicate banners for seamless infinite scroll
   const displayBanners = useMemo(() => {
     return isLoopable ? [...banners, ...banners, ...banners] : banners;
   }, [banners, isLoopable]);
 
-  // Center the first card of the middle set exactly in the viewport on mount
+  // Center a given card index directly without vibration
+  const centerCardByIndex = useCallback((index: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const target = el.children[index] as HTMLElement;
+    if (!target) return;
+
+    const targetLeft = target.offsetLeft - (el.clientWidth - target.clientWidth) / 2;
+    el.scrollLeft = targetLeft;
+  }, []);
+
+  // Initial center on the middle set
+  useEffect(() => {
+    if (!isLoopable) return;
+    const timer = setTimeout(() => {
+      centerCardByIndex(banners.length);
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [isLoopable, banners.length, centerCardByIndex]);
+
+  // Silently reset loop ONLY when the scroll has completely settled
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !isLoopable) return;
 
-    requestAnimationFrame(() => {
-      const targetCard = el.children[banners.length] as HTMLElement;
-      if (targetCard) {
-        const centerPos = targetCard.offsetLeft - (el.clientWidth - targetCard.clientWidth) / 2;
-        el.style.scrollBehavior = 'auto';
-        el.scrollLeft = centerPos;
-        requestAnimationFrame(() => {
-          if (el) el.style.scrollBehavior = '';
-        });
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const checkAndResetLoop = () => {
+      if (isResetting.current) return;
+
+      const children = Array.from(el.children) as HTMLElement[];
+      if (children.length !== banners.length * 3) return;
+
+      const containerCenter = el.scrollLeft + el.clientWidth / 2;
+
+      let closestIndex = 0;
+      let minDiff = Infinity;
+
+      children.forEach((child, idx) => {
+        const childCenter = child.offsetLeft + child.clientWidth / 2;
+        const diff = Math.abs(containerCenter - childCenter);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestIndex = idx;
+        }
+      });
+
+      // If settled on set 1 (left) or set 3 (right), seamlessly teleport to middle set
+      if (closestIndex < banners.length) {
+        isResetting.current = true;
+        centerCardByIndex(closestIndex + banners.length);
+        setTimeout(() => {
+          isResetting.current = false;
+        }, 30);
+      } else if (closestIndex >= banners.length * 2) {
+        isResetting.current = true;
+        centerCardByIndex(closestIndex - banners.length);
+        setTimeout(() => {
+          isResetting.current = false;
+        }, 30);
       }
-    });
-  }, [isLoopable, banners.length]);
+    };
 
-  // Infinite jump handler between identical relative set positions
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el || !isLoopable || el.children.length < banners.length * 3) return;
+    const handleScrollEvent = () => {
+      clearTimeout(timeoutId);
+      // Wait for snap momentum to completely finish before checking
+      timeoutId = setTimeout(checkAndResetLoop, 150);
+    };
 
-    const firstCard = el.children[0] as HTMLElement;
-    const middleFirstCard = el.children[banners.length] as HTMLElement;
-    if (!firstCard || !middleFirstCard) return;
+    el.addEventListener('scroll', handleScrollEvent, { passive: true });
+    el.addEventListener('scrollend', checkAndResetLoop);
 
-    const singleSetWidth = middleFirstCard.offsetLeft - firstCard.offsetLeft;
-    const minCenterPos = middleFirstCard.offsetLeft - (el.clientWidth - middleFirstCard.clientWidth) / 2;
-
-    // Shift left/right by exact set offset when reaching edges
-    if (el.scrollLeft <= minCenterPos - singleSetWidth / 2) {
-      el.style.scrollBehavior = 'auto';
-      el.scrollLeft += singleSetWidth;
-      requestAnimationFrame(() => {
-        if (el) el.style.scrollBehavior = '';
-      });
-    } else if (el.scrollLeft >= minCenterPos + singleSetWidth / 2) {
-      el.style.scrollBehavior = 'auto';
-      el.scrollLeft -= singleSetWidth;
-      requestAnimationFrame(() => {
-        if (el) el.style.scrollBehavior = '';
-      });
-    }
-  }, [isLoopable, banners.length]);
+    return () => {
+      clearTimeout(timeoutId);
+      el.removeEventListener('scroll', handleScrollEvent);
+      el.removeEventListener('scrollend', checkAndResetLoop);
+    };
+  }, [isLoopable, banners.length, centerCardByIndex]);
 
   return (
     <div
       ref={scrollRef}
-      onScroll={handleScroll}
-      className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 snap-x snap-mandatory scroll-smooth transform-gpu"
+      className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 snap-x snap-mandatory"
     >
       {displayBanners.map((banner, index) => (
         <div
           key={`${banner.id}-${index}`}
-          /* Increased card width: w-[calc(85%+11px)] max-w-[351px] */
           className="shrink-0 w-[calc(85%+11px)] max-w-[351px] snap-center snap-always"
         >
           <PromoBannerCard banner={banner} size={size} onAction={onAction} />

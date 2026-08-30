@@ -12,8 +12,8 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
   onAction,
   className = 'mx-4',
 }: PromoAdBannerProps) {
-  const promoCode = (banner.actionConfig?.promoCode as string) || '';[span_0](start_span)[span_0](end_span)
-  const discount = (banner.actionConfig?.discount as string) || '';[span_1](start_span)[span_1](end_span)
+  const promoCode = (banner.actionConfig?.promoCode as string) || '';
+  const discount = (banner.actionConfig?.discount as string) || '';
 
   const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
   const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';

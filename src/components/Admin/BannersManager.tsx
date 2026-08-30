@@ -15,6 +15,7 @@ import {
   CornerDownLeft,
   LayoutTemplate,
   Palette,
+  Maximize2,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ActionType, PromoBanner, BannerPosition, BannerSize, BannerBgType, HomeBanner } from '@/types';
@@ -540,6 +541,7 @@ function BannerForm({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(initial?.image_url ?? '');
   const [originalImageUrl] = useState<string | null>(initial?.image_url ?? null);
+  const [isModalPreviewOpen, setIsModalPreviewOpen] = useState(false);
 
   const [categories, setCategories] = useState<DbCategory[]>([]);
   const [products, setProducts] = useState<DbProduct[]>([]);
@@ -716,752 +718,813 @@ function BannerForm({
   const needsFilter = form.action_type === 'FILTER_PRODUCTS';
 
   return (
-    <div className="bg-white border border-brand-200 rounded-2xl p-4 sm:p-5 space-y-6 shadow-card">
+    <div className="bg-white border border-brand-200 rounded-2xl p-4 sm:p-5 space-y-5 shadow-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-ink-100 pb-3">
         <h3 className="text-sm font-black text-ink-900 flex items-center gap-1.5">
           <Sliders size={16} className="text-brand-600" />
           {initial ? 'Edit Banner' : 'Create New Banner'}
         </h3>
-        <button onClick={onClose} className="h-8 w-8 rounded-lg flex items-center justify-center text-ink-400 hover:bg-ink-50">
-          <X size={16} />
-        </button>
-      </div>
-
-      {/* Full Width Live Preview */}
-      <div className="bg-ink-50/70 p-4 sm:p-5 rounded-2xl border border-ink-100 space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-black uppercase tracking-wider text-ink-500 flex items-center gap-1.5">
-            <Eye size={14} /> Live Preview (
-            {form.position === 'top_slider'
-              ? `Top Slider (${previewBannerObject.size?.toUpperCase() || 'MEDIUM'})`
-              : form.position === 'top'
-              ? 'Top Promo Ad'
-              : previewBannerObject.size?.toUpperCase() || 'MEDIUM'}
-            )
-          </p>
-          <span className="text-[11px] text-ink-400 font-medium">Full screen-width preview</span>
-        </div>
-
-        <div className="w-full">
-          {form.position === 'top_slider' ? (
-            <TopPromoSlider banners={[previewBannerObject]} className="mx-0 w-full" />
-          ) : form.position === 'top' ? (
-            <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
-          ) : (
-            <PromoBannerCard banner={previewBannerObject} className="w-full" />
-          )}
-        </div>
-
-        <p className="text-[10px] text-ink-400 leading-relaxed">
-          * Text wraps automatically to the next line and spans 100% width when no image is uploaded.
-        </p>
-      </div>
-
-      {/* Form Fields Grid */}
-      <div className="space-y-4">
-        {/* Position Slot Selection */}
-        <div className="p-3 bg-brand-50/50 border border-brand-100 rounded-2xl">
-          <label className="block text-xs font-bold text-brand-900 mb-1">Placement Slot</label>
-          <select
-            value={form.position}
-            onChange={(e) => setForm({ ...form, position: e.target.value as BannerPosition })}
-            className="w-full h-10 rounded-xl border border-brand-200 px-3 text-xs font-bold bg-white text-ink-800 outline-none focus:border-brand-500"
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setIsModalPreviewOpen(true)}
+            className="h-8 px-3 rounded-lg bg-sky-50 text-sky-600 text-xs font-bold flex items-center gap-1.5 hover:bg-sky-100 transition-colors"
+            title="Open Fullscreen Modal Preview"
           >
-            <option value="top">Top Rectangular (Promo Ad)</option>
-            <option value="top_slider">Top Slider (Convertible Fixed Banner)</option>
-            <option value="carousel">Top Carousel</option>
-            <option value="middle_1">Middle 1</option>
-            <option value="middle_2">Middle 2</option>
-            <option value="middle_3">Middle 3</option>
-            <option value="bottom">Bottom</option>
-          </select>
+            <Eye size={14} /> Fullscreen Preview
+          </button>
+          <button onClick={onClose} className="h-8 w-8 rounded-lg flex items-center justify-center text-ink-400 hover:bg-ink-50">
+            <X size={16} />
+          </button>
         </div>
+      </div>
 
-        {/* Title & Formatting */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-xs font-bold text-ink-700">Headline Title *</label>
-            <button
-              type="button"
-              onClick={() => insertLineBreak('title')}
-              className="text-[10px] font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1 bg-brand-50 px-2 py-0.5 rounded-md"
-            >
-              <CornerDownLeft size={10} /> Force Next Line
-            </button>
-          </div>
-          <textarea
-            rows={2}
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder={'e.g. Special Bulk Discounts\non Everyday Edible Oils'}
-            className="w-full rounded-xl border border-ink-200 p-2.5 text-xs font-bold outline-none focus:border-brand-500 font-sans"
-          />
-        </div>
-
-        {/* Description & Formatting */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-xs font-bold text-ink-700">Subtext / Description</label>
-            <button
-              type="button"
-              onClick={() => insertLineBreak('description')}
-              className="text-[10px] font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1 bg-brand-50 px-2 py-0.5 rounded-md"
-            >
-              <CornerDownLeft size={10} /> Force Next Line
-            </button>
-          </div>
-          <textarea
-            rows={2}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="e.g. Order in volume and save up to 25% on wholesale packs"
-            className="w-full rounded-xl border border-ink-200 p-2.5 text-xs outline-none focus:border-brand-500"
-          />
-        </div>
-
-        {/* Detailed Color Customization */}
-        <div className="p-3.5 bg-ink-50/70 border border-ink-100 rounded-2xl space-y-3.5">
-          <p className="text-[10px] font-black uppercase tracking-wider text-ink-700 flex items-center gap-1.5">
-            <Palette size={13} className="text-brand-600" /> Typography & Element Colors
-          </p>
-
-          {/* 1. Headline & Description Colors */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-ink-700 mb-1">Headline Text Color</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={(form.action_config.titleColor as string) || '#ffffff'}
-                  onChange={(e) => setActionConfig('titleColor', e.target.value)}
-                  className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                />
-                <input
-                  type="text"
-                  value={(form.action_config.titleColor as string) || '#ffffff'}
-                  onChange={(e) => setActionConfig('titleColor', e.target.value)}
-                  placeholder="#ffffff"
-                  className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-ink-700 mb-1">Subtext / Desc Color</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={(form.action_config.descColor as string) || '#ffffff'}
-                  onChange={(e) => setActionConfig('descColor', e.target.value)}
-                  className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                />
-                <input
-                  type="text"
-                  value={(form.action_config.descColor as string) || '#ffffff'}
-                  onChange={(e) => setActionConfig('descColor', e.target.value)}
-                  placeholder="#ffffff"
-                  className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Badge Pill & Text Colors */}
-          <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-ink-700 mb-1">Badge Pill Background</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={(form.action_config.badgeBg as string) || '#ffffff'}
-                  onChange={(e) => setActionConfig('badgeBg', e.target.value)}
-                  className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                />
-                <input
-                  type="text"
-                  value={(form.action_config.badgeBg as string) || ''}
-                  onChange={(e) => setActionConfig('badgeBg', e.target.value)}
-                  placeholder="Transparent (default)"
-                  className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-ink-700 mb-1">Badge Text Color</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={(form.action_config.badgeColor as string) || '#facc15'}
-                  onChange={(e) => setActionConfig('badgeColor', e.target.value)}
-                  className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                />
-                <input
-                  type="text"
-                  value={(form.action_config.badgeColor as string) || '#facc15'}
-                  onChange={(e) => setActionConfig('badgeColor', e.target.value)}
-                  placeholder="#facc15"
-                  className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 3. CTA Button Background & Text Colors */}
-          <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Button Background</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={(form.action_config.ctaBg as string) || '#ffffff'}
-                  onChange={(e) => setActionConfig('ctaBg', e.target.value)}
-                  className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                />
-                <input
-                  type="text"
-                  value={(form.action_config.ctaBg as string) || '#ffffff'}
-                  onChange={(e) => setActionConfig('ctaBg', e.target.value)}
-                  placeholder="#ffffff"
-                  className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Button Text Color</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={(form.action_config.ctaColor as string) || '#0f172a'}
-                  onChange={(e) => setActionConfig('ctaColor', e.target.value)}
-                  className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                />
-                <input
-                  type="text"
-                  value={(form.action_config.ctaColor as string) || '#0f172a'}
-                  onChange={(e) => setActionConfig('ctaColor', e.target.value)}
-                  placeholder="#0f172a"
-                  className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 4. Promo Code & Discount Tag Colors */}
-          <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-ink-700 mb-1">Promo Code Text Color</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={(form.action_config.promoCodeColor as string) || '#ffffff'}
-                  onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
-                  className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                />
-                <input
-                  type="text"
-                  value={(form.action_config.promoCodeColor as string) || '#ffffff'}
-                  onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
-                  placeholder="#ffffff"
-                  className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-ink-700 mb-1">Discount Tag Text Color</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={(form.action_config.discountColor as string) || '#ffffff'}
-                  onChange={(e) => setActionConfig('discountColor', e.target.value)}
-                  className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                />
-                <input
-                  type="text"
-                  value={(form.action_config.discountColor as string) || '#ffffff'}
-                  onChange={(e) => setActionConfig('discountColor', e.target.value)}
-                  placeholder="#ffffff"
-                  className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold text-ink-700 mb-1">Badge</label>
-            <input
-              value={form.badge}
-              onChange={(e) => setForm({ ...form, badge: e.target.value })}
-              placeholder="e.g. WHOLESALE"
-              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-ink-700 mb-1">CTA Button Text</label>
-            <input
-              value={form.button_text}
-              onChange={(e) => setForm({ ...form, button_text: e.target.value })}
-              placeholder="Shop now"
-              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold text-ink-700 mb-1">Banner Size Preset</label>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Form Inputs (Left Column) */}
+        <div className="lg:col-span-7 space-y-4">
+          {/* Position Slot Selection */}
+          <div className="p-3 bg-brand-50/50 border border-brand-100 rounded-2xl">
+            <label className="block text-xs font-bold text-brand-900 mb-1">Placement Slot</label>
             <select
-              value={form.size}
-              onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
-              className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
+              value={form.position}
+              onChange={(e) => setForm({ ...form, position: e.target.value as BannerPosition })}
+              className="w-full h-10 rounded-xl border border-brand-200 px-3 text-xs font-bold bg-white text-ink-800 outline-none focus:border-brand-500"
             >
-              <option value="small">Small (140-150px - Action Banner)</option>
-              <option value="medium">Medium (175-180px - Slider)</option>
-              <option value="large">Large (220px - Hero Banner)</option>
+              <option value="top">Top Rectangular (Promo Ad)</option>
+              <option value="top_slider">Top Slider (Convertible Fixed Banner)</option>
+              <option value="carousel">Top Carousel</option>
+              <option value="middle_1">Middle 1</option>
+              <option value="middle_2">Middle 2</option>
+              <option value="middle_3">Middle 3</option>
+              <option value="bottom">Bottom</option>
             </select>
           </div>
 
+          {/* Title & Formatting */}
           <div>
-            <label className="block text-xs font-bold text-ink-700 mb-1">Background Style</label>
-            <select
-              value={form.bg_type}
-              onChange={(e) => setForm({ ...form, bg_type: e.target.value as BannerBgType })}
-              className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
-            >
-              <option value="gradient">Custom Gradient</option>
-              <option value="color">Solid Colour</option>
-              <option value="image">Full Image</option>
-            </select>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold text-ink-700">Headline Title *</label>
+              <button
+                type="button"
+                onClick={() => insertLineBreak('title')}
+                className="text-[10px] font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1 bg-brand-50 px-2 py-0.5 rounded-md"
+              >
+                <CornerDownLeft size={10} /> Force Next Line
+              </button>
+            </div>
+            <textarea
+              rows={2}
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder={'e.g. Special Bulk Discounts\non Everyday Edible Oils'}
+              className="w-full rounded-xl border border-ink-200 p-2.5 text-xs font-bold outline-none focus:border-brand-500 font-sans"
+            />
           </div>
-        </div>
 
-        {/* Top Promo Ad specific configuration */}
-        {form.position === 'top' && (
-          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2.5">
-            <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Promo Ad Details</p>
+          {/* Description & Formatting */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold text-ink-700">Subtext / Description</label>
+              <button
+                type="button"
+                onClick={() => insertLineBreak('description')}
+                className="text-[10px] font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1 bg-brand-50 px-2 py-0.5 rounded-md"
+              >
+                <CornerDownLeft size={10} /> Force Next Line
+              </button>
+            </div>
+            <textarea
+              rows={2}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="e.g. Order in volume and save up to 25% on wholesale packs"
+              className="w-full rounded-xl border border-ink-200 p-2.5 text-xs outline-none focus:border-brand-500"
+            />
+          </div>
+
+          {/* Detailed Color Customization */}
+          <div className="p-3.5 bg-ink-50/70 border border-ink-100 rounded-2xl space-y-3.5">
+            <p className="text-[10px] font-black uppercase tracking-wider text-ink-700 flex items-center gap-1.5">
+              <Palette size={13} className="text-brand-600" /> Typography & Element Colors
+            </p>
+
+            {/* 1. Headline & Description Colors */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-ink-700 mb-1">Promo Code</label>
-                <input
-                  value={(form.action_config.promoCode as string) || ''}
-                  onChange={(e) => setActionConfig('promoCode', e.target.value)}
-                  placeholder="e.g. HYPER10"
-                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-mono font-bold outline-none focus:border-brand-500"
-                />
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Headline Text Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={(form.action_config.titleColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('titleColor', e.target.value)}
+                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={(form.action_config.titleColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('titleColor', e.target.value)}
+                    placeholder="#ffffff"
+                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                  />
+                </div>
               </div>
+
               <div>
-                <label className="block text-xs font-bold text-ink-700 mb-1">Discount Tag</label>
-                <input
-                  value={(form.action_config.discount as string) || ''}
-                  onChange={(e) => setActionConfig('discount', e.target.value)}
-                  placeholder="e.g. 10% OFF"
-                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-bold outline-none focus:border-brand-500"
-                />
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Subtext / Desc Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={(form.action_config.descColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('descColor', e.target.value)}
+                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={(form.action_config.descColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('descColor', e.target.value)}
+                    placeholder="#ffffff"
+                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Badge Pill & Text Colors */}
+            <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Badge Pill Background</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={(form.action_config.badgeBg as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('badgeBg', e.target.value)}
+                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={(form.action_config.badgeBg as string) || ''}
+                    onChange={(e) => setActionConfig('badgeBg', e.target.value)}
+                    placeholder="Transparent (default)"
+                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Badge Text Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={(form.action_config.badgeColor as string) || '#facc15'}
+                    onChange={(e) => setActionConfig('badgeColor', e.target.value)}
+                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={(form.action_config.badgeColor as string) || '#facc15'}
+                    onChange={(e) => setActionConfig('badgeColor', e.target.value)}
+                    placeholder="#facc15"
+                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. CTA Button Background & Text Colors */}
+            <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Button Background</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={(form.action_config.ctaBg as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('ctaBg', e.target.value)}
+                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={(form.action_config.ctaBg as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('ctaBg', e.target.value)}
+                    placeholder="#ffffff"
+                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Button Text Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={(form.action_config.ctaColor as string) || '#0f172a'}
+                    onChange={(e) => setActionConfig('ctaColor', e.target.value)}
+                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={(form.action_config.ctaColor as string) || '#0f172a'}
+                    onChange={(e) => setActionConfig('ctaColor', e.target.value)}
+                    placeholder="#0f172a"
+                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Promo Code & Discount Tag Colors */}
+            <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Promo Code Text Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={(form.action_config.promoCodeColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
+                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={(form.action_config.promoCodeColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
+                    placeholder="#ffffff"
+                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Discount Tag Text Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={(form.action_config.discountColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('discountColor', e.target.value)}
+                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={(form.action_config.discountColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('discountColor', e.target.value)}
+                    placeholder="#ffffff"
+                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                  />
+                </div>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Tint / Overlay Opacity & Color Controls */}
-        <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer select-none">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Badge</label>
               <input
-                type="checkbox"
-                checked={form.overlay_enabled}
-                onChange={(e) => setForm({ ...form, overlay_enabled: e.target.checked })}
-                className="accent-brand-600 rounded h-4 w-4"
+                value={form.badge}
+                onChange={(e) => setForm({ ...form, badge: e.target.value })}
+                placeholder="e.g. WHOLESALE"
+                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
               />
-              Enable Tint / Dark Overlay
-            </label>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-ink-700 mb-1">CTA Button Text</label>
+              <input
+                value={form.button_text}
+                onChange={(e) => setForm({ ...form, button_text: e.target.value })}
+                placeholder="Shop now"
+                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Banner Size Preset</label>
+              <select
+                value={form.size}
+                onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
+                className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
+              >
+                <option value="small">Small (140-150px - Action Banner)</option>
+                <option value="medium">Medium (175-180px - Slider)</option>
+                <option value="large">Large (220px - Hero Banner)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Background Style</label>
+              <select
+                value={form.bg_type}
+                onChange={(e) => setForm({ ...form, bg_type: e.target.value as BannerBgType })}
+                className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
+              >
+                <option value="gradient">Custom Gradient</option>
+                <option value="color">Solid Colour</option>
+                <option value="image">Full Image</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Top Promo Ad specific configuration */}
+          {form.position === 'top' && (
+            <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2.5">
+              <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Promo Ad Details</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-ink-700 mb-1">Promo Code</label>
+                  <input
+                    value={(form.action_config.promoCode as string) || ''}
+                    onChange={(e) => setActionConfig('promoCode', e.target.value)}
+                    placeholder="e.g. HYPER10"
+                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-mono font-bold outline-none focus:border-brand-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-ink-700 mb-1">Discount Tag</label>
+                  <input
+                    value={(form.action_config.discount as string) || ''}
+                    onChange={(e) => setActionConfig('discount', e.target.value)}
+                    placeholder="e.g. 10% OFF"
+                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-bold outline-none focus:border-brand-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tint / Overlay Opacity & Color Controls */}
+          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.overlay_enabled}
+                  onChange={(e) => setForm({ ...form, overlay_enabled: e.target.checked })}
+                  className="accent-brand-600 rounded h-4 w-4"
+                />
+                Enable Tint / Dark Overlay
+              </label>
+              {form.overlay_enabled && (
+                <span className="text-xs font-mono font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200">
+                  {form.overlay_opacity}% Opacity
+                </span>
+              )}
+            </div>
+
             {form.overlay_enabled && (
-              <span className="text-xs font-mono font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200">
-                {form.overlay_opacity}% Opacity
-              </span>
+              <div className="space-y-3 pt-2.5 border-t border-ink-200/60">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-ink-600 mb-1">Tint Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={form.overlay_color}
+                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                        className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={form.overlay_color}
+                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                        className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-[11px] font-semibold text-ink-600">Opacity Slider</label>
+                      <span className="text-[10px] font-mono font-bold text-ink-500">{form.overlay_opacity}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={form.overlay_opacity}
+                      onChange={(e) => setForm({ ...form, overlay_opacity: Number(e.target.value) })}
+                      className="w-full accent-brand-600 cursor-pointer h-2 bg-ink-200 rounded-lg"
+                    />
+                    <div className="flex justify-between text-[9px] text-ink-400 mt-1 font-mono">
+                      <span>0% (Transparent)</span>
+                      <span>50%</span>
+                      <span>100% (Solid)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
-          {form.overlay_enabled && (
-            <div className="space-y-3 pt-2.5 border-t border-ink-200/60">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {form.bg_type === 'gradient' && (
+            <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Gradient Stop Configuration</p>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-ink-600 mb-1">Tint Color</label>
-                  <div className="flex items-center gap-2">
+                  <label className="block text-[11px] font-semibold text-ink-500 mb-1">Start Color (From)</label>
+                  <div className="flex items-center gap-1.5">
                     <input
                       type="color"
-                      value={form.overlay_color}
-                      onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                      value={form.gradient_from}
+                      onChange={(e) => setForm({ ...form, gradient_from: e.target.value })}
                       className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
                     />
                     <input
                       type="text"
-                      value={form.overlay_color}
-                      onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                      value={form.gradient_from}
+                      onChange={(e) => setForm({ ...form, gradient_from: e.target.value })}
                       className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-[11px] font-semibold text-ink-600">Opacity Slider</label>
-                    <span className="text-[10px] font-mono font-bold text-ink-500">{form.overlay_opacity}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={form.overlay_opacity}
-                    onChange={(e) => setForm({ ...form, overlay_opacity: Number(e.target.value) })}
-                    className="w-full accent-brand-600 cursor-pointer h-2 bg-ink-200 rounded-lg"
-                  />
-                  <div className="flex justify-between text-[9px] text-ink-400 mt-1 font-mono">
-                    <span>0% (Transparent)</span>
-                    <span>50%</span>
-                    <span>100% (Solid)</span>
+                  <label className="block text-[11px] font-semibold text-ink-500 mb-1">End Color (To)</label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="color"
+                      value={form.gradient_to}
+                      onChange={(e) => setForm({ ...form, gradient_to: e.target.value })}
+                      className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={form.gradient_to}
+                      onChange={(e) => setForm({ ...form, gradient_to: e.target.value })}
+                      className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                    />
                   </div>
                 </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[
+                  { from: '#065f46', to: '#10b981' },
+                  { from: '#1e3a8a', to: '#3b82f6' },
+                  { from: '#7c2d12', to: '#f97316' },
+                  { from: '#581c87', to: '#a855f7' },
+                  { from: '#831843', to: '#ec4899' },
+                  { from: '#172554', to: '#1e293b' },
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setForm({ ...form, gradient_from: preset.from, gradient_to: preset.to })}
+                    className="h-6 px-2 rounded-md text-[9px] font-bold text-white shadow-xs"
+                    style={{ background: `linear-gradient(to right, ${preset.from}, ${preset.to})` }}
+                  >
+                    Preset {idx + 1}
+                  </button>
+                ))}
               </div>
             </div>
           )}
-        </div>
 
-        {form.bg_type === 'gradient' && (
-          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
-            <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Gradient Stop Configuration</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-ink-500 mb-1">Start Color (From)</label>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="color"
-                    value={form.gradient_from}
-                    onChange={(e) => setForm({ ...form, gradient_from: e.target.value })}
-                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={form.gradient_from}
-                    onChange={(e) => setForm({ ...form, gradient_from: e.target.value })}
-                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-ink-500 mb-1">End Color (To)</label>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="color"
-                    value={form.gradient_to}
-                    onChange={(e) => setForm({ ...form, gradient_to: e.target.value })}
-                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={form.gradient_to}
-                    onChange={(e) => setForm({ ...form, gradient_to: e.target.value })}
-                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                  />
-                </div>
+          {form.bg_type === 'color' && (
+            <div className="p-3 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
+              <label className="block text-xs font-bold text-ink-700">Solid Colour</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={form.bg_color}
+                  onChange={(e) => setForm({ ...form, bg_color: e.target.value })}
+                  className="h-9 w-12 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={form.bg_color}
+                  onChange={(e) => setForm({ ...form, bg_color: e.target.value })}
+                  className="flex-1 h-9 rounded-lg border border-ink-200 px-2.5 text-xs font-mono uppercase"
+                />
               </div>
             </div>
+          )}
 
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {[
-                { from: '#065f46', to: '#10b981' },
-                { from: '#1e3a8a', to: '#3b82f6' },
-                { from: '#7c2d12', to: '#f97316' },
-                { from: '#581c87', to: '#a855f7' },
-                { from: '#831843', to: '#ec4899' },
-                { from: '#172554', to: '#1e293b' },
-              ].map((preset, idx) => (
+          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-ink-700">
+                Side Image {form.bg_type === 'image' && '<Required for Full Image>'}
+              </label>
+              {previewUrl && (
                 <button
-                  key={idx}
                   type="button"
-                  onClick={() => setForm({ ...form, gradient_from: preset.from, gradient_to: preset.to })}
-                  className="h-6 px-2 rounded-md text-[9px] font-bold text-white shadow-xs"
-                  style={{ background: `linear-gradient(to right, ${preset.from}, ${preset.to})` }}
+                  onClick={handleRemoveImage}
+                  className="text-[11px] font-bold text-red-500 hover:text-red-700 flex items-center gap-1"
                 >
-                  Preset {idx + 1}
+                  <Trash2 size={12} /> Remove Image (Enable 100% text width)
                 </button>
-              ))}
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                value={form.image_url}
+                onChange={(e) => {
+                  setForm({ ...form, image_url: e.target.value });
+                  setPreviewUrl(e.target.value);
+                }}
+                placeholder="Image URL or upload..."
+                className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
+              />
+              <label className="h-10 px-3.5 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:bg-brand-100 transition-colors">
+                <ImageIcon size={14} /> Upload
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleFileSelect(f);
+                  }}
+                />
+              </label>
             </div>
           </div>
-        )}
 
-        {form.bg_type === 'color' && (
-          <div className="p-3 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
-            <label className="block text-xs font-bold text-ink-700">Solid Colour</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={form.bg_color}
-                onChange={(e) => setForm({ ...form, bg_color: e.target.value })}
-                className="h-9 w-12 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
-              />
-              <input
-                type="text"
-                value={form.bg_color}
-                onChange={(e) => setForm({ ...form, bg_color: e.target.value })}
-                className="flex-1 h-9 rounded-lg border border-ink-200 px-2.5 text-xs font-mono uppercase"
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-ink-700">
-              Side Image {form.bg_type === 'image' && '<Required for Full Image>'}
-            </label>
-            {previewUrl && (
-              <button
-                type="button"
-                onClick={handleRemoveImage}
-                className="text-[11px] font-bold text-red-500 hover:text-red-700 flex items-center gap-1"
+          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
+            <div>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Click Action Type</label>
+              <select
+                value={form.action_type}
+                onChange={(e) => setForm({ ...form, action_type: e.target.value as ActionType, action_config: {} })}
+                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs font-bold bg-white outline-none focus:border-brand-500"
               >
-                <Trash2 size={12} /> Remove Image (Enable 100% text width)
-              </button>
+                {ACTION_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {needsScreen && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Screen</label>
+                <select
+                  value={(form.action_config.screen as string) ?? ''}
+                  onChange={(e) => setActionConfig('screen', e.target.value)}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select screen</option>
+                  <option value="home">Home</option>
+                  <option value="categories">Categories</option>
+                  <option value="cart">Cart</option>
+                  <option value="orders">Orders</option>
+                  <option value="wishlist">Wishlist</option>
+                  <option value="addresses">Addresses</option>
+                  <option value="account">Account</option>
+                  <option value="businessRegistration">Business registration</option>
+                </select>
+              </div>
+            )}
+
+            {needsUrl && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">External URL</label>
+                <input
+                  value={(form.action_config.url as string) ?? ''}
+                  onChange={(e) => setActionConfig('url', e.target.value)}
+                  placeholder="https://..."
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs"
+                />
+              </div>
+            )}
+
+            {needsSearch && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Search Query</label>
+                <input
+                  value={(form.action_config.query as string) ?? ''}
+                  onChange={(e) => setActionConfig('query', e.target.value)}
+                  placeholder="e.g. basmati rice"
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs"
+                />
+              </div>
+            )}
+
+            {needsProduct && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Product</label>
+                <select
+                  value={(form.action_config.product_id as string) ?? ''}
+                  onChange={(e) => {
+                    setActionConfig('product_id', e.target.value);
+                    const p = products.find((x) => x.id === e.target.value);
+                    if (p) setActionConfig('product_name', `${p.brand} ${p.name}`);
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select product</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.brand} {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsCategory && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Categories</label>
+                <select
+                  multiple
+                  value={(form.action_config.category_ids as string[]) ?? []}
+                  onChange={(e) =>
+                    setActionConfig('category_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
+                  }
+                  className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsBrand && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Brands</label>
+                <select
+                  multiple
+                  value={(form.action_config.brand_ids as string[]) ?? []}
+                  onChange={(e) =>
+                    setActionConfig('brand_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
+                  }
+                  className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
+                >
+                  {brands.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsSmartCollection && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Smart Collection</label>
+                <select
+                  value={(form.action_config.collection_id as string) ?? ''}
+                  onChange={(e) => {
+                    const sc = smartCollections.find((x) => x.id === e.target.value);
+                    setActionConfig('collection_id', e.target.value);
+                    if (sc) setActionConfig('name', sc.name);
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select collection</option>
+                  {smartCollections.map((sc) => (
+                    <option key={sc.id} value={sc.id}>
+                      {sc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsFilter && (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <input
+                  type="number"
+                  value={(form.action_config.discount_min as number) ?? ''}
+                  onChange={(e) => setActionConfig('discount_min', e.target.value ? Number(e.target.value) : null)}
+                  placeholder="Min %"
+                  className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
+                />
+                <input
+                  type="number"
+                  value={(form.action_config.price_max as number) ?? ''}
+                  onChange={(e) => setActionConfig('price_max', e.target.value ? Number(e.target.value) : null)}
+                  placeholder="Max Price"
+                  className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
+                />
+              </div>
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              value={form.image_url}
-              onChange={(e) => {
-                setForm({ ...form, image_url: e.target.value });
-                setPreviewUrl(e.target.value);
-              }}
-              placeholder="Image URL or upload..."
-              className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
-            />
-            <label className="h-10 px-3.5 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:bg-brand-100 transition-colors">
-              <ImageIcon size={14} /> Upload
+          <div className="flex flex-wrap items-center gap-4 pt-1">
+            <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
               <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFileSelect(f);
-                }}
+                type="checkbox"
+                checked={form.show_cta}
+                onChange={(e) => setForm({ ...form, show_cta: e.target.checked })}
+                className="accent-brand-600 rounded"
               />
+              Show CTA
+            </label>
+            <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_active}
+                onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                className="accent-brand-600 rounded"
+              />
+              Active
             </label>
           </div>
         </div>
 
-        <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
-          <div>
-            <label className="block text-xs font-bold text-ink-700 mb-1">Click Action Type</label>
-            <select
-              value={form.action_type}
-              onChange={(e) => setForm({ ...form, action_type: e.target.value as ActionType, action_config: {} })}
-              className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs font-bold bg-white outline-none focus:border-brand-500"
+        {/* Live Mobile Canvas Preview (Exact match to Eye button modal container) */}
+        <div className="lg:col-span-5 lg:sticky lg:top-4 bg-ink-100/60 p-4 rounded-3xl border border-ink-200 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-black uppercase tracking-wider text-ink-600 flex items-center gap-1.5">
+              <Eye size={14} className="text-brand-600" /> Mobile Screen View
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsModalPreviewOpen(true)}
+              className="text-[11px] font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-brand-100 shadow-xs"
             >
-              {ACTION_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
+              <Maximize2 size={12} /> Popout Modal
+            </button>
           </div>
 
-          {needsScreen && (
-            <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Select Screen</label>
-              <select
-                value={(form.action_config.screen as string) ?? ''}
-                onChange={(e) => setActionConfig('screen', e.target.value)}
-                className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
-              >
-                <option value="">Select screen</option>
-                <option value="home">Home</option>
-                <option value="categories">Categories</option>
-                <option value="cart">Cart</option>
-                <option value="orders">Orders</option>
-                <option value="wishlist">Wishlist</option>
-                <option value="addresses">Addresses</option>
-                <option value="account">Account</option>
-                <option value="businessRegistration">Business registration</option>
-              </select>
+          {/* EXACT wrapper: max-w-md w-full */}
+          <div className="max-w-md w-full mx-auto space-y-3">
+            <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft border border-ink-100">
+              <h3 className="text-xs font-bold text-ink-900">
+                Live Preview (
+                {form.position === 'top_slider'
+                  ? `Top Slider (${previewBannerObject.size?.toUpperCase() || 'MEDIUM'})`
+                  : form.position === 'top'
+                  ? 'Top Promo Ad'
+                  : previewBannerObject.size?.toUpperCase() || 'MEDIUM'}
+                )
+              </h3>
+              <span className="text-[10px] font-mono font-bold bg-ink-100 text-ink-600 px-2 py-0.5 rounded-full">
+                {form.position}
+              </span>
             </div>
-          )}
 
-          {needsUrl && (
-            <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">External URL</label>
-              <input
-                value={(form.action_config.url as string) ?? ''}
-                onChange={(e) => setActionConfig('url', e.target.value)}
-                placeholder="https://..."
-                className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs"
-              />
+            <div className="w-full">
+              {form.position === 'top_slider' ? (
+                <TopPromoSlider banners={[previewBannerObject]} className="mx-0 w-full" />
+              ) : form.position === 'top' ? (
+                <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
+              ) : (
+                <PromoBannerCard banner={previewBannerObject} className="w-full" />
+              )}
             </div>
-          )}
+          </div>
 
-          {needsSearch && (
-            <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Search Query</label>
-              <input
-                value={(form.action_config.query as string) ?? ''}
-                onChange={(e) => setActionConfig('query', e.target.value)}
-                placeholder="e.g. basmati rice"
-                className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs"
-              />
-            </div>
-          )}
+          <p className="text-[10px] text-ink-500 text-center leading-relaxed">
+            Displays banner precisely as rendered on mobile devices with full edge-to-edge stretch.
+          </p>
 
-          {needsProduct && (
-            <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Select Product</label>
-              <select
-                value={(form.action_config.product_id as string) ?? ''}
-                onChange={(e) => {
-                  setActionConfig('product_id', e.target.value);
-                  const p = products.find((x) => x.id === e.target.value);
-                  if (p) setActionConfig('product_name', `${p.brand} ${p.name}`);
-                }}
-                className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
-              >
-                <option value="">Select product</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.brand} {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {needsCategory && (
-            <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Categories</label>
-              <select
-                multiple
-                value={(form.action_config.category_ids as string[]) ?? []}
-                onChange={(e) =>
-                  setActionConfig('category_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
-                }
-                className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
-              >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.slug}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {needsBrand && (
-            <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Brands</label>
-              <select
-                multiple
-                value={(form.action_config.brand_ids as string[]) ?? []}
-                onChange={(e) =>
-                  setActionConfig('brand_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
-                }
-                className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
-              >
-                {brands.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {needsSmartCollection && (
-            <div>
-              <label className="block text-xs font-bold text-ink-600 mb-1">Smart Collection</label>
-              <select
-                value={(form.action_config.collection_id as string) ?? ''}
-                onChange={(e) => {
-                  const sc = smartCollections.find((x) => x.id === e.target.value);
-                  setActionConfig('collection_id', e.target.value);
-                  if (sc) setActionConfig('name', sc.name);
-                }}
-                className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
-              >
-                <option value="">Select collection</option>
-                {smartCollections.map((sc) => (
-                  <option key={sc.id} value={sc.id}>
-                    {sc.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {needsFilter && (
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <input
-                type="number"
-                value={(form.action_config.discount_min as number) ?? ''}
-                onChange={(e) => setActionConfig('discount_min', e.target.value ? Number(e.target.value) : null)}
-                placeholder="Min %"
-                className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
-              />
-              <input
-                type="number"
-                value={(form.action_config.price_max as number) ?? ''}
-                onChange={(e) => setActionConfig('price_max', e.target.value ? Number(e.target.value) : null)}
-                placeholder="Max Price"
-                className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 pt-1">
-          <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.show_cta}
-              onChange={(e) => setForm({ ...form, show_cta: e.target.checked })}
-              className="accent-brand-600 rounded"
-            />
-            Show CTA
-          </label>
-          <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.is_active}
-              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-              className="accent-brand-600 rounded"
-            />
-            Active
-          </label>
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-ink-200/80">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl border border-ink-200 text-xs font-bold text-ink-600 bg-white hover:bg-ink-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Banner
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Bottom Save & Cancel Actions */}
-      <div className="flex items-center justify-end gap-2 pt-4 border-t border-ink-100">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2.5 rounded-xl border border-ink-200 text-xs font-bold text-ink-600 bg-white hover:bg-ink-50"
+      {/* Form Fullscreen Eye Preview Modal */}
+      {isModalPreviewOpen && (
+        <div
+          className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setIsModalPreviewOpen(false)}
         >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform"
-        >
-          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Save Banner
-        </button>
-      </div>
+          <div className="max-w-md w-full space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft">
+              <h3 className="text-sm font-bold text-ink-900">
+                Live Preview (
+                {form.position === 'top_slider'
+                  ? `Top Slider (${previewBannerObject.size?.toUpperCase() || 'MEDIUM'})`
+                  : form.position === 'top'
+                  ? 'Top Promo Ad'
+                  : previewBannerObject.size?.toUpperCase() || 'MEDIUM'}
+                )
+              </h3>
+              <button onClick={() => setIsModalPreviewOpen(false)} className="text-ink-400 hover:text-ink-700">
+                <X size={18} />
+              </button>
+            </div>
+            {form.position === 'top_slider' ? (
+              <TopPromoSlider banners={[previewBannerObject]} className="mx-0 w-full" />
+            ) : form.position === 'top' ? (
+              <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
+            ) : (
+              <PromoBannerCard banner={previewBannerObject} className="w-full" />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

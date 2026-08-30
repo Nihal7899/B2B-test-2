@@ -51,7 +51,6 @@
 /* Smooth momentum scrolling on touch */
 .scroll-touch {
   -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity;
 }
 .scroll-snap-item {
   scroll-snap-align: start;
@@ -92,6 +91,7 @@
   0% { opacity: 1; visibility: visible; }
   100% { opacity: 0; visibility: hidden; }
 }
+
 .splash-logo-in { animation: splash-logo-in 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .splash-word-in { animation: splash-word-in 0.7s ease-out 0.25s both; }
 .splash-tag-in { animation: splash-tag-in 0.6s ease-out 0.45s both; }
@@ -103,93 +103,4 @@
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
   background-size: 200% 100%;
   animation: splash-shimmer 2s linear infinite;
-}
-
-
-@keyframes splashLogoIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.75) translateY(15px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes splashFloat {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-6px);
-  }
-}
-
-@keyframes splashWordIn {
-  0% {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes splashTagIn {
-  0% {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes splashBar {
-  0% {
-    width: 0%;
-  }
-
-  100% {
-    width: 100%;
-  }
-}
-
-@keyframes splashFadeOut {
-  to {
-    opacity: 0;
-    transform: scale(1.03);
-  }
-}
-
-.splash-logo-in {
-  animation: splashLogoIn 0.7s ease-out forwards;
-}
-
-.splash-float {
-  animation: splashFloat 3s ease-in-out infinite;
-}
-
-.splash-word-in {
-  animation: splashWordIn 0.6s ease-out 0.25s both;
-}
-
-.splash-tag-in {
-  animation: splashTagIn 0.6s ease-out 0.45s both;
-}
-
-.splash-bar {
-  animation: splashBar 2.8s ease-out forwards;
-}
-
-.splash-fade-out {
-  animation: splashFadeOut 0.55s ease-in forwards;
 }

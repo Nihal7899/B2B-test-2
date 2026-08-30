@@ -46,7 +46,7 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
     }
 
     return { computedBgStyle, tailwindBgClass };
-  }, [banner]);[span_2](start_span)[span_2](end_span)
+  }, [banner]);
 
   return (
     <div

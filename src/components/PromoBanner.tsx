@@ -14,7 +14,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
   onAction,
   className = '',
 }: PromoBannerCardProps) {
-  const size = sizeProp || banner.size || 'medium';[span_3](start_span)[span_3](end_span)
+  const size = sizeProp || banner.size || 'medium';
   const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');[span_4](start_span)[span_4](end_span)
 
   const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';

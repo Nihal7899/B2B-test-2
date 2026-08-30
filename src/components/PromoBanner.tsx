@@ -48,7 +48,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
     }
 
     return { computedBgStyle, tailwindBgClass };
-  }, 
+  }, [banner]);
 
   const overlayStyle: React.CSSProperties = {
     backgroundColor: banner.overlayColor || '#000000',

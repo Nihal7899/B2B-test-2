@@ -163,8 +163,8 @@ export const ProductCard = React.memo(function ProductCard({
         boxShadow: '0 4px 16px rgba(15, 23, 42, 0.06)',
       }}
     >
-      {/* Product Image */}
-      <div className="relative h-[144px] w-full overflow-hidden bg-slate-50">
+      {/* 1:1 Square Image Container with transparent background support */}
+      <div className="relative aspect-square w-full overflow-hidden bg-white p-2.5 flex items-center justify-center">
         <img
           src={product.image}
           alt={product.name}
@@ -172,29 +172,15 @@ export const ProductCard = React.memo(function ProductCard({
           className="
             h-full
             w-full
-            object-cover
+            object-contain
             transition-transform
             duration-500
-            group-hover:scale-[1.05]
+            group-hover:scale-105
           "
         />
 
-        <div
-          className="pointer-events-none absolute inset-0 opacity-20"
-          style={{
-            background: `linear-gradient(
-              145deg,
-              ${primaryColor}55,
-              transparent 55%,
-              ${secondaryColor}22
-            )`,
-          }}
-        />
-
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/20 to-transparent" />
-
         {/* Deal Badge */}
-        <div className="absolute left-2.5 top-2.5">
+        <div className="absolute left-2.5 top-2.5 z-10">
           {discount > 0 ? (
             <div
               className="
@@ -215,7 +201,7 @@ export const ProductCard = React.memo(function ProductCard({
               {discount}% OFF
             </div>
           ) : (
-            <div className="rounded-full bg-white/95 px-2 py-0.5 text-[8px] font-black tracking-wide text-slate-700 shadow-sm">
+            <div className="rounded-full bg-slate-100/90 px-2 py-0.5 text-[8px] font-black tracking-wide text-slate-700 shadow-sm">
               {productTag}
             </div>
           )}
@@ -230,7 +216,7 @@ export const ProductCard = React.memo(function ProductCard({
             flex h-7 w-7
             items-center justify-center
             rounded-full
-            border border-white/70
+            border border-slate-200/80
             bg-white/95
             text-slate-500
             shadow-sm
@@ -253,12 +239,13 @@ export const ProductCard = React.memo(function ProductCard({
             absolute
             bottom-2
             right-2
+            z-10
             flex
             items-center
             gap-1
             rounded-full
             border
-            border-white
+            border-slate-200/80
             bg-white/95
             px-1.5
             py-0.5
@@ -275,25 +262,9 @@ export const ProductCard = React.memo(function ProductCard({
         </div>
       </div>
 
-      {/* Curved Content Top */}
-      <div className="relative bg-white">
-        <div
-          className="absolute -top-[15px] left-0 h-[20px] w-full"
-          style={{
-            backgroundColor: 'white',
-            clipPath: 'ellipse(70% 75% at 25% 100%)',
-          }}
-        />
-
-        <div
-          className="absolute -top-[2px] left-3.5 h-[2.5px] w-8 rounded-full opacity-80"
-          style={{
-            backgroundColor: primaryColor,
-          }}
-        />
-
-        {/* Compact Content Body */}
-        <div className="relative px-2.5 pb-2 pt-0.5">
+      {/* Content Section */}
+      <div className="relative bg-white border-t border-slate-100/80">
+        <div className="relative px-2.5 pb-2 pt-1.5">
           <div className="flex items-center gap-1">
             <p
               className="

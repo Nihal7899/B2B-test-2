@@ -15,8 +15,14 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
   const promoCode = (banner.actionConfig?.promoCode as string) || '';
   const discount = (banner.actionConfig?.discount as string) || '';
 
+  // Customizable colors from actionConfig
   const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
   const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
+  const badgeBg = (banner.actionConfig?.badgeBg as string) || '';
+  const badgeColor = (banner.actionConfig?.badgeColor as string) || '#facc15';
+  const promoCodeBg = (banner.actionConfig?.promoCodeBg as string) || '';
+  const promoCodeColor = (banner.actionConfig?.promoCodeColor as string) || '#ffffff';
+  const discountColor = (banner.actionConfig?.discountColor as string) || '#ffffff';
 
   const { computedBgStyle, tailwindBgClass } = useMemo(() => {
     let computedBgStyle: React.CSSProperties = {};
@@ -66,9 +72,17 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
 
       <div className="relative z-10 space-y-1">
         {banner.badge && (
-          <p className="text-[10px] font-black tracking-wider uppercase opacity-90" style={{ color: titleColor }}>
-            {banner.badge}
-          </p>
+          <div>
+            <span
+              className="text-[10px] font-black tracking-wider uppercase inline-block px-2.5 py-0.5 rounded-full backdrop-blur-xs"
+              style={{
+                backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)',
+                color: badgeColor,
+              }}
+            >
+              {banner.badge}
+            </span>
+          </div>
         )}
         <h3
           className="text-base sm:text-lg font-black leading-tight whitespace-pre-line break-words drop-shadow-xs"
@@ -81,14 +95,17 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
           <div className="flex items-center gap-2.5 pt-1">
             {promoCode && (
               <span
-                className="bg-white/20 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold tracking-wider border border-white/30 backdrop-blur-sm shadow-xs"
-                style={{ color: titleColor }}
+                className="px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold tracking-wider border border-white/20 backdrop-blur-sm shadow-xs"
+                style={{
+                  backgroundColor: promoCodeBg || 'rgba(255, 255, 255, 0.2)',
+                  color: promoCodeColor,
+                }}
               >
                 {promoCode}
               </span>
             )}
             {discount && (
-              <span className="text-xs font-bold" style={{ color: titleColor }}>
+              <span className="text-xs font-bold" style={{ color: discountColor }}>
                 {discount}
               </span>
             )}

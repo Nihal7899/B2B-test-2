@@ -18,7 +18,6 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
 }: TopPromoSliderProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Auto-scroll loop within fixed banner container
   useEffect(() => {
     if (banners.length <= 1) return;
     const timer = setInterval(() => {
@@ -33,8 +32,13 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
   const size = sizeOverride || banner.size || 'medium';
   const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
 
+  // Customizable colors from actionConfig
   const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
   const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
+  const badgeBg = (banner.actionConfig?.badgeBg as string) || '';
+  const badgeColor = (banner.actionConfig?.badgeColor as string) || '#ffffff';
+  const ctaBg = (banner.actionConfig?.ctaBg as string) || '#ffffff';
+  const ctaColor = (banner.actionConfig?.ctaColor as string) || '#0f172a';
 
   const { computedBgStyle, tailwindBgClass } = useMemo(() => {
     let computedBgStyle: React.CSSProperties = {};
@@ -118,8 +122,11 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
         <div className="flex-1 overflow-hidden">
           {banner.badge && (
             <span
-              className={`inline-block font-bold tracking-wider uppercase rounded-full bg-white/20 backdrop-blur-xs ${sizeConfig.badge}`}
-              style={{ color: titleColor }}
+              className={`inline-block font-bold tracking-wider uppercase rounded-full backdrop-blur-xs ${sizeConfig.badge}`}
+              style={{
+                backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)',
+                color: badgeColor,
+              }}
             >
               {banner.badge}
             </span>
@@ -140,7 +147,11 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
               e.stopPropagation();
               onAction?.(banner);
             }}
-            className={`flex-shrink-0 self-start bg-white text-ink-900 font-bold rounded-xl tap-highlight active:scale-95 transition-transform ${sizeConfig.cta}`}
+            className={`flex-shrink-0 self-start font-bold rounded-xl tap-highlight active:scale-95 transition-transform ${sizeConfig.cta}`}
+            style={{
+              backgroundColor: ctaBg,
+              color: ctaColor,
+            }}
           >
             {banner.cta}
           </button>

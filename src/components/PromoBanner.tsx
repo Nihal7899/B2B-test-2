@@ -178,12 +178,11 @@ export const PromoCarousel = React.memo(function PromoCarousel({
   const isLoopable = banners.length > 1;
   const isResetting = useRef(false);
 
-  // Triplicate banners for seamless infinite scroll
+  // Triplicate banners for seamless circular buffer
   const displayBanners = useMemo(() => {
     return isLoopable ? [...banners, ...banners, ...banners] : banners;
   }, [banners, isLoopable]);
 
-  // Center a given card index directly without vibration
   const centerCardByIndex = useCallback((index: number) => {
     const el = scrollRef.current;
     if (!el) return;
@@ -204,7 +203,7 @@ export const PromoCarousel = React.memo(function PromoCarousel({
     return () => clearTimeout(timer);
   }, [isLoopable, banners.length, centerCardByIndex]);
 
-  // Silently reset loop ONLY when the scroll has completely settled
+  // Seamless jump to center set once scrolling comes to rest
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !isLoopable) return;
@@ -231,7 +230,6 @@ export const PromoCarousel = React.memo(function PromoCarousel({
         }
       });
 
-      // If settled on set 1 (left) or set 3 (right), seamlessly teleport to middle set
       if (closestIndex < banners.length) {
         isResetting.current = true;
         centerCardByIndex(closestIndex + banners.length);
@@ -249,7 +247,6 @@ export const PromoCarousel = React.memo(function PromoCarousel({
 
     const handleScrollEvent = () => {
       clearTimeout(timeoutId);
-      // Wait for snap momentum to completely finish before checking
       timeoutId = setTimeout(checkAndResetLoop, 150);
     };
 
@@ -271,7 +268,8 @@ export const PromoCarousel = React.memo(function PromoCarousel({
       {displayBanners.map((banner, index) => (
         <div
           key={`${banner.id}-${index}`}
-          className="shrink-0 w-[calc(85%+11px)] max-w-[351px] snap-center snap-always"
+          /* Increased card width by +5px more: w-[calc(85%+16px)] max-w-[356px] */
+          className="shrink-0 w-[calc(85%+16px)] max-w-[356px] snap-center snap-always"
         >
           <PromoBannerCard banner={banner} size={size} onAction={onAction} />
         </div>

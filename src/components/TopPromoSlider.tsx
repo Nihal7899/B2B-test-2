@@ -75,7 +75,7 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
     opacity: (banner.overlayOpacity ?? 40) / 100,
   };
 
-  // Exact 1:1 size presets matching PromoBannerCard
+  // Exact 1:1 Dimensions matching PromoBannerCard
   const sizeConfig = useMemo(() => {
     switch (size) {
       case 'small':

@@ -12,8 +12,11 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
   onAction,
   className = 'mx-4',
 }: PromoAdBannerProps) {
-  const promoCode = (banner.actionConfig?.promoCode as string) || '';
-  const discount = (banner.actionConfig?.discount as string) || '';
+  const promoCode = (banner.actionConfig?.promoCode as string) || '';[span_0](start_span)[span_0](end_span)
+  const discount = (banner.actionConfig?.discount as string) || '';[span_1](start_span)[span_1](end_span)
+
+  const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
+  const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
 
   const { computedBgStyle, tailwindBgClass } = useMemo(() => {
     let computedBgStyle: React.CSSProperties = {};
@@ -43,12 +46,12 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
     }
 
     return { computedBgStyle, tailwindBgClass };
-  }, [banner]);
+  }, [banner]);[span_2](start_span)[span_2](end_span)
 
   return (
     <div
       onClick={() => onAction?.(banner)}
-      className={`rounded-2xl overflow-hidden relative min-h-[110px] shadow-card transform-gpu p-4 flex flex-col justify-center text-white cursor-pointer ${tailwindBgClass} ${className}`}
+      className={`rounded-2xl overflow-hidden relative min-h-[110px] shadow-card transform-gpu p-4 flex flex-col justify-center cursor-pointer ${tailwindBgClass} ${className}`}
       style={computedBgStyle}
     >
       {banner.overlayEnabled && (
@@ -63,27 +66,37 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
 
       <div className="relative z-10 space-y-1">
         {banner.badge && (
-          <p className="text-[10px] font-black tracking-wider uppercase text-yellow-300">
+          <p className="text-[10px] font-black tracking-wider uppercase opacity-90" style={{ color: titleColor }}>
             {banner.badge}
           </p>
         )}
-        <h3 className="text-base sm:text-lg font-black leading-tight whitespace-pre-line break-words drop-shadow-xs">
+        <h3
+          className="text-base sm:text-lg font-black leading-tight whitespace-pre-line break-words drop-shadow-xs"
+          style={{ color: titleColor }}
+        >
           {banner.headline}
         </h3>
 
         {(promoCode || discount) && (
           <div className="flex items-center gap-2.5 pt-1">
             {promoCode && (
-              <span className="bg-white/20 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold tracking-wider border border-white/30 backdrop-blur-sm shadow-xs">
+              <span
+                className="bg-white/20 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold tracking-wider border border-white/30 backdrop-blur-sm shadow-xs"
+                style={{ color: titleColor }}
+              >
                 {promoCode}
               </span>
             )}
-            {discount && <span className="text-xs font-bold text-white/95">{discount}</span>}
+            {discount && (
+              <span className="text-xs font-bold" style={{ color: titleColor }}>
+                {discount}
+              </span>
+            )}
           </div>
         )}
 
         {banner.subtext && (
-          <p className="text-xs opacity-90 pt-0.5 whitespace-pre-line break-words">
+          <p className="text-xs opacity-90 pt-0.5 whitespace-pre-line break-words" style={{ color: descColor }}>
             {banner.subtext}
           </p>
         )}

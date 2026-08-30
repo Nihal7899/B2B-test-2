@@ -30,6 +30,7 @@ import {
 } from '@/services/catalog';
 import { PromoBannerCard } from '@/components/PromoBanner';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
+import { TopPromoSlider } from '@/components/TopPromoSlider';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
@@ -51,7 +52,7 @@ const ACTION_TYPES: ActionType[] = [
   'OPEN_EXTERNAL_URL',
 ];
 
-type PositionTab = 'all' | 'top' | 'carousel' | 'middle' | 'bottom';
+type PositionTab = 'all' | 'top' | 'top_slider' | 'carousel' | 'middle' | 'bottom';
 
 export default function BannersManager() {
   const [banners, setBanners] = useState<HomeBanner[]>([]);
@@ -100,6 +101,7 @@ export default function BannersManager() {
     return {
       all: banners.length,
       top: banners.filter((b) => b.position === 'top').length,
+      top_slider: banners.filter((b) => b.position === 'top_slider').length,
       carousel: banners.filter((b) => b.position === 'carousel').length,
       middle: banners.filter((b) => ['middle', 'middle_1', 'middle_2', 'middle_3'].includes(b.position || '')).length,
       bottom: banners.filter((b) => b.position === 'bottom').length,
@@ -109,6 +111,7 @@ export default function BannersManager() {
   const filteredBanners = useMemo(() => {
     let list = [...banners];
     if (activeTab === 'top') list = list.filter((b) => b.position === 'top');
+    else if (activeTab === 'top_slider') list = list.filter((b) => b.position === 'top_slider');
     else if (activeTab === 'carousel') list = list.filter((b) => b.position === 'carousel');
     else if (activeTab === 'middle') list = list.filter((b) => ['middle', 'middle_1', 'middle_2', 'middle_3'].includes(b.position || ''));
     else if (activeTab === 'bottom') list = list.filter((b) => b.position === 'bottom');
@@ -267,7 +270,7 @@ export default function BannersManager() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-black text-ink-900">Banners Management</h2>
-          <p className="text-xs text-ink-500">Configure promotional banners across Top Ad, Carousel, Middle slots, and Bottom</p>
+          <p className="text-xs text-ink-500">Configure promotional banners across Top Ad, Top Slider, Carousel, Middle slots, and Bottom</p>
         </div>
         <button
           onClick={() => handleAddNew()}
@@ -282,6 +285,7 @@ export default function BannersManager() {
         {[
           { id: 'all', label: 'All Banners', count: tabCounts.all },
           { id: 'top', label: 'Top Promo Ad', count: tabCounts.top },
+          { id: 'top_slider', label: 'Top Slider (Convertible)', count: tabCounts.top_slider },
           { id: 'carousel', label: 'Top Carousel', count: tabCounts.carousel },
           { id: 'middle', label: 'Middle Slots (1, 2, 3)', count: tabCounts.middle },
           { id: 'bottom', label: 'Bottom Banner', count: tabCounts.bottom },
@@ -447,7 +451,13 @@ export default function BannersManager() {
           <div className="max-w-md w-full space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft">
               <h3 className="text-sm font-bold text-ink-900">
-                Live Preview ({previewBanner.position === 'top' ? 'Top Promo Ad' : previewBanner.size?.toUpperCase() || 'MEDIUM'})
+                Live Preview (
+                {previewBanner.position === 'top'
+                  ? 'Top Promo Ad'
+                  : previewBanner.position === 'top_slider'
+                  ? `Top Slider (${previewBanner.size?.toUpperCase() || 'MEDIUM'})`
+                  : previewBanner.size?.toUpperCase() || 'MEDIUM'}
+                )
               </h3>
               <button onClick={() => setPreviewBanner(null)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
@@ -455,6 +465,8 @@ export default function BannersManager() {
             </div>
             {previewBanner.position === 'top' ? (
               <PromoAdBanner banner={toPromoBanner(previewBanner)} className="mx-0 w-full" />
+            ) : previewBanner.position === 'top_slider' ? (
+              <TopPromoSlider banners={[toPromoBanner(previewBanner)]} className="mx-0 w-full" />
             ) : (
               <PromoBannerCard banner={toPromoBanner(previewBanner)} className="w-full" />
             )}
@@ -719,6 +731,7 @@ function BannerForm({
               className="w-full h-10 rounded-xl border border-brand-200 px-3 text-xs font-bold bg-white text-ink-800 outline-none focus:border-brand-500"
             >
               <option value="top">Top Rectangular (Promo Ad)</option>
+              <option value="top_slider">Top Slider (Fixed Convertible Banner)</option>
               <option value="carousel">Top Carousel</option>
               <option value="middle_1">Middle 1</option>
               <option value="middle_2">Middle 2</option>
@@ -769,6 +782,50 @@ function BannerForm({
             />
           </div>
 
+          {/* Text Color Controls (Stored inside action_config) */}
+          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
+            <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Text Colors</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Headline Text Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={(form.action_config.titleColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('titleColor', e.target.value)}
+                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={(form.action_config.titleColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('titleColor', e.target.value)}
+                    placeholder="#ffffff"
+                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Subtext / Description Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={(form.action_config.descColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('descColor', e.target.value)}
+                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={(form.action_config.descColor as string) || '#ffffff'}
+                    onChange={(e) => setActionConfig('descColor', e.target.value)}
+                    placeholder="#ffffff"
+                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-ink-700 mb-1">Badge</label>
@@ -798,9 +855,9 @@ function BannerForm({
                 onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
                 className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
               >
-                <option value="small">Small (150px - Action Banner)</option>
-                <option value="medium">Medium (180px - Carousel)</option>
-                <option value="large">Large (220px - Hero)</option>
+                <option value="small">Small (140-150px - Action Banner)</option>
+                <option value="medium">Medium (175-180px - Slider)</option>
+                <option value="large">Large (220px - Hero Banner)</option>
               </select>
             </div>
 
@@ -1226,11 +1283,19 @@ function BannerForm({
         <div className="lg:col-span-5 flex flex-col justify-between bg-ink-50/70 p-4 rounded-2xl border border-ink-100">
           <div>
             <p className="text-xs font-black uppercase tracking-wider text-ink-500 mb-3 flex items-center gap-1.5">
-              <Eye size={14} /> Live Preview ({form.position === 'top' ? 'Top Promo Ad' : previewBannerObject.size?.toUpperCase() || 'MEDIUM'})
+              <Eye size={14} /> Live Preview (
+              {form.position === 'top'
+                ? 'Top Promo Ad'
+                : form.position === 'top_slider'
+                ? `Top Slider (${previewBannerObject.size?.toUpperCase() || 'MEDIUM'})`
+                : previewBannerObject.size?.toUpperCase() || 'MEDIUM'}
+              )
             </p>
             <div className="w-full">
               {form.position === 'top' ? (
                 <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
+              ) : form.position === 'top_slider' ? (
+                <TopPromoSlider banners={[previewBannerObject]} className="mx-0 w-full" />
               ) : (
                 <PromoBannerCard banner={previewBannerObject} className="w-full" />
               )}

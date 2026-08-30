@@ -1,21 +1,37 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { PromoBanner, BannerSize } from '@/types';
 
-interface PromoBannerCardProps {
-  banner: PromoBanner;
-  size?: BannerSize;
+interface TopPromoSliderProps {
+  banners: PromoBanner[];
+  sizeOverride?: BannerSize;
+  intervalMs?: number;
   onAction?: (banner: PromoBanner) => void;
   className?: string;
 }
 
-export const PromoBannerCard = React.memo(function PromoBannerCard({
-  banner,
-  size: sizeProp,
+export const TopPromoSlider = React.memo(function TopPromoSlider({
+  banners,
+  sizeOverride,
+  intervalMs = 4000,
   onAction,
-  className = '',
-}: PromoBannerCardProps) {
-  const size = sizeProp || banner.size || 'medium';[span_3](start_span)[span_3](end_span)
-  const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');[span_4](start_span)[span_4](end_span)
+  className = 'mx-4',
+}: TopPromoSliderProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Auto-scroll loop within fixed banner container
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % banners.length);
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [banners.length, intervalMs]);
+
+  const banner = banners[currentIndex] || banners[0];
+  if (!banner) return null;
+
+  const size = sizeOverride || banner.size || 'medium';
+  const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
 
   const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
   const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
@@ -48,24 +64,24 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
     }
 
     return { computedBgStyle, tailwindBgClass };
-  }, [banner]);[span_5](start_span)[span_5](end_span)
+  }, [banner]);
 
   const overlayStyle: React.CSSProperties = {
     backgroundColor: banner.overlayColor || '#000000',
     opacity: (banner.overlayOpacity ?? 40) / 100,
-  };[span_6](start_span)[span_6](end_span)
+  };
 
   const sizeConfig = useMemo(() => {
     switch (size) {
       case 'small':
         return {
-          container: 'h-[150px] min-h-[150px]',
+          container: 'h-[140px] min-h-[140px]',
           padding: 'px-4 py-3',
           badge: 'text-[9px] px-2 py-0.5 mb-1.5',
-          headline: 'text-[16px] sm:text-[17px] font-extrabold leading-tight line-clamp-2',
-          subtext: 'text-[11px] opacity-80 mt-0.5 line-clamp-2',
-          cta: 'text-xs font-bold px-3.5 py-1.5 mt-2 shadow-sm',
-          imageWidth: 'w-2/5 sm:w-[38%]',
+          headline: 'text-[15px] sm:text-[16px] font-extrabold leading-tight line-clamp-2',
+          subtext: 'text-[11px] opacity-85 mt-0.5 line-clamp-2',
+          cta: 'text-xs font-bold px-3.5 py-1.5 mt-2 shadow-xs',
+          imageWidth: 'w-2/5 sm:w-[35%]',
         };
       case 'large':
         return {
@@ -73,37 +89,36 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
           padding: 'p-5 sm:p-6',
           badge: 'text-[10px] px-3 py-1 mb-2',
           headline: 'text-xl sm:text-2xl font-black leading-snug line-clamp-2',
-          subtext: 'text-xs sm:text-sm opacity-90 mt-1 leading-relaxed line-clamp-2',
+          subtext: 'text-xs sm:text-sm opacity-90 mt-1 line-clamp-2',
           cta: 'text-xs sm:text-sm font-bold px-4 py-2 mt-3 shadow-md',
           imageWidth: 'w-[45%]',
         };
       case 'medium':
       default:
         return {
-          container: 'h-[180px] min-h-[180px]',
+          container: 'h-[175px] min-h-[175px]',
           padding: 'p-4',
           badge: 'text-[9px] px-2 py-0.5 mb-2',
           headline: 'text-[17px] font-extrabold leading-tight tracking-tight line-clamp-2',
-          subtext: 'text-[11px] opacity-90 mt-1 leading-snug line-clamp-2',
+          subtext: 'text-[11px] opacity-90 mt-1 line-clamp-2',
           cta: 'text-xs font-bold px-3.5 py-1.5 mt-2 shadow-sm',
-          imageWidth: 'w-[42%]',
+          imageWidth: 'w-[40%]',
         };
     }
-  }, [size]);[span_7](start_span)[span_7](end_span)
+  }, [size]);
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl flex shadow-soft transform-gpu ${sizeConfig.container} ${tailwindBgClass} ${className}`}
+      onClick={() => onAction?.(banner)}
+      className={`relative overflow-hidden rounded-2xl flex shadow-soft transform-gpu cursor-pointer select-none transition-all duration-300 ${sizeConfig.container} ${tailwindBgClass} ${className}`}
     >
       <div className="absolute inset-0 z-0" style={computedBgStyle} />
 
-      <div
-        className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}
-      >
+      <div className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}>
         <div className="flex-1 overflow-hidden">
           {banner.badge && (
             <span
-              className={`inline-block font-bold tracking-wider uppercase bg-white/20 rounded-full ${sizeConfig.badge}`}
+              className={`inline-block font-bold tracking-wider uppercase rounded-full bg-white/20 backdrop-blur-xs ${sizeConfig.badge}`}
               style={{ color: titleColor }}
             >
               {banner.badge}
@@ -125,7 +140,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
               e.stopPropagation();
               onAction?.(banner);
             }}
-            className={`flex-shrink-0 self-start bg-white text-ink-900 font-bold rounded-lg tap-highlight active:scale-95 transition-transform ${sizeConfig.cta}`}
+            className={`flex-shrink-0 self-start bg-white text-ink-900 font-bold rounded-xl tap-highlight active:scale-95 transition-transform ${sizeConfig.cta}`}
           >
             {banner.cta}
           </button>
@@ -149,26 +164,19 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
       {banner.overlayEnabled && (
         <div className="absolute inset-0 z-20 pointer-events-none" style={overlayStyle} />
       )}
-    </div>
-  );
-});
 
-export const PromoCarousel = React.memo(function PromoCarousel({
-  banners,
-  size,
-  onAction,
-}: {
-  banners: PromoBanner[];
-  size?: BannerSize;
-  onAction?: (banner: PromoBanner) => void;
-}) {
-  return (
-    <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">
-      {banners.map((banner) => (
-        <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
-          <PromoBannerCard banner={banner} size={size} onAction={onAction} />
+      {banners.length > 1 && (
+        <div className="absolute bottom-2.5 right-3 z-40 flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded-full backdrop-blur-xs pointer-events-none">
+          {banners.map((_, idx) => (
+            <span
+              key={idx}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                idx === currentIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/50'
+              }`}
+            />
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 });

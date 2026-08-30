@@ -16,6 +16,7 @@ import type { Category, Product, PromoBanner, Store, TrustedBrand, HomeSection }
 import type { useCart } from '@/store';
 import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
+import { TopPromoSlider } from '@/components/TopPromoSlider';
 import { ProductCarousel } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { StoreCarousel } from '@/components/StoreCard';
@@ -307,6 +308,7 @@ export function HomeScreen({
   }, [products]);
 
   const topBanner = useMemo(() => banners.find((b) => b.position === 'top') || null, [banners]);
+  const topSliderBanners = useMemo(() => banners.filter((b) => b.position === 'top_slider'), [banners]);
   const carouselBanners = useMemo(() => banners.filter((b) => b.position === 'carousel'), [banners]);
 
   const handleAddToCart = useCallback((p: Product) => cart.addToCart(p), [cart]);
@@ -407,7 +409,7 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 4. Main Catalog Content with ample bottom clearance */}
+      {/* 4. Main Catalog Content */}
       <div className="space-y-6 pt-4 pb-16">
         {loading ? (
           <div className="space-y-4 p-4 animate-pulse">
@@ -420,10 +422,17 @@ export function HomeScreen({
           </div>
         ) : (
           <>
+            {/* Standard Promo Ad Banner */}
             {topBanner && (
               <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
             )}
 
+            {/* Top Fixed Auto-Rotating Convertible Slider */}
+            {topSliderBanners.length > 0 && (
+              <TopPromoSlider banners={topSliderBanners} onAction={onBannerAction} />
+            )}
+
+            {/* Top Carousel Banner Slot */}
             {carouselBanners.length > 0 && (
               <PromoCarousel banners={carouselBanners} onAction={onBannerAction} />
             )}

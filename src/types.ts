@@ -1,4 +1,3 @@
-// types.ts
 export interface Product {
   id: string;
   brand: string;
@@ -17,7 +16,7 @@ export interface Product {
   gst_percentage?: number;
   subcategory_id?: string;
   subcategory?: Subcategory;
-  stock_threshold?: number; // <-- NEW
+  stock_threshold?: number;
 }
 
 export interface VolumePricingTier {
@@ -67,8 +66,8 @@ export interface DeliveryCharge {
 }
 
 export interface Category {
-  id: string;          // UUID from database
-  slug: string;        // URL‑friendly slug
+  id: string;
+  slug: string;
   name: string;
   image: string;
   count: number;
@@ -90,7 +89,6 @@ export interface Subcategory {
   updated_at: string;
 }
 
-// types.ts (add this field inside PromoBanner)
 export interface PromoBanner {
   id: string;
   headline: string;
@@ -100,11 +98,11 @@ export interface PromoBanner {
   bgClass?: string;
   textClass?: string;
   badge?: string;
-  actionType?: string;
+  actionType?: ActionType;
   actionConfig?: Record<string, unknown>;
-  position?: string;
+  position?: BannerPosition | string;
   background_color?: string;
-  bgType?: 'color' | 'image' | 'gradient';
+  bgType?: BannerBgType;
   bgColor?: string;
   bgGradient?: string;
   gradientFrom?: string;
@@ -115,14 +113,15 @@ export interface PromoBanner {
   overlayColor?: string;
   overlayOpacity?: number;
   showCta?: boolean;
+  displayOrder?: number;
+  isActive?: boolean;
 }
 
 export interface CartItem {
   product: Product;
   quantity: number;
-  effectiveUnitPrice: number; // after volume pricing
+  effectiveUnitPrice: number;
 }
-
 
 export interface Order {
   id: string;
@@ -132,7 +131,6 @@ export interface Order {
   total: number;
   status: 'Delivered' | 'Processing' | 'Out for Delivery' | 'Cancelled';
   items: string[];
-  // New GST fields (optional)
   cgst_amount?: number;
   sgst_amount?: number;
 }
@@ -157,7 +155,7 @@ export type ScreenName =
   | 'outletSelect'
   | 'filteredProducts'
   | 'store'
-  | 'brand';   // <-- NEW
+  | 'brand';
 
 export interface Business {
   id: string;
@@ -253,13 +251,13 @@ export interface HomeBanner {
   action_config: Record<string, unknown>;
   display_order: number;
   is_active: boolean;
-  position: string;
+  position: BannerPosition | string;
   size?: BannerSize;
   start_at: string | null;
   end_at: string | null;
   created_at: string;
   updated_at: string;
-  bg_type?: 'color' | 'image' | 'gradient';
+  bg_type?: BannerBgType;
   bg_color?: string;
   bg_gradient?: string;
   gradient_from?: string;
@@ -281,13 +279,25 @@ export interface SmartCollection {
   updated_at: string;
 }
 
+export interface FeatureItem {
+  icon: string;
+  title: string;
+  subtitle: string;
+}
+
+export interface PremiumBadge {
+  icon: string;
+  label: string;
+  sublabel: string;
+}
+
 export interface Store {
   id: string;
   name: string;
   image_url: string;
   banner_image_url?: string;
   description: string;
-  primary_color: string;          // "Brand Color"
+  primary_color: string;
   secondary_color: string;
   text_color: string;
   border_color: string;
@@ -297,9 +307,7 @@ export interface Store {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  config?: any;                   // ONLY for store-screen config (hero, highlights, etc.)
-
-  // Card-specific columns
+  config?: any;
   rating: string;
   orders: string;
   store_icon: string;
@@ -307,30 +315,6 @@ export interface Store {
   premium_badge: PremiumBadge;
   badge_text: string;
   badge_color: string;
-}
-
-export interface FeatureItem {
-  icon: string;
-  title: string;
-  subtitle: string;
-}
-
-export interface PremiumBadge {
-  icon: string;
-  label: string;
-  sublabel: string;
-}
-
-export interface FeatureItem {
-  icon: string;
-  title: string;
-  subtitle: string;
-}
-
-export interface PremiumBadge {
-  icon: string;
-  label: string;
-  sublabel: string;
 }
 
 export interface TrustedBrand {
@@ -349,7 +333,7 @@ export interface TrustedBrand {
   bottom_label?: string;
   bottom_icon?: 'shield' | 'crown' | 'leaf';
   description?: string;
-  config?: any; // <-- NEW: brand content configuration
+  config?: any;
 }
 
 export interface DeliveryRange {
@@ -364,7 +348,16 @@ export interface DeliveryRange {
 }
 
 export type BannerSize = 'small' | 'medium' | 'large';
-export type BannerPosition = 'top' | 'carousel' | 'middle' | 'middle_1' | 'middle_2' | 'middle_3' | 'bottom';
+export type BannerPosition =
+  | 'top'
+  | 'top_slider'
+  | 'carousel'
+  | 'middle'
+  | 'middle_1'
+  | 'middle_2'
+  | 'middle_3'
+  | 'bottom';
+
 export type BannerBgType = 'color' | 'gradient' | 'image';
 
 export type HomeSectionType =

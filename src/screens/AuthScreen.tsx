@@ -19,14 +19,11 @@ function normalizeIndianPhone(value: string): string {
 function OtpIllustration() {
   return (
     <div className="relative mx-auto flex h-44 w-full items-center justify-center pt-2">
-      {/* Soft Green Semicircle Backdrop */}
       <div className="absolute bottom-2 h-32 w-52 rounded-t-full bg-gradient-to-t from-[#0f7760]/15 to-[#0f7760]/5" />
 
-      {/* Modern Smartphone Mockup */}
       <div className="relative z-10 flex h-36 w-24 flex-col items-center justify-between rounded-2xl border-[3px] border-slate-800 bg-white p-2 shadow-xl shadow-slate-200/50">
         <div className="h-1 w-6 rounded-full bg-slate-300" />
 
-        {/* Floating Message Bubbles */}
         <div className="flex w-full flex-col gap-2">
           <div className="h-2.5 w-10 animate-pulse rounded-full bg-slate-100" />
           <div className="h-2.5 w-14 self-end rounded-full bg-[#0f7760]/20" />
@@ -36,7 +33,6 @@ function OtpIllustration() {
         <div className="h-1 w-7 rounded-full bg-slate-200" />
       </div>
 
-      {/* Floating Animated Badge Bubble */}
       <div className="animate-float absolute z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#0f7760] text-white shadow-lg shadow-[#0f7760]/40 -translate-x-6">
         <div className="flex flex-col items-center justify-center">
           <span className="text-[10px] font-black uppercase tracking-wider">OTP</span>
@@ -44,7 +40,6 @@ function OtpIllustration() {
         </div>
       </div>
 
-      {/* Decorative Character Silhouette */}
       <div className="absolute left-[24%] bottom-2 z-10 hidden sm:block">
         <div className="h-16 w-5 rounded-t-full bg-slate-800" />
       </div>
@@ -79,7 +74,6 @@ function OtpVerificationView({
 }: OtpViewProps) {
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
 
-  // Handle number press
   const handleKeyPress = useCallback(
     (key: string) => {
       if (busy || verifyStatus === 'success') return;
@@ -90,7 +84,6 @@ function OtpVerificationView({
         updated[firstEmptyIndex] = key;
         setDigits(updated);
 
-        // Auto verify upon 6th digit
         if (firstEmptyIndex === 5) {
           onVerify(updated.join(''));
         }
@@ -99,7 +92,6 @@ function OtpVerificationView({
     [digits, busy, verifyStatus, onVerify]
   );
 
-  // Handle Backspace
   const handleDelete = useCallback(() => {
     if (busy || verifyStatus === 'success') return;
 
@@ -112,7 +104,6 @@ function OtpVerificationView({
     }
   }, [digits, busy, verifyStatus]);
 
-  // Support physical hardware keyboard typing
   useEffect(() => {
     const handlePhysicalKeyDown = (e: KeyboardEvent) => {
       if (/^[0-9]$/.test(e.key)) {
@@ -127,7 +118,6 @@ function OtpVerificationView({
 
   return (
     <div className="flex h-full flex-col justify-between px-6 pt-4 pb-6 select-none">
-      {/* Top Header & Illustration */}
       <div>
         <div className="flex items-center justify-between">
           <button
@@ -151,7 +141,6 @@ function OtpVerificationView({
           </p>
         </div>
 
-        {/* 6 Animated OTP Pill Boxes */}
         <div className="mt-6">
           <div
             className={`flex items-center justify-center gap-2 transition-transform ${
@@ -162,21 +151,16 @@ function OtpVerificationView({
               const isFilled = digit !== '';
               const isCurrent = digits.findIndex((d) => d === '') === i;
 
-              let style =
-                'bg-[#0f7760]/10 text-transparent border-transparent';
+              let style = 'bg-[#0f7760]/10 text-transparent border-transparent';
 
               if (verifyStatus === 'success') {
-                style =
-                  'bg-emerald-500 text-white shadow-md shadow-emerald-500/30 scale-105';
+                style = 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30 scale-105';
               } else if (verifyStatus === 'error') {
-                style =
-                  'bg-red-500 text-white shadow-md shadow-red-500/30';
+                style = 'bg-red-500 text-white shadow-md shadow-red-500/30';
               } else if (isFilled) {
-                style =
-                  'bg-[#0f7760] text-white shadow-md shadow-[#0f7760]/25 scale-105 animate-pop';
+                style = 'bg-[#0f7760] text-white shadow-md shadow-[#0f7760]/25 scale-105 animate-pop';
               } else if (isCurrent) {
-                style =
-                  'bg-[#0f7760]/15 border-2 border-[#0f7760] shadow-sm animate-pulse-glow';
+                style = 'bg-[#0f7760]/15 border-2 border-[#0f7760] shadow-sm animate-pulse-glow';
               }
 
               return (
@@ -190,11 +174,8 @@ function OtpVerificationView({
             })}
           </div>
 
-          {error && (
-            <p className="mt-2 text-center text-xs font-bold text-red-500">{error}</p>
-          )}
+          {error && <p className="mt-2 text-center text-xs font-bold text-red-500">{error}</p>}
 
-          {/* Resend Link */}
           <div className="mt-3.5 text-center">
             <span className="text-xs text-slate-500">Didn&apos;t receive code? </span>
             <button
@@ -209,7 +190,6 @@ function OtpVerificationView({
         </div>
       </div>
 
-      {/* On-Screen Numeric Keypad */}
       <div className="mt-4 grid grid-cols-3 gap-y-3 gap-x-6 px-4">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
           <button
@@ -253,7 +233,6 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  // 30s Countdown timer
   useEffect(() => {
     if (seconds <= 0) return;
     const timer = window.setInterval(() => setSeconds((c) => Math.max(c - 1, 0)), 1000);
@@ -330,16 +309,15 @@ export function AuthScreen() {
 
   return (
     <div className="relative min-h-[100dvh] w-full bg-zinc-950 sm:flex sm:items-center sm:justify-center sm:p-6">
-      {/* Mobile Card Container */}
       <div className="relative flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-white sm:h-[844px] sm:max-w-[420px] sm:rounded-[40px] sm:shadow-2xl">
         {step === 'phone' ? (
           <div className="relative flex h-full flex-col justify-between bg-[#0c3e33]">
-            {/* Top Hero image (Only present on phone step) */}
-            <div className="absolute inset-x-0 top-0 h-[62%] w-full overflow-hidden">
+            {/* Top Hero image (Extended 10% lower into bottom sheet area) */}
+            <div className="absolute inset-x-0 top-0 h-[72%] w-full overflow-hidden">
               <img
                 src={heroImage}
                 alt="Fresh ingredients"
-                className="h-full w-full object-cover object-center"
+                className="h-full w-full object-cover object-bottom translate-y-3"
               />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/10" />
             </div>
@@ -389,7 +367,6 @@ export function AuthScreen() {
             </div>
           </div>
         ) : (
-          /* Step 2: Dedicated OTP Component with Keypad & Vector Graphic (No Hero Image) */
           <OtpVerificationView
             phone={phone}
             formattedPhone={formattedPhone}
@@ -408,7 +385,6 @@ export function AuthScreen() {
         )}
       </div>
 
-      {/* Smooth Animations */}
       <style>{`
         @keyframes pop {
           0% { transform: scale(0.85); }

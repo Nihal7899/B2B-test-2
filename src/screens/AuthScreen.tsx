@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { ArrowLeft, Delete } from 'lucide-react';
 import { useAuth } from '@/auth';
-import heroImage from './hero.webp';
+import heroImage from './hero.jpg';
 
 function normalizeIndianPhone(value: string): string {
   let digits = value.replace(/\D/g, '');

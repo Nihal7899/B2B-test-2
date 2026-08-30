@@ -76,11 +76,16 @@ export const ProductCard = React.memo(function ProductCard({
       : 0;
 
   const [localWishlisted, setLocalWishlisted] = useState(isWishlisted);
+  const [imageError, setImageError] = useState(false);
   const [added, setAdded] = useState(false);
 
   useEffect(() => {
     setLocalWishlisted(isWishlisted);
   }, [isWishlisted]);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [product.image]);
 
   useEffect(() => {
     const handleGlobalUpdate = (e: Event) => {
@@ -143,6 +148,7 @@ export const ProductCard = React.memo(function ProductCard({
 
   const productTag = discount >= 10 ? 'BEST DEAL' : 'FRESH';
   const productQuality = product.brand;
+  const hasValidImage = Boolean(product.image && !imageError);
 
   return (
     <article
@@ -151,42 +157,49 @@ export const ProductCard = React.memo(function ProductCard({
         group relative flex flex-col overflow-hidden
         cursor-pointer bg-white
         border
-        ${horizontal ? 'w-[184px] shrink-0' : 'w-full'}
-        rounded-[22px]
+        ${horizontal ? 'w-[180px] shrink-0' : 'w-full'}
+        rounded-[20px]
         transition-transform duration-300
-        hover:-translate-y-1
+        hover:-translate-y-0.5
         active:scale-[0.985]
         transform-gpu
       `}
       style={{
         borderColor,
-        boxShadow: '0 4px 16px rgba(15, 23, 42, 0.08)',
+        boxShadow: '0 4px 16px rgba(15, 23, 42, 0.06)',
       }}
     >
-      {/* Product Image Container without background colors or gradient overlays */}
-      <div className="relative h-[144px] w-full overflow-hidden flex items-center justify-center p-2">
-        <img
-          src={product.image}
-          alt={product.name}
-          decoding="async"
-          className="
-            h-full
-            w-full
-            object-contain
-            transition-transform
-            duration-500
-            group-hover:scale-[1.05]
-          "
-        />
+      {/* Product Image Container without Background */}
+      <div className="relative flex h-[144px] w-full items-center justify-center overflow-hidden">
+        {hasValidImage ? (
+          <img
+            src={product.image}
+            alt={product.name}
+            decoding="async"
+            onError={() => setImageError(true)}
+            className="
+              h-full
+              w-full
+              object-cover
+              transition-transform
+              duration-500
+              group-hover:scale-[1.05]
+            "
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-slate-300">
+            <Package size={38} strokeWidth={1.5} />
+          </div>
+        )}
 
         {/* Deal Badge */}
-        <div className="absolute left-2.5 top-2.5 z-10">
+        <div className="absolute left-2.5 top-2.5">
           {discount > 0 ? (
             <div
               className="
                 flex items-center gap-1
                 rounded-full
-                px-2.5 py-1
+                px-2 py-0.5
                 text-[8px]
                 font-black
                 tracking-wide
@@ -197,11 +210,11 @@ export const ProductCard = React.memo(function ProductCard({
                 backgroundColor: primaryColor,
               }}
             >
-              <Sparkles size={9} strokeWidth={2.5} />
+              <Sparkles size={8} strokeWidth={2.5} />
               {discount}% OFF
             </div>
           ) : (
-            <div className="rounded-full bg-white/95 px-2.5 py-1 text-[8px] font-black tracking-wide text-slate-700 shadow-sm border border-slate-100">
+            <div className="rounded-full bg-white/95 px-2 py-0.5 text-[8px] font-black tracking-wide text-slate-700 shadow-sm">
               {productTag}
             </div>
           )}
@@ -213,10 +226,10 @@ export const ProductCard = React.memo(function ProductCard({
           onClick={handleWishlistClick}
           className="
             absolute right-2.5 top-2.5 z-10
-            flex h-8 w-8
+            flex h-7 w-7
             items-center justify-center
             rounded-full
-            border border-slate-200/80
+            border border-white/70
             bg-white/95
             text-slate-500
             shadow-sm
@@ -224,20 +237,12 @@ export const ProductCard = React.memo(function ProductCard({
             hover:scale-105
             active:scale-90
           "
-          aria-label={
-            localWishlisted
-              ? 'Remove from wishlist'
-              : 'Add to wishlist'
-          }
+          aria-label={localWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
         >
           <Heart
-            size={14}
+            size={13}
             strokeWidth={2.2}
-            className={
-              localWishlisted
-                ? 'fill-red-500 text-red-500'
-                : 'text-slate-600'
-            }
+            className={localWishlisted ? 'fill-red-500 text-red-500' : 'text-slate-600'}
           />
         </button>
 
@@ -247,27 +252,21 @@ export const ProductCard = React.memo(function ProductCard({
             absolute
             bottom-2
             right-2
-            z-10
             flex
             items-center
             gap-1
             rounded-full
             border
-            border-slate-200/80
+            border-white
             bg-white/95
-            px-2
-            py-1
+            px-1.5
+            py-0.5
             shadow-sm
           "
         >
-          <ShieldCheck
-            size={9}
-            strokeWidth={2.5}
-            style={{ color: primaryColor }}
-          />
-
+          <ShieldCheck size={8} strokeWidth={2.5} style={{ color: primaryColor }} />
           <span
-            className="text-[7px] font-extrabold uppercase max-w-[80px] truncate"
+            className="text-[7px] font-extrabold uppercase max-w-[70px] truncate"
             style={{ color: primaryColor }}
           >
             {productQuality}
@@ -278,7 +277,7 @@ export const ProductCard = React.memo(function ProductCard({
       {/* Curved Content Top */}
       <div className="relative bg-white">
         <div
-          className="absolute -top-[17px] left-0 h-[25px] w-full"
+          className="absolute -top-[15px] left-0 h-[20px] w-full"
           style={{
             backgroundColor: 'white',
             clipPath: 'ellipse(70% 75% at 25% 100%)',
@@ -286,23 +285,23 @@ export const ProductCard = React.memo(function ProductCard({
         />
 
         <div
-          className="absolute -top-[3px] left-4 h-[3px] w-9 rounded-full opacity-80"
+          className="absolute -top-[2px] left-3.5 h-[2.5px] w-8 rounded-full opacity-80"
           style={{
             backgroundColor: primaryColor,
           }}
         />
 
-        {/* Content */}
-        <div className="relative px-3 pb-2 pt-1">
+        {/* Compact Content Body */}
+        <div className="relative px-2.5 pb-2 pt-0.5">
           <div className="flex items-center gap-1">
             <p
               className="
-                max-w-[105px]
+                max-w-[100px]
                 truncate
-                text-[9px]
+                text-[8.5px]
                 font-black
                 uppercase
-                tracking-[0.04em]
+                tracking-[0.03em]
               "
               style={{ color: primaryColor }}
             >
@@ -310,52 +309,45 @@ export const ProductCard = React.memo(function ProductCard({
             </p>
 
             <div
-              className="flex h-3.5 w-3.5 items-center justify-center rounded-full"
+              className="flex h-3 w-3 items-center justify-center rounded-full"
               style={{
                 backgroundColor: `${primaryColor}18`,
               }}
             >
-              <ShieldCheck
-                size={9}
-                strokeWidth={2.8}
-                style={{ color: primaryColor }}
-              />
+              <ShieldCheck size={8} strokeWidth={2.8} style={{ color: primaryColor }} />
             </div>
           </div>
 
           <h3
             className="
               mt-0.5
-              line-clamp-2
-              min-h-[29px]
-              text-[12px]
+              line-clamp-1
+              text-[11px]
               font-extrabold
-              leading-[1.2]
-              tracking-[-0.15px]
+              leading-tight
+              tracking-[-0.1px]
             "
             style={{ color: textColor }}
           >
             {product.name}
           </h3>
 
-          <div className="mt-1 flex items-center gap-1">
-            <span className="rounded-md bg-slate-50 px-1.5 py-1 text-[8px] font-bold text-slate-500">
-              {product.packSize}
-            </span>
-            <span className="text-[9px] text-slate-300">•</span>
-            <span className="rounded-md bg-slate-50 px-1.5 py-1 text-[8px] font-bold text-slate-500">
-              MOQ {product.moq}
-            </span>
-          </div>
+          <div className="mt-1 flex items-center justify-between gap-1">
+            <div className="flex items-center gap-1">
+              <span className="rounded bg-slate-50 px-1 py-0.5 text-[7.5px] font-bold text-slate-500">
+                {product.packSize}
+              </span>
+              <span className="rounded bg-slate-50 px-1 py-0.5 text-[7.5px] font-bold text-slate-500">
+                MOQ {product.moq}
+              </span>
+            </div>
 
-          <div className="mt-1 flex items-center gap-1.5">
-            <div className="flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5">
-              <Star size={9} className="fill-amber-400 text-amber-400" />
-              <span className="text-[9px] font-bold text-slate-700">
+            <div className="flex items-center gap-0.5 rounded-full bg-amber-50 px-1 py-0.5">
+              <Star size={8} className="fill-amber-400 text-amber-400" />
+              <span className="text-[8px] font-bold text-slate-700">
                 {product.rating}
               </span>
             </div>
-            <span className="text-[8px] text-slate-400">Trusted</span>
           </div>
 
           <div className="mt-1 flex items-center gap-1">
@@ -370,19 +362,15 @@ export const ProductCard = React.memo(function ProductCard({
                     flex-1
                     items-center
                     justify-center
-                    gap-1
-                    rounded-lg
+                    gap-0.5
+                    rounded-md
                     bg-slate-50
-                    px-1
-                    py-1.5
+                    px-0.5
+                    py-0.5
                   "
                 >
-                  <Icon
-                    size={9}
-                    strokeWidth={2.3}
-                    style={{ color: primaryColor }}
-                  />
-                  <span className="truncate text-[7px] font-bold text-slate-500">
+                  <Icon size={8} strokeWidth={2.2} style={{ color: primaryColor }} />
+                  <span className="truncate text-[6.5px] font-bold text-slate-500">
                     {feature.label}
                   </span>
                 </div>
@@ -393,19 +381,19 @@ export const ProductCard = React.memo(function ProductCard({
           <div className="mt-1.5 flex items-end justify-between gap-1">
             <div className="min-w-0">
               <div className="flex items-center gap-1">
-                <p className="text-[8px] font-medium text-slate-400 line-through">
-                  MRP ₹{product.mrp}
+                <p className="text-[7.5px] font-medium text-slate-400 line-through">
+                  ₹{product.mrp}
                 </p>
                 {discount > 0 && (
-                  <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[7px] font-extrabold text-red-500">
+                  <span className="rounded bg-red-50 px-1 py-0.2 text-[6.5px] font-extrabold text-red-500">
                     {discount}% OFF
                   </span>
                 )}
               </div>
 
-              <div className="mt-0.5 flex items-baseline gap-0.5">
+              <div className="flex items-baseline gap-0.5">
                 <span
-                  className="text-[18px] font-black leading-none tracking-[-0.5px]"
+                  className="text-[16px] font-black leading-none tracking-tight"
                   style={{ color: primaryColor }}
                 >
                   ₹{product.price}
@@ -427,12 +415,12 @@ export const ProductCard = React.memo(function ProductCard({
               <span
                 className="
                   flex
-                  h-8
+                  h-7
                   items-center
                   gap-1
-                  rounded-xl
-                  px-2.5
-                  text-[9px]
+                  rounded-lg
+                  px-2
+                  text-[8.5px]
                   font-extrabold
                   text-white
                   shadow-sm
@@ -449,12 +437,12 @@ export const ProductCard = React.memo(function ProductCard({
                 onClick={handleAdd}
                 className="
                   flex
-                  h-8
+                  h-7
                   items-center
                   gap-1
-                  rounded-xl
+                  rounded-lg
                   px-2.5
-                  text-[10px]
+                  text-[9.5px]
                   font-extrabold
                   shadow-sm
                   transition-transform
@@ -478,7 +466,7 @@ export const ProductCard = React.memo(function ProductCard({
                       }
                 }
               >
-                <ShoppingCart size={12} strokeWidth={2.6} />
+                <ShoppingCart size={11} strokeWidth={2.6} />
                 Add
               </button>
             )}
@@ -508,7 +496,7 @@ export const QuantitySelector = React.memo(function QuantitySelector({
   theme = DEFAULT_THEME,
 }: QuantitySelectorProps) {
   const { primaryColor = '#02402c' } = theme;
-  const buttonSize = size === 'md' ? 'h-7 w-7' : 'h-6 w-6';
+  const buttonSize = size === 'md' ? 'h-6 w-6' : 'h-5.5 w-5.5';
 
   return (
     <div
@@ -516,7 +504,7 @@ export const QuantitySelector = React.memo(function QuantitySelector({
         flex
         items-center
         gap-0.5
-        rounded-xl
+        rounded-lg
         p-0.5
         shadow-sm
       "
@@ -535,7 +523,7 @@ export const QuantitySelector = React.memo(function QuantitySelector({
           ${buttonSize}
           items-center
           justify-center
-          rounded-lg
+          rounded-md
           bg-white
           shadow-sm
           transition-transform
@@ -544,14 +532,14 @@ export const QuantitySelector = React.memo(function QuantitySelector({
         style={{ color: primaryColor }}
         aria-label="Decrease quantity"
       >
-        <Minus size={12} />
+        <Minus size={10} />
       </button>
 
       <span
         className="
-          min-w-[18px]
+          min-w-[16px]
           text-center
-          text-[10px]
+          text-[9.5px]
           font-black
         "
         style={{ color: primaryColor }}
@@ -570,7 +558,7 @@ export const QuantitySelector = React.memo(function QuantitySelector({
           ${buttonSize}
           items-center
           justify-center
-          rounded-lg
+          rounded-md
           bg-white
           shadow-sm
           transition-transform
@@ -579,7 +567,7 @@ export const QuantitySelector = React.memo(function QuantitySelector({
         style={{ color: primaryColor }}
         aria-label="Increase quantity"
       >
-        <Plus size={12} />
+        <Plus size={10} />
       </button>
     </div>
   );
@@ -631,10 +619,10 @@ export const ProductCarousel = React.memo(function ProductCarousel({
 
   return (
     <section className="transform-gpu">
-      <div className="mb-3 flex items-center justify-between px-4">
+      <div className="mb-2.5 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <div
-            className="h-6 w-1 rounded-full"
+            className="h-5 w-1 rounded-full"
             style={{
               backgroundColor: activePrimary,
             }}
@@ -659,9 +647,9 @@ export const ProductCarousel = React.memo(function ProductCarousel({
               gap-1
               rounded-full
               border
-              px-3
-              py-1.5
-              text-[10px]
+              px-2.5
+              py-1
+              text-[9.5px]
               font-extrabold
               transition-transform
               active:scale-95
@@ -673,12 +661,12 @@ export const ProductCarousel = React.memo(function ProductCarousel({
             }}
           >
             View All
-            <span className="text-[12px]">→</span>
+            <span className="text-[11px]">→</span>
           </button>
         )}
       </div>
 
-      <div className="flex gap-3 overflow-x-auto px-4 pb-2 no-scrollbar scroll-touch transform-gpu">
+      <div className="flex gap-2.5 overflow-x-auto px-4 pb-2 no-scrollbar scroll-touch transform-gpu">
         {products.map((product) => (
           <ProductCard
             key={product.id}

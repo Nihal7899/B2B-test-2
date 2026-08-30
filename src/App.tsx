@@ -183,7 +183,6 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isHomeDataReady, setIsHomeDataReady] = useState(false);
 
-  // Preload home data in the background
   useEffect(() => {
     let mounted = true;
     void preloadHomeScreenDataAndImages().then(() => {
@@ -311,10 +310,8 @@ function App() {
     goTo(allowed ? next : 'home');
   };
 
-  // Readiness condition: If not logged in, only wait for auth (!loading). If logged in, wait for both auth and home preloading.
   const isReadyToDismissSplash = !loading && (!user || isHomeDataReady);
 
-  // If user is not logged in, render AuthScreen directly (with splash overlay fading out smoothly)
   if (!user && !loading) {
     return (
       <>

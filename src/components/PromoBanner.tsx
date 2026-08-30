@@ -14,19 +14,21 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
   onAction,
   className = '',
 }: PromoBannerCardProps) {
-  const size = sizeProp || banner.size || 'medium';
-  const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
+  const size = sizeProp || banner?.size || 'medium';
+  const showImage = Boolean(banner?.image && banner.image.trim() !== '' && banner.bgType !== 'image');
 
-  const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
-  const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
-  const badgeBg = (banner.actionConfig?.badgeBg as string) || '';
-  const badgeColor = (banner.actionConfig?.badgeColor as string) || '#ffffff';
-  const ctaBg = (banner.actionConfig?.ctaBg as string) || '#ffffff';
-  const ctaColor = (banner.actionConfig?.ctaColor as string) || '#0f172a';
+  const titleColor = (banner?.actionConfig?.titleColor as string) || '#ffffff';
+  const descColor = (banner?.actionConfig?.descColor as string) || '#ffffff';
+  const badgeBg = (banner?.actionConfig?.badgeBg as string) || '';
+  const badgeColor = (banner?.actionConfig?.badgeColor as string) || '#ffffff';
+  const ctaBg = (banner?.actionConfig?.ctaBg as string) || '#ffffff';
+  const ctaColor = (banner?.actionConfig?.ctaColor as string) || '#0f172a';
 
   const { computedBgStyle, tailwindBgClass } = useMemo(() => {
     let computedBgStyle: React.CSSProperties = {};
     let tailwindBgClass = '';
+
+    if (!banner) return { computedBgStyle, tailwindBgClass };
 
     if (banner.bgType === 'image') {
       computedBgStyle = {
@@ -55,8 +57,8 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
   }, [banner]);
 
   const overlayStyle: React.CSSProperties = {
-    backgroundColor: banner.overlayColor || '#000000',
-    opacity: (banner.overlayOpacity ?? 40) / 100,
+    backgroundColor: banner?.overlayColor || '#000000',
+    opacity: (banner?.overlayOpacity ?? 40) / 100,
   };
 
   const sizeConfig = useMemo(() => {
@@ -94,6 +96,8 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
         };
     }
   }, [size]);
+
+  if (!banner) return null;
 
   return (
     <div
@@ -175,12 +179,13 @@ export const PromoCarousel = React.memo(function PromoCarousel({
   onAction?: (banner: PromoBanner) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const isLoopable = banners.length > 1;
+  const safeBanners = useMemo(() => (Array.isArray(banners) ? banners : []), [banners]);
+  const isLoopable = safeBanners.length > 1;
   const isResetting = useRef(false);
 
   const displayBanners = useMemo(() => {
-    return isLoopable ? [...banners, ...banners, ...banners] : banners;
-  }, [banners, isLoopable]);
+    return isLoopable ? [...safeBanners, ...safeBanners, ...safeBanners] : safeBanners;
+  }, [safeBanners, isLoopable]);
 
   const centerCardByIndex = useCallback((index: number) => {
     const el = scrollRef.current;
@@ -193,17 +198,17 @@ export const PromoCarousel = React.memo(function PromoCarousel({
   }, []);
 
   useEffect(() => {
-    if (!isLoopable) return;
+    if (!isLoopable || safeBanners.length === 0) return;
     const timer = setTimeout(() => {
-      centerCardByIndex(banners.length);
+      centerCardByIndex(safeBanners.length);
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [isLoopable, banners.length, centerCardByIndex]);
+  }, [isLoopable, safeBanners.length, centerCardByIndex]);
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || !isLoopable) return;
+    if (!el || !isLoopable || safeBanners.length === 0) return;
 
     let timeoutId: ReturnType<typeof setTimeout>;
 
@@ -211,7 +216,7 @@ export const PromoCarousel = React.memo(function PromoCarousel({
       if (isResetting.current) return;
 
       const children = Array.from(el.children) as HTMLElement[];
-      if (children.length !== banners.length * 3) return;
+      if (children.length !== safeBanners.length * 3) return;
 
       const containerCenter = el.scrollLeft + el.clientWidth / 2;
 
@@ -227,15 +232,15 @@ export const PromoCarousel = React.memo(function PromoCarousel({
         }
       });
 
-      if (closestIndex < banners.length) {
+      if (closestIndex < safeBanners.length) {
         isResetting.current = true;
-        centerCardByIndex(closestIndex + banners.length);
+        centerCardByIndex(closestIndex + safeBanners.length);
         setTimeout(() => {
           isResetting.current = false;
         }, 30);
-      } else if (closestIndex >= banners.length * 2) {
+      } else if (closestIndex >= safeBanners.length * 2) {
         isResetting.current = true;
-        centerCardByIndex(closestIndex - banners.length);
+        centerCardByIndex(closestIndex - safeBanners.length);
         setTimeout(() => {
           isResetting.current = false;
         }, 30);
@@ -255,7 +260,9 @@ export const PromoCarousel = React.memo(function PromoCarousel({
       el.removeEventListener('scroll', handleScrollEvent);
       el.removeEventListener('scrollend', checkAndResetLoop);
     };
-  }, [isLoopable, banners.length, centerCardByIndex]);
+  }, [isLoopable, safeBanners.length, centerCardByIndex]);
+
+  if (safeBanners.length === 0) return null;
 
   return (
     <div

@@ -37,7 +37,7 @@ export interface PreloadedHomeData {
 }
 
 let cachedHomeData: PreloadedHomeData | null = null;
-let preloadPromise: Promise<PreloadedHomeData> | null = null;
+let preloadPromise: Promise<PreloadedHomeData | null> | null = null;
 
 export function preloadImage(url: string): Promise<void> {
   if (!url || typeof url !== 'string' || !url.trim()) return Promise.resolve();
@@ -64,7 +64,8 @@ export function preloadImage(url: string): Promise<void> {
 }
 
 export async function preloadImages(urls: string[], timeoutMs = 1500): Promise<void> {
-  const uniqueUrls = Array.from(new Set(urls.filter((u) => Boolean(u && u.trim()))));
+  if (!Array.isArray(urls)) return;
+  const uniqueUrls = Array.from(new Set(urls.filter((u) => typeof u === 'string' && u.trim().length > 0)));
   if (uniqueUrls.length === 0) return;
 
   const tasks = uniqueUrls.map((url) => preloadImage(url));
@@ -74,13 +75,12 @@ export async function preloadImages(urls: string[], timeoutMs = 1500): Promise<v
   ]);
 }
 
-export async function preloadHomeScreenDataAndImages(): Promise<PreloadedHomeData> {
+export async function preloadHomeScreenDataAndImages(): Promise<PreloadedHomeData | null> {
   if (cachedHomeData) return cachedHomeData;
   if (preloadPromise) return preloadPromise;
 
   preloadPromise = (async () => {
     try {
-      // 3.5s strict timeout fallback so it never blocks the app
       const fetchTask = Promise.all([
         fetchAddresses().catch(() => [] as DbAddress[]),
         fetchHomeSections().catch(() => [] as HomeSection[]),
@@ -100,30 +100,9 @@ export async function preloadHomeScreenDataAndImages(): Promise<PreloadedHomeDat
       ]);
 
       const timeoutTask = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
-
       const results = await Promise.race([fetchTask, timeoutTask]);
 
-      if (!results) {
-        // Fallback default on timeout
-        cachedHomeData = {
-          address: null,
-          sections: [],
-          banners: [],
-          categories: [],
-          products: [],
-          popularProducts: [],
-          reorderProducts: [],
-          recentlyViewed: [],
-          volumeDeals: [],
-          newArrivals: [],
-          topRated: [],
-          limitedStock: [],
-          brandSpotlight: null,
-          stores: [],
-          brands: [],
-        };
-        return cachedHomeData;
-      }
+      if (!results) return null;
 
       const [
         addrs,
@@ -143,55 +122,51 @@ export async function preloadHomeScreenDataAndImages(): Promise<PreloadedHomeDat
         brandRes,
       ] = results;
 
-      const categories = catRes.categories || [];
-      const banners = banRes || [];
-      const sections = secRes.filter((s) => s.isActive) || [];
+      const categories: Category[] = Array.isArray(catRes?.categories)
+        ? catRes.categories
+        : Array.isArray(catRes)
+        ? catRes
+        : [];
+      const banners: PromoBanner[] = Array.isArray(banRes) ? banRes : [];
+      const sections: HomeSection[] = Array.isArray(secRes) ? secRes.filter((s) => s && s.isActive) : [];
+      const products: Product[] = Array.isArray(prodRes?.products)
+        ? prodRes.products
+        : Array.isArray(prodRes)
+        ? prodRes
+        : [];
 
       const criticalImageUrls: string[] = [
-        ...banners.map((b) => b.image).filter(Boolean),
-        ...categories.slice(0, 16).map((c) => c.image).filter(Boolean),
+        ...banners.map((b) => b?.image).filter((img): img is string => Boolean(img)),
+        ...categories.slice(0, 16).map((c) => c?.image).filter((img): img is string => Boolean(img)),
       ];
 
       await preloadImages(criticalImageUrls, 1500);
 
+      const addressList = Array.isArray(addrs) ? addrs : [];
+      const foundAddress = addressList.find((a) => a?.is_default) || addressList[0] || null;
+
       cachedHomeData = {
-        address: addrs.find((a) => a.is_default) || addrs[0] || null,
+        address: foundAddress,
         sections,
         banners,
         categories,
-        products: prodRes.products || [],
-        popularProducts: popRes || [],
-        reorderProducts: reorderRes || [],
-        recentlyViewed: recentRes || [],
-        volumeDeals: volumeRes || [],
-        newArrivals: newArrRes || [],
-        topRated: topRatedRes || [],
-        limitedStock: limitedRes || [],
-        brandSpotlight: spotlightRes,
-        stores: storeRes || [],
-        brands: brandRes || [],
+        products,
+        popularProducts: Array.isArray(popRes) ? popRes : [],
+        reorderProducts: Array.isArray(reorderRes) ? reorderRes : [],
+        recentlyViewed: Array.isArray(recentRes) ? recentRes : [],
+        volumeDeals: Array.isArray(volumeRes) ? volumeRes : [],
+        newArrivals: Array.isArray(newArrRes) ? newArrRes : [],
+        topRated: Array.isArray(topRatedRes) ? topRatedRes : [],
+        limitedStock: Array.isArray(limitedRes) ? limitedRes : [],
+        brandSpotlight: spotlightRes || null,
+        stores: Array.isArray(storeRes) ? storeRes : [],
+        brands: Array.isArray(brandRes) ? brandRes : [],
       };
 
       return cachedHomeData;
     } catch (e) {
-      console.warn('Preload error (handled):', e);
-      return {
-        address: null,
-        sections: [],
-        banners: [],
-        categories: [],
-        products: [],
-        popularProducts: [],
-        reorderProducts: [],
-        recentlyViewed: [],
-        volumeDeals: [],
-        newArrivals: [],
-        topRated: [],
-        limitedStock: [],
-        brandSpotlight: null,
-        stores: [],
-        brands: [],
-      };
+      console.warn('Preload warning:', e);
+      return null;
     } finally {
       preloadPromise = null;
     }

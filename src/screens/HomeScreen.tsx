@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -26,11 +26,21 @@ import {
   type DbAddress,
   fetchHomeSections,
   fetchHomeBanners,
+  fetchCategories,
+  fetchProducts,
+  fetchPopularProducts,
   fetchUserReorderProducts,
   fetchRecentlyViewedProducts,
+  fetchVolumeDealsProducts,
+  fetchNewArrivalsProducts,
+  fetchTopRatedProducts,
+  fetchLimitedStockProducts,
+  fetchBrandSpotlight,
+  fetchStores,
+  fetchTrustedBrands,
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
-import { getCachedHomeData, preloadHomeScreenDataAndImages } from '@/services/homePreload';
+import { getCachedHomeData } from '@/services/homePreload';
 
 interface HomeScreenProps {
   onCategory: (category: Category) => void;
@@ -87,6 +97,7 @@ export function HomeScreen({
   const cart = useCart();
 
   const initialCache = useMemo(() => getCachedHomeData(), []);
+  const hasCachedContent = Boolean(initialCache && initialCache.sections.length > 0);
 
   const [address, setAddress] = useState<DbAddress | null>(initialCache?.address || null);
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
@@ -109,33 +120,41 @@ export function HomeScreen({
   );
   const [stores, setStores] = useState<Store[]>(initialCache?.stores || []);
   const [brands, setBrands] = useState<TrustedBrand[]>(initialCache?.brands || []);
-  const [loading, setLoading] = useState(!initialCache);
+  const [loading, setLoading] = useState(!hasCachedContent);
 
+  // 1. Fetch addresses safely
   useEffect(() => {
     let active = true;
-    void fetchAddresses().then((addrs) => {
-      if (active && addrs.length > 0) {
-        setAddress(addrs.find((a) => a.is_default) || addrs[0]);
-      }
-    });
+    void fetchAddresses()
+      .then((addrs) => {
+        if (active && Array.isArray(addrs) && addrs.length > 0) {
+          setAddress(addrs.find((a) => a?.is_default) || addrs[0]);
+        }
+      })
+      .catch(() => {});
     return () => {
       active = false;
     };
   }, []);
 
+  // 2. Dynamic keywords for search placeholder
   useEffect(() => {
     let active = true;
-    void getOrBuildSearchDictionary().then((dict) => {
-      if (active && dict.allKeywords.length > 0) {
-        setDisplayKeywords(dict.allKeywords.slice(0, 35).map((k) => k.word));
-      }
-    });
+    void getOrBuildSearchDictionary()
+      .then((dict) => {
+        if (active && dict && Array.isArray(dict.allKeywords) && dict.allKeywords.length > 0) {
+          setDisplayKeywords(dict.allKeywords.slice(0, 35).map((k) => k.word));
+        }
+      })
+      .catch(() => {});
     return () => {
       active = false;
     };
   }, []);
 
+  // 3. Cycle animated placeholder
   useEffect(() => {
+    if (!displayKeywords || displayKeywords.length === 0) return;
     const interval = setInterval(() => {
       setIsFading(true);
       setTimeout(() => {
@@ -147,54 +166,97 @@ export function HomeScreen({
     return () => clearInterval(interval);
   }, [displayKeywords]);
 
-  const loadAllHomeData = useCallback(async (isInitial = false) => {
-    if (isInitial && !initialCache) setLoading(true);
+  const loadAllHomeData = useCallback(async (showLoadingState = false) => {
+    if (showLoadingState) setLoading(true);
 
     try {
-      const data = await preloadHomeScreenDataAndImages();
-      setSections(data.sections);
-      setBanners(data.banners);
-      setCategories(data.categories);
-      setProducts(data.products);
-      setPopularProducts(data.popularProducts);
-      setReorderProducts(data.reorderProducts);
-      setRecentlyViewed(data.recentlyViewed);
-      setVolumeDeals(data.volumeDeals);
-      setNewArrivals(data.newArrivals);
-      setTopRated(data.topRated);
-      setLimitedStock(data.limitedStock);
-      setBrandSpotlight(data.brandSpotlight);
-      setStores(data.stores);
-      setBrands(data.brands);
-      if (data.address) setAddress(data.address);
+      const [
+        secRes,
+        banRes,
+        catRes,
+        prodRes,
+        popRes,
+        reorderRes,
+        recentRes,
+        volumeRes,
+        newArrRes,
+        topRatedRes,
+        limitedRes,
+        spotlightRes,
+        storeRes,
+        brandRes,
+      ] = await Promise.all([
+        fetchHomeSections().catch(() => [] as HomeSection[]),
+        fetchHomeBanners().catch(() => [] as PromoBanner[]),
+        fetchCategories().catch(() => ({ categories: [] as Category[] })),
+        fetchProducts().catch(() => ({ products: [] as Product[] })),
+        fetchPopularProducts(12).catch(() => [] as Product[]),
+        fetchUserReorderProducts(10).catch(() => [] as Product[]),
+        fetchRecentlyViewedProducts().catch(() => [] as Product[]),
+        fetchVolumeDealsProducts(10).catch(() => [] as Product[]),
+        fetchNewArrivalsProducts(10).catch(() => [] as Product[]),
+        fetchTopRatedProducts(10).catch(() => [] as Product[]),
+        fetchLimitedStockProducts(10).catch(() => [] as Product[]),
+        fetchBrandSpotlight().catch(() => null),
+        fetchStores().catch(() => [] as Store[]),
+        fetchTrustedBrands().catch(() => [] as TrustedBrand[]),
+      ]);
+
+      const safeSections = Array.isArray(secRes) ? secRes.filter((s) => s && s.isActive) : [];
+      const safeBanners = Array.isArray(banRes) ? banRes : [];
+      const safeCategories = Array.isArray(catRes?.categories)
+        ? catRes.categories
+        : Array.isArray(catRes)
+        ? catRes
+        : [];
+      const safeProducts = Array.isArray(prodRes?.products)
+        ? prodRes.products
+        : Array.isArray(prodRes)
+        ? prodRes
+        : [];
+
+      setSections(safeSections);
+      setBanners(safeBanners);
+      setCategories(safeCategories);
+      setProducts(safeProducts);
+      setPopularProducts(Array.isArray(popRes) ? popRes : []);
+      setReorderProducts(Array.isArray(reorderRes) ? reorderRes : []);
+      setRecentlyViewed(Array.isArray(recentRes) ? recentRes : []);
+      setVolumeDeals(Array.isArray(volumeRes) ? volumeRes : []);
+      setNewArrivals(Array.isArray(newArrRes) ? newArrRes : []);
+      setTopRated(Array.isArray(topRatedRes) ? topRatedRes : []);
+      setLimitedStock(Array.isArray(limitedRes) ? limitedRes : []);
+      setBrandSpotlight(spotlightRes || null);
+      setStores(Array.isArray(storeRes) ? storeRes : []);
+      setBrands(Array.isArray(brandRes) ? brandRes : []);
     } catch (err) {
       console.error('Failed to load home catalog data:', err);
     } finally {
-      if (isInitial) setLoading(false);
+      setLoading(false);
     }
-  }, [initialCache]);
+  }, []);
 
   const refreshDynamicSections = useCallback(async () => {
     try {
       const [recent, reorder] = await Promise.all([
-        fetchRecentlyViewedProducts(),
-        fetchUserReorderProducts(10),
+        fetchRecentlyViewedProducts().catch(() => []),
+        fetchUserReorderProducts(10).catch(() => []),
       ]);
-      setRecentlyViewed(recent);
-      setReorderProducts(reorder);
+      setRecentlyViewed(Array.isArray(recent) ? recent : []);
+      setReorderProducts(Array.isArray(reorder) ? reorder : []);
     } catch (e) {
-      console.warn('Failed to refresh dynamic personal sections:', e);
+      console.warn('Failed to refresh dynamic sections:', e);
     }
   }, []);
 
   const refreshLayoutAndBanners = useCallback(async () => {
     try {
       const [secRes, banRes] = await Promise.all([
-        fetchHomeSections(),
-        fetchHomeBanners(),
+        fetchHomeSections().catch(() => []),
+        fetchHomeBanners().catch(() => []),
       ]);
-      setSections(secRes.filter((s) => s.isActive));
-      setBanners(banRes);
+      setSections(Array.isArray(secRes) ? secRes.filter((s) => s && s.isActive) : []);
+      setBanners(Array.isArray(banRes) ? banRes : []);
     } catch (e) {
       console.warn('Failed to refresh layout:', e);
     }
@@ -203,7 +265,7 @@ export function HomeScreen({
   useEffect(() => {
     let active = true;
 
-    void loadAllHomeData(!initialCache);
+    void loadAllHomeData(!hasCachedContent);
 
     const homeChannel = supabase
       .channel('realtime:home_updates')
@@ -216,7 +278,11 @@ export function HomeScreen({
       .subscribe();
 
     const handleRecentlyViewedUpdate = () => {
-      if (active) void fetchRecentlyViewedProducts().then(setRecentlyViewed);
+      if (active) {
+        void fetchRecentlyViewedProducts().then((res) => {
+          if (active && Array.isArray(res)) setRecentlyViewed(res);
+        });
+      }
     };
     window.addEventListener('recently-viewed-updated', handleRecentlyViewedUpdate);
 
@@ -244,9 +310,10 @@ export function HomeScreen({
       window.removeEventListener('visibilitychange', handleVisibilityChange);
       void supabase.removeChannel(homeChannel);
     };
-  }, [loadAllHomeData, refreshDynamicSections, refreshLayoutAndBanners, initialCache]);
+  }, [loadAllHomeData, refreshDynamicSections, refreshLayoutAndBanners, hasCachedContent]);
 
   const deals = useMemo(() => {
+    if (!Array.isArray(products)) return [];
     return products
       .map((p) => ({
         ...p,
@@ -258,16 +325,17 @@ export function HomeScreen({
   }, [products]);
 
   const essentials = useMemo(() => {
+    if (!Array.isArray(products)) return [];
     const staples = ['oil', 'atta', 'flour', 'rice', 'sugar', 'salt', 'milk', 'spice', 'tea', 'dal'];
     const list = products.filter((p) =>
-      staples.some((s) => `${p.name || ''} ${p.brand || ''}`.toLowerCase().includes(s))
+      staples.some((s) => `${p?.name || ''} ${p?.brand || ''}`.toLowerCase().includes(s))
     );
     return list.length > 0 ? list.slice(0, 10) : products.slice(0, 10);
   }, [products]);
 
-  const topBanner = useMemo(() => banners.find((b) => b.position === 'top') || null, [banners]);
-  const topSliderBanners = useMemo(() => banners.filter((b) => b.position === 'top_slider'), [banners]);
-  const carouselBanners = useMemo(() => banners.filter((b) => b.position === 'carousel'), [banners]);
+  const topBanner = useMemo(() => (Array.isArray(banners) ? banners.find((b) => b?.position === 'top') || null : null), [banners]);
+  const topSliderBanners = useMemo(() => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'top_slider') : []), [banners]);
+  const carouselBanners = useMemo(() => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'carousel') : []), [banners]);
 
   const handleAddToCart = useCallback((p: Product) => cart.addToCart(p), [cart]);
   const handleIncrement = useCallback((p: Product) => cart.addToCart(p), [cart]);
@@ -284,10 +352,11 @@ export function HomeScreen({
   }, [address]);
 
   const getSlotBanners = (slotPosition?: string) => {
+    if (!Array.isArray(banners)) return [];
     const target = slotPosition || 'middle_1';
     return banners.filter((b) => {
-      if (b.position === target) return true;
-      if (target === 'middle_1' && (b.position === 'middle' || !b.position)) return true;
+      if (b?.position === target) return true;
+      if (target === 'middle_1' && (b?.position === 'middle' || !b?.position)) return true;
       return false;
     });
   };

@@ -14,21 +14,32 @@ export function SplashScreen({ onFinish, isReady = true }: SplashScreenProps) {
     onFinishRef.current = onFinish;
   }, [onFinish]);
 
+  // Minimum brand intro animation duration (1.2 seconds)
   useEffect(() => {
     const minTimer = window.setTimeout(() => {
       setMinTimerDone(true);
     }, 1200);
 
-    return () => window.clearTimeout(minTimer);
+    // Hard fallback: never stay on splash screen for more than 3.5s under any circumstance
+    const maxSafetyTimer = window.setTimeout(() => {
+      setExiting(true);
+      window.setTimeout(() => onFinishRef.current(), 400);
+    }, 3500);
+
+    return () => {
+      window.clearTimeout(minTimer);
+      window.clearTimeout(maxSafetyTimer);
+    };
   }, []);
 
+  // Dismiss when minimum time is reached AND data is ready
   useEffect(() => {
     if (!minTimerDone || !isReady || exiting) return;
 
     setExiting(true);
     const doneTimer = window.setTimeout(() => {
       onFinishRef.current();
-    }, 500);
+    }, 450);
 
     return () => window.clearTimeout(doneTimer);
   }, [minTimerDone, isReady, exiting]);

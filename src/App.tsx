@@ -181,12 +181,13 @@ function App() {
   const location = useLocation();
 
   const [showSplash, setShowSplash] = useState(true);
-  const [isAppReady, setIsAppReady] = useState(false);
+  const [isHomeDataReady, setIsHomeDataReady] = useState(false);
 
+  // Preload home data in the background
   useEffect(() => {
     let mounted = true;
     void preloadHomeScreenDataAndImages().then(() => {
-      if (mounted) setIsAppReady(true);
+      if (mounted) setIsHomeDataReady(true);
     });
     return () => {
       mounted = false;
@@ -310,8 +311,24 @@ function App() {
     goTo(allowed ? next : 'home');
   };
 
-  if (!user && !loading && !showSplash) {
-    return <AuthScreen />;
+  // Readiness condition: If not logged in, only wait for auth (!loading). If logged in, wait for both auth and home preloading.
+  const isReadyToDismissSplash = !loading && (!user || isHomeDataReady);
+
+  // If user is not logged in, render AuthScreen directly (with splash overlay fading out smoothly)
+  if (!user && !loading) {
+    return (
+      <>
+        <AuthScreen />
+        {showSplash && (
+          <SplashScreen
+            isReady={isReadyToDismissSplash}
+            onFinish={() => {
+              setShowSplash(false);
+            }}
+          />
+        )}
+      </>
+    );
   }
 
   const renderScreen = (): ReactNode => {
@@ -508,7 +525,7 @@ function App() {
 
         {showSplash && (
           <SplashScreen
-            isReady={!loading && isAppReady}
+            isReady={isReadyToDismissSplash}
             onFinish={() => {
               setShowSplash(false);
             }}

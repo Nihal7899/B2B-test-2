@@ -163,8 +163,8 @@ export const ProductCard = React.memo(function ProductCard({
         boxShadow: '0 4px 16px rgba(15, 23, 42, 0.06)',
       }}
     >
-      {/* 1:1 Square Image Container with transparent background support */}
-      <div className="relative aspect-square w-full overflow-hidden bg-white p-2.5 flex items-center justify-center">
+      {/* Product Image Container (No Backgrounds/Overlays for Clean Transparent PNG Support) */}
+      <div className="relative h-[144px] w-full overflow-hidden flex items-center justify-center p-2.5">
         <img
           src={product.image}
           alt={product.name}
@@ -201,7 +201,7 @@ export const ProductCard = React.memo(function ProductCard({
               {discount}% OFF
             </div>
           ) : (
-            <div className="rounded-full bg-slate-100/90 px-2 py-0.5 text-[8px] font-black tracking-wide text-slate-700 shadow-sm">
+            <div className="rounded-full bg-white/95 px-2 py-0.5 text-[8px] font-black tracking-wide text-slate-700 shadow-sm border border-slate-100">
               {productTag}
             </div>
           )}
@@ -262,9 +262,25 @@ export const ProductCard = React.memo(function ProductCard({
         </div>
       </div>
 
-      {/* Content Section */}
-      <div className="relative bg-white border-t border-slate-100/80">
-        <div className="relative px-2.5 pb-2 pt-1.5">
+      {/* Curved Top Section */}
+      <div className="relative bg-white">
+        <div
+          className="absolute -top-[15px] left-0 h-[20px] w-full"
+          style={{
+            backgroundColor: 'white',
+            clipPath: 'ellipse(70% 75% at 25% 100%)',
+          }}
+        />
+
+        <div
+          className="absolute -top-[2px] left-3.5 h-[2.5px] w-8 rounded-full opacity-80"
+          style={{
+            backgroundColor: primaryColor,
+          }}
+        />
+
+        {/* Compact Content Body */}
+        <div className="relative px-2.5 pb-2 pt-0.5">
           <div className="flex items-center gap-1">
             <p
               className="

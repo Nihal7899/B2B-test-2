@@ -1,9 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { ArrowLeft, Check, Delete } from 'lucide-react';
 import { useAuth } from '@/auth';
-
-const groceryImage =
-  'https://images.pexels.com/photos/27854616/pexels-photo-27854616.jpeg?auto=compress&cs=tinysrgb&h=1200&w=1200';
+import heroImage from './hero.webp';
 
 function normalizeIndianPhone(value: string): string {
   let digits = value.replace(/\D/g, '');
@@ -339,7 +337,7 @@ export function AuthScreen() {
             {/* Top Hero image (Only present on phone step) */}
             <div className="absolute inset-x-0 top-0 h-[62%] w-full overflow-hidden">
               <img
-                src={groceryImage}
+                src={heroImage}
                 alt="Fresh ingredients"
                 className="h-full w-full object-cover object-center"
               />

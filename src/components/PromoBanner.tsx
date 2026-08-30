@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect, useCallback } from 'react';
 import type { PromoBanner, BannerSize } from '@/types';
 
 interface PromoBannerCardProps {
@@ -174,10 +174,63 @@ export const PromoCarousel = React.memo(function PromoCarousel({
   size?: BannerSize;
   onAction?: (banner: PromoBanner) => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isLoopable = banners.length > 1;
+
+  // Triplicate banners to provide a smooth infinite circular buffer
+  const displayBanners = useMemo(() => {
+    return isLoopable ? [...banners, ...banners, ...banners] : banners;
+  }, [banners, isLoopable]);
+
+  // Position viewport at the middle set on mount
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !isLoopable) return;
+
+    requestAnimationFrame(() => {
+      const singleSetWidth = el.scrollWidth / 3;
+      el.style.scrollBehavior = 'auto';
+      el.scrollLeft = singleSetWidth;
+      requestAnimationFrame(() => {
+        if (el) el.style.scrollBehavior = '';
+      });
+    });
+  }, [isLoopable, banners.length]);
+
+  // Seamless jump without stuttering between boundary edges
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || !isLoopable) return;
+
+    const singleSetWidth = el.scrollWidth / 3;
+
+    if (el.scrollLeft <= 5) {
+      el.style.scrollBehavior = 'auto';
+      el.scrollLeft += singleSetWidth;
+      requestAnimationFrame(() => {
+        if (el) el.style.scrollBehavior = '';
+      });
+    } else if (el.scrollLeft >= singleSetWidth * 2 - 5) {
+      el.style.scrollBehavior = 'auto';
+      el.scrollLeft -= singleSetWidth;
+      requestAnimationFrame(() => {
+        if (el) el.style.scrollBehavior = '';
+      });
+    }
+  }, [isLoopable]);
+
   return (
-    <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">
-      {banners.map((banner) => (
-        <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
+    <div
+      ref={scrollRef}
+      onScroll={handleScroll}
+      className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-3 pb-1 snap-x snap-mandatory scroll-smooth transform-gpu"
+    >
+      {displayBanners.map((banner, index) => (
+        <div
+          key={`${banner.id}-${index}`}
+          /* Increased width by +6px across carousel cards */
+          className="shrink-0 w-[calc(85%+6px)] max-w-[346px] snap-center"
+        >
           <PromoBannerCard banner={banner} size={size} onAction={onAction} />
         </div>
       ))}

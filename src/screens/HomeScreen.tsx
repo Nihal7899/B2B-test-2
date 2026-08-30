@@ -93,7 +93,6 @@ export function HomeScreen({
   onBannerAction,
 }: HomeScreenProps) {
   const navigate = useNavigate();
-  // Direct live subscription to cart store
   const cart = useCart();
 
   // Header state
@@ -651,7 +650,8 @@ export function HomeScreen({
                           onAction={onBannerAction}
                         />
                       ) : (
-                        <div className="px-4">
+                        /* Adjusted to px-3 to widen single middle/bottom cards by 8px */
+                        <div className="px-3">
                           <PromoBannerCard
                             banner={matching[0]}
                             size={section.bannerSize}

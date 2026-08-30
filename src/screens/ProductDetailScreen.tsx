@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -53,7 +53,6 @@ const defaultTheme = {
 
 export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDetailScreenProps) {
   const navigate = useNavigate();
-  // Direct subscription to CartContext ensures live reactivity on back navigation
   const cart = useCart();
   const [searchParams] = useSearchParams();
   const storeId = searchParams.get('storeId');
@@ -76,7 +75,11 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
-  
+
+  // Touch Swipe Tracking
+  const touchStartX = useRef<number | null>(null);
+  const touchDeltaX = useRef<number>(0);
+
   // Smooth scroll opacity state (0 to 1)
   const [headerOpacity, setHeaderOpacity] = useState(0);
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -88,12 +91,11 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
     borderColor = '#e5e7eb',
   } = theme;
 
-  // Track scroll and smoothly transition to white ONLY when the bottom of the image passes the header
   useEffect(() => {
     const handleScroll = () => {
       const containerHeight = imageContainerRef.current?.offsetHeight || 320;
       const scrollY = window.scrollY;
-      
+
       const start = Math.max(0, containerHeight - 50);
       const end = containerHeight;
 
@@ -189,6 +191,33 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
     })();
   }, [productId, brandId, categoryId]);
 
+  const rawImages = product?.image_urls?.length ? product.image_urls : product?.image ? [product.image] : [];
+  const images = rawImages.filter(Boolean);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchDeltaX.current = 0;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchStartX.current === null) return;
+    const swipeThreshold = 40;
+
+    if (touchDeltaX.current < -swipeThreshold && activeImageIndex < images.length - 1) {
+      setActiveImageIndex((prev) => prev + 1);
+    } else if (touchDeltaX.current > swipeThreshold && activeImageIndex > 0) {
+      setActiveImageIndex((prev) => prev - 1);
+    }
+
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
+  }, [activeImageIndex, images.length]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -211,14 +240,9 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
     );
   }
 
-  const rawImages = product.image_urls?.length ? product.image_urls : [product.image];
-  const images = rawImages.filter(Boolean);
-  const currentImage = images[activeImageIndex];
-  const isCurrentImageValid = Boolean(currentImage && !imageErrors[activeImageIndex]);
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const quantity = cart.getQuantity(product.id);
 
-  // Active tier requires an active positive quantity in cart
   const activeTier = quantity > 0
     ? volumeTiers.find(
         (t) => quantity >= t.min_quantity && (t.max_quantity === null || quantity <= t.max_quantity)
@@ -330,15 +354,43 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
         </div>
       </header>
 
-      {/* Image Carousel / Container without Background */}
-      <div ref={imageContainerRef} className="relative w-full h-[320px] flex items-center justify-center overflow-hidden m-0 p-0">
-        {isCurrentImageValid ? (
-          <img
-            src={currentImage}
-            alt={product.name}
-            onError={() => setImageErrors((prev) => ({ ...prev, [activeImageIndex]: true }))}
-            className="h-full w-full object-cover transition-opacity duration-300"
-          />
+      {/* Swipeable Image Carousel Container */}
+      <div
+        ref={imageContainerRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="relative w-full h-[320px] overflow-hidden m-0 p-0 select-none touch-pan-y"
+      >
+        {images.length > 0 ? (
+          <div
+            className="flex h-full w-full transition-transform duration-300 ease-out"
+            style={{ transform: `translateX(-${activeImageIndex * 100}%)` }}
+          >
+            {images.map((imgUrl, idx) => {
+              const isInvalid = imageErrors[idx];
+              return (
+                <div
+                  key={idx}
+                  className="flex h-full w-full shrink-0 items-center justify-center overflow-hidden"
+                >
+                  {!isInvalid ? (
+                    <img
+                      src={imgUrl}
+                      alt={`${product.name} - ${idx + 1}`}
+                      onError={() => setImageErrors((prev) => ({ ...prev, [idx]: true }))}
+                      className="h-full w-full object-cover pointer-events-none"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-slate-300">
+                      <Package size={64} strokeWidth={1.5} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-slate-300">
             <Package size={64} strokeWidth={1.5} />
@@ -348,25 +400,33 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
         {images.length > 1 && (
           <>
             <button
+              type="button"
               onClick={() => setActiveImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50"
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50 transition-colors z-10"
+              aria-label="Previous image"
             >
               <ArrowLeft size={18} />
             </button>
             <button
+              type="button"
               onClick={() => setActiveImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50 transition-colors z-10"
+              aria-label="Next image"
             >
               <ArrowRight size={18} />
             </button>
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+
+            {/* Pagination Dots */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
               {images.map((_, idx) => (
                 <button
                   key={idx}
+                  type="button"
                   onClick={() => setActiveImageIndex(idx)}
-                  className={`h-2 w-2 rounded-full transition-colors ${
-                    idx === activeImageIndex ? 'bg-slate-800' : 'bg-slate-300'
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    idx === activeImageIndex ? 'w-4 bg-slate-800' : 'w-2 bg-slate-300'
                   }`}
+                  aria-label={`Go to slide ${idx + 1}`}
                 />
               ))}
             </div>

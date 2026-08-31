@@ -1,12 +1,12 @@
-// screens/CheckoutScreen.tsx
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { ArrowLeft, MapPin, Tag, Truck, Loader2, CheckCircle2, CreditCard, Banknote, AlertCircle, X, Gift } from 'lucide-react';
+import { ArrowLeft, MapPin, Tag, Truck, Loader2, CheckCircle2, CreditCard, Banknote, AlertCircle, X, Gift, Wallet } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Checkout } from 'capacitor-razorpay';
 import logoImg from './logo.png';
 import type { useCart } from '@/store';
 import type { DbAddress } from '@/services/catalog';
 import { fetchAddresses, getDeliveryCharge, computeGST } from '@/services/catalog';
+import { fetchWallet, payWithWalletRpc } from '@/services/wallet';
 import { supabase } from '@/lib/supabase';
 
 declare global {
@@ -25,6 +25,8 @@ interface CheckoutScreenProps {
 export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: CheckoutScreenProps) {
   const [addresses, setAddresses] = useState<DbAddress[]>([]);
   const [selectedAddr, setSelectedAddr] = useState<string | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [useWallet, setUseWallet] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
@@ -47,14 +49,22 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   const promoDiscount = cart.appliedPromo?.discount || 0;
   const taxableAmount = Math.max(0, effectiveSubtotal - promoDiscount);
   const totalWithGST = taxableAmount + gstTotal;
-  const total = totalWithGST + deliveryCharge;
+  const grandTotal = totalWithGST + deliveryCharge;
+
+  const walletDeduction = useWallet ? Math.min(walletBalance, grandTotal) : 0;
+  const remainingPayable = Math.max(0, grandTotal - walletDeduction);
+  const isFullWalletPayment = useWallet && walletDeduction >= grandTotal;
 
   const loadData = useCallback(async () => {
-    const addrData = await fetchAddresses();
+    const [addrData, userWallet] = await Promise.all([fetchAddresses(), fetchWallet()]);
     setAddresses(addrData);
     if (addrData.length > 0) {
       const def = addrData.find((a) => a.is_default);
       setSelectedAddr(def?.id ?? addrData[0].id);
+    }
+    if (userWallet) {
+      setWalletBalance(userWallet.balance);
+      if (userWallet.balance <= 0) setUseWallet(false);
     }
     setLoading(false);
   }, []);
@@ -63,7 +73,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     void loadData();
   }, [loadData]);
 
-  // Dynamically load web script ONLY in the browser
   useEffect(() => {
     if (!isNative && typeof window !== 'undefined' && !window.Razorpay) {
       const script = document.createElement('script');
@@ -78,11 +87,9 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     }
   }, [isNative]);
 
-  // Recalculate delivery and GST with pro-rated promo discount
   useEffect(() => {
     async function recalc() {
       const promoDisc = cart.appliedPromo?.discount || 0;
-      
       const { gstTotal: computedGst, gstBreakdown: computedBreakdown } = computeGST(cart.items, promoDisc);
       setGstTotal(computedGst);
       setGstBreakdown(computedBreakdown);
@@ -104,11 +111,8 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
       if (sessionStorage.getItem('active_checkout') === 'true') {
         const orderId = sessionStorage.getItem('checkout_order_id');
         if (orderId) {
-          fetch('/api/razorpay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'cancel_order', order_id: orderId }),
-            keepalive: true,
+          supabase.functions.invoke('razorpay', {
+            body: { action: 'cancel_order', order_id: orderId },
           }).catch(() => {});
         }
         sessionStorage.removeItem('active_checkout');
@@ -216,16 +220,29 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
       });
 
       if (orderError || !orderId) {
-        throw new Error(orderError?.message || 'Database Order creation failed');
+        throw new Error(orderError?.message || 'Database order creation failed');
       }
 
       sessionStorage.setItem('checkout_order_id', orderId);
       sessionStorage.setItem('active_checkout', 'true');
       sessionStorage.setItem('checkout_start_time', Date.now().toString());
 
+      if (walletDeduction > 0) {
+        await payWithWalletRpc(orderId, walletDeduction);
+      }
+
+      if (isFullWalletPayment) {
+        sessionStorage.removeItem('active_checkout');
+        sessionStorage.removeItem('checkout_order_id');
+        cart.clearCart();
+        cart.clearPromo();
+        onOrderPlaced(orderId);
+        return;
+      }
+
       if (paymentMethod === 'razorpay') {
         const { data: payData, error: payErr } = await supabase.functions.invoke('razorpay', {
-          body: { action: 'create_order', order_id: orderId, amount: total },
+          body: { action: 'create_order', order_id: orderId, amount: remainingPayable },
         });
 
         if (payErr || !payData?.razorpay_order_id) {
@@ -246,12 +263,12 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
         const options = {
           key: payData.key_id,
-          amount: Math.round(total * 100),
+          amount: Math.round(remainingPayable * 100),
           currency: 'INR',
           order_id: payData.razorpay_order_id,
           name: 'Stackknit',
-          description: 'Wholesale order',
-          image: logoImg, // Displays brand logo on opening screen
+          description: `Remaining Order Payment: ₹${remainingPayable}`,
+          image: logoImg,
           prefill: {
             contact: currentAddr?.phone || '',
             name: currentAddr?.recipient_name || '',
@@ -268,7 +285,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         };
 
         if (isNative) {
-          // Native Android / iOS Razorpay SDK
           try {
             const data = await Checkout.open(options);
             let resObj: any = data;
@@ -317,7 +333,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
             isSubmittingRef.current = false;
           }
         } else {
-          // Web fallback
           let paymentSucceeded = false;
           const rzp = new window.Razorpay({
             ...options,
@@ -347,7 +362,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         }
       } else {
         const { error: codPayError } = await supabase.functions.invoke('razorpay', {
-          body: { action: 'create_cod_payment', order_id: orderId, amount: total },
+          body: { action: 'create_cod_payment', order_id: orderId, amount: remainingPayable },
         });
         if (codPayError) {
           await supabase.functions.invoke('razorpay', {
@@ -457,30 +472,62 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
           )}
         </div>
         {promoError && <p className="text-xs text-red-500 mt-1">{promoError}</p>}
-        {cart.appliedPromo && (
-          <p className="text-xs text-brand-600 mt-1">Promo applied: {cart.appliedPromo.code} (₹{cart.appliedPromo.discount} off)</p>
+      </section>
+
+      <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
+              <Wallet size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-ink-900">Stackknit B2B Wallet</p>
+              <p className="text-xs text-ink-500">Balance: <span className="font-bold text-brand-700">₹{walletBalance.toLocaleString('en-IN')}</span></p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={useWallet && walletBalance > 0} 
+              disabled={walletBalance <= 0}
+              onChange={(e) => setUseWallet(e.target.checked)}
+              className="sr-only peer" 
+            />
+            <div className="w-11 h-6 bg-ink-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-ink-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+          </label>
+        </div>
+
+        {useWallet && walletBalance > 0 && (
+          <div className="pt-2 border-t border-dashed border-ink-200 text-xs flex justify-between items-center text-ink-600">
+            <span>Deduction from Wallet:</span>
+            <span className="font-bold text-emerald-600">- ₹{walletDeduction.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
         )}
       </section>
 
-      <section>
-        <h2 className="text-sm font-bold text-ink-900 mb-2">Payment method</h2>
-        <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => setPaymentMethod('cod')} className={`p-3.5 rounded-2xl border-2 text-left transition-colors ${
-            paymentMethod === 'cod' ? 'border-brand-500 bg-brand-50' : 'border-ink-100 bg-white'
-          }`}>
-            <Banknote size={20} className={paymentMethod === 'cod' ? 'text-brand-600' : 'text-ink-400'} />
-            <p className="text-sm font-bold text-ink-800 mt-2">Cash on delivery</p>
-            <p className="text-[10px] text-ink-400 mt-0.5">Pay when you receive</p>
-          </button>
-          <button onClick={() => setPaymentMethod('razorpay')} className={`p-3.5 rounded-2xl border-2 text-left transition-colors ${
-            paymentMethod === 'razorpay' ? 'border-brand-500 bg-brand-50' : 'border-ink-100 bg-white'
-          }`}>
-            <CreditCard size={20} className={paymentMethod === 'razorpay' ? 'text-brand-600' : 'text-ink-400'} />
-            <p className="text-sm font-bold text-ink-800 mt-2">Online payment</p>
-            <p className="text-[10px] text-ink-400 mt-0.5">Razorpay secure</p>
-          </button>
-        </div>
-      </section>
+      {!isFullWalletPayment && (
+        <section>
+          <h2 className="text-sm font-bold text-ink-900 mb-2">
+            {walletDeduction > 0 ? `Pay Remaining (₹${remainingPayable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}) via:` : 'Payment Method'}
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => setPaymentMethod('cod')} className={`p-3.5 rounded-2xl border-2 text-left transition-colors ${
+              paymentMethod === 'cod' ? 'border-brand-500 bg-brand-50' : 'border-ink-100 bg-white'
+            }`}>
+              <Banknote size={20} className={paymentMethod === 'cod' ? 'text-brand-600' : 'text-ink-400'} />
+              <p className="text-sm font-bold text-ink-800 mt-2">Cash on delivery</p>
+              <p className="text-[10px] text-ink-400 mt-0.5">Pay remaining on arrival</p>
+            </button>
+            <button onClick={() => setPaymentMethod('razorpay')} className={`p-3.5 rounded-2xl border-2 text-left transition-colors ${
+              paymentMethod === 'razorpay' ? 'border-brand-500 bg-brand-50' : 'border-ink-100 bg-white'
+            }`}>
+              <CreditCard size={20} className={paymentMethod === 'razorpay' ? 'text-brand-600' : 'text-ink-400'} />
+              <p className="text-sm font-bold text-ink-800 mt-2">Online payment</p>
+              <p className="text-[10px] text-ink-400 mt-0.5">Razorpay secure</p>
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-3">
         <h2 className="text-sm font-bold text-ink-900">Order summary</h2>
@@ -528,10 +575,23 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
               {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}
             </span>
           </div>
+
+          <div className="flex justify-between text-xs text-ink-800 font-bold pt-1">
+            <span>Total Bill</span>
+            <span>₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
+
+          {walletDeduction > 0 && (
+            <div className="flex justify-between text-xs text-emerald-600 font-semibold">
+              <span>Paid via Wallet</span>
+              <span>- ₹{walletDeduction.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
+          )}
+
           <div className="border-t border-dashed border-ink-200 pt-2 flex justify-between">
-            <span className="text-sm font-bold text-ink-800">Total</span>
+            <span className="text-sm font-bold text-ink-800">Remaining Payable</span>
             <span className="text-xl font-extrabold text-brand-700">
-              ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ₹{remainingPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
@@ -545,9 +605,13 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft disabled:opacity-60"
       >
         {placing ? (
-          <><Loader2 size={17} className="animate-spin" /> Placing order...</>
+          <><Loader2 size={17} className="animate-spin" /> Processing order...</>
+        ) : isFullWalletPayment ? (
+          <>Pay with Wallet · ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
+        ) : walletDeduction > 0 ? (
+          <>Pay ₹{walletDeduction.toLocaleString('en-IN')} (Wallet) + ₹{remainingPayable.toLocaleString('en-IN')} ({paymentMethod.toUpperCase()})</>
         ) : (
-          <>Place order · ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
+          <>Place order · ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
         )}
       </button>
 

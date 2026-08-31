@@ -155,7 +155,10 @@ export type ScreenName =
   | 'outletSelect'
   | 'filteredProducts'
   | 'store'
-  | 'brand';
+  | 'brand'
+  | 'banner'
+  | 'search'
+  | 'wallet';
 
 export interface Business {
   id: string;
@@ -388,4 +391,27 @@ export interface HomeSection {
   sortOrder: number;
   isActive: boolean;
   config?: Record<string, any>;
+}
+
+export interface Wallet {
+  id: string;
+  user_id: string;
+  balance: number;
+  currency: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WalletTransaction {
+  id: string;
+  wallet_id: string;
+  user_id: string;
+  amount: number;
+  type: 'credit' | 'debit';
+  purpose: 'topup' | 'order_payment' | 'refund' | 'cashback' | 'adjustment';
+  reference_id: string | null;
+  description: string;
+  balance_after: number;
+  created_at: string;
 }

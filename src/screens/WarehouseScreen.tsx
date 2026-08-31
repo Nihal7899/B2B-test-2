@@ -1,16 +1,26 @@
-// src/components/WarehouseScreen.tsx
 import { useEffect, useState, useCallback } from 'react';
-import { ArrowLeft, Loader2, Search, ClipboardList, Printer, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, Search, ClipboardList, Printer, CheckCircle, Wallet, Banknote, CreditCard } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DbProduct, DbOrder, DbOrderItem } from '@/services/catalog';
 import { buildGstBillHtml } from '@/services/gstBill';
 import { printHtml } from '@/utils/printHtml';
 import AdminInvoices from '@/components/AdminInvoices';
-import LowStockTab from '@/components/LowStockTab'; // <-- new component
+import LowStockTab from '@/components/LowStockTab';
 
 interface WarehouseScreenProps { onBack: () => void; }
 
 type Tab = 'orders' | 'stock' | 'invoices' | 'lowstock';
+
+export interface PaymentSummary {
+  walletPaid: number;
+  onlinePaid: number;
+  codPending: number;
+  codPaid: number;
+  totalPaid: number;
+  amountToCollect: number;
+  isSplit: boolean;
+  providers: string[];
+}
 
 export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   const [tab, setTab] = useState<Tab>('orders');
@@ -70,9 +80,8 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   );
 }
 
-// ---- OrdersTab (unchanged) ----
 function OrdersTab() {
-  const [orders, setOrders] = useState<(DbOrder & { customer_name: string; payment?: { status: string; provider: string; amount: number } | null })[]>([]);
+  const [orders, setOrders] = useState<(DbOrder & { customer_name: string; paymentSummary: PaymentSummary })[]>([]);
   const [items, setItems] = useState<Record<string, DbOrderItem[]>>({});
   const [loading, setLoading] = useState(true);
   const [printingId, setPrintingId] = useState<string | null>(null);
@@ -94,7 +103,8 @@ function OrdersTab() {
       }
 
       const orderIds = (ordersData || []).map((o) => o.id);
-      let paymentsByOrder: Record<string, any> = {};
+      let paymentsByOrder: Record<string, PaymentSummary> = {};
+
       if (orderIds.length > 0) {
         const { data: payments } = await supabase
           .from('payments')
@@ -103,7 +113,45 @@ function OrdersTab() {
 
         if (payments) {
           payments.forEach((p) => {
-            paymentsByOrder[p.order_id] = p;
+            if (!paymentsByOrder[p.order_id]) {
+              paymentsByOrder[p.order_id] = {
+                walletPaid: 0,
+                onlinePaid: 0,
+                codPending: 0,
+                codPaid: 0,
+                totalPaid: 0,
+                amountToCollect: 0,
+                isSplit: false,
+                providers: [],
+              };
+            }
+
+            const summary = paymentsByOrder[p.order_id];
+            const amt = Number(p.amount) || 0;
+            if (!summary.providers.includes(p.provider)) {
+              summary.providers.push(p.provider);
+            }
+
+            if (p.provider === 'wallet' && (p.status === 'completed' || p.status === 'paid')) {
+              summary.walletPaid += amt;
+              summary.totalPaid += amt;
+            } else if (p.provider === 'razorpay' && (p.status === 'paid' || p.status === 'completed')) {
+              summary.onlinePaid += amt;
+              summary.totalPaid += amt;
+            } else if (p.provider === 'cod') {
+              if (p.status === 'paid' || p.status === 'completed') {
+                summary.codPaid += amt;
+                summary.totalPaid += amt;
+              } else {
+                summary.codPending += amt;
+                summary.amountToCollect += amt;
+              }
+            }
+          });
+
+          Object.keys(paymentsByOrder).forEach((orderId) => {
+            const summary = paymentsByOrder[orderId];
+            summary.isSplit = summary.providers.length > 1;
           });
         }
       }
@@ -111,16 +159,20 @@ function OrdersTab() {
       const actionable = (ordersData || [])
         .map((order) => ({
           ...order,
-          payment: paymentsByOrder[order.id] || null,
+          paymentSummary: paymentsByOrder[order.id] || {
+            walletPaid: 0,
+            onlinePaid: 0,
+            codPending: 0,
+            codPaid: 0,
+            totalPaid: 0,
+            amountToCollect: Number(order.total),
+            isSplit: false,
+            providers: [],
+          },
         }))
         .filter((order) => {
-          const p = order.payment;
-          if (p && p.provider === 'razorpay' && p.status !== 'paid') {
-            return false;
-          }
-          if (order.status === 'pending') {
-            if (!p) return false;
-            return p.status === 'paid' || p.provider === 'cod';
+          if (order.paymentSummary.providers.includes('razorpay') && order.paymentSummary.onlinePaid === 0 && order.paymentSummary.walletPaid === 0) {
+            return order.status !== 'pending';
           }
           return true;
         });
@@ -289,8 +341,8 @@ function OrdersTab() {
         </div>
       ) : (
         filtered.map((order) => {
-          const isCod = order.payment?.provider === 'cod';
-          const isPaid = order.payment?.status === 'paid';
+          const pay = order.paymentSummary;
+          const isFullyPaid = pay.amountToCollect === 0;
 
           return (
             <div
@@ -309,26 +361,16 @@ function OrdersTab() {
                     )}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 flex-wrap">
-                  {isCod && (
-                    <span className="text-[8px] font-bold bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">
-                      COD {isPaid ? '(PAID)' : '(PENDING)'}
-                    </span>
-                  )}
-                  {!isCod && isPaid && (
-                    <span className="text-[8px] font-bold bg-green-100 text-green-700 rounded-full px-2 py-0.5">PAID</span>
-                  )}
-                  <span
-                    className={`text-[9px] font-bold rounded-full px-2.5 py-1 ${
-                      order.status === 'pending' ? 'bg-amber-100 text-amber-700' :
-                      order.status === 'delivered' ? 'bg-brand-100 text-brand-700' :
-                      order.status === 'cancelled' ? 'bg-red-100 text-red-600' :
-                      'bg-blue-100 text-blue-700'
-                    }`}
-                  >
-                    {order.status.replace(/_/g, ' ')}
-                  </span>
-                </div>
+                <span
+                  className={`text-[9px] font-bold rounded-full px-2.5 py-1 ${
+                    order.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                    order.status === 'delivered' ? 'bg-brand-100 text-brand-700' :
+                    order.status === 'cancelled' ? 'bg-red-100 text-red-600' :
+                    'bg-blue-100 text-blue-700'
+                  }`}
+                >
+                  {order.status.replace(/_/g, ' ')}
+                </span>
               </div>
 
               <div className="space-y-1 mt-2">
@@ -340,11 +382,47 @@ function OrdersTab() {
                 ))}
               </div>
 
-              <div className="flex items-center justify-between border-t border-ink-100 pt-2 mt-2">
-                <p className="text-sm font-extrabold text-brand-700">₹{Number(order.total).toLocaleString('en-IN')}</p>
+              <div className="border-t border-dashed border-ink-200 pt-2.5 mt-2.5 space-y-1 text-xs">
+                <div className="flex justify-between font-bold text-ink-900">
+                  <span>Grand Total</span>
+                  <span>₹{Number(order.total).toLocaleString('en-IN')}</span>
+                </div>
+
+                {pay.walletPaid > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-semibold items-center">
+                    <span className="flex items-center gap-1"><Wallet size={12} /> Paid via Wallet</span>
+                    <span>- ₹{pay.walletPaid.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+
+                {pay.onlinePaid > 0 && (
+                  <div className="flex justify-between text-blue-600 font-semibold items-center">
+                    <span className="flex items-center gap-1"><CreditCard size={12} /> Paid Online (Razorpay)</span>
+                    <span>- ₹{pay.onlinePaid.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+
+                {pay.codPaid > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-semibold items-center">
+                    <span className="flex items-center gap-1"><Banknote size={12} /> COD Collected</span>
+                    <span>- ₹{pay.codPaid.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+
+                <div className={`p-2 rounded-xl flex items-center justify-between font-extrabold mt-1.5 ${
+                  isFullyPaid ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-100 text-amber-900 border border-amber-300'
+                }`}>
+                  <span className="flex items-center gap-1">
+                    {isFullyPaid ? <CheckCircle size={14} className="text-emerald-600" /> : <Banknote size={14} className="text-amber-700" />}
+                    {isFullyPaid ? 'Fully Paid' : 'Cash to Collect on Delivery:'}
+                  </span>
+                  <span className="text-sm">
+                    {isFullyPaid ? '₹0' : `₹${pay.amountToCollect.toLocaleString('en-IN')}`}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex gap-2 mt-2 flex-wrap">
+              <div className="flex gap-2 mt-3 flex-wrap">
                 {order.status === 'pending' && (
                   <button
                     onClick={() => void confirmOrder(order.id)}
@@ -407,7 +485,6 @@ function OrdersTab() {
   );
 }
 
-// ---- StockTab (unchanged) ----
 function StockTab() {
   const [products, setProducts] = useState<DbProduct[]>([]);
   const [search, setSearch] = useState('');

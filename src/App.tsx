@@ -40,6 +40,7 @@ import StoreScreen from '@/screens/StoreScreen';
 import { CategoryScreen } from '@/screens/CategoryScreen';
 import { BrandScreen } from '@/screens/BrandScreen';
 import { BannerScreen } from '@/screens/BannerScreen';
+import { WalletScreen } from '@/screens/WalletScreen';
 
 import type {
   Category,
@@ -91,6 +92,7 @@ const SCREEN_TO_PATH: Record<ScreenName, string> = {
   categoryDetail: '/category',
   brand: '/brand',
   banner: '/banner',
+  wallet: '/wallet',
 };
 
 const PATH_TO_SCREEN: Record<string, ScreenName> =
@@ -381,6 +383,9 @@ function App() {
 
       case 'account':
         return <AccountScreen onNavigate={openProtected} />;
+
+      case 'wallet':
+        return <WalletScreen onBack={() => goTo('account')} />;
 
       case 'admin':
         return role === 'admin' ? <AdminScreen onBack={() => goTo('account')} /> : (

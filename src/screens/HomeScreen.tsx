@@ -40,7 +40,7 @@ import {
   fetchTrustedBrands,
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
-import { getCachedHomeData } from '@/services/homePreload';
+import { getCachedHomeData, preloadImages } from '@/services/homePreload';
 
 interface HomeScreenProps {
   onCategory: (category: Category) => void;
@@ -49,6 +49,7 @@ interface HomeScreenProps {
   onStoreClick: (store: Store) => void;
   cart?: ReturnType<typeof useCart>;
   onBannerAction?: (banner: PromoBanner) => void;
+  onReady?: () => void;
 }
 
 const STATIC_B2B_KEYWORDS = [
@@ -92,6 +93,7 @@ export function HomeScreen({
   onViewAll,
   onStoreClick,
   onBannerAction,
+  onReady,
 }: HomeScreenProps) {
   const navigate = useNavigate();
   const cart = useCart();
@@ -166,6 +168,7 @@ export function HomeScreen({
     return () => clearInterval(interval);
   }, [displayKeywords]);
 
+  // Master Loader: Fetches all data + decodes critical images BEFORE signaling readiness
   const loadAllHomeData = useCallback(async (showLoadingState = false) => {
     if (showLoadingState) setLoading(true);
 
@@ -215,6 +218,14 @@ export function HomeScreen({
         ? prodRes
         : [];
 
+      // Warm up image cache in GPU memory
+      const criticalImageUrls: string[] = [
+        ...safeBanners.map((b) => b?.image).filter((img): img is string => Boolean(img)),
+        ...safeCategories.slice(0, 16).map((c) => c?.image).filter((img): img is string => Boolean(img)),
+      ];
+      await preloadImages(criticalImageUrls, 1500);
+
+      // Mount all data synchronously
       setSections(safeSections);
       setBanners(safeBanners);
       setCategories(safeCategories);
@@ -229,12 +240,15 @@ export function HomeScreen({
       setBrandSpotlight(spotlightRes || null);
       setStores(Array.isArray(storeRes) ? storeRes : []);
       setBrands(Array.isArray(brandRes) ? brandRes : []);
+
+      setLoading(false);
+      onReady?.();
     } catch (err) {
       console.error('Failed to load home catalog data:', err);
-    } finally {
       setLoading(false);
+      onReady?.();
     }
-  }, []);
+  }, [onReady]);
 
   const refreshDynamicSections = useCallback(async () => {
     try {
@@ -395,7 +409,7 @@ export function HomeScreen({
 
       <div 
         className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
-        style={{ top: 'env(safe-area-inset-top, 0px)' }}
+        style={{ top: 'env(safe-area-inset-top, 0px)' }} 
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
           <div

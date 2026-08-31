@@ -68,8 +68,6 @@ import {
   initializePushNotifications,
 } from '@/services/push';
 
-import { preloadHomeScreenDataAndImages } from '@/services/homePreload';
-
 const SCREEN_TO_PATH: Record<ScreenName, string> = {
   home: '/',
   search: '/search',
@@ -181,17 +179,7 @@ function App() {
   const location = useLocation();
 
   const [showSplash, setShowSplash] = useState(true);
-  const [isHomeDataReady, setIsHomeDataReady] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    void preloadHomeScreenDataAndImages().then(() => {
-      if (mounted) setIsHomeDataReady(true);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const [isHomeReady, setIsHomeReady] = useState(false);
 
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
@@ -310,7 +298,8 @@ function App() {
     goTo(allowed ? next : 'home');
   };
 
-  const isReadyToDismissSplash = !loading && (!user || isHomeDataReady);
+  // Readiness: If logged out, only wait for auth (!loading). If logged in, wait for HomeScreen to signal onReady!
+  const isReadyToDismissSplash = !loading && (!user || isHomeReady);
 
   if (!user && !loading) {
     return (
@@ -339,6 +328,7 @@ function App() {
             onStoreClick={openStore}
             cart={cart}
             onBannerAction={handleBannerAction}
+            onReady={() => setIsHomeReady(true)}
           />
         );
 
@@ -410,6 +400,7 @@ function App() {
             onViewAll={() => goTo('categories')}
             onStoreClick={openStore}
             cart={cart}
+            onReady={() => setIsHomeReady(true)}
           />
         );
 
@@ -423,6 +414,7 @@ function App() {
               onViewAll={() => goTo('categories')}
               onStoreClick={openStore}
               cart={cart}
+              onReady={() => setIsHomeReady(true)}
             />
           );
 
@@ -436,6 +428,7 @@ function App() {
               onViewAll={() => goTo('categories')}
               onStoreClick={openStore}
               cart={cart}
+              onReady={() => setIsHomeReady(true)}
             />
           );
 
@@ -495,6 +488,7 @@ function App() {
             onStoreClick={openStore}
             cart={cart}
             onBannerAction={handleBannerAction}
+            onReady={() => setIsHomeReady(true)}
           />
         );
     }

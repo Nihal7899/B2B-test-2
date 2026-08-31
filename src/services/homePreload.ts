@@ -63,7 +63,7 @@ export function preloadImage(url: string): Promise<void> {
   });
 }
 
-export async function preloadImages(urls: string[], timeoutMs = 1500): Promise<void> {
+export async function preloadImages(urls: string[], timeoutMs = 2000): Promise<void> {
   if (!Array.isArray(urls)) return;
   const uniqueUrls = Array.from(new Set(urls.filter((u) => typeof u === 'string' && u.trim().length > 0)));
   if (uniqueUrls.length === 0) return;
@@ -140,7 +140,7 @@ export async function preloadHomeScreenDataAndImages(): Promise<PreloadedHomeDat
         ...categories.slice(0, 16).map((c) => c?.image).filter((img): img is string => Boolean(img)),
       ];
 
-      await preloadImages(criticalImageUrls, 1500);
+      await preloadImages(criticalImageUrls, 2000);
 
       const addressList = Array.isArray(addrs) ? addrs : [];
       const foundAddress = addressList.find((a) => a?.is_default) || addressList[0] || null;

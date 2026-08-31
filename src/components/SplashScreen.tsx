@@ -14,17 +14,16 @@ export function SplashScreen({ onFinish, isReady = true }: SplashScreenProps) {
     onFinishRef.current = onFinish;
   }, [onFinish]);
 
-  // Brand animation minimum display duration
+  // Clean 900ms brand presentation timer
   useEffect(() => {
     const minTimer = window.setTimeout(() => {
       setMinTimerDone(true);
-    }, 1200);
+    }, 900);
 
-    // Hard fallback: safety maximum timeout so app never freezes
     const maxSafetyTimer = window.setTimeout(() => {
       setExiting(true);
-      window.setTimeout(() => onFinishRef.current(), 400);
-    }, 3800);
+      window.setTimeout(() => onFinishRef.current(), 350);
+    }, 2500);
 
     return () => {
       window.clearTimeout(minTimer);
@@ -32,21 +31,21 @@ export function SplashScreen({ onFinish, isReady = true }: SplashScreenProps) {
     };
   }, []);
 
-  // Exit ONLY when minimum branding duration has passed AND content is fully mounted & decoded
+  // Dismiss as soon as branding animation completes AND data is ready
   useEffect(() => {
     if (!minTimerDone || !isReady || exiting) return;
 
     setExiting(true);
     const doneTimer = window.setTimeout(() => {
       onFinishRef.current();
-    }, 450);
+    }, 350);
 
     return () => window.clearTimeout(doneTimer);
   }, [minTimerDone, isReady, exiting]);
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden bg-[#011f1a] transition-opacity duration-500 ease-out ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden bg-[#011f1a] transition-opacity duration-300 ease-out ${
         exiting ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >

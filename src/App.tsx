@@ -68,6 +68,8 @@ import {
   initializePushNotifications,
 } from '@/services/push';
 
+import { getOrFetchHomeData } from '@/services/homePreload';
+
 const SCREEN_TO_PATH: Record<ScreenName, string> = {
   home: '/',
   search: '/search',
@@ -179,7 +181,14 @@ function App() {
   const location = useLocation();
 
   const [showSplash, setShowSplash] = useState(true);
-  const [isHomeReady, setIsHomeReady] = useState(false);
+  const [isHomeDataLoaded, setIsHomeDataLoaded] = useState(false);
+
+  // Trigger preload immediately once session state is recognized
+  useEffect(() => {
+    if (user) {
+      void getOrFetchHomeData().then(() => setIsHomeDataLoaded(true));
+    }
+  }, [user]);
 
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
@@ -298,8 +307,8 @@ function App() {
     goTo(allowed ? next : 'home');
   };
 
-  // Readiness: If logged out, only wait for auth (!loading). If logged in, wait for HomeScreen to signal onReady!
-  const isReadyToDismissSplash = !loading && (!user || isHomeReady);
+  // Readiness condition: If logged out, only wait for auth (!loading). If logged in, wait for data.
+  const isSplashReady = !loading && (!user || isHomeDataLoaded);
 
   if (!user && !loading) {
     return (
@@ -307,7 +316,7 @@ function App() {
         <AuthScreen />
         {showSplash && (
           <SplashScreen
-            isReady={isReadyToDismissSplash}
+            isReady={isSplashReady}
             onFinish={() => {
               setShowSplash(false);
             }}
@@ -328,7 +337,6 @@ function App() {
             onStoreClick={openStore}
             cart={cart}
             onBannerAction={handleBannerAction}
-            onReady={() => setIsHomeReady(true)}
           />
         );
 
@@ -400,7 +408,6 @@ function App() {
             onViewAll={() => goTo('categories')}
             onStoreClick={openStore}
             cart={cart}
-            onReady={() => setIsHomeReady(true)}
           />
         );
 
@@ -414,7 +421,6 @@ function App() {
               onViewAll={() => goTo('categories')}
               onStoreClick={openStore}
               cart={cart}
-              onReady={() => setIsHomeReady(true)}
             />
           );
 
@@ -428,7 +434,6 @@ function App() {
               onViewAll={() => goTo('categories')}
               onStoreClick={openStore}
               cart={cart}
-              onReady={() => setIsHomeReady(true)}
             />
           );
 
@@ -488,7 +493,6 @@ function App() {
             onStoreClick={openStore}
             cart={cart}
             onBannerAction={handleBannerAction}
-            onReady={() => setIsHomeReady(true)}
           />
         );
     }
@@ -516,7 +520,7 @@ function App() {
 
         {showSplash && (
           <SplashScreen
-            isReady={isReadyToDismissSplash}
+            isReady={isSplashReady}
             onFinish={() => {
               setShowSplash(false);
             }}

@@ -36,8 +36,21 @@ export interface PreloadedHomeData {
   brands: TrustedBrand[];
 }
 
-let cachedHomeData: PreloadedHomeData | null = null;
-let preloadPromise: Promise<PreloadedHomeData | null> | null = null;
+let memoryHomeData: PreloadedHomeData | null = null;
+let inFlightPromise: Promise<PreloadedHomeData> | null = null;
+
+// Synchronously read from memory or persistent session storage on boot
+export function getHomeDataSync(): PreloadedHomeData | null {
+  if (memoryHomeData) return memoryHomeData;
+  try {
+    const raw = sessionStorage.getItem('cafkart_home_cache');
+    if (raw) {
+      memoryHomeData = JSON.parse(raw);
+      return memoryHomeData;
+    }
+  } catch {}
+  return null;
+}
 
 export function preloadImage(url: string): Promise<void> {
   if (!url || typeof url !== 'string' || !url.trim()) return Promise.resolve();
@@ -46,14 +59,14 @@ export function preloadImage(url: string): Promise<void> {
     img.src = url;
     if (img.complete) {
       if ('decode' in img) {
-        img.decode().then(() => resolve()).catch(() => resolve());
+        img.decode().then(resolve).catch(resolve);
       } else {
         resolve();
       }
     } else {
       img.onload = () => {
         if ('decode' in img) {
-          img.decode().then(() => resolve()).catch(() => resolve());
+          img.decode().then(resolve).catch(resolve);
         } else {
           resolve();
         }
@@ -63,25 +76,42 @@ export function preloadImage(url: string): Promise<void> {
   });
 }
 
-export async function preloadImages(urls: string[], timeoutMs = 2000): Promise<void> {
+export async function preloadCriticalImages(urls: string[], timeoutMs = 600): Promise<void> {
   if (!Array.isArray(urls)) return;
-  const uniqueUrls = Array.from(new Set(urls.filter((u) => typeof u === 'string' && u.trim().length > 0)));
-  if (uniqueUrls.length === 0) return;
+  const validUrls = Array.from(new Set(urls.filter((u) => typeof u === 'string' && u.trim().length > 0))).slice(0, 8);
+  if (validUrls.length === 0) return;
 
-  const tasks = uniqueUrls.map((url) => preloadImage(url));
   await Promise.race([
-    Promise.all(tasks),
+    Promise.all(validUrls.map(preloadImage)),
     new Promise((resolve) => setTimeout(resolve, timeoutMs)),
   ]);
 }
 
-export async function preloadHomeScreenDataAndImages(): Promise<PreloadedHomeData | null> {
-  if (cachedHomeData) return cachedHomeData;
-  if (preloadPromise) return preloadPromise;
+/**
+ * Single deduplicated fetch function shared across App, Auth, and Home
+ */
+export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
+  if (inFlightPromise) return inFlightPromise;
 
-  preloadPromise = (async () => {
+  inFlightPromise = (async () => {
     try {
-      const fetchTask = Promise.all([
+      const [
+        addrs,
+        secRes,
+        banRes,
+        catRes,
+        prodRes,
+        popRes,
+        reorderRes,
+        recentRes,
+        volumeRes,
+        newArrRes,
+        topRatedRes,
+        limitedRes,
+        spotlightRes,
+        storeRes,
+        brandRes,
+      ] = await Promise.all([
         fetchAddresses().catch(() => [] as DbAddress[]),
         fetchHomeSections().catch(() => [] as HomeSection[]),
         fetchHomeBanners().catch(() => [] as PromoBanner[]),
@@ -99,58 +129,35 @@ export async function preloadHomeScreenDataAndImages(): Promise<PreloadedHomeDat
         fetchTrustedBrands().catch(() => [] as TrustedBrand[]),
       ]);
 
-      const timeoutTask = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
-      const results = await Promise.race([fetchTask, timeoutTask]);
-
-      if (!results) return null;
-
-      const [
-        addrs,
-        secRes,
-        banRes,
-        catRes,
-        prodRes,
-        popRes,
-        reorderRes,
-        recentRes,
-        volumeRes,
-        newArrRes,
-        topRatedRes,
-        limitedRes,
-        spotlightRes,
-        storeRes,
-        brandRes,
-      ] = results;
-
-      const categories: Category[] = Array.isArray(catRes?.categories)
+      const safeSections = Array.isArray(secRes) ? secRes.filter((s) => s && s.isActive) : [];
+      const safeBanners = Array.isArray(banRes) ? banRes : [];
+      const safeCategories = Array.isArray(catRes?.categories)
         ? catRes.categories
         : Array.isArray(catRes)
         ? catRes
         : [];
-      const banners: PromoBanner[] = Array.isArray(banRes) ? banRes : [];
-      const sections: HomeSection[] = Array.isArray(secRes) ? secRes.filter((s) => s && s.isActive) : [];
-      const products: Product[] = Array.isArray(prodRes?.products)
+      const safeProducts = Array.isArray(prodRes?.products)
         ? prodRes.products
         : Array.isArray(prodRes)
         ? prodRes
         : [];
 
-      const criticalImageUrls: string[] = [
-        ...banners.map((b) => b?.image).filter((img): img is string => Boolean(img)),
-        ...categories.slice(0, 16).map((c) => c?.image).filter((img): img is string => Boolean(img)),
+      // Warm up only above-the-fold critical banner and category images
+      const criticalImages: string[] = [
+        ...safeBanners.slice(0, 3).map((b) => b?.image).filter((img): img is string => Boolean(img)),
+        ...safeCategories.slice(0, 8).map((c) => c?.image).filter((img): img is string => Boolean(img)),
       ];
-
-      await preloadImages(criticalImageUrls, 2000);
+      await preloadCriticalImages(criticalImages, 500);
 
       const addressList = Array.isArray(addrs) ? addrs : [];
-      const foundAddress = addressList.find((a) => a?.is_default) || addressList[0] || null;
+      const defaultAddr = addressList.find((a) => a?.is_default) || addressList[0] || null;
 
-      cachedHomeData = {
-        address: foundAddress,
-        sections,
-        banners,
-        categories,
-        products,
+      const fullData: PreloadedHomeData = {
+        address: defaultAddr,
+        sections: safeSections,
+        banners: safeBanners,
+        categories: safeCategories,
+        products: safeProducts,
         popularProducts: Array.isArray(popRes) ? popRes : [],
         reorderProducts: Array.isArray(reorderRes) ? reorderRes : [],
         recentlyViewed: Array.isArray(recentRes) ? recentRes : [],
@@ -163,18 +170,37 @@ export async function preloadHomeScreenDataAndImages(): Promise<PreloadedHomeDat
         brands: Array.isArray(brandRes) ? brandRes : [],
       };
 
-      return cachedHomeData;
+      memoryHomeData = fullData;
+      try {
+        sessionStorage.setItem('cafkart_home_cache', JSON.stringify(fullData));
+      } catch {}
+
+      return fullData;
     } catch (e) {
-      console.warn('Preload warning:', e);
-      return null;
+      console.warn('Home fetch warning:', e);
+      return (
+        memoryHomeData || {
+          address: null,
+          sections: [],
+          banners: [],
+          categories: [],
+          products: [],
+          popularProducts: [],
+          reorderProducts: [],
+          recentlyViewed: [],
+          volumeDeals: [],
+          newArrivals: [],
+          topRated: [],
+          limitedStock: [],
+          brandSpotlight: null,
+          stores: [],
+          brands: [],
+        }
+      );
     } finally {
-      preloadPromise = null;
+      inFlightPromise = null;
     }
   })();
 
-  return preloadPromise;
-}
-
-export function getCachedHomeData(): PreloadedHomeData | null {
-  return cachedHomeData;
+  return inFlightPromise;
 }

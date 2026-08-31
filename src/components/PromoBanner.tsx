@@ -272,7 +272,8 @@ export const PromoCarousel = React.memo(function PromoCarousel({
       {displayBanners.map((banner, index) => (
         <div
           key={`${banner.id}-${index}`}
-          className="shrink-0 w-[calc(85%+24px)] max-w-[364px] snap-center snap-always"
+          /* Increased width to match request */
+          className="shrink-0 w-[calc(85%+25px)] max-w-[365px] snap-center snap-always"
         >
           <PromoBannerCard banner={banner} size={size} onAction={onAction} />
         </div>

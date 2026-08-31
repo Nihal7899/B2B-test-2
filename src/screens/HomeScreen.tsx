@@ -26,21 +26,11 @@ import {
   type DbAddress,
   fetchHomeSections,
   fetchHomeBanners,
-  fetchCategories,
-  fetchProducts,
-  fetchPopularProducts,
   fetchUserReorderProducts,
   fetchRecentlyViewedProducts,
-  fetchVolumeDealsProducts,
-  fetchNewArrivalsProducts,
-  fetchTopRatedProducts,
-  fetchLimitedStockProducts,
-  fetchBrandSpotlight,
-  fetchStores,
-  fetchTrustedBrands,
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
-import { getCachedHomeData, preloadImages } from '@/services/homePreload';
+import { getHomeDataSync, getOrFetchHomeData } from '@/services/homePreload';
 
 interface HomeScreenProps {
   onCategory: (category: Category) => void;
@@ -49,7 +39,6 @@ interface HomeScreenProps {
   onStoreClick: (store: Store) => void;
   cart?: ReturnType<typeof useCart>;
   onBannerAction?: (banner: PromoBanner) => void;
-  onReady?: () => void;
 }
 
 const STATIC_B2B_KEYWORDS = [
@@ -93,13 +82,12 @@ export function HomeScreen({
   onViewAll,
   onStoreClick,
   onBannerAction,
-  onReady,
 }: HomeScreenProps) {
   const navigate = useNavigate();
   const cart = useCart();
 
-  const initialCache = useMemo(() => getCachedHomeData(), []);
-  const hasCachedContent = Boolean(initialCache && initialCache.sections.length > 0);
+  // Instant synchronous cache resolution: No skeleton screen on initial render
+  const initialCache = useMemo(() => getHomeDataSync(), []);
 
   const [address, setAddress] = useState<DbAddress | null>(initialCache?.address || null);
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
@@ -122,9 +110,44 @@ export function HomeScreen({
   );
   const [stores, setStores] = useState<Store[]>(initialCache?.stores || []);
   const [brands, setBrands] = useState<TrustedBrand[]>(initialCache?.brands || []);
-  const [loading, setLoading] = useState(!hasCachedContent);
+  
+  // Never show skeleton if cache or preloaded data exists
+  const [loading, setLoading] = useState(!initialCache || initialCache.sections.length === 0);
 
-  // 1. Fetch addresses safely
+  // Apply full catalog payload smoothly
+  const applyCatalogData = useCallback((data: NonNullable<typeof initialCache>) => {
+    setSections(data.sections);
+    setBanners(data.banners);
+    setCategories(data.categories);
+    setProducts(data.products);
+    setPopularProducts(data.popularProducts);
+    setReorderProducts(data.reorderProducts);
+    setRecentlyViewed(data.recentlyViewed);
+    setVolumeDeals(data.volumeDeals);
+    setNewArrivals(data.newArrivals);
+    setTopRated(data.topRated);
+    setLimitedStock(data.limitedStock);
+    setBrandSpotlight(data.brandSpotlight);
+    setStores(data.stores);
+    setBrands(data.brands);
+    if (data.address) setAddress(data.address);
+    setLoading(false);
+  }, []);
+
+  // 1. Fetch & refresh data quietly without toggling skeleton
+  useEffect(() => {
+    let active = true;
+    void getOrFetchHomeData().then((data) => {
+      if (active && data) {
+        applyCatalogData(data);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [applyCatalogData]);
+
+  // 2. Fetch addresses safely
   useEffect(() => {
     let active = true;
     void fetchAddresses()
@@ -139,7 +162,7 @@ export function HomeScreen({
     };
   }, []);
 
-  // 2. Dynamic keywords for search placeholder
+  // 3. Dynamic keywords for search placeholder
   useEffect(() => {
     let active = true;
     void getOrBuildSearchDictionary()
@@ -154,7 +177,7 @@ export function HomeScreen({
     };
   }, []);
 
-  // 3. Cycle animated placeholder
+  // 4. Cycle animated placeholder
   useEffect(() => {
     if (!displayKeywords || displayKeywords.length === 0) return;
     const interval = setInterval(() => {
@@ -168,88 +191,7 @@ export function HomeScreen({
     return () => clearInterval(interval);
   }, [displayKeywords]);
 
-  // Master Loader: Fetches all data + decodes critical images BEFORE signaling readiness
-  const loadAllHomeData = useCallback(async (showLoadingState = false) => {
-    if (showLoadingState) setLoading(true);
-
-    try {
-      const [
-        secRes,
-        banRes,
-        catRes,
-        prodRes,
-        popRes,
-        reorderRes,
-        recentRes,
-        volumeRes,
-        newArrRes,
-        topRatedRes,
-        limitedRes,
-        spotlightRes,
-        storeRes,
-        brandRes,
-      ] = await Promise.all([
-        fetchHomeSections().catch(() => [] as HomeSection[]),
-        fetchHomeBanners().catch(() => [] as PromoBanner[]),
-        fetchCategories().catch(() => ({ categories: [] as Category[] })),
-        fetchProducts().catch(() => ({ products: [] as Product[] })),
-        fetchPopularProducts(12).catch(() => [] as Product[]),
-        fetchUserReorderProducts(10).catch(() => [] as Product[]),
-        fetchRecentlyViewedProducts().catch(() => [] as Product[]),
-        fetchVolumeDealsProducts(10).catch(() => [] as Product[]),
-        fetchNewArrivalsProducts(10).catch(() => [] as Product[]),
-        fetchTopRatedProducts(10).catch(() => [] as Product[]),
-        fetchLimitedStockProducts(10).catch(() => [] as Product[]),
-        fetchBrandSpotlight().catch(() => null),
-        fetchStores().catch(() => [] as Store[]),
-        fetchTrustedBrands().catch(() => [] as TrustedBrand[]),
-      ]);
-
-      const safeSections = Array.isArray(secRes) ? secRes.filter((s) => s && s.isActive) : [];
-      const safeBanners = Array.isArray(banRes) ? banRes : [];
-      const safeCategories = Array.isArray(catRes?.categories)
-        ? catRes.categories
-        : Array.isArray(catRes)
-        ? catRes
-        : [];
-      const safeProducts = Array.isArray(prodRes?.products)
-        ? prodRes.products
-        : Array.isArray(prodRes)
-        ? prodRes
-        : [];
-
-      // Warm up image cache in GPU memory
-      const criticalImageUrls: string[] = [
-        ...safeBanners.map((b) => b?.image).filter((img): img is string => Boolean(img)),
-        ...safeCategories.slice(0, 16).map((c) => c?.image).filter((img): img is string => Boolean(img)),
-      ];
-      await preloadImages(criticalImageUrls, 1500);
-
-      // Mount all data synchronously
-      setSections(safeSections);
-      setBanners(safeBanners);
-      setCategories(safeCategories);
-      setProducts(safeProducts);
-      setPopularProducts(Array.isArray(popRes) ? popRes : []);
-      setReorderProducts(Array.isArray(reorderRes) ? reorderRes : []);
-      setRecentlyViewed(Array.isArray(recentRes) ? recentRes : []);
-      setVolumeDeals(Array.isArray(volumeRes) ? volumeRes : []);
-      setNewArrivals(Array.isArray(newArrRes) ? newArrRes : []);
-      setTopRated(Array.isArray(topRatedRes) ? topRatedRes : []);
-      setLimitedStock(Array.isArray(limitedRes) ? limitedRes : []);
-      setBrandSpotlight(spotlightRes || null);
-      setStores(Array.isArray(storeRes) ? storeRes : []);
-      setBrands(Array.isArray(brandRes) ? brandRes : []);
-
-      setLoading(false);
-      onReady?.();
-    } catch (err) {
-      console.error('Failed to load home catalog data:', err);
-      setLoading(false);
-      onReady?.();
-    }
-  }, [onReady]);
-
+  // Background personal sections refresh
   const refreshDynamicSections = useCallback(async () => {
     try {
       const [recent, reorder] = await Promise.all([
@@ -263,6 +205,7 @@ export function HomeScreen({
     }
   }, []);
 
+  // Realtime layout updates
   const refreshLayoutAndBanners = useCallback(async () => {
     try {
       const [secRes, banRes] = await Promise.all([
@@ -278,8 +221,6 @@ export function HomeScreen({
 
   useEffect(() => {
     let active = true;
-
-    void loadAllHomeData(!hasCachedContent);
 
     const homeChannel = supabase
       .channel('realtime:home_updates')
@@ -324,7 +265,7 @@ export function HomeScreen({
       window.removeEventListener('visibilitychange', handleVisibilityChange);
       void supabase.removeChannel(homeChannel);
     };
-  }, [loadAllHomeData, refreshDynamicSections, refreshLayoutAndBanners, hasCachedContent]);
+  }, [refreshDynamicSections, refreshLayoutAndBanners]);
 
   const deals = useMemo(() => {
     if (!Array.isArray(products)) return [];

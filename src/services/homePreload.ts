@@ -76,9 +76,9 @@ export function preloadImage(url: string): Promise<void> {
   });
 }
 
-export async function preloadCriticalImages(urls: string[], timeoutMs = 600): Promise<void> {
+export async function preloadImages(urls: string[], timeoutMs = 800): Promise<void> {
   if (!Array.isArray(urls)) return;
-  const validUrls = Array.from(new Set(urls.filter((u) => typeof u === 'string' && u.trim().length > 0))).slice(0, 8);
+  const validUrls = Array.from(new Set(urls.filter((u) => typeof u === 'string' && u.trim().length > 0))).slice(0, 16);
   if (validUrls.length === 0) return;
 
   await Promise.race([
@@ -86,6 +86,9 @@ export async function preloadCriticalImages(urls: string[], timeoutMs = 600): Pr
     new Promise((resolve) => setTimeout(resolve, timeoutMs)),
   ]);
 }
+
+// Alias for critical preloads
+export const preloadCriticalImages = preloadImages;
 
 /**
  * Single deduplicated fetch function shared across App, Auth, and Home
@@ -147,7 +150,7 @@ export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
         ...safeBanners.slice(0, 3).map((b) => b?.image).filter((img): img is string => Boolean(img)),
         ...safeCategories.slice(0, 8).map((c) => c?.image).filter((img): img is string => Boolean(img)),
       ];
-      await preloadCriticalImages(criticalImages, 500);
+      await preloadImages(criticalImages, 500);
 
       const addressList = Array.isArray(addrs) ? addrs : [];
       const defaultAddr = addressList.find((a) => a?.is_default) || addressList[0] || null;
@@ -204,3 +207,7 @@ export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
 
   return inFlightPromise;
 }
+
+// Backward-compatible alias exports
+export const preloadHomeScreenDataAndImages = getOrFetchHomeData;
+export const getCachedHomeData = getHomeDataSync;

@@ -15,7 +15,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
     (async () => {
       try {
         const { categories: fetchedCats } = await fetchCategories();
-        if (active && fetchedCats) {
+        if (active && Array.isArray(fetchedCats)) {
           setCategories(fetchedCats);
           void preloadImages(fetchedCats.map((c) => c.image).filter(Boolean));
         }

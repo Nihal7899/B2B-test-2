@@ -33,19 +33,40 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartId, setCartId] = useState<string | null>(null);
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number; promoId: string } | null>(null);
 
-  // Load cart from DB
+  // Ensure cart exists in Supabase
+  const getOrCreateCartId = useCallback(async (): Promise<string | null> => {
+    if (!user) return null;
+    if (cartId) return cartId;
+
+    try {
+      const { data: existing } = await supabase.from('carts').select('id').eq('user_id', user.id).maybeSingle();
+      if (existing?.id) {
+        setCartId(existing.id);
+        return existing.id;
+      }
+      const { data: created, error } = await supabase.from('carts').insert({ user_id: user.id }).select('id').single();
+      if (error || !created) return null;
+      setCartId(created.id);
+      return created.id;
+    } catch {
+      return null;
+    }
+  }, [user, cartId]);
+
   const loadCart = useCallback(async () => {
     if (!user) { setItems([]); setLoading(false); return; }
     setLoading(true);
     try {
-      const { data: cart } = await supabase.from('carts').select('id').eq('user_id', user.id).maybeSingle();
-      if (!cart) { setItems([]); setLoading(false); return; }
-      setCartId(cart.id);
+      let activeCartId = cartId;
+      if (!activeCartId) {
+        activeCartId = await getOrCreateCartId();
+      }
+      if (!activeCartId) { setLoading(false); return; }
 
       const { data: cartItems } = await supabase
         .from('cart_items')
         .select('product_id, quantity, products!inner(id, brand, name, pack_size, mrp, wholesale_price, image_url, moq, rating, description, stock_quantity, is_active, category_id, hsn_code, gst_percentage)')
-        .eq('cart_id', cart.id);
+        .eq('cart_id', activeCartId);
 
       if (cartItems) {
         const { data: catData } = await supabase.from('categories').select('id, slug');
@@ -71,118 +92,144 @@ export function CartProvider({ children }: { children: ReactNode }) {
             gst_percentage: p.gst_percentage as number,
           };
           const qty = row.quantity as number;
-          const effectivePrice = await getEffectiveUnitPrice(product, qty);
-          return {
-            product,
-            quantity: qty,
-            effectiveUnitPrice: effectivePrice,
-          };
+          const effectivePrice = await getEffectiveUnitPrice(product, qty).catch(() => product.price);
+          return { product, quantity: qty, effectiveUnitPrice: effectivePrice };
         }));
         setItems(mapped);
       }
     } catch (err) {
       console.error('Failed to load cart', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [user]);
+  }, [user, cartId, getOrCreateCartId]);
 
   useEffect(() => { void loadCart(); }, [loadCart]);
 
-  const refreshCart = useCallback(async () => {
-    await loadCart();
-  }, [loadCart]);
-
-  // Core helper to validate & update promo against a specific items array
   const validateAndApplyPromo = useCallback(async (code: string, currentItems: CartItemType[]) => {
     if (currentItems.length === 0) {
       setAppliedPromo(null);
       return { valid: false, discount: 0, error: 'Cart is empty' };
     }
-    const currentSubtotal = currentItems.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0);
-    const result = await validatePromoCode(code, currentSubtotal, currentItems);
-
-    if (result.valid && result.promoId) {
-      setAppliedPromo({ code, discount: result.discount, promoId: result.promoId });
-      return { valid: true, discount: result.discount };
-    } else {
-      setAppliedPromo(null);
-      return { valid: false, discount: 0, error: result.error || 'Promo code is no longer applicable' };
+    try {
+      const currentSubtotal = currentItems.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0);
+      const result = await validatePromoCode(code, currentSubtotal, currentItems);
+      if (result.valid && result.promoId) {
+        setAppliedPromo({ code, discount: result.discount, promoId: result.promoId });
+        return { valid: true, discount: result.discount };
+      }
+    } catch (e) {
+      console.error('Promo revalidation error:', e);
     }
+    setAppliedPromo(null);
+    return { valid: false, discount: 0, error: 'Promo code is no longer applicable' };
   }, []);
 
   const revalidatePromo = useCallback(async (targetItems?: CartItemType[]) => {
     if (!appliedPromo) return { valid: true, discount: 0 };
-    const itemsToUse = targetItems ?? items;
-    return await validateAndApplyPromo(appliedPromo.code, itemsToUse);
+    return await validateAndApplyPromo(appliedPromo.code, targetItems ?? items);
   }, [appliedPromo, items, validateAndApplyPromo]);
 
+  // Optimistic addToCart
   const addToCart = useCallback(async (product: Product, quantity = 1) => {
-    if (!cartId) return;
+    const activeCartId = await getOrCreateCartId();
     const existing = items.find((i) => i.product.id === product.id);
     const newQty = (existing?.quantity ?? 0) + quantity;
-    const effectivePrice = await getEffectiveUnitPrice(product, newQty);
 
+    // 1. Optimistic instant UI update
     const updatedItems = existing
-      ? items.map((i) => (i.product.id === product.id ? { ...i, quantity: newQty, effectiveUnitPrice: effectivePrice } : i))
-      : [...items, { product, quantity: newQty, effectiveUnitPrice: effectivePrice }];
-
+      ? items.map((i) => (i.product.id === product.id ? { ...i, quantity: newQty } : i))
+      : [...items, { product, quantity: newQty, effectiveUnitPrice: product.price }];
     setItems(updatedItems);
 
-    if (existing) {
-      await supabase.from('cart_items').update({ quantity: newQty }).eq('cart_id', cartId).eq('product_id', product.id);
-    } else {
-      await supabase.from('cart_items').insert({ cart_id: cartId, product_id: product.id, quantity: newQty });
-    }
+    // 2. Async DB update and price tier recalculation in background
+    try {
+      const effectivePrice = await getEffectiveUnitPrice(product, newQty).catch(() => product.price);
+      setItems((prev) =>
+        prev.map((i) => (i.product.id === product.id ? { ...i, effectiveUnitPrice: effectivePrice } : i))
+      );
 
-    if (appliedPromo) {
-      await validateAndApplyPromo(appliedPromo.code, updatedItems);
+      if (activeCartId) {
+        if (existing) {
+          await supabase.from('cart_items').update({ quantity: newQty }).eq('cart_id', activeCartId).eq('product_id', product.id);
+        } else {
+          await supabase.from('cart_items').insert({ cart_id: activeCartId, product_id: product.id, quantity: newQty });
+        }
+      }
+      if (appliedPromo) {
+        await validateAndApplyPromo(appliedPromo.code, updatedItems);
+      }
+    } catch (err) {
+      console.error('Failed to sync addToCart with database:', err);
     }
-  }, [cartId, items, appliedPromo, validateAndApplyPromo]);
+  }, [getOrCreateCartId, items, appliedPromo, validateAndApplyPromo]);
 
+  // Optimistic removeFromCart
   const removeFromCart = useCallback(async (productId: string) => {
     const updatedItems = items.filter((i) => i.product.id !== productId);
     setItems(updatedItems);
 
-    if (cartId) {
-      await supabase.from('cart_items').delete().eq('cart_id', cartId).eq('product_id', productId);
+    try {
+      const activeCartId = await getOrCreateCartId();
+      if (activeCartId) {
+        await supabase.from('cart_items').delete().eq('cart_id', activeCartId).eq('product_id', productId);
+      }
+      if (appliedPromo) {
+        await validateAndApplyPromo(appliedPromo.code, updatedItems);
+      }
+    } catch (err) {
+      console.error('Failed to sync removeFromCart with database:', err);
     }
+  }, [items, getOrCreateCartId, appliedPromo, validateAndApplyPromo]);
 
-    if (appliedPromo) {
-      await validateAndApplyPromo(appliedPromo.code, updatedItems);
-    }
-  }, [cartId, items, appliedPromo, validateAndApplyPromo]);
-
+  // Optimistic updateQuantity
   const updateQuantity = useCallback(async (productId: string, quantity: number) => {
     if (quantity <= 0) {
       await removeFromCart(productId);
       return;
     }
-
     const product = items.find((i) => i.product.id === productId)?.product;
-    if (product) {
-      const effectivePrice = await getEffectiveUnitPrice(product, quantity);
-      const updatedItems = items.map((i) =>
-        i.product.id === productId ? { ...i, quantity, effectiveUnitPrice: effectivePrice } : i
+    if (!product) return;
+
+    // 1. Optimistic instant UI update
+    const updatedItems = items.map((i) =>
+      i.product.id === productId ? { ...i, quantity } : i
+    );
+    setItems(updatedItems);
+
+    // 2. Async DB sync
+    try {
+      const activeCartId = await getOrCreateCartId();
+      const effectivePrice = await getEffectiveUnitPrice(product, quantity).catch(() => product.price);
+      setItems((prev) =>
+        prev.map((i) => (i.product.id === productId ? { ...i, effectiveUnitPrice: effectivePrice } : i))
       );
-      setItems(updatedItems);
 
-      if (cartId) {
-        await supabase.from('cart_items').update({ quantity }).eq('cart_id', cartId).eq('product_id', productId);
+      if (activeCartId) {
+        await supabase.from('cart_items').update({ quantity }).eq('cart_id', activeCartId).eq('product_id', productId);
       }
-
       if (appliedPromo) {
         await validateAndApplyPromo(appliedPromo.code, updatedItems);
       }
+    } catch (err) {
+      console.error('Failed to sync updateQuantity with database:', err);
     }
-  }, [cartId, items, appliedPromo, removeFromCart, validateAndApplyPromo]);
+  }, [items, removeFromCart, getOrCreateCartId, appliedPromo, validateAndApplyPromo]);
 
   const getQuantity = useCallback((productId: string) => items.find((i) => i.product.id === productId)?.quantity ?? 0, [items]);
 
   const clearCart = useCallback(async () => {
     setItems([]);
-    if (cartId) await supabase.from('cart_items').delete().eq('cart_id', cartId);
     setAppliedPromo(null);
-  }, [cartId]);
+    try {
+      const activeCartId = await getOrCreateCartId();
+      if (activeCartId) {
+        await supabase.from('cart_items').delete().eq('cart_id', activeCartId);
+      }
+    } catch (err) {
+      console.error('Failed to clear cart:', err);
+    }
+  }, [getOrCreateCartId]);
 
   const applyPromo = useCallback(async (code: string) => {
     const result = await validateAndApplyPromo(code, items);
@@ -192,6 +239,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clearPromo = useCallback(() => {
     setAppliedPromo(null);
   }, []);
+
+  const refreshCart = useCallback(async () => {
+    await loadCart();
+  }, [loadCart]);
 
   const subtotal = items.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0);
   const totalMrp = items.reduce((sum, i) => sum + i.product.mrp * i.quantity, 0);

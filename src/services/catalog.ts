@@ -1235,7 +1235,7 @@ export async function validatePromoCode(
   if (p.end_date && new Date(p.end_date) < new Date()) return { valid: false, discount: 0, error: 'Promo code has expired' };
   if (p.usage_limit !== null && p.used_count >= p.usage_limit) return { valid: false, discount: 0, error: 'Promo code usage limit reached' };
   if (p.min_order_value > 0 && subtotal < p.min_order_value) {
-    return { valid: false, discount: 0, error: `Minimum order value ₹${p.min_order_value} required` };
+    return { valid: false, discount: 0, error: `Minimum order value ₹${p.min_order_value} required before tax` };
   }
   if (p.applies_to === 'category' && p.applies_to_ids?.length) {
     const itemCategories = items.map(i => i.product.category);

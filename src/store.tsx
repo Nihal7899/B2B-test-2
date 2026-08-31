@@ -19,11 +19,12 @@ interface CartContextValue {
   totalItems: number;
   loading: boolean;
   cartId: string | null;
-  // new
   appliedPromo: { code: string; discount: number; promoId: string } | null;
   applyPromo: (code: string) => Promise<{ success: boolean; discount: number; error?: string }>;
   clearPromo: () => void;
   refreshCart: () => Promise<void>;
+  // NEW
+  revalidatePromo: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
@@ -99,7 +100,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!cartId) return;
     const existing = items.find((i) => i.product.id === product.id);
     const newQty = (existing?.quantity ?? 0) + quantity;
-    // Compute effective price for new quantity
     const effectivePrice = await getEffectiveUnitPrice(product, newQty);
     setItems((prev) => {
       if (existing) {
@@ -109,17 +109,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { product, quantity: newQty, effectiveUnitPrice: effectivePrice }];
     });
-    // Update DB
     if (existing) {
       await supabase.from('cart_items').update({ quantity: newQty }).eq('cart_id', cartId).eq('product_id', product.id);
     } else {
       await supabase.from('cart_items').insert({ cart_id: cartId, product_id: product.id, quantity: newQty });
     }
+    // Revalidate promo after cart mutation
+    await revalidatePromo();
   }, [cartId, items]);
 
   const removeFromCart = useCallback(async (productId: string) => {
     setItems((prev) => prev.filter((i) => i.product.id !== productId));
     if (cartId) await supabase.from('cart_items').delete().eq('cart_id', cartId).eq('product_id', productId);
+    await revalidatePromo();
   }, [cartId]);
 
   const updateQuantity = useCallback(async (productId: string, quantity: number) => {
@@ -131,6 +133,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         i.product.id === productId ? { ...i, quantity, effectiveUnitPrice: effectivePrice } : i
       ));
       if (cartId) await supabase.from('cart_items').update({ quantity }).eq('cart_id', cartId).eq('product_id', productId);
+      await revalidatePromo();
     }
   }, [cartId, items, removeFromCart]);
 
@@ -139,11 +142,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = useCallback(async () => {
     setItems([]);
     if (cartId) await supabase.from('cart_items').delete().eq('cart_id', cartId);
+    setAppliedPromo(null);
   }, [cartId]);
 
   // Promo code functions
   const applyPromo = useCallback(async (code: string) => {
-    // Compute subtotal (using effective prices)
     const subtotal = items.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0);
     const result = await validatePromoCode(code, subtotal, items);
     if (result.valid && result.promoId) {
@@ -158,10 +161,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setAppliedPromo(null);
   }, []);
 
+  // NEW: Revalidate the currently applied promo code
+  const revalidatePromo = useCallback(async () => {
+    if (!appliedPromo) return;
+    const subtotal = items.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0);
+    const result = await validatePromoCode(appliedPromo.code, subtotal, items);
+    if (result.valid && result.promoId) {
+      setAppliedPromo({ code: appliedPromo.code, discount: result.discount, promoId: result.promoId });
+    } else {
+      setAppliedPromo(null);
+    }
+  }, [appliedPromo, items]);
+
   // Computed values
   const subtotal = items.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0);
   const totalMrp = items.reduce((sum, i) => sum + i.product.mrp * i.quantity, 0);
-  const discount = totalMrp - subtotal; // includes volume discount
+  const discount = totalMrp - subtotal;
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (
@@ -182,6 +197,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       applyPromo,
       clearPromo,
       refreshCart,
+      revalidatePromo,
     }}>
       {children}
     </CartContext.Provider>

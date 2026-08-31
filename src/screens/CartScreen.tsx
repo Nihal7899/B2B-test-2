@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -40,6 +40,8 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
   const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [gstTotal, setGstTotal] = useState(0);
   const [gstBreakdown, setGstBreakdown] = useState<Record<number, number>>({});
+  // State for promo revalidation feedback
+  const [promoRevalidateError, setPromoRevalidateError] = useState<string | null>(null);
 
   const handleBack = () => {
     if (onBack) {
@@ -47,6 +49,59 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
     } else {
       navigate(-1);
     }
+  };
+
+  // Helper to revalidate promo after a cart mutation and show error if removed
+  const revalidatePromoAfterAction = useCallback(async () => {
+    const prevPromo = cart.appliedPromo;
+    await cart.revalidatePromo();
+    if (prevPromo && !cart.appliedPromo) {
+      setPromoRevalidateError('Promo code no longer applies to your cart');
+    } else {
+      setPromoRevalidateError(null);
+    }
+  }, [cart]);
+
+  // Wrapped cart actions with revalidation
+  const handleIncrement = useCallback(async (product: Product) => {
+    await cart.addToCart(product);
+    await revalidatePromoAfterAction();
+  }, [cart, revalidatePromoAfterAction]);
+
+  const handleDecrement = useCallback(async (productId: string, currentQuantity: number) => {
+    if (currentQuantity <= 1) {
+      await cart.removeFromCart(productId);
+    } else {
+      await cart.updateQuantity(productId, currentQuantity - 1);
+    }
+    await revalidatePromoAfterAction();
+  }, [cart, revalidatePromoAfterAction]);
+
+  const handleRemove = useCallback(async (productId: string) => {
+    await cart.removeFromCart(productId);
+    await revalidatePromoAfterAction();
+  }, [cart, revalidatePromoAfterAction]);
+
+  // Promo apply
+  const handleApplyPromo = async () => {
+    if (!promoInput.trim()) return;
+    setApplyingPromo(true);
+    setPromoError(null);
+    setPromoRevalidateError(null);
+    const result = await cart.applyPromo(promoInput.trim());
+    if (result.success) {
+      setPromoInput('');
+    } else {
+      setPromoError(result.error || 'Invalid promo code');
+    }
+    setApplyingPromo(false);
+  };
+
+  // Manual promo removal
+  const handleRemovePromo = () => {
+    cart.clearPromo();
+    setPromoRevalidateError(null);
+    setPromoError(null);
   };
 
   useEffect(() => {
@@ -58,7 +113,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
     loadDefaultAddress();
   }, []);
 
-  // Recompute delivery and GST with pro-rated promo discount
+  // Recompute delivery and GST with pro‑rata promo discount
   useEffect(() => {
     async function compute() {
       const promoDiscount = cart.appliedPromo?.discount || 0;
@@ -79,23 +134,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
     }
     compute();
   }, [cart.items, cart.subtotal, cart.appliedPromo, defaultAddress]);
-
-  const handleApplyPromo = async () => {
-    if (!promoInput.trim()) return;
-    setApplyingPromo(true);
-    setPromoError(null);
-    const result = await cart.applyPromo(promoInput.trim());
-    if (result.success) {
-      setPromoInput('');
-    } else {
-      setPromoError(result.error || 'Invalid promo code');
-    }
-    setApplyingPromo(false);
-  };
-
-  const handleRemovePromo = () => {
-    cart.clearPromo();
-  };
 
   const subtotalAfterDiscount = Math.max(0, cart.subtotal - (cart.appliedPromo?.discount || 0));
   const displayDelivery = deliveryCharge !== null ? deliveryCharge : 0;
@@ -189,9 +227,9 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
           <CartItem
             key={item.product.id}
             item={item}
-            onIncrement={() => cart.addToCart(item.product)}
-            onDecrement={() => cart.updateQuantity(item.product.id, item.quantity - 1)}
-            onRemove={() => cart.removeFromCart(item.product.id)}
+            onIncrement={() => handleIncrement(item.product)}
+            onDecrement={() => handleDecrement(item.product.id, item.quantity)}
+            onRemove={() => handleRemove(item.product.id)}
             onClick={() => onProduct(item.product)}
           />
         ))}
@@ -241,6 +279,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
           </div>
         )}
         {promoError && <p className="text-xs text-red-500 mt-1">{promoError}</p>}
+        {promoRevalidateError && <p className="text-xs text-red-500 mt-1">{promoRevalidateError}</p>}
       </section>
 
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-3">

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -40,8 +40,19 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
   const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [gstTotal, setGstTotal] = useState(0);
   const [gstBreakdown, setGstBreakdown] = useState<Record<number, number>>({});
-  // State for promo revalidation feedback
   const [promoRevalidateError, setPromoRevalidateError] = useState<string | null>(null);
+
+  const prevPromoRef = useRef(cart.appliedPromo);
+
+  // Monitor promo invalidation upon cart modifications
+  useEffect(() => {
+    if (prevPromoRef.current && !cart.appliedPromo && cart.items.length > 0) {
+      setPromoRevalidateError(`Promo code "${prevPromoRef.current.code}" no longer applies to your cart.`);
+    } else if (cart.appliedPromo) {
+      setPromoRevalidateError(null);
+    }
+    prevPromoRef.current = cart.appliedPromo;
+  }, [cart.appliedPromo, cart.items.length]);
 
   const handleBack = () => {
     if (onBack) {
@@ -51,22 +62,9 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
     }
   };
 
-  // Helper to revalidate promo after a cart mutation and show error if removed
-  const revalidatePromoAfterAction = useCallback(async () => {
-    const prevPromo = cart.appliedPromo;
-    await cart.revalidatePromo();
-    if (prevPromo && !cart.appliedPromo) {
-      setPromoRevalidateError('Promo code no longer applies to your cart');
-    } else {
-      setPromoRevalidateError(null);
-    }
-  }, [cart]);
-
-  // Wrapped cart actions with revalidation
   const handleIncrement = useCallback(async (product: Product) => {
     await cart.addToCart(product);
-    await revalidatePromoAfterAction();
-  }, [cart, revalidatePromoAfterAction]);
+  }, [cart]);
 
   const handleDecrement = useCallback(async (productId: string, currentQuantity: number) => {
     if (currentQuantity <= 1) {
@@ -74,15 +72,12 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
     } else {
       await cart.updateQuantity(productId, currentQuantity - 1);
     }
-    await revalidatePromoAfterAction();
-  }, [cart, revalidatePromoAfterAction]);
+  }, [cart]);
 
   const handleRemove = useCallback(async (productId: string) => {
     await cart.removeFromCart(productId);
-    await revalidatePromoAfterAction();
-  }, [cart, revalidatePromoAfterAction]);
+  }, [cart]);
 
-  // Promo apply
   const handleApplyPromo = async () => {
     if (!promoInput.trim()) return;
     setApplyingPromo(true);
@@ -97,7 +92,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
     setApplyingPromo(false);
   };
 
-  // Manual promo removal
   const handleRemovePromo = () => {
     cart.clearPromo();
     setPromoRevalidateError(null);
@@ -113,7 +107,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
     loadDefaultAddress();
   }, []);
 
-  // Recompute delivery and GST with pro‑rata promo discount
   useEffect(() => {
     async function compute() {
       const promoDiscount = cart.appliedPromo?.discount || 0;
@@ -174,7 +167,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
 
   return (
     <div className="safe-top px-4 pb-8 space-y-4">
-      {/* Header with Back Button */}
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -245,7 +237,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
                 {cart.appliedPromo.code}
               </span>
               <span className="text-xs text-brand-600">
-                – ₹{cart.appliedPromo.discount}
+                – ₹{cart.appliedPromo.discount.toLocaleString('en-IN')}
               </span>
             </div>
             <button

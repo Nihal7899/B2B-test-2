@@ -1,5 +1,3 @@
-// store.tsx
-
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { Product, CartItem as CartItemType } from './types';
 import { supabase } from '@/lib/supabase';
@@ -8,11 +6,11 @@ import { getEffectiveUnitPrice, validatePromoCode } from '@/services/catalog';
 
 interface CartContextValue {
   items: CartItemType[];
-  addToCart: (product: Product, quantity?: number) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addToCart: (product: Product, quantity?: number) => Promise<void>;
+  removeFromCart: (productId: string) => Promise<void>;
+  updateQuantity: (productId: string, quantity: number) => Promise<void>;
   getQuantity: (productId: string) => number;
-  clearCart: () => void;
+  clearCart: () => Promise<void>;
   subtotal: number;
   totalMrp: number;
   discount: number;
@@ -23,8 +21,7 @@ interface CartContextValue {
   applyPromo: (code: string) => Promise<{ success: boolean; discount: number; error?: string }>;
   clearPromo: () => void;
   refreshCart: () => Promise<void>;
-  // NEW
-  revalidatePromo: () => Promise<void>;
+  revalidatePromo: (currentItems?: CartItemType[]) => Promise<{ valid: boolean; discount: number; error?: string }>;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
@@ -91,51 +88,93 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { void loadCart(); }, [loadCart]);
 
-  // Refresh cart (e.g., after promo apply or volume change)
   const refreshCart = useCallback(async () => {
     await loadCart();
   }, [loadCart]);
+
+  // Core helper to validate & update promo against a specific items array
+  const validateAndApplyPromo = useCallback(async (code: string, currentItems: CartItemType[]) => {
+    if (currentItems.length === 0) {
+      setAppliedPromo(null);
+      return { valid: false, discount: 0, error: 'Cart is empty' };
+    }
+    const currentSubtotal = currentItems.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0);
+    const result = await validatePromoCode(code, currentSubtotal, currentItems);
+
+    if (result.valid && result.promoId) {
+      setAppliedPromo({ code, discount: result.discount, promoId: result.promoId });
+      return { valid: true, discount: result.discount };
+    } else {
+      setAppliedPromo(null);
+      return { valid: false, discount: 0, error: result.error || 'Promo code is no longer applicable' };
+    }
+  }, []);
+
+  const revalidatePromo = useCallback(async (targetItems?: CartItemType[]) => {
+    if (!appliedPromo) return { valid: true, discount: 0 };
+    const itemsToUse = targetItems ?? items;
+    return await validateAndApplyPromo(appliedPromo.code, itemsToUse);
+  }, [appliedPromo, items, validateAndApplyPromo]);
 
   const addToCart = useCallback(async (product: Product, quantity = 1) => {
     if (!cartId) return;
     const existing = items.find((i) => i.product.id === product.id);
     const newQty = (existing?.quantity ?? 0) + quantity;
     const effectivePrice = await getEffectiveUnitPrice(product, newQty);
-    setItems((prev) => {
-      if (existing) {
-        return prev.map((i) =>
-          i.product.id === product.id ? { ...i, quantity: newQty, effectiveUnitPrice: effectivePrice } : i
-        );
-      }
-      return [...prev, { product, quantity: newQty, effectiveUnitPrice: effectivePrice }];
-    });
+
+    const updatedItems = existing
+      ? items.map((i) => (i.product.id === product.id ? { ...i, quantity: newQty, effectiveUnitPrice: effectivePrice } : i))
+      : [...items, { product, quantity: newQty, effectiveUnitPrice: effectivePrice }];
+
+    setItems(updatedItems);
+
     if (existing) {
       await supabase.from('cart_items').update({ quantity: newQty }).eq('cart_id', cartId).eq('product_id', product.id);
     } else {
       await supabase.from('cart_items').insert({ cart_id: cartId, product_id: product.id, quantity: newQty });
     }
-    // Revalidate promo after cart mutation
-    await revalidatePromo();
-  }, [cartId, items]);
+
+    if (appliedPromo) {
+      await validateAndApplyPromo(appliedPromo.code, updatedItems);
+    }
+  }, [cartId, items, appliedPromo, validateAndApplyPromo]);
 
   const removeFromCart = useCallback(async (productId: string) => {
-    setItems((prev) => prev.filter((i) => i.product.id !== productId));
-    if (cartId) await supabase.from('cart_items').delete().eq('cart_id', cartId).eq('product_id', productId);
-    await revalidatePromo();
-  }, [cartId]);
+    const updatedItems = items.filter((i) => i.product.id !== productId);
+    setItems(updatedItems);
+
+    if (cartId) {
+      await supabase.from('cart_items').delete().eq('cart_id', cartId).eq('product_id', productId);
+    }
+
+    if (appliedPromo) {
+      await validateAndApplyPromo(appliedPromo.code, updatedItems);
+    }
+  }, [cartId, items, appliedPromo, validateAndApplyPromo]);
 
   const updateQuantity = useCallback(async (productId: string, quantity: number) => {
-    if (quantity <= 0) { void removeFromCart(productId); return; }
-    const product = items.find(i => i.product.id === productId)?.product;
+    if (quantity <= 0) {
+      await removeFromCart(productId);
+      return;
+    }
+
+    const product = items.find((i) => i.product.id === productId)?.product;
     if (product) {
       const effectivePrice = await getEffectiveUnitPrice(product, quantity);
-      setItems((prev) => prev.map((i) =>
+      const updatedItems = items.map((i) =>
         i.product.id === productId ? { ...i, quantity, effectiveUnitPrice: effectivePrice } : i
-      ));
-      if (cartId) await supabase.from('cart_items').update({ quantity }).eq('cart_id', cartId).eq('product_id', productId);
-      await revalidatePromo();
+      );
+      setItems(updatedItems);
+
+      if (cartId) {
+        await supabase.from('cart_items').update({ quantity }).eq('cart_id', cartId).eq('product_id', productId);
+      }
+
+      if (appliedPromo) {
+        await validateAndApplyPromo(appliedPromo.code, updatedItems);
+      }
     }
-  }, [cartId, items, removeFromCart]);
+  }, [cartId, items, appliedPromo, removeFromCart, validateAndApplyPromo]);
 
   const getQuantity = useCallback((productId: string) => items.find((i) => i.product.id === productId)?.quantity ?? 0, [items]);
 
@@ -145,35 +184,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setAppliedPromo(null);
   }, [cartId]);
 
-  // Promo code functions
   const applyPromo = useCallback(async (code: string) => {
-    const subtotal = items.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0);
-    const result = await validatePromoCode(code, subtotal, items);
-    if (result.valid && result.promoId) {
-      setAppliedPromo({ code, discount: result.discount, promoId: result.promoId });
-      return { success: true, discount: result.discount };
-    } else {
-      return { success: false, discount: 0, error: result.error };
-    }
-  }, [items]);
+    const result = await validateAndApplyPromo(code, items);
+    return { success: result.valid, discount: result.discount, error: result.error };
+  }, [items, validateAndApplyPromo]);
 
   const clearPromo = useCallback(() => {
     setAppliedPromo(null);
   }, []);
 
-  // NEW: Revalidate the currently applied promo code
-  const revalidatePromo = useCallback(async () => {
-    if (!appliedPromo) return;
-    const subtotal = items.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0);
-    const result = await validatePromoCode(appliedPromo.code, subtotal, items);
-    if (result.valid && result.promoId) {
-      setAppliedPromo({ code: appliedPromo.code, discount: result.discount, promoId: result.promoId });
-    } else {
-      setAppliedPromo(null);
-    }
-  }, [appliedPromo, items]);
-
-  // Computed values
   const subtotal = items.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0);
   const totalMrp = items.reduce((sum, i) => sum + i.product.mrp * i.quantity, 0);
   const discount = totalMrp - subtotal;

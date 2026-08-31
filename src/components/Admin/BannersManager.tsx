@@ -584,6 +584,18 @@ function BannerForm({
     }));
   };
 
+  const isTopPromo = form.position === 'top';
+  const showCtaControls = !isTopPromo && form.show_cta;
+
+  const needsCategory = form.action_type === 'VIEW_CATEGORY' || form.action_type === 'FILTER_PRODUCTS';
+  const needsProduct = form.action_type === 'VIEW_PRODUCT';
+  const needsBrand = form.action_type === 'VIEW_BRAND' || form.action_type === 'FILTER_PRODUCTS';
+  const needsSmartCollection = form.action_type === 'OPEN_SMART_COLLECTION';
+  const needsScreen = form.action_type === 'OPEN_SCREEN';
+  const needsUrl = form.action_type === 'OPEN_EXTERNAL_URL';
+  const needsSearch = form.action_type === 'SEARCH' || form.action_type === 'VIEW_OFFER';
+  const needsFilter = form.action_type === 'FILTER_PRODUCTS';
+
   const previewBannerObject = useMemo<PromoBanner>(() => {
     return {
       id: initial?.id || 'temp-id',
@@ -659,13 +671,13 @@ function BannerForm({
         description: form.description,
         image_url: newImageUrl || null,
         background_color: form.background_color,
-        button_text: form.button_text,
+        button_text: isTopPromo ? null : form.button_text,
         action_type: form.action_type,
         action_config: form.action_config,
         display_order: form.display_order,
         is_active: form.is_active,
         position: form.position,
-        size: form.size,
+        size: isTopPromo ? 'small' : form.size,
         start_at: form.start_at || null,
         end_at: form.end_at || null,
         bg_type: form.bg_type,
@@ -677,7 +689,7 @@ function BannerForm({
         overlay_enabled: form.overlay_enabled,
         overlay_color: form.overlay_color,
         overlay_opacity: form.overlay_opacity,
-        show_cta: form.show_cta,
+        show_cta: isTopPromo ? false : form.show_cta,
       };
 
       if (initial) {
@@ -708,15 +720,6 @@ function BannerForm({
     );
   }
 
-  const needsCategory = form.action_type === 'VIEW_CATEGORY' || form.action_type === 'FILTER_PRODUCTS';
-  const needsProduct = form.action_type === 'VIEW_PRODUCT';
-  const needsBrand = form.action_type === 'VIEW_BRAND' || form.action_type === 'FILTER_PRODUCTS';
-  const needsSmartCollection = form.action_type === 'OPEN_SMART_COLLECTION';
-  const needsScreen = form.action_type === 'OPEN_SCREEN';
-  const needsUrl = form.action_type === 'OPEN_EXTERNAL_URL';
-  const needsSearch = form.action_type === 'SEARCH' || form.action_type === 'VIEW_OFFER';
-  const needsFilter = form.action_type === 'FILTER_PRODUCTS';
-
   return (
     <div className="bg-white border border-brand-200 rounded-2xl p-4 sm:p-5 space-y-5 shadow-card">
       {/* Header */}
@@ -743,7 +746,7 @@ function BannerForm({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Form Inputs (Left Column) */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Position Slot Selection */}
+          {/* Placement Slot */}
           <div className="p-3 bg-brand-50/50 border border-brand-100 rounded-2xl">
             <label className="block text-xs font-bold text-brand-900 mb-1">Placement Slot</label>
             <select
@@ -761,7 +764,7 @@ function BannerForm({
             </select>
           </div>
 
-          {/* Title & Formatting */}
+          {/* Headline Title */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-bold text-ink-700">Headline Title *</label>
@@ -782,7 +785,7 @@ function BannerForm({
             />
           </div>
 
-          {/* Description & Formatting */}
+          {/* Subtext / Description */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-bold text-ink-700">Subtext / Description</label>
@@ -803,16 +806,67 @@ function BannerForm({
             />
           </div>
 
-          {/* Detailed Color Customization */}
+          {/* Conditional Top Promo Ad Details */}
+          {isTopPromo && (
+            <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2.5">
+              <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Promo Ad Details</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-ink-700 mb-1">Promo Code</label>
+                  <input
+                    value={(form.action_config.promoCode as string) || ''}
+                    onChange={(e) => setActionConfig('promoCode', e.target.value)}
+                    placeholder="e.g. HYPER10"
+                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-mono font-bold outline-none focus:border-brand-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-ink-700 mb-1">Discount Tag</label>
+                  <input
+                    value={(form.action_config.discount as string) || ''}
+                    onChange={(e) => setActionConfig('discount', e.target.value)}
+                    placeholder="e.g. 10% OFF"
+                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-bold outline-none focus:border-brand-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Badge & Conditional CTA Button Input */}
+          <div className={`grid ${!isTopPromo ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+            <div>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Badge</label>
+              <input
+                value={form.badge}
+                onChange={(e) => setForm({ ...form, badge: e.target.value })}
+                placeholder="e.g. WHOLESALE"
+                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
+              />
+            </div>
+            {!isTopPromo && form.show_cta && (
+              <div>
+                <label className="block text-xs font-bold text-ink-700 mb-1">CTA Button Text</label>
+                <input
+                  value={form.button_text}
+                  onChange={(e) => setForm({ ...form, button_text: e.target.value })}
+                  placeholder="Shop now"
+                  className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Typography & Element Colors */}
           <div className="p-3.5 bg-ink-50/70 border border-ink-100 rounded-2xl space-y-3.5">
             <p className="text-[10px] font-black uppercase tracking-wider text-ink-700 flex items-center gap-1.5">
               <Palette size={13} className="text-brand-600" /> Typography & Element Colors
             </p>
 
-            {/* 1. Headline & Description Colors */}
+            {/* Headline & Description Colors */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Headline Text Color</label>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Headline Color</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -831,7 +885,7 @@ function BannerForm({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Subtext / Desc Color</label>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Subtext Color</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -850,10 +904,10 @@ function BannerForm({
               </div>
             </div>
 
-            {/* 2. Badge Pill & Text Colors */}
+            {/* Badge Colors */}
             <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Badge Pill Background</label>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Badge Background</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -891,123 +945,109 @@ function BannerForm({
               </div>
             </div>
 
-            {/* 3. CTA Button Background & Text Colors */}
-            <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Button Background</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={(form.action_config.ctaBg as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('ctaBg', e.target.value)}
-                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={(form.action_config.ctaBg as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('ctaBg', e.target.value)}
-                    placeholder="#ffffff"
-                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                  />
+            {/* Conditional CTA Button Colors */}
+            {showCtaControls && (
+              <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Background</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={(form.action_config.ctaBg as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('ctaBg', e.target.value)}
+                      className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={(form.action_config.ctaBg as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('ctaBg', e.target.value)}
+                      placeholder="#ffffff"
+                      className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Button Text Color</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={(form.action_config.ctaColor as string) || '#0f172a'}
-                    onChange={(e) => setActionConfig('ctaColor', e.target.value)}
-                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={(form.action_config.ctaColor as string) || '#0f172a'}
-                    onChange={(e) => setActionConfig('ctaColor', e.target.value)}
-                    placeholder="#0f172a"
-                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                  />
+                <div>
+                  <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Text Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={(form.action_config.ctaColor as string) || '#0f172a'}
+                      onChange={(e) => setActionConfig('ctaColor', e.target.value)}
+                      className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={(form.action_config.ctaColor as string) || '#0f172a'}
+                      onChange={(e) => setActionConfig('ctaColor', e.target.value)}
+                      placeholder="#0f172a"
+                      className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* 4. Promo Code & Discount Tag Colors */}
-            <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Promo Code Text Color</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={(form.action_config.promoCodeColor as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
-                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={(form.action_config.promoCodeColor as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
-                    placeholder="#ffffff"
-                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                  />
+            {/* Conditional Promo Code & Discount Colors */}
+            {isTopPromo && (
+              <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-ink-700 mb-1">Promo Code Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={(form.action_config.promoCodeColor as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
+                      className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={(form.action_config.promoCodeColor as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
+                      placeholder="#ffffff"
+                      className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Discount Tag Text Color</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={(form.action_config.discountColor as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('discountColor', e.target.value)}
-                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={(form.action_config.discountColor as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('discountColor', e.target.value)}
-                    placeholder="#ffffff"
-                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                  />
+                <div>
+                  <label className="block text-[11px] font-semibold text-ink-700 mb-1">Discount Tag Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={(form.action_config.discountColor as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('discountColor', e.target.value)}
+                      className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={(form.action_config.discountColor as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('discountColor', e.target.value)}
+                      placeholder="#ffffff"
+                      className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-ink-700 mb-1">Badge</label>
-              <input
-                value={form.badge}
-                onChange={(e) => setForm({ ...form, badge: e.target.value })}
-                placeholder="e.g. WHOLESALE"
-                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-ink-700 mb-1">CTA Button Text</label>
-              <input
-                value={form.button_text}
-                onChange={(e) => setForm({ ...form, button_text: e.target.value })}
-                placeholder="Shop now"
-                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-ink-700 mb-1">Banner Size Preset</label>
-              <select
-                value={form.size}
-                onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
-                className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
-              >
-                <option value="small">Small (140-150px - Action Banner)</option>
-                <option value="medium">Medium (175-180px - Slider)</option>
-                <option value="large">Large (220px - Hero Banner)</option>
-              </select>
-            </div>
+          {/* Conditional Size Preset & Background Type */}
+          <div className={`grid ${!isTopPromo ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+            {!isTopPromo && (
+              <div>
+                <label className="block text-xs font-bold text-ink-700 mb-1">Banner Size Preset</label>
+                <select
+                  value={form.size}
+                  onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
+                  className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
+                >
+                  <option value="small">Small (140-150px - Action Banner)</option>
+                  <option value="medium">Medium (175-180px - Slider)</option>
+                  <option value="large">Large (220px - Hero Banner)</option>
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-ink-700 mb-1">Background Style</label>
@@ -1023,98 +1063,7 @@ function BannerForm({
             </div>
           </div>
 
-          {/* Top Promo Ad specific configuration */}
-          {form.position === 'top' && (
-            <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2.5">
-              <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Promo Ad Details</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-ink-700 mb-1">Promo Code</label>
-                  <input
-                    value={(form.action_config.promoCode as string) || ''}
-                    onChange={(e) => setActionConfig('promoCode', e.target.value)}
-                    placeholder="e.g. HYPER10"
-                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-mono font-bold outline-none focus:border-brand-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-ink-700 mb-1">Discount Tag</label>
-                  <input
-                    value={(form.action_config.discount as string) || ''}
-                    onChange={(e) => setActionConfig('discount', e.target.value)}
-                    placeholder="e.g. 10% OFF"
-                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-bold outline-none focus:border-brand-500"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Tint / Overlay Opacity & Color Controls */}
-          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={form.overlay_enabled}
-                  onChange={(e) => setForm({ ...form, overlay_enabled: e.target.checked })}
-                  className="accent-brand-600 rounded h-4 w-4"
-                />
-                Enable Tint / Dark Overlay
-              </label>
-              {form.overlay_enabled && (
-                <span className="text-xs font-mono font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200">
-                  {form.overlay_opacity}% Opacity
-                </span>
-              )}
-            </div>
-
-            {form.overlay_enabled && (
-              <div className="space-y-3 pt-2.5 border-t border-ink-200/60">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-ink-600 mb-1">Tint Color</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={form.overlay_color}
-                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
-                        className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
-                      />
-                      <input
-                        type="text"
-                        value={form.overlay_color}
-                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
-                        className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="text-[11px] font-semibold text-ink-600">Opacity Slider</label>
-                      <span className="text-[10px] font-mono font-bold text-ink-500">{form.overlay_opacity}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={form.overlay_opacity}
-                      onChange={(e) => setForm({ ...form, overlay_opacity: Number(e.target.value) })}
-                      className="w-full accent-brand-600 cursor-pointer h-2 bg-ink-200 rounded-lg"
-                    />
-                    <div className="flex justify-between text-[9px] text-ink-400 mt-1 font-mono">
-                      <span>0% (Transparent)</span>
-                      <span>50%</span>
-                      <span>100% (Solid)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
+          {/* Conditional Gradient Configuration */}
           {form.bg_type === 'gradient' && (
             <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
               <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Gradient Stop Configuration</p>
@@ -1179,6 +1128,7 @@ function BannerForm({
             </div>
           )}
 
+          {/* Conditional Solid Color */}
           {form.bg_type === 'color' && (
             <div className="p-3 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
               <label className="block text-xs font-bold text-ink-700">Solid Colour</label>
@@ -1199,53 +1149,122 @@ function BannerForm({
             </div>
           )}
 
-          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
+          {/* Image Upload (Full Image or Side Image) */}
+          {(!isTopPromo || form.bg_type === 'image') && (
+            <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-ink-700">
+                  {form.bg_type === 'image' ? 'Background Image *' : 'Side Image'}
+                </label>
+                {previewUrl && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="text-[11px] font-bold text-red-500 hover:text-red-700 flex items-center gap-1"
+                  >
+                    <Trash2 size={12} /> Remove Image
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  value={form.image_url}
+                  onChange={(e) => {
+                    setForm({ ...form, image_url: e.target.value });
+                    setPreviewUrl(e.target.value);
+                  }}
+                  placeholder="Image URL or upload..."
+                  className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
+                />
+                <label className="h-10 px-3.5 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:bg-brand-100 transition-colors">
+                  <ImageIcon size={14} /> Upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleFileSelect(f);
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Tint / Dark Overlay */}
+          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-ink-700">
-                Side Image {form.bg_type === 'image' && '<Required for Full Image>'}
+              <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.overlay_enabled}
+                  onChange={(e) => setForm({ ...form, overlay_enabled: e.target.checked })}
+                  className="accent-brand-600 rounded h-4 w-4"
+                />
+                Enable Tint / Dark Overlay
               </label>
-              {previewUrl && (
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  className="text-[11px] font-bold text-red-500 hover:text-red-700 flex items-center gap-1"
-                >
-                  <Trash2 size={12} /> Remove Image (Enable 100% text width)
-                </button>
+              {form.overlay_enabled && (
+                <span className="text-xs font-mono font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200">
+                  {form.overlay_opacity}% Opacity
+                </span>
               )}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                value={form.image_url}
-                onChange={(e) => {
-                  setForm({ ...form, image_url: e.target.value });
-                  setPreviewUrl(e.target.value);
-                }}
-                placeholder="Image URL or upload..."
-                className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
-              />
-              <label className="h-10 px-3.5 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:bg-brand-100 transition-colors">
-                <ImageIcon size={14} /> Upload
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleFileSelect(f);
-                  }}
-                />
-              </label>
-            </div>
+            {form.overlay_enabled && (
+              <div className="space-y-3 pt-2.5 border-t border-ink-200/60">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-ink-600 mb-1">Tint Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={form.overlay_color}
+                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                        className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={form.overlay_color}
+                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                        className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-[11px] font-semibold text-ink-600">Opacity Slider</label>
+                      <span className="text-[10px] font-mono font-bold text-ink-500">{form.overlay_opacity}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={form.overlay_opacity}
+                      onChange={(e) => setForm({ ...form, overlay_opacity: Number(e.target.value) })}
+                      className="w-full accent-brand-600 cursor-pointer h-2 bg-ink-200 rounded-lg"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
+          {/* Action Types & Dynamic Action Config Fields */}
           <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
             <div>
               <label className="block text-xs font-bold text-ink-700 mb-1">Click Action Type</label>
               <select
                 value={form.action_type}
-                onChange={(e) => setForm({ ...form, action_type: e.target.value as ActionType, action_config: {} })}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    action_type: e.target.value as ActionType,
+                  }))
+                }
                 className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs font-bold bg-white outline-none focus:border-brand-500"
               >
                 {ACTION_TYPES.map((t) => (
@@ -1405,16 +1424,19 @@ function BannerForm({
             )}
           </div>
 
+          {/* Visibility Controls */}
           <div className="flex flex-wrap items-center gap-4 pt-1">
-            <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.show_cta}
-                onChange={(e) => setForm({ ...form, show_cta: e.target.checked })}
-                className="accent-brand-600 rounded"
-              />
-              Show CTA
-            </label>
+            {!isTopPromo && (
+              <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.show_cta}
+                  onChange={(e) => setForm({ ...form, show_cta: e.target.checked })}
+                  className="accent-brand-600 rounded"
+                />
+                Show CTA
+              </label>
+            )}
             <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
               <input
                 type="checkbox"
@@ -1427,7 +1449,7 @@ function BannerForm({
           </div>
         </div>
 
-        {/* Live Mobile Canvas Preview (Exact match to Eye button modal container) */}
+        {/* Live Mobile Canvas Preview */}
         <div className="lg:col-span-5 lg:sticky lg:top-4 bg-ink-100/60 p-4 rounded-3xl border border-ink-200 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-black uppercase tracking-wider text-ink-600 flex items-center gap-1.5">
@@ -1442,7 +1464,6 @@ function BannerForm({
             </button>
           </div>
 
-          {/* EXACT wrapper: max-w-md w-full */}
           <div className="max-w-md w-full mx-auto space-y-3">
             <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft border border-ink-100">
               <h3 className="text-xs font-bold text-ink-900">
@@ -1494,7 +1515,7 @@ function BannerForm({
         </div>
       </div>
 
-      {/* Form Fullscreen Eye Preview Modal */}
+      {/* Popout Fullscreen Modal */}
       {isModalPreviewOpen && (
         <div
           className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"

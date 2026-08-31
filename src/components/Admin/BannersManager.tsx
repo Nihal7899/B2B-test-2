@@ -40,8 +40,9 @@ import { compressImage } from '@/lib/imageUtils';
 
 const ACTION_TYPES: ActionType[] = [
   'VIEW_CATEGORY',
-  'VIEW_PRODUCT',
   'VIEW_BRAND',
+  'OPEN_STORE' as ActionType,
+  'VIEW_PRODUCT',
   'VIEW_OFFER',
   'SEARCH',
   'FILTER_PRODUCTS',
@@ -425,7 +426,7 @@ export default function BannersManager() {
                   <button
                     onClick={() => handleDuplicateClick(banner)}
                     className="h-8 w-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center hover:bg-brand-100"
-                    title="Duplicate with safe new storage image"
+                    title="Duplicate banner"
                   >
                     <Copy size={14} />
                   </button>
@@ -514,7 +515,7 @@ function BannerForm({
     image_url: initial?.image_url ?? '',
     background_color: initial?.background_color ?? 'brand',
     button_text: initial?.button_text ?? 'Shop now',
-    action_type: (initial?.action_type ?? 'OPEN_SCREEN') as ActionType,
+    action_type: (initial?.action_type ?? 'VIEW_CATEGORY') as ActionType,
     action_config: (initial?.action_config ?? {}) as Record<string, unknown>,
     display_order: initial?.display_order ?? 0,
     is_active: initial?.is_active ?? true,
@@ -545,20 +546,39 @@ function BannerForm({
 
   const [categories, setCategories] = useState<DbCategory[]>([]);
   const [products, setProducts] = useState<DbProduct[]>([]);
-  const [brands, setBrands] = useState<string[]>([]);
+  const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
+  const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
   const [smartCollections, setSmartCollections] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     void (async () => {
-      const [{ data: cats }, { data: prods }, { data: sc }] = await Promise.all([
+      const [
+        { data: cats },
+        { data: prods },
+        { data: sc },
+        { data: brandData },
+        { data: storeData },
+      ] = await Promise.all([
         supabase.from('categories').select('*').order('name'),
         supabase.from('products').select('*').order('name'),
         supabase.from('smart_collections').select('id, name').eq('is_active', true).order('created_at', { ascending: false }),
+        supabase.from('trusted_brands').select('id, name').order('name'),
+        supabase.from('stores').select('id, name').order('name'),
       ]);
+
       setCategories((cats as DbCategory[]) ?? []);
       setProducts((prods as DbProduct[]) ?? []);
-      setBrands(Array.from(new Set((prods as DbProduct[] | null)?.map((p) => p.brand) ?? [])).sort());
       setSmartCollections((sc as { id: string; name: string }[]) ?? []);
+      
+      // Fallback for brands if trusted_brands table is empty
+      if (brandData && brandData.length > 0) {
+        setBrands(brandData as { id: string; name: string }[]);
+      } else {
+        const uniqueBrandNames = Array.from(new Set((prods as DbProduct[] | null)?.map((p) => p.brand).filter(Boolean) ?? [])).sort();
+        setBrands(uniqueBrandNames.map((b) => ({ id: b, name: b })));
+      }
+
+      setStores((storeData as { id: string; name: string }[]) ?? []);
     })();
   }, []);
 
@@ -587,9 +607,10 @@ function BannerForm({
   const isTopPromo = form.position === 'top';
   const showCtaControls = !isTopPromo && form.show_cta;
 
-  const needsCategory = form.action_type === 'VIEW_CATEGORY' || form.action_type === 'FILTER_PRODUCTS';
+  const needsCategory = form.action_type === 'VIEW_CATEGORY';
   const needsProduct = form.action_type === 'VIEW_PRODUCT';
-  const needsBrand = form.action_type === 'VIEW_BRAND' || form.action_type === 'FILTER_PRODUCTS';
+  const needsBrand = form.action_type === 'VIEW_BRAND';
+  const needsStore = (form.action_type as string) === 'OPEN_STORE';
   const needsSmartCollection = form.action_type === 'OPEN_SMART_COLLECTION';
   const needsScreen = form.action_type === 'OPEN_SCREEN';
   const needsUrl = form.action_type === 'OPEN_EXTERNAL_URL';
@@ -733,7 +754,6 @@ function BannerForm({
             type="button"
             onClick={() => setIsModalPreviewOpen(true)}
             className="h-8 px-3 rounded-lg bg-sky-50 text-sky-600 text-xs font-bold flex items-center gap-1.5 hover:bg-sky-100 transition-colors"
-            title="Open Fullscreen Modal Preview"
           >
             <Eye size={14} /> Fullscreen Preview
           </button>
@@ -744,7 +764,7 @@ function BannerForm({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Form Inputs (Left Column) */}
+        {/* Form Inputs */}
         <div className="lg:col-span-7 space-y-4">
           {/* Placement Slot */}
           <div className="p-3 bg-brand-50/50 border border-brand-100 rounded-2xl">
@@ -945,7 +965,7 @@ function BannerForm({
               </div>
             </div>
 
-            {/* Conditional CTA Button Colors */}
+            {/* Conditional CTA Colors */}
             {showCtaControls && (
               <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1149,7 +1169,7 @@ function BannerForm({
             </div>
           )}
 
-          {/* Image Upload (Full Image or Side Image) */}
+          {/* Conditional Side Image / Background Image */}
           {(!isTopPromo || form.bg_type === 'image') && (
             <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
               <div className="flex items-center justify-between">
@@ -1253,7 +1273,7 @@ function BannerForm({
             )}
           </div>
 
-          {/* Action Types & Dynamic Action Config Fields */}
+          {/* Action Types & Conditional Params */}
           <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
             <div>
               <label className="block text-xs font-bold text-ink-700 mb-1">Click Action Type</label>
@@ -1275,51 +1295,76 @@ function BannerForm({
               </select>
             </div>
 
-            {needsScreen && (
+            {/* 1. Category Selection for VIEW_CATEGORY */}
+            {needsCategory && (
               <div>
-                <label className="block text-xs font-bold text-ink-600 mb-1">Select Screen</label>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Category</label>
                 <select
-                  value={(form.action_config.screen as string) ?? ''}
-                  onChange={(e) => setActionConfig('screen', e.target.value)}
+                  value={(form.action_config.category_id as string) ?? ''}
+                  onChange={(e) => {
+                    const selectedCat = categories.find((c) => c.id === e.target.value);
+                    setActionConfig('category_id', e.target.value);
+                    if (selectedCat) setActionConfig('category_name', selectedCat.name);
+                  }}
                   className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
                 >
-                  <option value="">Select screen</option>
-                  <option value="home">Home</option>
-                  <option value="categories">Categories</option>
-                  <option value="cart">Cart</option>
-                  <option value="orders">Orders</option>
-                  <option value="wishlist">Wishlist</option>
-                  <option value="addresses">Addresses</option>
-                  <option value="account">Account</option>
-                  <option value="businessRegistration">Business registration</option>
+                  <option value="">Select category to open</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}
 
-            {needsUrl && (
+            {/* 2. Brand Selection for VIEW_BRAND */}
+            {needsBrand && (
               <div>
-                <label className="block text-xs font-bold text-ink-600 mb-1">External URL</label>
-                <input
-                  value={(form.action_config.url as string) ?? ''}
-                  onChange={(e) => setActionConfig('url', e.target.value)}
-                  placeholder="https://..."
-                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs"
-                />
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Brand</label>
+                <select
+                  value={(form.action_config.brand_id as string) ?? ''}
+                  onChange={(e) => {
+                    const selectedBrand = brands.find((b) => b.id === e.target.value);
+                    setActionConfig('brand_id', e.target.value);
+                    if (selectedBrand) setActionConfig('brand_name', selectedBrand.name);
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select brand to open</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 
-            {needsSearch && (
+            {/* 3. Store Selection for OPEN_STORE */}
+            {needsStore && (
               <div>
-                <label className="block text-xs font-bold text-ink-600 mb-1">Search Query</label>
-                <input
-                  value={(form.action_config.query as string) ?? ''}
-                  onChange={(e) => setActionConfig('query', e.target.value)}
-                  placeholder="e.g. basmati rice"
-                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs"
-                />
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Store</label>
+                <select
+                  value={(form.action_config.store_id as string) ?? ''}
+                  onChange={(e) => {
+                    const selectedStore = stores.find((s) => s.id === e.target.value);
+                    setActionConfig('store_id', e.target.value);
+                    if (selectedStore) setActionConfig('store_name', selectedStore.name);
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select store to open</option>
+                  {stores.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 
+            {/* 4. Product Selection for VIEW_PRODUCT */}
             {needsProduct && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Select Product</label>
@@ -1342,46 +1387,55 @@ function BannerForm({
               </div>
             )}
 
-            {needsCategory && (
+            {/* 5. Screen Selection for OPEN_SCREEN */}
+            {needsScreen && (
               <div>
-                <label className="block text-xs font-bold text-ink-600 mb-1">Categories</label>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Screen</label>
                 <select
-                  multiple
-                  value={(form.action_config.category_ids as string[]) ?? []}
-                  onChange={(e) =>
-                    setActionConfig('category_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
-                  }
-                  className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
+                  value={(form.action_config.screen as string) ?? ''}
+                  onChange={(e) => setActionConfig('screen', e.target.value)}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
                 >
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.slug}>
-                      {c.name}
-                    </option>
-                  ))}
+                  <option value="">Select screen</option>
+                  <option value="home">Home</option>
+                  <option value="categories">Categories</option>
+                  <option value="cart">Cart</option>
+                  <option value="orders">Orders</option>
+                  <option value="wishlist">Wishlist</option>
+                  <option value="addresses">Addresses</option>
+                  <option value="account">Account</option>
+                  <option value="businessRegistration">Business registration</option>
                 </select>
               </div>
             )}
 
-            {needsBrand && (
+            {/* 6. External URL for OPEN_EXTERNAL_URL */}
+            {needsUrl && (
               <div>
-                <label className="block text-xs font-bold text-ink-600 mb-1">Brands</label>
-                <select
-                  multiple
-                  value={(form.action_config.brand_ids as string[]) ?? []}
-                  onChange={(e) =>
-                    setActionConfig('brand_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
-                  }
-                  className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
-                >
-                  {brands.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-xs font-bold text-ink-600 mb-1">External URL</label>
+                <input
+                  value={(form.action_config.url as string) ?? ''}
+                  onChange={(e) => setActionConfig('url', e.target.value)}
+                  placeholder="https://..."
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs"
+                />
               </div>
             )}
 
+            {/* 7. Search Query for SEARCH / VIEW_OFFER */}
+            {needsSearch && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Search Query</label>
+                <input
+                  value={(form.action_config.query as string) ?? ''}
+                  onChange={(e) => setActionConfig('query', e.target.value)}
+                  placeholder="e.g. basmati rice"
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs"
+                />
+              </div>
+            )}
+
+            {/* 8. Smart Collection */}
             {needsSmartCollection && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Smart Collection</label>
@@ -1404,22 +1458,42 @@ function BannerForm({
               </div>
             )}
 
+            {/* 9. Multi-filters */}
             {needsFilter && (
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <input
-                  type="number"
-                  value={(form.action_config.discount_min as number) ?? ''}
-                  onChange={(e) => setActionConfig('discount_min', e.target.value ? Number(e.target.value) : null)}
-                  placeholder="Min %"
-                  className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
-                />
-                <input
-                  type="number"
-                  value={(form.action_config.price_max as number) ?? ''}
-                  onChange={(e) => setActionConfig('price_max', e.target.value ? Number(e.target.value) : null)}
-                  placeholder="Max Price"
-                  className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
-                />
+              <div className="space-y-2 pt-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-ink-600 mb-1">Filter Categories</label>
+                  <select
+                    multiple
+                    value={(form.action_config.category_ids as string[]) ?? []}
+                    onChange={(e) =>
+                      setActionConfig('category_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
+                    }
+                    className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.slug}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    value={(form.action_config.discount_min as number) ?? ''}
+                    onChange={(e) => setActionConfig('discount_min', e.target.value ? Number(e.target.value) : null)}
+                    placeholder="Min %"
+                    className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
+                  />
+                  <input
+                    type="number"
+                    value={(form.action_config.price_max as number) ?? ''}
+                    onChange={(e) => setActionConfig('price_max', e.target.value ? Number(e.target.value) : null)}
+                    placeholder="Max Price"
+                    className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
+                  />
+                </div>
               </div>
             )}
           </div>

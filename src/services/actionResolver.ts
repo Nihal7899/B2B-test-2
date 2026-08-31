@@ -1,6 +1,6 @@
 // services/actionResolver.ts
 import type { ActionType, FilterConfig, Category, Product, PromoBanner, ScreenName } from '@/types';
-import { fetchSmartCollectionById } from './catalog'; // ✅ import the function
+import { fetchSmartCollectionById } from './catalog';
 
 export interface ActionContext {
   setScreen: (screen: ScreenName) => void;
@@ -23,49 +23,80 @@ export async function handleHomeAction(
 
   switch (actionType) {
     case 'VIEW_CATEGORY': {
-      const categoryId = config.category_id as string;
+      const categoryId = (config.category_id as string) || (config.id as string);
       const categoryIds = config.category_ids as string[];
-      const categoryName = config.category_name as string || 'Category';
+      const categoryName = (config.category_name as string) || 'Category';
 
-      if (categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0) {
-        ctx.setFilterConfig({ category_ids: categoryIds });
-        ctx.setFilterTitle(categoryName || 'Categories');
-        ctx.setScreen('filteredProducts');
-      } else if (categoryId) {
-        ctx.setFilterConfig({ category_ids: [categoryId] });
-        ctx.setFilterTitle(categoryName);
-        ctx.setScreen('filteredProducts');
+      if (categoryId) {
+        if (typeof window !== 'undefined') {
+          window.location.href = `/category?id=${encodeURIComponent(categoryId)}`;
+        }
+      } else if (categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0) {
+        if (categoryIds.length === 1) {
+          if (typeof window !== 'undefined') {
+            window.location.href = `/category?id=${encodeURIComponent(categoryIds[0])}`;
+          }
+        } else {
+          ctx.setFilterConfig({ category_ids: categoryIds });
+          ctx.setFilterTitle(categoryName || 'Categories');
+          ctx.setScreen('filteredProducts');
+        }
       } else {
         console.warn('VIEW_CATEGORY: missing category_id or category_ids');
       }
       break;
     }
 
-    case 'VIEW_PRODUCT': {
-      const productId = config.product_id as string;
-      const productName = config.product_name as string || '';
-      if (productId) {
-        ctx.setSearch(productName || productId);
-        ctx.setScreen('home');
+    case 'VIEW_BRAND': {
+      const brandId = (config.brand_id as string) || (config.id as string);
+      const brandName = (config.brand as string) || (config.brand_name as string);
+
+      if (brandId) {
+        if (typeof window !== 'undefined') {
+          window.location.href = `/brand?id=${encodeURIComponent(brandId)}`;
+        }
+      } else if (brandName) {
+        if (typeof window !== 'undefined') {
+          window.location.href = `/brand?id=${encodeURIComponent(brandName)}`;
+        }
+      } else {
+        console.warn('VIEW_BRAND: missing brand_id or brand name');
       }
       break;
     }
 
-    case 'VIEW_BRAND': {
-      const brand = config.brand as string;
-      if (brand) {
-        ctx.setFilterConfig({ brand_ids: [brand] });
-        ctx.setFilterTitle(brand);
-        ctx.setScreen('filteredProducts');
+    case 'OPEN_STORE':
+    case 'VIEW_STORE': {
+      const storeId = (config.store_id as string) || (config.id as string);
+      if (storeId) {
+        if (typeof window !== 'undefined') {
+          window.location.href = `/store?storeId=${encodeURIComponent(storeId)}`;
+        }
+      } else {
+        console.warn('OPEN_STORE: missing store_id');
+      }
+      break;
+    }
+
+    case 'VIEW_PRODUCT': {
+      const productId = (config.product_id as string) || (config.id as string);
+      const productName = (config.product_name as string) || '';
+
+      if (productId) {
+        if (ctx.openProduct) {
+          ctx.openProduct({ id: productId, name: productName } as Product);
+        } else if (typeof window !== 'undefined') {
+          window.location.href = `/product?id=${encodeURIComponent(productId)}`;
+        }
       }
       break;
     }
 
     case 'VIEW_OFFER':
     case 'SEARCH': {
-      const query = config.query as string || '';
+      const query = (config.query as string) || '';
       ctx.setSearch(query);
-      ctx.setScreen('home');
+      ctx.setScreen('search');
       break;
     }
 
@@ -81,16 +112,16 @@ export async function handleHomeAction(
       if (config.product_ids && Array.isArray(config.product_ids) && config.product_ids.length > 0) {
         filter.product_ids = config.product_ids as string[];
       }
-      if (config.discount_min !== undefined && config.discount_min !== null) {
+      if (config.discount_min !== undefined && config.discount_min !== null && config.discount_min !== '') {
         filter.discount_min = Number(config.discount_min);
       }
-      if (config.discount_max !== undefined && config.discount_max !== null) {
+      if (config.discount_max !== undefined && config.discount_max !== null && config.discount_max !== '') {
         filter.discount_max = Number(config.discount_max);
       }
-      if (config.price_min !== undefined && config.price_min !== null) {
+      if (config.price_min !== undefined && config.price_min !== null && config.price_min !== '') {
         filter.price_min = Number(config.price_min);
       }
-      if (config.price_max !== undefined && config.price_max !== null) {
+      if (config.price_max !== undefined && config.price_max !== null && config.price_max !== '') {
         filter.price_max = Number(config.price_max);
       }
       if (config.stock_only !== undefined) {
@@ -116,9 +147,7 @@ export async function handleHomeAction(
 
     case 'OPEN_SMART_COLLECTION': {
       const collectionId = config.collection_id as string;
-      const collectionName = config.name as string || 'Collection';
       if (collectionId) {
-        // ✅ Fetch the collection's filter config
         try {
           const collection = await fetchSmartCollectionById(collectionId);
           if (collection) {

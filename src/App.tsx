@@ -68,8 +68,6 @@ import {
   initializePushNotifications,
 } from '@/services/push';
 
-import { getOrFetchHomeData } from '@/services/homePreload';
-
 const SCREEN_TO_PATH: Record<ScreenName, string> = {
   home: '/',
   search: '/search',
@@ -137,6 +135,7 @@ function BackButtonHandler() {
       if (triggerBack()) return;
 
       const now = Date.now();
+      // Only Home screen ('/') is the root screen that triggers app exit
       const isHomeScreen = location.pathname === '/';
 
       if (isHomeScreen) {
@@ -181,14 +180,6 @@ function App() {
   const location = useLocation();
 
   const [showSplash, setShowSplash] = useState(true);
-  const [isHomeDataLoaded, setIsHomeDataLoaded] = useState(false);
-
-  // Trigger preload immediately once session state is recognized
-  useEffect(() => {
-    if (user) {
-      void getOrFetchHomeData().then(() => setIsHomeDataLoaded(true));
-    }
-  }, [user]);
 
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
@@ -259,11 +250,10 @@ function App() {
     navigate(pathFor('product', { id: productId }));
   };
 
-  const openCategory = (category: Category) => {
-    filterConfigRef.current = { category_ids: [category.id] };
-    filterTitleRef.current = category.name;
-    navigate(pathFor('filteredProducts'));
+  const openCategory = (category: Category | { id: string; name?: string }) => {
+    navigate(pathFor('categoryDetail', { id: category.id }));
   };
+
 
   const openStore = (store: Store) => {
     navigate(pathFor('store', { storeId: store.id }));
@@ -307,23 +297,8 @@ function App() {
     goTo(allowed ? next : 'home');
   };
 
-  // Readiness condition: If logged out, only wait for auth (!loading). If logged in, wait for data.
-  const isSplashReady = !loading && (!user || isHomeDataLoaded);
-
-  if (!user && !loading) {
-    return (
-      <>
-        <AuthScreen />
-        {showSplash && (
-          <SplashScreen
-            isReady={isSplashReady}
-            onFinish={() => {
-              setShowSplash(false);
-            }}
-          />
-        )}
-      </>
-    );
+  if (!user && !loading && !showSplash) {
+    return <AuthScreen />;
   }
 
   const renderScreen = (): ReactNode => {
@@ -520,7 +495,6 @@ function App() {
 
         {showSplash && (
           <SplashScreen
-            isReady={isSplashReady}
             onFinish={() => {
               setShowSplash(false);
             }}

@@ -42,7 +42,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
+    <div className="min-h-screen bg-gray-50 pb-36 safe-bottom">
       <div className="sticky top-0 z-40 border-b border-gray-100 bg-white px-4 py-4 shadow-sm safe-top">
         <div className="mx-auto flex max-w-md items-center gap-3">
           <button
@@ -54,7 +54,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
           <h2 className="text-lg font-bold text-gray-900">All Categories</h2>
         </div>
       </div>
-      <div className="mx-auto max-w-md space-y-2.5 px-4 py-4">
+      <div className="mx-auto max-w-md space-y-2.5 px-4 pt-4 pb-36 safe-bottom">
         {categories.map((c) => (
           <button
             key={c.id}

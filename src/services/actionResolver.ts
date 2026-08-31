@@ -1,12 +1,15 @@
 // services/actionResolver.ts
-import type { ActionType, FilterConfig, Category, Product, PromoBanner, ScreenName } from '@/types';
+import type { ActionType, FilterConfig, Category, Product, ScreenName, Store } from '@/types';
 import { fetchSmartCollectionById } from './catalog';
 
 export interface ActionContext {
   setScreen: (screen: ScreenName) => void;
   setSearch: (query: string) => void;
-  openProduct: (product: Product) => void;
-  openCategory: (category: Category) => void;
+  openProduct: (product: Product | { id: string; name?: string }) => void;
+  openCategory: (category: Category | { id: string; name?: string }) => void;
+  openBrand?: (brand: { id: string; name?: string }) => void;
+  openStore?: (store: Store | { id: string; name?: string }) => void;
+  navigate?: (path: string) => void;
   setFilterConfig: (config: FilterConfig | null) => void;
   setFilterTitle: (title: string) => void;
 }
@@ -19,7 +22,6 @@ export async function handleHomeAction(
   if (!actionType || !ctx) return;
 
   const config = actionConfig || {};
-  console.log('[Action]', actionType, config);
 
   switch (actionType) {
     case 'VIEW_CATEGORY': {
@@ -28,13 +30,17 @@ export async function handleHomeAction(
       const categoryName = (config.category_name as string) || 'Category';
 
       if (categoryId) {
-        if (typeof window !== 'undefined') {
-          window.location.href = `/category?id=${encodeURIComponent(categoryId)}`;
+        if (ctx.navigate) {
+          ctx.navigate(`/category?id=${encodeURIComponent(categoryId)}`);
+        } else if (ctx.openCategory) {
+          ctx.openCategory({ id: categoryId, name: categoryName } as Category);
         }
       } else if (categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0) {
         if (categoryIds.length === 1) {
-          if (typeof window !== 'undefined') {
-            window.location.href = `/category?id=${encodeURIComponent(categoryIds[0])}`;
+          if (ctx.navigate) {
+            ctx.navigate(`/category?id=${encodeURIComponent(categoryIds[0])}`);
+          } else if (ctx.openCategory) {
+            ctx.openCategory({ id: categoryIds[0], name: categoryName } as Category);
           }
         } else {
           ctx.setFilterConfig({ category_ids: categoryIds });
@@ -42,25 +48,21 @@ export async function handleHomeAction(
           ctx.setScreen('filteredProducts');
         }
       } else {
-        console.warn('VIEW_CATEGORY: missing category_id or category_ids');
+        console.warn('VIEW_CATEGORY: missing category_id');
       }
       break;
     }
 
     case 'VIEW_BRAND': {
-      const brandId = (config.brand_id as string) || (config.id as string);
-      const brandName = (config.brand as string) || (config.brand_name as string);
-
+      const brandId = (config.brand_id as string) || (config.id as string) || (config.brand as string);
       if (brandId) {
-        if (typeof window !== 'undefined') {
-          window.location.href = `/brand?id=${encodeURIComponent(brandId)}`;
-        }
-      } else if (brandName) {
-        if (typeof window !== 'undefined') {
-          window.location.href = `/brand?id=${encodeURIComponent(brandName)}`;
+        if (ctx.navigate) {
+          ctx.navigate(`/brand?id=${encodeURIComponent(brandId)}`);
+        } else if (ctx.openBrand) {
+          ctx.openBrand({ id: brandId });
         }
       } else {
-        console.warn('VIEW_BRAND: missing brand_id or brand name');
+        console.warn('VIEW_BRAND: missing brand_id');
       }
       break;
     }
@@ -69,8 +71,10 @@ export async function handleHomeAction(
     case 'VIEW_STORE': {
       const storeId = (config.store_id as string) || (config.id as string);
       if (storeId) {
-        if (typeof window !== 'undefined') {
-          window.location.href = `/store?storeId=${encodeURIComponent(storeId)}`;
+        if (ctx.navigate) {
+          ctx.navigate(`/store?storeId=${encodeURIComponent(storeId)}`);
+        } else if (ctx.openStore) {
+          ctx.openStore({ id: storeId });
         }
       } else {
         console.warn('OPEN_STORE: missing store_id');
@@ -85,8 +89,8 @@ export async function handleHomeAction(
       if (productId) {
         if (ctx.openProduct) {
           ctx.openProduct({ id: productId, name: productName } as Product);
-        } else if (typeof window !== 'undefined') {
-          window.location.href = `/product?id=${encodeURIComponent(productId)}`;
+        } else if (ctx.navigate) {
+          ctx.navigate(`/product?id=${encodeURIComponent(productId)}`);
         }
       }
       break;
@@ -96,7 +100,11 @@ export async function handleHomeAction(
     case 'SEARCH': {
       const query = (config.query as string) || '';
       ctx.setSearch(query);
-      ctx.setScreen('search');
+      if (ctx.navigate) {
+        ctx.navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+      } else {
+        ctx.setScreen('search');
+      }
       break;
     }
 
@@ -131,14 +139,7 @@ export async function handleHomeAction(
         filter.sort = config.sort as FilterConfig['sort'];
       }
 
-      const hasFilter = Object.keys(filter).length > 0;
-      if (!hasFilter) {
-        console.warn('FILTER_PRODUCTS: no filter criteria provided. Showing all products.');
-        ctx.setFilterConfig({});
-      } else {
-        ctx.setFilterConfig(filter);
-      }
-
+      ctx.setFilterConfig(Object.keys(filter).length > 0 ? filter : {});
       const title = (config.title as string) || (filter.category_ids?.length ? 'Categories' : 'Products');
       ctx.setFilterTitle(title);
       ctx.setScreen('filteredProducts');
@@ -154,8 +155,6 @@ export async function handleHomeAction(
             ctx.setFilterConfig(collection.filter_config);
             ctx.setFilterTitle(collection.name);
             ctx.setScreen('filteredProducts');
-          } else {
-            console.warn('Smart collection not found:', collectionId);
           }
         } catch (err) {
           console.error('Error fetching smart collection:', err);

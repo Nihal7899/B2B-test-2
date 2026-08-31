@@ -135,7 +135,6 @@ function BackButtonHandler() {
       if (triggerBack()) return;
 
       const now = Date.now();
-      // Only Home screen ('/') is the root screen that triggers app exit
       const isHomeScreen = location.pathname === '/';
 
       if (isHomeScreen) {
@@ -241,8 +240,8 @@ function App() {
     navigate(pathFor(next));
   };
 
-  const openProduct = (product: Product) => {
-    const productId = product?.id || product?.product_id || product?._id;
+  const openProduct = (product: Product | { id: string; name?: string }) => {
+    const productId = (product as any)?.id || (product as any)?.product_id || (product as any)?._id;
     if (!productId) {
       navigate('/');
       return;
@@ -254,16 +253,24 @@ function App() {
     navigate(pathFor('categoryDetail', { id: category.id }));
   };
 
-
-  const openStore = (store: Store) => {
+  const openStore = (store: Store | { id: string }) => {
     navigate(pathFor('store', { storeId: store.id }));
+  };
+
+  const openBrand = (brand: { id: string }) => {
+    navigate(pathFor('brand', { id: brand.id }));
   };
 
   const actionCtx: ActionContext = {
     setScreen: goTo,
-    setSearch: (_s) => {},
+    setSearch: (query: string) => {
+      navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+    },
     openProduct,
     openCategory,
+    openBrand,
+    openStore,
+    navigate: (path: string) => navigate(path),
     setFilterConfig: (config) => {
       filterConfigRef.current = config;
     },

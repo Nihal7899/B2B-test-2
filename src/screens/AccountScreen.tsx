@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
-  User,
   Wallet as WalletIcon,
   Package,
   MapPin,
@@ -12,9 +11,7 @@ import {
   ChevronRight,
   Phone,
   Building2,
-  Sparkles,
   RefreshCw,
-  FileText,
   BadgeCheck,
 } from 'lucide-react';
 import { useAuth } from '@/auth';
@@ -52,7 +49,6 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
     void loadWalletData();
   };
 
-  // Derive real display name from profile
   const displayName =
     profile?.full_name?.trim() ||
     profile?.personal_name?.trim() ||
@@ -134,10 +130,10 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
         <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-brand-700/40 blur-xl pointer-events-none" />
       </div>
 
-      {/* Staff & Operational Portals */}
+      {/* Strict Role-Based Management Consoles */}
       {isStaff && (
         <div className="space-y-2">
-          <p className="text-[11px] font-extrabold text-ink-400 uppercase tracking-wider px-1">Management Consoles</p>
+          <p className="text-[11px] font-extrabold text-ink-400 uppercase tracking-wider px-1">Management Portal</p>
           <div className="bg-white border border-ink-100 rounded-2xl divide-y divide-ink-50 shadow-card overflow-hidden">
             {role === 'admin' && (
               <button
@@ -150,14 +146,14 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-ink-900">Admin Control Center</p>
-                    <p className="text-[10px] text-ink-400">System settings, products & pricing</p>
+                    <p className="text-[10px] text-ink-400">System settings, catalog & platform controls</p>
                   </div>
                 </div>
                 <ChevronRight size={16} className="text-ink-400" />
               </button>
             )}
 
-            {(role === 'admin' || role === 'warehouse_manager') && (
+            {role === 'warehouse_manager' && (
               <button
                 onClick={() => onNavigate('warehouse')}
                 className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
@@ -168,14 +164,14 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-ink-900">Warehouse Panel</p>
-                    <p className="text-[10px] text-ink-400">Inventory deduction & order packing</p>
+                    <p className="text-[10px] text-ink-400">Inventory deduction, stock & dispatch</p>
                   </div>
                 </div>
                 <ChevronRight size={16} className="text-ink-400" />
               </button>
             )}
 
-            {(role === 'admin' || role === 'delivery_partner') && (
+            {role === 'delivery_partner' && (
               <button
                 onClick={() => onNavigate('delivery')}
                 className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
@@ -186,7 +182,7 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-ink-900">Delivery Panel</p>
-                    <p className="text-[10px] text-ink-400">Dispatch routes & doorstep COD collection</p>
+                    <p className="text-[10px] text-ink-400">Assigned dispatches & cash settlement</p>
                   </div>
                 </div>
                 <ChevronRight size={16} className="text-ink-400" />
@@ -196,7 +192,7 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
         </div>
       )}
 
-      {/* Main Account Navigation */}
+      {/* Orders & Details Navigation */}
       <div className="space-y-2">
         <p className="text-[11px] font-extrabold text-ink-400 uppercase tracking-wider px-1">Orders & Details</p>
         <div className="bg-white border border-ink-100 rounded-2xl divide-y divide-ink-50 shadow-card overflow-hidden">

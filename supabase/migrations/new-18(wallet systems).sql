@@ -369,6 +369,11 @@ END;
 $$;
 
 
+-- 1. Drop both competing overloaded signatures
+DROP FUNCTION IF EXISTS public.update_order_status(uuid, public.order_status);
+DROP FUNCTION IF EXISTS public.update_order_status(uuid, text);
+
+-- 2. Re-create the single clean function accepting text
 CREATE OR REPLACE FUNCTION public.update_order_status(
   p_order_id uuid,
   p_status text
@@ -380,17 +385,17 @@ AS $$
 DECLARE
   v_current_status order_status;
 BEGIN
-  -- 1. Authorization check
+  -- Authorization check
   IF NOT (public.is_admin() OR public.has_role('warehouse_manager')) THEN
     RAISE EXCEPTION 'Not authorized';
   END IF;
 
-  -- 2. Guard against bypassing stock deduction
+  -- Guard against bypassing stock deduction
   IF p_status = 'confirmed' THEN
     RAISE EXCEPTION 'Use confirm_order() to confirm an order and deduct stock.';
   END IF;
 
-  -- 3. Acquire row lock to prevent race conditions during concurrent warehouse actions
+  -- Acquire row lock to prevent concurrency conflicts
   SELECT status INTO v_current_status
   FROM public.orders
   WHERE id = p_order_id
@@ -400,15 +405,14 @@ BEGIN
     RAISE EXCEPTION 'Order not found';
   END IF;
 
-  -- 4. Update status and refresh updated_at
-  -- Note: If p_status is 'cancelled', the trg_order_cancellation_wallet_refund 
-  -- trigger fires automatically to process idempotent wallet refunds
+  -- Update status with explicit enum cast and refresh timestamp
   UPDATE public.orders
   SET status = p_status::order_status,
       updated_at = now()
   WHERE id = p_order_id;
 END;
 $$;
+
 
 
 CREATE OR REPLACE FUNCTION public.confirm_order(p_order_id uuid)
@@ -419,7 +423,8 @@ AS $$
 DECLARE
   v_order public.orders%rowtype;
   v_item record;
-  v_new_stock integer;
+  v_current_stock integer;
+  v_product_name text;
 BEGIN
   -- 1. Authorization check
   IF NOT (public.is_admin() OR public.has_role('warehouse_manager')) THEN
@@ -440,27 +445,36 @@ BEGIN
     RAISE EXCEPTION 'Only pending orders can be confirmed';
   END IF;
 
-  -- 3. Deduct stock in deterministic order (ORDER BY product_id ASC) to eliminate deadlocks
+  -- 3. Lock & validate stock in deterministic order before updating
   FOR v_item IN 
-    SELECT product_id, quantity 
+    SELECT product_id, SUM(quantity)::integer AS quantity 
     FROM public.order_items 
     WHERE order_id = p_order_id 
+    GROUP BY product_id 
     ORDER BY product_id ASC 
   LOOP
+    -- Fetch and lock the product row to inspect stock
+    SELECT stock_quantity, name 
+    INTO v_current_stock, v_product_name
+    FROM public.products 
+    WHERE id = v_item.product_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Product with ID % not found', v_item.product_id;
+    END IF;
+
+    -- Validate stock BEFORE the update to prevent CHECK constraint violations
+    IF v_current_stock < v_item.quantity THEN
+      RAISE EXCEPTION 'Insufficient stock for "%": Available %, Requested %',
+        v_product_name, v_current_stock, v_item.quantity;
+    END IF;
+
+    -- Safe deduction
     UPDATE public.products
     SET stock_quantity = stock_quantity - v_item.quantity,
         updated_at = now()
-    WHERE id = v_item.product_id
-    RETURNING stock_quantity INTO v_new_stock;
-
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Product not found';
-    END IF;
-
-    -- Ensure stock doesn't go negative
-    IF v_new_stock < 0 THEN
-      RAISE EXCEPTION 'Insufficient stock for product';
-    END IF;
+    WHERE id = v_item.product_id;
   END LOOP;
 
   -- 4. Mark order confirmed
@@ -468,5 +482,66 @@ BEGIN
   SET status = 'confirmed', 
       updated_at = now() 
   WHERE id = p_order_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.complete_delivery(
+  p_assignment_id uuid,
+  p_status text
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_order_id uuid;
+BEGIN
+  -- 1. Authorization & assignment lookup with row locking
+  SELECT order_id INTO v_order_id
+  FROM public.delivery_assignments
+  WHERE id = p_assignment_id
+    AND (delivery_partner_id = auth.uid() OR public.is_admin())
+  FOR UPDATE;
+
+  IF v_order_id IS NULL THEN
+    RAISE EXCEPTION 'Not authorized or assignment not found';
+  END IF;
+
+  -- 2. Handle Delivery Status Transitions
+  IF p_status = 'out_for_delivery' THEN
+    UPDATE public.delivery_assignments
+    SET status = p_status::order_status,
+        picked_up_at = COALESCE(picked_up_at, now()),
+        updated_at = now()
+    WHERE id = p_assignment_id;
+
+    UPDATE public.orders
+    SET status = p_status::order_status,
+        updated_at = now()
+    WHERE id = v_order_id;
+
+  ELSIF p_status = 'delivered' THEN
+    UPDATE public.delivery_assignments
+    SET status = p_status::order_status,
+        delivered_at = now(),
+        updated_at = now()
+    WHERE id = p_assignment_id;
+
+    UPDATE public.orders
+    SET status = p_status::order_status,
+        updated_at = now()
+    WHERE id = v_order_id;
+
+    -- 3. Automatically settle pending COD payment as paid
+    UPDATE public.payments
+    SET status = 'paid',
+        updated_at = now()
+    WHERE order_id = v_order_id
+      AND provider = 'cod'
+      AND status = 'pending';
+
+  ELSE
+    RAISE EXCEPTION 'Invalid delivery status: %', p_status;
+  END IF;
 END;
 $$;

@@ -1,64 +1,87 @@
-// src/components/OrdersScreen.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { ClipboardList, Package } from 'lucide-react';
 import type { Order } from '@/types';
 import { fetchOrders } from '@/services/catalog';
 import { supabase } from '@/lib/supabase';
 import { OrderCard } from '@/components/OrderCard';
 
-interface OrdersScreenProps { onOrderClick: (orderId: string) => void; }
+interface OrdersScreenProps {
+  onOrderClick: (orderId: string) => void;
+}
 
 export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled'>('all');
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const data = await fetchOrders();
-        const orderIds = (data || []).map((o) => o.id);
+  const loadOrders = useCallback(async () => {
+    try {
+      const data = await fetchOrders();
+      const orderIds = (data || []).map((o) => o.id);
 
-        if (orderIds.length > 0) {
-          // Fetch payment status for all user orders
-          const { data: payments } = await supabase
-            .from('payments')
-            .select('order_id, provider, status')
-            .in('order_id', orderIds);
+      if (orderIds.length > 0) {
+        const { data: payments } = await supabase
+          .from('payments')
+          .select('order_id, provider, status')
+          .in('order_id', orderIds);
 
-          const paymentsByOrder = Object.fromEntries(
-            (payments || []).map((p) => [p.order_id, p])
-          );
+        const paymentsByOrder = Object.fromEntries(
+          (payments || []).map((p) => [p.order_id, p])
+        );
 
-          // Exclude Razorpay pending/unpaid orders and abandoned checkouts
-          const validOrders = (data || []).filter((order) => {
-            const p = paymentsByOrder[order.id];
+        const validOrders = (data || []).filter((order) => {
+          const p = paymentsByOrder[order.id];
+          if (p && p.provider === 'razorpay' && p.status !== 'paid') return false;
+          if (order.status === 'Processing') {
+            if (!p) return false;
+            return p.status === 'paid' || p.provider === 'cod';
+          }
+          return true;
+        });
 
-            // 1. Hide Razorpay orders where payment has not succeeded
-            if (p && p.provider === 'razorpay' && p.status !== 'paid') {
-              return false;
-            }
-
-            // 2. Hide initial processing orders unless verified as Paid or COD
-            if (order.status === 'Processing') {
-              if (!p) return false;
-              return p.status === 'paid' || p.provider === 'cod';
-            }
-
-            return true;
-          });
-
-          setOrders(validOrders);
-        } else {
-          setOrders([]);
-        }
-      } catch (err) {
-        console.error('Failed to load orders', err);
-      } finally {
-        setLoading(false);
+        setOrders(validOrders);
+      } else {
+        setOrders([]);
       }
-    })();
+    } catch (err) {
+      console.error('Failed to load orders', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadOrders();
+
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+
+      // Realtime subscription filtered to the current user's orders
+      channel = supabase
+        .channel(`user_orders_${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'orders',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            void loadOrders();
+          }
+        )
+        .subscribe();
+    });
+
+    return () => {
+      if (channel) {
+        void supabase.removeChannel(channel);
+      }
+    };
+  }, [loadOrders]);
 
   const filters: ('all' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled')[] = [
     'all',
@@ -67,7 +90,7 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     'Delivered',
     'Cancelled',
   ];
-  
+
   const filtered = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
 
   if (loading) {
@@ -79,7 +102,7 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   }
 
   return (
-    <div className="safe-top px-4 pb-6 space-y-4">
+    <div className="safe-top px-4 pb-6 space-y-4 max-w-lg mx-auto">
       <div>
         <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Your orders</h1>
         <p className="text-xs text-ink-500 mt-1">Track and manage your purchases</p>

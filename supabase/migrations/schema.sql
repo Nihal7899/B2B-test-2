@@ -195,7 +195,7 @@ CREATE TABLE public.delivery_assignments (
 );
 CREATE TABLE public.payments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  order_id uuid NOT NULL UNIQUE,
+  order_id uuid,
   user_id uuid NOT NULL DEFAULT auth.uid(),
   provider text NOT NULL DEFAULT 'razorpay'::text,
   provider_order_id text,
@@ -559,4 +559,30 @@ CREATE TABLE public.whatsapp_templates (
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT whatsapp_templates_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.wallets (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  balance numeric NOT NULL DEFAULT 0 CHECK (balance >= 0::numeric),
+  currency text NOT NULL DEFAULT 'INR'::text,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT wallets_pkey PRIMARY KEY (id),
+  CONSTRAINT wallets_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.wallet_transactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  wallet_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  amount numeric NOT NULL CHECK (amount > 0::numeric),
+  type text NOT NULL CHECK (type = ANY (ARRAY['credit'::text, 'debit'::text])),
+  purpose text NOT NULL CHECK (purpose = ANY (ARRAY['topup'::text, 'order_payment'::text, 'refund'::text, 'cashback'::text, 'adjustment'::text])),
+  reference_id text,
+  description text NOT NULL DEFAULT ''::text,
+  balance_after numeric NOT NULL CHECK (balance_after >= 0::numeric),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT wallet_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT wallet_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id),
+  CONSTRAINT wallet_transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );

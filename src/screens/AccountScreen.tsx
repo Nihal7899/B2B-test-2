@@ -1,152 +1,279 @@
-import { useEffect, useState } from 'react';
-import { ChevronRight, MapPin, Heart, Wallet, HelpCircle, Settings, LogOut, Building2, Star, ShieldCheck, Package } from 'lucide-react';
-import type { ScreenName } from '@/types';
+import { useEffect, useState, useCallback } from 'react';
+import {
+  User,
+  Wallet as WalletIcon,
+  Package,
+  MapPin,
+  Heart,
+  Shield,
+  Truck,
+  Warehouse,
+  LogOut,
+  ChevronRight,
+  Phone,
+  Building2,
+  Sparkles,
+  RefreshCw,
+  FileText,
+  BadgeCheck,
+} from 'lucide-react';
 import { useAuth } from '@/auth';
-import { fetchProfile, updateProfile, fetchOrders } from '@/services/catalog';
 import { fetchWallet } from '@/services/wallet';
+import type { Wallet, ScreenName } from '@/types';
 
-interface AccountScreenProps { onNavigate: (screen: ScreenName) => void; }
+interface AccountScreenProps {
+  onNavigate: (screen: ScreenName) => void;
+}
 
 export function AccountScreen({ onNavigate }: AccountScreenProps) {
-  const { user, role, signOut } = useAuth();
-  const [profile, setProfile] = useState<{ full_name: string; business_name: string; phone: string } | null>(null);
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const [orderCount, setOrderCount] = useState(0);
-  const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editBusiness, setEditBusiness] = useState('');
-  const [saving, setSaving] = useState(false);
+  const { user, profile, role, signOut } = useAuth();
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [walletLoading, setWalletLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    void (async () => {
-      const p = await fetchProfile();
-      if (p) setProfile(p as typeof profile);
-      const orders = await fetchOrders();
-      setOrderCount(orders.length);
-      const w = await fetchWallet();
-      if (w) setWalletBalance(w.balance);
-    })();
+  const loadWalletData = useCallback(async () => {
+    try {
+      const data = await fetchWallet();
+      setWallet(data);
+    } catch (err) {
+      console.error('Failed to fetch wallet in AccountScreen:', err);
+    } finally {
+      setWalletLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  const initials = (profile?.full_name || user?.phone || 'U').slice(0, 2).toUpperCase();
+  useEffect(() => {
+    void loadWalletData();
+  }, [loadWalletData]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await updateProfile({ full_name: editName, business_name: editBusiness });
-      setProfile({ full_name: editName, business_name: editBusiness, phone: profile?.phone ?? '' });
-      setEditing(false);
-    } catch (err) {
-      console.error('Failed to update profile', err);
-    }
-    setSaving(false);
+  const handleRefresh = () => {
+    setRefreshing(true);
+    void loadWalletData();
   };
 
-  const roleLabel: Record<string, string> = { 
-    admin: 'Administrator', 
-    warehouse_manager: 'Warehouse Manager', 
-    delivery_partner: 'Delivery Partner', 
-    customer: 'Business Customer' 
-  };
+  // Derive real display name from profile
+  const displayName =
+    profile?.full_name?.trim() ||
+    profile?.personal_name?.trim() ||
+    profile?.business_name?.trim() ||
+    'Valued Merchant';
 
-  const items: { icon: typeof MapPin; label: string; detail: string; screen: ScreenName; badge?: string }[] = [
-    { 
-      icon: Wallet, 
-      label: 'B2B Wallet', 
-      detail: walletBalance !== null ? `Available: ₹${walletBalance.toLocaleString('en-IN')}` : 'Recharge & split payments', 
-      screen: 'wallet',
-      badge: walletBalance !== null ? `₹${walletBalance.toLocaleString('en-IN')}` : undefined
-    },
-    { icon: MapPin, label: 'Saved addresses', detail: 'Manage delivery locations', screen: 'addresses' },
-    { icon: Heart, label: 'Wishlist', detail: 'Your saved products', screen: 'wishlist' },
-    { icon: HelpCircle, label: 'Help & support', detail: 'We are here to help', screen: 'account' },
-    { icon: Settings, label: 'Settings', detail: 'Notifications & preferences', screen: 'account' },
-  ];
-
-  const staffItems: { icon: typeof ShieldCheck; label: string; screen: ScreenName }[] = [];
-  if (role === 'admin') staffItems.push({ icon: ShieldCheck, label: 'Admin Panel', screen: 'admin' });
-  if (role === 'warehouse_manager') staffItems.push({ icon: Package, label: 'Warehouse Panel', screen: 'warehouse' });
-  if (role === 'delivery_partner') staffItems.push({ icon: Package, label: 'Delivery Panel', screen: 'delivery' });
+  const isStaff = role === 'admin' || role === 'warehouse_manager' || role === 'delivery_partner';
 
   return (
-    <div className="safe-top px-4 pb-6 space-y-4">
-      <div>
-        <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Account</h1>
-        <p className="text-xs text-ink-500 mt-1">Manage your Stackknit profile</p>
+    <div className="safe-top px-4 pb-12 space-y-4 max-w-lg mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Account & Settings</h1>
+          <p className="text-xs text-ink-500 mt-0.5">Manage your profile & business preferences</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center text-ink-600 shadow-xs active:scale-95 transition-transform"
+        >
+          <RefreshCw size={16} className={refreshing ? 'animate-spin text-brand-600' : ''} />
+        </button>
       </div>
 
-      <section className="rounded-2xl bg-brand-950 p-4 text-white relative overflow-hidden">
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="h-14 w-14 rounded-2xl bg-brand-500 flex items-center justify-center text-xl font-extrabold">{initials}</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-lg font-extrabold truncate">{profile?.full_name || 'New User'}</p>
-            <p className="text-xs text-brand-200 mt-0.5 truncate">{profile?.business_name || roleLabel[role ?? 'customer']}</p>
-            <div className="flex items-center gap-1 mt-1">
-              <Star size={11} className="fill-amber-300 text-amber-300" />
-              <span className="text-[10px] text-brand-200">{roleLabel[role ?? 'customer']}</span>
-            </div>
-          </div>
+      {/* User Profile Card */}
+      <div className="bg-white border border-ink-100 rounded-3xl p-4 shadow-card flex items-center gap-3.5">
+        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
+          {displayName.charAt(0).toUpperCase()}
         </div>
-        <div className="absolute -right-8 -bottom-12 h-40 w-40 rounded-full bg-brand-800" />
-      </section>
-
-      <section className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
-        <div className="p-3.5 border-b border-ink-100 flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center"><Building2 size={18} /></div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-ink-400 uppercase tracking-wide font-semibold">Business profile</p>
-            {editing ? (
-              <div className="mt-1 space-y-2">
-                <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Full name" className="w-full h-9 rounded-lg border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
-                <input value={editBusiness} onChange={(e) => setEditBusiness(e.target.value)} placeholder="Business name" className="w-full h-9 rounded-lg border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
-              </div>
-            ) : (
-              <p className="text-sm font-bold text-ink-800 mt-0.5 truncate">{profile?.business_name || 'Not set'}</p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-base font-black text-ink-900 truncate">{displayName}</h2>
+            {profile?.registration_status === 'registered' && (
+              <BadgeCheck size={16} className="text-brand-600 shrink-0" />
             )}
           </div>
-          {editing ? (
-            <button onClick={handleSave} disabled={saving} className="text-xs font-bold text-brand-600">{saving ? 'Saving...' : 'Save'}</button>
-          ) : (
-            <button onClick={() => { setEditName(profile?.full_name ?? ''); setEditBusiness(profile?.business_name ?? ''); setEditing(true); }} className="text-xs font-bold text-brand-600">Edit</button>
+          {profile?.business_name && profile.business_name !== displayName && (
+            <p className="text-xs font-semibold text-ink-600 flex items-center gap-1 mt-0.5 truncate">
+              <Building2 size={13} className="text-ink-400 shrink-0" />
+              {profile.business_name}
+            </p>
           )}
+          <p className="text-xs text-ink-400 flex items-center gap-1 mt-0.5">
+            <Phone size={12} className="shrink-0" />
+            {profile?.phone || user?.phone || user?.email || 'No contact linked'}
+          </p>
         </div>
-        <div className="grid grid-cols-3 divide-x divide-ink-100 py-3">
-          <div className="text-center"><p className="text-base font-extrabold text-ink-900">{orderCount}</p><p className="text-[10px] text-ink-400 mt-0.5">Orders placed</p></div>
-          <div className="text-center"><p className="text-base font-extrabold text-brand-700">₹{walletBalance?.toLocaleString('en-IN') ?? '0'}</p><p className="text-[10px] text-ink-400 mt-0.5">Wallet balance</p></div>
-          <div className="text-center"><p className="text-base font-extrabold text-ink-900">{role === 'admin' ? 'Admin' : 'B2B'}</p><p className="text-[10px] text-ink-400 mt-0.5">Member tier</p></div>
-        </div>
-      </section>
+      </div>
 
-      {staffItems.length > 0 && (
-        <section className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
-          {staffItems.map(({ icon: Icon, label, screen }, index) => (
-            <button key={label} onClick={() => onNavigate(screen)} className={`w-full flex items-center gap-3 p-3.5 text-left ${index < staffItems.length - 1 ? 'border-b border-ink-100' : ''}`}>
-              <div className="h-9 w-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center"><Icon size={17} /></div>
-              <div className="flex-1"><p className="text-sm font-bold text-ink-800">{label}</p><p className="text-[10px] text-ink-400 mt-0.5">Staff access</p></div>
-              <ChevronRight size={16} className="text-ink-300" />
-            </button>
-          ))}
-        </section>
+      {/* B2B Prepaid Wallet Preview Card */}
+      <div
+        onClick={() => onNavigate('wallet')}
+        className="rounded-3xl bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 p-4 text-white shadow-lg cursor-pointer active:scale-[0.99] transition-transform relative overflow-hidden"
+      >
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-brand-500/30 backdrop-blur-md flex items-center justify-center border border-brand-400/30">
+                <WalletIcon size={14} className="text-brand-300" />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-brand-200">B2B Commercial Wallet</span>
+            </div>
+            <div className="pt-1">
+              <p className="text-[10px] text-brand-300">Available Balance</p>
+              <p className="text-2xl font-black tracking-tight mt-0.5">
+                {walletLoading
+                  ? 'Loading...'
+                  : `₹${(wallet?.balance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-2 rounded-xl text-xs font-bold text-white border border-white/10 backdrop-blur-xs transition">
+            <span>Manage</span>
+            <ChevronRight size={14} />
+          </div>
+        </div>
+
+        <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-brand-700/40 blur-xl pointer-events-none" />
+      </div>
+
+      {/* Staff & Operational Portals */}
+      {isStaff && (
+        <div className="space-y-2">
+          <p className="text-[11px] font-extrabold text-ink-400 uppercase tracking-wider px-1">Management Consoles</p>
+          <div className="bg-white border border-ink-100 rounded-2xl divide-y divide-ink-50 shadow-card overflow-hidden">
+            {role === 'admin' && (
+              <button
+                onClick={() => onNavigate('admin')}
+                className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                    <Shield size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-ink-900">Admin Control Center</p>
+                    <p className="text-[10px] text-ink-400">System settings, products & pricing</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-ink-400" />
+              </button>
+            )}
+
+            {(role === 'admin' || role === 'warehouse_manager') && (
+              <button
+                onClick={() => onNavigate('warehouse')}
+                className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <Warehouse size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-ink-900">Warehouse Panel</p>
+                    <p className="text-[10px] text-ink-400">Inventory deduction & order packing</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-ink-400" />
+              </button>
+            )}
+
+            {(role === 'admin' || role === 'delivery_partner') && (
+              <button
+                onClick={() => onNavigate('delivery')}
+                className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                    <Truck size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-ink-900">Delivery Panel</p>
+                    <p className="text-[10px] text-ink-400">Dispatch routes & doorstep COD collection</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-ink-400" />
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
-      <section className="bg-white border border-ink-100 rounded-2xl shadow-card overflow-hidden">
-        {items.map(({ icon: Icon, label, detail, screen, badge }, index) => (
-          <button key={label} onClick={() => onNavigate(screen)} className={`w-full flex items-center gap-3 p-3.5 text-left ${index < items.length - 1 ? 'border-b border-ink-100' : ''}`}>
-            <div className="h-9 w-9 rounded-xl bg-ink-50 text-ink-600 flex items-center justify-center"><Icon size={17} /></div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-ink-800">{label}</p>
-                {badge && <span className="text-[10px] font-bold bg-brand-100 text-brand-800 px-2 py-0.5 rounded-full">{badge}</span>}
+      {/* Main Account Navigation */}
+      <div className="space-y-2">
+        <p className="text-[11px] font-extrabold text-ink-400 uppercase tracking-wider px-1">Orders & Details</p>
+        <div className="bg-white border border-ink-100 rounded-2xl divide-y divide-ink-50 shadow-card overflow-hidden">
+          <button
+            onClick={() => onNavigate('orders')}
+            className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Package size={18} />
               </div>
-              <p className="text-[10px] text-ink-400 mt-0.5 truncate">{detail}</p>
+              <div>
+                <p className="text-xs font-bold text-ink-900">Order History</p>
+                <p className="text-[10px] text-ink-400">Track shipments & view invoices</p>
+              </div>
             </div>
-            <ChevronRight size={16} className="text-ink-300 shrink-0" />
+            <ChevronRight size={16} className="text-ink-400" />
           </button>
-        ))}
-      </section>
 
-      <button onClick={() => void signOut()} className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-red-100 bg-red-50 text-red-600 text-sm font-bold"><LogOut size={16} /> Log out</button>
-      <p className="text-center text-[10px] text-ink-400">Stackknit v1.0.0 · Made for growing businesses</p>
+          <button
+            onClick={() => onNavigate('addresses')}
+            className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <MapPin size={18} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-ink-900">Delivery Addresses</p>
+                <p className="text-[10px] text-ink-400">Manage business outlet locations</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-ink-400" />
+          </button>
+
+          <button
+            onClick={() => onNavigate('wishlist')}
+            className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                <Heart size={18} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-ink-900">Saved Wishlist</p>
+                <p className="text-[10px] text-ink-400">Favorite products & recurring restocks</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-ink-400" />
+          </button>
+
+          <button
+            onClick={() => onNavigate('businessRegistration')}
+            className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                <Building2 size={18} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-ink-900">Business Profile</p>
+                <p className="text-[10px] text-ink-400">GSTIN verification & company details</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-ink-400" />
+          </button>
+        </div>
+      </div>
+
+      {/* Logout Action */}
+      <button
+        onClick={() => void signOut()}
+        className="w-full h-12 rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center gap-2 border border-red-200 shadow-xs active:scale-[0.99] transition"
+      >
+        <LogOut size={16} />
+        Sign Out from Account
+      </button>
     </div>
   );
 }

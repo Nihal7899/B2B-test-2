@@ -1,5 +1,4 @@
-// src/components/OrderDetailScreen.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   ArrowLeft,
   MapPin,
@@ -10,35 +9,98 @@ import {
   XCircle,
   Printer,
   Loader2,
+  Wallet,
+  CreditCard,
+  Banknote,
+  AlertCircle,
 } from 'lucide-react';
 import { fetchOrderDetail } from '@/services/catalog';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
 import { buildGstBillHtml } from '@/services/gstBill';
 import { printHtml } from '@/utils/printHtml';
+import { supabase } from '@/lib/supabase';
 
 interface OrderDetailScreenProps {
   orderId: string;
   onBack: () => void;
 }
 
+interface OrderPaymentSummary {
+  walletPaid: number;
+  onlinePaid: number;
+  codPaid: number;
+  totalPaid: number;
+  amountToCollect: number;
+  isFullyPaid: boolean;
+}
+
 export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
   const [order, setOrder] = useState<DbOrder | null>(null);
   const [items, setItems] = useState<DbOrderItem[]>([]);
   const [address, setAddress] = useState<DbAddress | null>(null);
+  const [paymentSummary, setPaymentSummary] = useState<OrderPaymentSummary>({
+    walletPaid: 0,
+    onlinePaid: 0,
+    codPaid: 0,
+    totalPaid: 0,
+    amountToCollect: 0,
+    isFullyPaid: false,
+  });
   const [loading, setLoading] = useState(true);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  useEffect(() => {
-    void (async () => {
-      const result = await fetchOrderDetail(orderId);
-      if (result) {
-        setOrder(result.order);
-        setItems(result.items);
-        setAddress(result.address);
+  const loadData = useCallback(async () => {
+    try {
+      const [orderData, paymentsRes] = await Promise.all([
+        fetchOrderDetail(orderId),
+        supabase.from('payments').select('*').eq('order_id', orderId),
+      ]);
+
+      if (orderData) {
+        setOrder(orderData.order);
+        setItems(orderData.items);
+        setAddress(orderData.address);
+
+        let walletPaid = 0;
+        let onlinePaid = 0;
+        let codPaid = 0;
+
+        (paymentsRes.data || []).forEach((p) => {
+          const pStatus = (p.status || '').toLowerCase();
+          const pProvider = (p.provider || '').toLowerCase();
+          const amt = Number(p.amount) || 0;
+
+          if (pStatus === 'paid' || pStatus === 'completed') {
+            if (pProvider === 'wallet') walletPaid += amt;
+            else if (pProvider === 'razorpay') onlinePaid += amt;
+            else if (pProvider === 'cod') codPaid += amt;
+          }
+        });
+
+        const total = Number(orderData.order.total) || 0;
+        const totalPaid = walletPaid + onlinePaid + codPaid;
+        const pending = Math.max(0, total - totalPaid);
+        const isDelivered = orderData.order.status === 'delivered';
+
+        setPaymentSummary({
+          walletPaid,
+          onlinePaid,
+          codPaid,
+          totalPaid,
+          amountToCollect: isDelivered ? 0 : pending,
+          isFullyPaid: isDelivered || pending <= 0.01,
+        });
       }
+    } catch (err) {
+      console.error('Failed to load order details:', err);
+    } finally {
       setLoading(false);
-    })();
+    }
   }, [orderId]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   if (loading) {
     return (
@@ -90,11 +152,11 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
   const canPrintBill = normalizedStatus === 'delivered' || normalizedStatus === 'confirmed';
 
   return (
-    <div className="safe-top px-4 pb-6 space-y-4">
+    <div className="safe-top px-4 pb-6 space-y-4 max-w-lg mx-auto">
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center"
+          className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center shadow-xs active:scale-95 transition-transform"
         >
           <ArrowLeft size={18} />
         </button>
@@ -114,7 +176,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
 
       {order.status === 'cancelled' ? (
         <div className="rounded-2xl bg-red-50 border border-red-100 p-4 flex items-center gap-3">
-          <XCircle size={22} className="text-red-500" />
+          <XCircle size={22} className="text-red-500 shrink-0" />
           <div>
             <p className="text-sm font-bold text-red-700">Order cancelled</p>
             <p className="text-xs text-red-500 mt-0.5">This order was cancelled</p>
@@ -150,6 +212,41 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         </section>
       )}
 
+      {/* Payment Status Summary */}
+      <section
+        className={`rounded-2xl p-4 border shadow-xs ${
+          paymentSummary.isFullyPaid
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            : 'bg-amber-50 border-amber-200 text-amber-900'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {paymentSummary.isFullyPaid ? (
+              <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle size={18} className="text-amber-600 shrink-0" />
+            )}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider">
+                {paymentSummary.isFullyPaid ? 'Payment Complete' : 'Cash to Pay on Delivery'}
+              </p>
+              <p className="text-[11px] opacity-80 mt-0.5">
+                {paymentSummary.isFullyPaid
+                  ? 'All dues settled for this order'
+                  : 'Pay remaining balance upon receiving delivery'}
+              </p>
+            </div>
+          </div>
+          <p className="text-base font-black">
+            {paymentSummary.isFullyPaid
+              ? '₹0.00'
+              : `₹${paymentSummary.amountToCollect.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+          </p>
+        </div>
+      </section>
+
+      {/* Items Section */}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
         <h2 className="text-sm font-bold text-ink-900 mb-3">Items ({items.length})</h2>
         <div className="space-y-3">
@@ -171,6 +268,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         </div>
       </section>
 
+      {/* Address */}
       {address && (
         <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
           <h2 className="text-sm font-bold text-ink-900 mb-2">Delivery address</h2>
@@ -191,8 +289,9 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         </section>
       )}
 
+      {/* Payment Details & Multi-Payment Breakdown */}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-2">
-        <h2 className="text-sm font-bold text-ink-900 mb-1">Payment details</h2>
+        <h2 className="text-sm font-bold text-ink-900 mb-1">Payment Breakdown</h2>
         <div className="flex justify-between text-xs text-ink-500">
           <span>Subtotal</span>
           <span>₹{Number(order.subtotal).toLocaleString('en-IN')}</span>
@@ -219,12 +318,41 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           <span>Delivery fee</span>
           <span>₹{Number(order.delivery_fee).toLocaleString('en-IN')}</span>
         </div>
+
         <div className="border-t border-dashed border-ink-200 pt-2 flex justify-between">
-          <span className="text-sm font-bold text-ink-800">Total paid</span>
-          <span className="text-lg font-extrabold text-brand-700">
-            ₹{Number(order.total).toLocaleString('en-IN')}
+          <span className="text-sm font-bold text-ink-800">Total Order Value</span>
+          <span className="text-base font-extrabold text-ink-900">
+            ₹{Number(order.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </span>
         </div>
+
+        {paymentSummary.walletPaid > 0 && (
+          <div className="flex justify-between text-xs text-emerald-600 font-semibold items-center pt-1">
+            <span className="flex items-center gap-1.5"><Wallet size={13} /> Paid via Wallet</span>
+            <span>- ₹{paymentSummary.walletPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+        )}
+
+        {paymentSummary.onlinePaid > 0 && (
+          <div className="flex justify-between text-xs text-blue-600 font-semibold items-center">
+            <span className="flex items-center gap-1.5"><CreditCard size={13} /> Paid Online (Razorpay)</span>
+            <span>- ₹{paymentSummary.onlinePaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+        )}
+
+        {paymentSummary.codPaid > 0 && (
+          <div className="flex justify-between text-xs text-emerald-600 font-semibold items-center">
+            <span className="flex items-center gap-1.5"><Banknote size={13} /> COD Settled</span>
+            <span>- ₹{paymentSummary.codPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+        )}
+
+        {!paymentSummary.isFullyPaid && (
+          <div className="flex justify-between text-xs text-amber-700 font-bold items-center pt-1 border-t border-ink-100">
+            <span className="flex items-center gap-1.5"><Banknote size={13} /> Balance Due (COD)</span>
+            <span>₹{paymentSummary.amountToCollect.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+        )}
       </section>
 
       {canPrintBill && (

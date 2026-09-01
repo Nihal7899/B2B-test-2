@@ -45,7 +45,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         return;
       }
 
-      // 1. Fetch assigned deliveries for driver
+      // Fetch driver assignments
       const { data: assignData, error: assignError } = await supabase
         .from('delivery_assignments')
         .select('*')
@@ -67,7 +67,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         return;
       }
 
-      // 2. Parallel batch fetch for orders, items, and payments
+      // Parallel fetch order metadata & payment entries
       const [ordersRes, itemsRes, paymentsRes] = await Promise.all([
         supabase.from('orders').select('*').in('id', orderIds),
         supabase.from('order_items').select('*').in('order_id', orderIds),
@@ -86,14 +86,13 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         addressMap = Object.fromEntries((addrData || []).map((a) => [a.id, a]));
       }
 
-      // 3. Map order items
       const itemsMap: Record<string, DbOrderItem[]> = {};
       (itemsRes.data || []).forEach((item) => {
         if (!itemsMap[item.order_id]) itemsMap[item.order_id] = [];
         itemsMap[item.order_id].push(item);
       });
 
-      // 4. Calculate exact payments and deductions
+      // Calculate dues per order
       const paymentsMap: Record<string, DeliveryPaymentSummary> = {};
       const allPayments = paymentsRes.data || [];
 
@@ -113,13 +112,9 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
           if (!providers.includes(pProvider)) providers.push(pProvider);
 
           if (pStatus === 'paid' || pStatus === 'completed') {
-            if (pProvider === 'wallet') {
-              walletPaid += amt;
-            } else if (pProvider === 'razorpay') {
-              onlinePaid += amt;
-            } else if (pProvider === 'cod') {
-              codPaid += amt;
-            }
+            if (pProvider === 'wallet') walletPaid += amt;
+            else if (pProvider === 'razorpay') onlinePaid += amt;
+            else if (pProvider === 'cod') codPaid += amt;
           }
         });
 
@@ -139,7 +134,6 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         };
       });
 
-      // 5. Build assignments list
       const results = assignData
         .map((a) => {
           const order = ordersMap[a.order_id] as DbOrder | undefined;
@@ -182,14 +176,36 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
 
   useEffect(() => {
     void load();
-  }, [load]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!loading) void load();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [load, loading]);
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+
+      // Realtime subscription scoped to driver ID
+      channel = supabase
+        .channel(`driver_deliveries_${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'delivery_assignments',
+            filter: `delivery_partner_id=eq.${user.id}`,
+          },
+          () => {
+            void load();
+          }
+        )
+        .subscribe();
+    });
+
+    return () => {
+      if (channel) {
+        void supabase.removeChannel(channel);
+      }
+    };
+  }, [load]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -227,7 +243,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
   const isProcessing = (id: string) => processingId === id;
 
   return (
-    <div className="w-full pb-20 space-y-4">
+    <div className="px-4 pb-28 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -302,7 +318,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                   </span>
                 </div>
 
-                {/* Cash to Collect vs Prepaid Banner */}
+                {/* Cash to Collect Card */}
                 <div
                   className={`p-3.5 rounded-xl border flex items-center justify-between font-extrabold ${
                     pay.isFullyPaid || isDelivered
@@ -351,7 +367,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                   ))}
                 </div>
 
-                {/* Payment Breakdown */}
+                {/* Multi-Payment Details */}
                 <div className="border-t border-dashed border-ink-200 pt-2.5 space-y-1.5 text-xs">
                   <div className="flex justify-between text-ink-700 font-bold">
                     <span>Total Order Bill</span>
@@ -374,13 +390,13 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
 
                   {pay.codPaid > 0 && (
                     <div className="flex justify-between text-emerald-600 font-semibold items-center">
-                      <span className="flex items-center gap-1.5"><Banknote size={13} /> COD Already Collected</span>
+                      <span className="flex items-center gap-1.5"><Banknote size={13} /> COD Settled</span>
                       <span>- ₹{pay.codPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   )}
                 </div>
 
-                {/* Address & Navigation Card */}
+                {/* Customer Contact & Navigation */}
                 {address && (
                   <div className="rounded-2xl bg-ink-50 p-3 space-y-2.5 border border-ink-100">
                     <div className="flex items-start gap-2">
@@ -419,7 +435,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                   </div>
                 )}
 
-                {/* Slider Action */}
+                {/* Slider Controls */}
                 <div className="pt-2">
                   {assignment.status === 'ready_for_pickup' && (
                     <SlideToConfirm

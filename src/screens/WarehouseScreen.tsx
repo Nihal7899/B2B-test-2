@@ -3,26 +3,26 @@ import {
   ArrowLeft,
   Package,
   Printer,
-  CheckCircle2,
-  Clock,
+  Boxes,
+  AlertTriangle,
+  Minus,
+  Plus,
+  Save,
   Loader2,
   RefreshCw,
   Search,
   UserCheck,
   Eye,
   X,
-  AlertTriangle,
-  Boxes,
-  Plus,
-  Minus,
-  Save,
   Wallet,
   CreditCard,
   Banknote,
   Check,
-  ChevronDown,
-  Filter,
   CheckCircle,
+  XCircle,
+  ChevronDown,
+  Edit2,
+  AlertCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
@@ -63,7 +63,6 @@ interface PaymentSummary {
   walletPaid: number;
   onlinePaid: number;
   codPaid: number;
-  codPending: number;
   totalPaid: number;
   amountDue: number;
   isFullyPaid: boolean;
@@ -72,6 +71,7 @@ interface PaymentSummary {
 
 export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'low_stock'>('orders');
+  const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
 
   // Orders State
   const [orders, setOrders] = useState<DbOrder[]>([]);
@@ -79,6 +79,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   const [assignmentsMap, setAssignmentsMap] = useState<Record<string, { id: string; delivery_partner_id: string | null; status: string }>>({});
   const [paymentsMap, setPaymentsMap] = useState<Record<string, PaymentSummary>>({});
   const [drivers, setDrivers] = useState<DeliveryDriver[]>([]);
+  const [editingDriverOrderId, setEditingDriverOrderId] = useState<string | null>(null);
 
   // Inventory State
   const [products, setProducts] = useState<ProductInventory[]>([]);
@@ -95,32 +96,15 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // 1. Fetch Drivers from profiles
+  // 1. Fetch Drivers using the RPC
   const loadDrivers = useCallback(async () => {
     try {
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'delivery_partner');
-
-      if (roles && roles.length > 0) {
-        const userIds = roles.map((r) => r.user_id);
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, personal_name, business_name, phone')
-          .in('id', userIds);
-
-        const driverList: DeliveryDriver[] = (profiles || []).map((p) => ({
-          id: p.id,
-          name: p.full_name || p.personal_name || p.business_name || `Driver (${p.phone})`,
-          phone: p.phone,
-        }));
-        setDrivers(driverList);
-      }
+      const { data, error } = await supabase.rpc('get_delivery_partners');
+      if (error) throw error;
+      setDrivers(data || []);
     } catch (err) {
-      console.error('Failed to load drivers:', err);
+      console.error('Failed to load drivers via RPC:', err);
     }
   }, []);
 
@@ -133,9 +117,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (ordersErr || !ordersData) {
-        return;
-      }
+      if (ordersErr || !ordersData) return;
 
       setOrders(ordersData as DbOrder[]);
 
@@ -166,7 +148,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         setAssignmentsMap(asgMap);
       }
 
-      // Build Payment Summaries
+      // Compute exact payment breakdown
       const paySummaries: Record<string, PaymentSummary> = {};
       const allPayments: PaymentRecord[] = (paymentsRes.data as PaymentRecord[]) || [];
 
@@ -174,7 +156,6 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         let walletPaid = 0;
         let onlinePaid = 0;
         let codPaid = 0;
-        let codPending = 0;
         const providers: string[] = [];
 
         const orderPayments = allPayments.filter((p) => p.order_id === ord.id);
@@ -190,8 +171,6 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
             if (provider === 'wallet') walletPaid += amt;
             else if (provider === 'razorpay') onlinePaid += amt;
             else if (provider === 'cod') codPaid += amt;
-          } else if (status === 'pending' && provider === 'cod') {
-            codPending += amt;
           }
         });
 
@@ -203,7 +182,6 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
           walletPaid,
           onlinePaid,
           codPaid,
-          codPending,
           totalPaid: totalSettled,
           amountDue: ord.status === 'delivered' ? 0 : pending,
           isFullyPaid: ord.status === 'delivered' || pending <= 0.01,
@@ -213,11 +191,11 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
 
       setPaymentsMap(paySummaries);
     } catch (err) {
-      console.error('Failed to load orders:', err);
+      console.error('Failed to load orders in warehouse:', err);
     }
   }, []);
 
-  // 3. Fetch Products for Stock & Low Stock Tabs
+  // 3. Fetch Inventory
   const loadInventory = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -225,11 +203,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         .select('id, name, brand, pack_size, stock_quantity, stock_threshold, wholesale_price, mrp, image_url, is_available')
         .order('name', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching inventory:', error);
-        return;
-      }
-
+      if (error) throw error;
       setProducts(data as ProductInventory[]);
     } catch (err) {
       console.error('Failed to load inventory:', err);
@@ -246,9 +220,8 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   useEffect(() => {
     void loadAll();
 
-    // High-performance parent Realtime subscription
     const channel = supabase
-      .channel('warehouse_live_panel')
+      .channel('warehouse_live_channel')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
@@ -275,7 +248,6 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
     void loadAll();
   };
 
-  // Open Lazy Item Inspection Modal
   const openItemInspection = async (orderId: string) => {
     setInspectOrderId(orderId);
     setInspectLoading(true);
@@ -298,9 +270,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
     try {
       const { error } = await supabase.rpc('confirm_order', { p_order_id: orderId });
       if (error) alert('Could not confirm order: ' + error.message);
-      else {
-        await Promise.all([loadOrders(), loadInventory()]);
-      }
+      else await Promise.all([loadOrders(), loadInventory()]);
     } finally {
       setActionOrderId(null);
     }
@@ -320,6 +290,21 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
     }
   };
 
+  const handleCancelOrder = async (orderId: string) => {
+    if (!confirm('Are you sure you want to cancel this order?')) return;
+    setActionOrderId(orderId);
+    try {
+      const { error } = await supabase.rpc('cancel_order_warehouse', {
+        p_order_id: orderId,
+        p_reason: 'Cancelled by warehouse manager',
+      });
+      if (error) alert('Cancel failed: ' + error.message);
+      else await Promise.all([loadOrders(), loadInventory()]);
+    } finally {
+      setActionOrderId(null);
+    }
+  };
+
   const handleAssignDriver = async (orderId: string, driverId: string) => {
     setActionOrderId(orderId);
     try {
@@ -334,6 +319,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
           .from('delivery_assignments')
           .insert({ order_id: orderId, delivery_partner_id: driverId, status: 'ready_for_pickup' });
       }
+      setEditingDriverOrderId(null);
       await loadOrders();
     } catch (err: any) {
       alert('Failed to assign driver: ' + err.message);
@@ -351,7 +337,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
     }
   };
 
-  // Inventory Quick Adjust Handlers
+  // Stock Adjustment Handlers
   const handleStockDelta = (productId: string, currentStock: number, delta: number) => {
     const activeValue = stockEdits[productId] !== undefined ? stockEdits[productId] : currentStock;
     const nextVal = Math.max(0, activeValue + delta);
@@ -371,10 +357,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
     try {
       const { error } = await supabase
         .from('products')
-        .update({
-          stock_quantity: updatedQuantity,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ stock_quantity: updatedQuantity, updated_at: new Date().toISOString() })
         .eq('id', productId);
 
       if (error) {
@@ -395,6 +378,17 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   };
 
   // Filtered Orders
+  const orderPills = [
+    { id: 'all', label: 'All' },
+    { id: 'pending', label: 'Pending' },
+    { id: 'confirmed', label: 'Confirmed' },
+    { id: 'packed', label: 'Packed' },
+    { id: 'ready_for_pickup', label: 'Ready for Pickup' },
+    { id: 'out_for_delivery', label: 'Out for Delivery' },
+    { id: 'delivered', label: 'Delivered' },
+    { id: 'cancelled', label: 'Cancelled' },
+  ];
+
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       const recipient = o.address_id ? addressMap[o.address_id]?.recipient_name || '' : '';
@@ -402,33 +396,33 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
       const matchesSearch =
         orderNum.toLowerCase().includes(searchQuery.toLowerCase()) ||
         recipient.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
+      const matchesStatus = orderStatusPill === 'all' || o.status === orderStatusPill;
       return matchesSearch && matchesStatus;
     });
-  }, [orders, addressMap, searchQuery, statusFilter]);
+  }, [orders, addressMap, searchQuery, orderStatusPill]);
 
-  // Filtered Inventory & Low Stock items
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      const matchesSearch =
+      return (
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.brand.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
+        p.brand.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     });
   }, [products, searchQuery]);
 
   const lowStockProducts = useMemo(() => {
     return products.filter((p) => {
       const isLow = p.stock_quantity <= (p.stock_threshold || 10);
-      const matchesSearch =
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.brand.toLowerCase().includes(searchQuery.toLowerCase());
-      return isLow && matchesSearch;
+      return (
+        isLow &&
+        (p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.brand.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
     });
   }, [products, searchQuery]);
 
   return (
-    <div className="safe-top px-4 pb-16 space-y-4 max-w-3xl mx-auto">
+    <div className="safe-top px-4 pb-20 space-y-4 max-w-3xl mx-auto">
       {/* Top Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -452,7 +446,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         </button>
       </div>
 
-      {/* Main Navigation Tabs */}
+      {/* Main Mode Tabs */}
       <div className="grid grid-cols-3 gap-1 bg-ink-100 p-1 rounded-2xl">
         <button
           onClick={() => {
@@ -460,9 +454,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
             setSearchQuery('');
           }}
           className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'orders'
-              ? 'bg-white text-brand-700 shadow-sm'
-              : 'text-ink-600 hover:text-ink-900'
+            activeTab === 'orders' ? 'bg-white text-brand-700 shadow-sm' : 'text-ink-600 hover:text-ink-900'
           }`}
         >
           <Package size={15} />
@@ -475,9 +467,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
             setSearchQuery('');
           }}
           className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'inventory'
-              ? 'bg-white text-brand-700 shadow-sm'
-              : 'text-ink-600 hover:text-ink-900'
+            activeTab === 'inventory' ? 'bg-white text-brand-700 shadow-sm' : 'text-ink-600 hover:text-ink-900'
           }`}
         >
           <Boxes size={15} />
@@ -489,10 +479,8 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
             setActiveTab('low_stock');
             setSearchQuery('');
           }}
-          className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all relative ${
-            activeTab === 'low_stock'
-              ? 'bg-white text-red-600 shadow-sm'
-              : 'text-ink-600 hover:text-ink-900'
+          className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'low_stock' ? 'bg-white text-red-600 shadow-sm' : 'text-ink-600 hover:text-ink-900'
           }`}
         >
           <AlertTriangle size={15} />
@@ -505,40 +493,53 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         </button>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-3 text-ink-400" />
-          <input
-            type="text"
-            placeholder={
-              activeTab === 'orders'
-                ? 'Search by Order # or Merchant Name...'
-                : 'Search product brand, name, or code...'
-            }
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-10 pl-9 pr-3 rounded-xl bg-white border border-ink-200 text-xs font-semibold outline-none focus:border-brand-500 shadow-xs"
-          />
-        </div>
-
-        {activeTab === 'orders' && (
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-10 px-3 rounded-xl bg-white border border-ink-200 text-xs font-semibold outline-none focus:border-brand-500 shadow-xs capitalize"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="packed">Packed</option>
-            <option value="ready_for_pickup">Ready for Pickup</option>
-            <option value="out_for_delivery">Out for Delivery</option>
-            <option value="delivered">Delivered</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        )}
+      {/* Search Input */}
+      <div className="relative">
+        <Search size={15} className="absolute left-3 top-3 text-ink-400" />
+        <input
+          type="text"
+          placeholder={
+            activeTab === 'orders'
+              ? 'Search by Order # or Merchant Name...'
+              : 'Search product brand, name, or code...'
+          }
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full h-10 pl-9 pr-3 rounded-xl bg-white border border-ink-200 text-xs font-semibold outline-none focus:border-brand-500 shadow-xs"
+        />
       </div>
+
+      {/* Horizontal Status Pill Bar for Orders */}
+      {activeTab === 'orders' && (
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+          {orderPills.map((pill) => {
+            const count =
+              pill.id === 'all' ? orders.length : orders.filter((o) => o.status === pill.id).length;
+            const isActive = orderStatusPill === pill.id;
+
+            return (
+              <button
+                key={pill.id}
+                onClick={() => setOrderStatusPill(pill.id)}
+                className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  isActive
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : 'bg-white border border-ink-200 text-ink-600 hover:bg-ink-50'
+                }`}
+              >
+                <span>{pill.label}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-ink-100 text-ink-600'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -546,16 +547,14 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         </div>
       ) : (
         <>
-          {/* ======================================================== */}
-          {/* TAB 1: ORDERS FULFILLMENT TAB                            */}
-          {/* ======================================================== */}
+          {/* TAB 1: ORDERS FULFILLMENT */}
           {activeTab === 'orders' && (
             <div className="space-y-4">
               {filteredOrders.length === 0 ? (
                 <div className="bg-white border border-ink-100 rounded-3xl p-10 text-center text-ink-400 space-y-2">
                   <Package size={36} className="mx-auto text-ink-300" />
                   <p className="font-bold text-sm text-ink-700">No orders matching criteria</p>
-                  <p className="text-xs">Adjust your search query or status filter above.</p>
+                  <p className="text-xs">Adjust your search query or status filter pill above.</p>
                 </div>
               ) : (
                 filteredOrders.map((ord) => {
@@ -565,7 +564,6 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                     walletPaid: 0,
                     onlinePaid: 0,
                     codPaid: 0,
-                    codPending: 0,
                     totalPaid: 0,
                     amountDue: Number(ord.total),
                     isFullyPaid: false,
@@ -574,6 +572,9 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                   const isProcessing = actionOrderId === ord.id;
                   const isDelivered = ord.status === 'delivered';
                   const isCancelled = ord.status === 'cancelled';
+                  const isReadyForPickup = ord.status === 'ready_for_pickup';
+                  const assignedDriver = drivers.find((d) => d.id === asg?.delivery_partner_id);
+                  const isEditingDriver = editingDriverOrderId === ord.id;
 
                   return (
                     <div
@@ -612,7 +613,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                           className={`text-[10px] font-black uppercase rounded-full px-2.5 py-1 ${
                             isDelivered
                               ? 'bg-emerald-100 text-emerald-800'
-                              : ord.status === 'ready_for_pickup' || ord.status === 'out_for_delivery'
+                              : isReadyForPickup || ord.status === 'out_for_delivery'
                               ? 'bg-sky-100 text-sky-800'
                               : ord.status === 'packed'
                               ? 'bg-amber-100 text-amber-800'
@@ -627,72 +628,111 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                         </span>
                       </div>
 
-                      {/* Payment Badges & Split Overview */}
-                      <div className="p-2.5 rounded-xl bg-ink-50 border border-ink-100 flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {pay.walletPaid > 0 && (
-                            <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold text-[10px]">
-                              <Wallet size={11} /> Wallet: ₹{pay.walletPaid.toFixed(0)}
-                            </span>
+                      {/* Prominent Payment Due / Paid Banner */}
+                      <div
+                        className={`p-3 rounded-xl border flex items-center justify-between font-bold text-xs ${
+                          pay.isFullyPaid || isDelivered
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                            : 'bg-amber-500 border-amber-600 text-white shadow-xs'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {pay.isFullyPaid || isDelivered ? (
+                            <CheckCircle size={17} className="text-emerald-600 shrink-0" />
+                          ) : (
+                            <AlertCircle size={18} className="text-amber-100 shrink-0" />
                           )}
-                          {pay.onlinePaid > 0 && (
-                            <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md font-bold text-[10px]">
-                              <CreditCard size={11} /> Online: ₹{pay.onlinePaid.toFixed(0)}
-                            </span>
-                          )}
-                          {pay.codPaid > 0 && (
-                            <span className="inline-flex items-center gap-1 bg-teal-100 text-teal-800 px-2 py-0.5 rounded-md font-bold text-[10px]">
-                              <Banknote size={11} /> COD Settled: ₹{pay.codPaid.toFixed(0)}
-                            </span>
-                          )}
-                          {!pay.isFullyPaid && (
-                            <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-black text-[10px]">
-                              <Banknote size={11} /> Due on Delivery: ₹{pay.amountDue.toFixed(0)}
-                            </span>
-                          )}
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wider font-extrabold">
+                              {pay.isFullyPaid || isDelivered
+                                ? 'Payment Settled (Prepaid)'
+                                : 'Pending Cash Collection (COD)'}
+                            </p>
+                            <p className={`text-[10px] ${pay.isFullyPaid || isDelivered ? 'text-emerald-700' : 'text-amber-100'}`}>
+                              {pay.walletPaid > 0 && `Wallet: ₹${pay.walletPaid.toFixed(0)} `}
+                              {pay.onlinePaid > 0 && `Online: ₹${pay.onlinePaid.toFixed(0)} `}
+                              {pay.codPaid > 0 && `COD: ₹${pay.codPaid.toFixed(0)} `}
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-2 ml-auto">
-                          <span className="text-[11px] text-ink-500 font-semibold">Total:</span>
-                          <span className="text-sm font-black text-ink-900">
-                            ₹{Number(ord.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                          </span>
-                          <button
-                            onClick={() => void openItemInspection(ord.id)}
-                            className="flex items-center gap-1 text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-2.5 py-1 rounded-lg font-bold text-[11px] transition"
-                          >
-                            <Eye size={12} /> Items
-                          </button>
+                        <div className="text-right">
+                          <p className="text-sm font-black">
+                            {pay.isFullyPaid || isDelivered
+                              ? `₹${Number(ord.total).toFixed(2)}`
+                              : `Collect ₹${pay.amountDue.toFixed(2)}`}
+                          </p>
                         </div>
                       </div>
 
-                      {/* Driver Assignment Portal */}
-                      {!isCancelled && (
-                        <div className="flex items-center gap-2 border-t border-ink-100 pt-2.5">
-                          <UserCheck size={16} className="text-ink-400 shrink-0" />
-                          <div className="relative flex-1">
-                            <select
-                              value={asg?.delivery_partner_id || ''}
-                              disabled={isProcessing || isDelivered}
-                              onChange={(e) => void handleAssignDriver(ord.id, e.target.value)}
-                              className="w-full h-8 pl-2 pr-7 rounded-lg bg-ink-50 border border-ink-200 text-xs font-semibold text-ink-800 outline-none focus:border-brand-500 appearance-none disabled:opacity-60"
-                            >
-                              <option value="">-- Assign Delivery Partner --</option>
-                              {drivers.map((d) => (
-                                <option key={d.id} value={d.id}>
-                                  {d.name}
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDown
-                              size={14}
-                              className="absolute right-2 top-2.5 text-ink-400 pointer-events-none"
-                            />
+                      {/* Total & Items trigger */}
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <div>
+                          <span className="text-ink-400">Total Bill: </span>
+                          <span className="font-extrabold text-ink-900">
+                            ₹{Number(ord.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => void openItemInspection(ord.id)}
+                          className="flex items-center gap-1 text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-2.5 py-1 rounded-lg font-bold text-[11px] transition"
+                        >
+                          <Eye size={12} /> View Items
+                        </button>
+                      </div>
+
+                      {/* Delivery Partner Assignment ONLY in 'ready_for_pickup' */}
+                      {isReadyForPickup && (
+                        <div className="rounded-xl bg-ink-50 border border-ink-200 p-2.5 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-ink-700 flex items-center gap-1">
+                              <UserCheck size={14} className="text-brand-600" /> Delivery Partner
+                            </span>
+                            {assignedDriver && !isEditingDriver && (
+                              <button
+                                onClick={() => setEditingDriverOrderId(ord.id)}
+                                className="text-[11px] font-bold text-brand-600 flex items-center gap-1 hover:underline"
+                              >
+                                <Edit2 size={11} /> Change Partner
+                              </button>
+                            )}
                           </div>
+
+                          {!assignedDriver || isEditingDriver ? (
+                            <div className="relative">
+                              <select
+                                value={asg?.delivery_partner_id || ''}
+                                disabled={isProcessing}
+                                onChange={(e) => void handleAssignDriver(ord.id, e.target.value)}
+                                className="w-full h-9 pl-2.5 pr-8 rounded-lg bg-white border border-ink-200 text-xs font-semibold text-ink-800 outline-none focus:border-brand-500 appearance-none shadow-xs"
+                              >
+                                <option value="">-- Choose Partner to Dispatch --</option>
+                                {drivers.map((d) => (
+                                  <option key={d.id} value={d.id}>
+                                    {d.name} {d.phone ? `(${d.phone})` : ''}
+                                  </option>
+                                ))}
+                              </select>
+                              <ChevronDown
+                                size={14}
+                                className="absolute right-2.5 top-2.5 text-ink-400 pointer-events-none"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between bg-white border border-ink-200 rounded-lg p-2">
+                              <div>
+                                <p className="text-xs font-bold text-ink-900">{assignedDriver.name}</p>
+                                <p className="text-[10px] text-ink-400">{assignedDriver.phone}</p>
+                              </div>
+                              <span className="bg-sky-50 text-sky-700 text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-sky-200">
+                                Assigned
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
 
-                      {/* Fulfillment Actions & Status Transition Buttons */}
+                      {/* Action Progression & Cancel Button */}
                       <div className="flex items-center gap-2 pt-1">
                         {ord.status === 'pending' && (
                           <button
@@ -700,12 +740,8 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                             onClick={() => void handleConfirmOrder(ord.id)}
                             className="flex-1 h-9 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-soft active:scale-98 transition disabled:opacity-50"
                           >
-                            {isProcessing ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <Check size={14} strokeWidth={3} />
-                            )}
-                            Confirm & Deduct Stock
+                            {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                            Confirm Order
                           </button>
                         )}
 
@@ -715,11 +751,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                             onClick={() => void handleUpdateStatus(ord.id, 'packed')}
                             className="flex-1 h-9 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-soft active:scale-98 transition disabled:opacity-50"
                           >
-                            {isProcessing ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <Package size={14} />
-                            )}
+                            {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
                             Mark as Packed
                           </button>
                         )}
@@ -730,12 +762,19 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                             onClick={() => void handleUpdateStatus(ord.id, 'ready_for_pickup')}
                             className="flex-1 h-9 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-soft active:scale-98 transition disabled:opacity-50"
                           >
-                            {isProcessing ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <CheckCircle size={14} />
-                            )}
+                            {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
                             Ready for Dispatch
+                          </button>
+                        )}
+
+                        {/* Order Cancellation (Active in pre-delivery phases) */}
+                        {!isDelivered && !isCancelled && (
+                          <button
+                            disabled={isProcessing}
+                            onClick={() => void handleCancelOrder(ord.id)}
+                            className="h-9 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center gap-1 shadow-xs active:scale-98 transition"
+                          >
+                            <XCircle size={14} /> Cancel
                           </button>
                         )}
 
@@ -744,7 +783,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                           onClick={() => void handlePrint(ord.id, ord.order_number)}
                           className="h-9 px-3 rounded-xl border border-ink-200 bg-white hover:bg-ink-50 text-ink-700 text-xs font-bold flex items-center gap-1.5 shadow-xs active:scale-98 transition"
                         >
-                          <Printer size={14} className="text-ink-600" /> GST Invoice
+                          <Printer size={14} className="text-ink-600" /> Invoice
                         </button>
                       </div>
                     </div>
@@ -754,9 +793,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* TAB 2 & 3: INVENTORY & LOW STOCK CONTROLS               */}
-          {/* ======================================================== */}
+          {/* TAB 2 & 3: INVENTORY & LOW STOCK CONTROLS */}
           {(activeTab === 'inventory' || activeTab === 'low_stock') && (
             <div className="space-y-3">
               {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
@@ -792,17 +829,14 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-black text-ink-900 truncate">
-                              {prod.brand} {prod.name}
-                            </span>
-                          </div>
+                          <span className="text-xs font-black text-ink-900 truncate">
+                            {prod.brand} {prod.name}
+                          </span>
                           <p className="text-[11px] text-ink-500 mt-0.5 font-medium">
                             Pack: {prod.pack_size} · Wholesale: ₹{Number(prod.wholesale_price).toFixed(2)} · MRP: ₹{Number(prod.mrp).toFixed(2)}
                           </p>
                         </div>
 
-                        {/* Stock Badge */}
                         <span
                           className={`text-[9px] font-black uppercase rounded-full px-2.5 py-1 shrink-0 ${
                             isOut
@@ -845,7 +879,6 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                             <Plus size={13} />
                           </button>
 
-                          {/* Quick Add Pills */}
                           <div className="flex items-center gap-1 ml-1">
                             {[5, 10, 25].map((amt) => (
                               <button
@@ -859,7 +892,6 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                           </div>
                         </div>
 
-                        {/* Save Stock Button */}
                         {isModified && (
                           <button
                             disabled={isSaving}
@@ -880,12 +912,10 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         </>
       )}
 
-      {/* ======================================================== */}
-      {/* LAZY LINE-ITEM INSPECTION MODAL                          */}
-      {/* ======================================================== */}
+      {/* Lazy Line-Item Inspection Modal */}
       {inspectOrderId && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-ink-100 pb-3">
               <div>
                 <h3 className="font-black text-sm text-ink-900">Package Contents</h3>

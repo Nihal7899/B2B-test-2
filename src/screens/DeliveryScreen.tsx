@@ -45,7 +45,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         return;
       }
 
-      // 1. Fetch assigned deliveries
+      // 1. Fetch assigned deliveries for driver
       const { data: assignData, error: assignError } = await supabase
         .from('delivery_assignments')
         .select('*')
@@ -67,7 +67,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         return;
       }
 
-      // 2. Batch fetch orders, items, and payments
+      // 2. Parallel batch fetch for orders, items, and payments
       const [ordersRes, itemsRes, paymentsRes] = await Promise.all([
         supabase.from('orders').select('*').in('id', orderIds),
         supabase.from('order_items').select('*').in('order_id', orderIds),
@@ -93,7 +93,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         itemsMap[item.order_id].push(item);
       });
 
-      // 4. Map payments & mathematically calculate true pending balances
+      // 4. Calculate exact payments and deductions
       const paymentsMap: Record<string, DeliveryPaymentSummary> = {};
       const allPayments = paymentsRes.data || [];
 
@@ -124,23 +124,22 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         });
 
         const orderTotal = Number(ord.total) || 0;
-        const totalPaid = walletPaid + onlinePaid + codPaid;
-        // Remaining balance strictly subtracts all pre-paid funds
-        const pendingAmount = Math.max(0, orderTotal - totalPaid);
+        const totalSettled = walletPaid + onlinePaid + codPaid;
+        const pendingToCollect = Math.max(0, orderTotal - totalSettled);
 
         paymentsMap[ord.id] = {
           walletPaid,
           onlinePaid,
           codPaid,
-          totalPaid,
-          amountToCollect: pendingAmount,
-          isFullyPaid: pendingAmount <= 0.01,
+          totalPaid: totalSettled,
+          amountToCollect: pendingToCollect,
+          isFullyPaid: pendingToCollect <= 0.01,
           isSplit: providers.length > 1,
           providers,
         };
       });
 
-      // 5. Assemble final assignment structures
+      // 5. Build assignments list
       const results = assignData
         .map((a) => {
           const order = ordersMap[a.order_id] as DbOrder | undefined;
@@ -157,8 +156,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
             providers: [],
           };
 
-          const isDelivered = a.status === 'delivered';
-          if (isDelivered) {
+          if (a.status === 'delivered') {
             summary.amountToCollect = 0;
             summary.isFullyPaid = true;
           }
@@ -186,7 +184,6 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
     void load();
   }, [load]);
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       if (!loading) void load();
@@ -230,7 +227,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
   const isProcessing = (id: string) => processingId === id;
 
   return (
-    <div className="min-h-screen w-full overflow-y-auto touch-pan-y safe-top px-4 pb-32 space-y-4">
+    <div className="px-4 pb-28 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -242,20 +239,20 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
           </button>
           <div>
             <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Delivery Panel</h1>
-            <p className="text-xs text-ink-500 mt-0.5">Fulfillment & Cash Settlement</p>
+            <p className="text-xs text-ink-500 mt-0.5">Fulfillment & Settlement</p>
           </div>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center text-ink-600 shadow-xs"
+          className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center text-ink-600 shadow-xs active:scale-95 transition-transform"
         >
           <RefreshCw size={16} className={refreshing ? 'animate-spin text-brand-600' : ''} />
         </button>
       </div>
 
       {assignments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600">
             <Truck size={36} strokeWidth={1.5} />
           </div>
@@ -305,7 +302,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                   </span>
                 </div>
 
-                {/* Prominent Payment Due Banner */}
+                {/* Cash to Collect vs Prepaid Banner */}
                 <div
                   className={`p-3.5 rounded-xl border flex items-center justify-between font-extrabold ${
                     pay.isFullyPaid || isDelivered
@@ -326,7 +323,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                       <p className={`text-[10px] font-semibold ${pay.isFullyPaid || isDelivered ? 'text-emerald-700' : 'text-amber-100'}`}>
                         {pay.isFullyPaid || isDelivered
                           ? 'Prepaid in Full (Do NOT collect cash)'
-                          : 'Collect remaining balance before handing over goods'}
+                          : 'Collect cash/UPI before handing over goods'}
                       </p>
                     </div>
                   </div>
@@ -339,7 +336,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                   </div>
                 </div>
 
-                {/* Items Accordion/List */}
+                {/* Package Items */}
                 <div className="space-y-1.5 border-t border-dashed border-ink-200 pt-2.5">
                   <p className="text-[10px] font-bold text-ink-400 uppercase tracking-wider">Package Contents</p>
                   {items.map((item) => (
@@ -354,7 +351,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                   ))}
                 </div>
 
-                {/* Accurate Multi-Payment Breakdown */}
+                {/* Payment Breakdown */}
                 <div className="border-t border-dashed border-ink-200 pt-2.5 space-y-1.5 text-xs">
                   <div className="flex justify-between text-ink-700 font-bold">
                     <span>Total Order Bill</span>
@@ -377,13 +374,13 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
 
                   {pay.codPaid > 0 && (
                     <div className="flex justify-between text-emerald-600 font-semibold items-center">
-                      <span className="flex items-center gap-1.5"><Banknote size={13} /> COD Already Collected</span>
+                      <span className="flex items-center gap-1.5"><Banknote size={13} /> COD Settled</span>
                       <span>- ₹{pay.codPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   )}
                 </div>
 
-                {/* Customer Address & Navigation */}
+                {/* Address & Navigation Card */}
                 {address && (
                   <div className="rounded-2xl bg-ink-50 p-3 space-y-2.5 border border-ink-100">
                     <div className="flex items-start gap-2">
@@ -422,7 +419,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                   </div>
                 )}
 
-                {/* Slider Action Bar */}
+                {/* Slider Action */}
                 <div className="pt-2">
                   {assignment.status === 'ready_for_pickup' && (
                     <SlideToConfirm

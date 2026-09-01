@@ -28,13 +28,19 @@ export function WalletScreen({ onBack }: WalletScreenProps) {
   const isNative = Capacitor.isNativePlatform();
 
   const loadData = useCallback(async () => {
-    const [w, txs] = await Promise.all([fetchWallet(), fetchWalletTransactions()]);
-    setWallet(w);
-    setTransactions(txs);
-    setLoading(false);
-    setRefreshing(false);
+    try {
+      const [w, txs] = await Promise.all([fetchWallet(), fetchWalletTransactions()]);
+      setWallet(w);
+      setTransactions(txs);
+    } catch (err) {
+      console.error('Failed to load wallet data:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
+  // Fresh fetch on component mount
   useEffect(() => {
     void loadData();
   }, [loadData]);

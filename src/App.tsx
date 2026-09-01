@@ -493,7 +493,9 @@ function App() {
           <KeepAliveRenderer
             currentKey={key}
             render={renderScreen}
+            excludeKeys={['/wallet']}
           />
+
         </main>
 
         {screen !== 'categoryDetail' && screen !== 'search' && screen !== 'product' && screen !== 'cart' && (

@@ -485,6 +485,22 @@ BEGIN
 END;
 $$;
 
+-- 1. Grant Delivery Partners access to view payments for orders
+DROP POLICY IF EXISTS "Staff and delivery can view payments" ON public.payments;
+CREATE POLICY "Staff and delivery can view payments"
+  ON public.payments FOR SELECT
+  USING (
+    auth.uid() = user_id 
+    OR public.is_admin() 
+    OR public.has_role('warehouse_manager')
+    OR public.has_role('delivery_partner')
+  );
+
+-- 1. Drop both competing overloaded signatures
+DROP FUNCTION IF EXISTS public.complete_delivery(uuid, public.order_status);
+DROP FUNCTION IF EXISTS public.complete_delivery(uuid, text);
+
+-- 2. Recreate single definitive function accepting text
 CREATE OR REPLACE FUNCTION public.complete_delivery(
   p_assignment_id uuid,
   p_status text
@@ -496,7 +512,7 @@ AS $$
 DECLARE
   v_order_id uuid;
 BEGIN
-  -- 1. Authorization & assignment lookup with row locking
+  -- 1. Verify assignment and lock row
   SELECT order_id INTO v_order_id
   FROM public.delivery_assignments
   WHERE id = p_assignment_id
@@ -507,7 +523,7 @@ BEGIN
     RAISE EXCEPTION 'Not authorized or assignment not found';
   END IF;
 
-  -- 2. Handle Delivery Status Transitions
+  -- 2. Transition assignment and order
   IF p_status = 'out_for_delivery' THEN
     UPDATE public.delivery_assignments
     SET status = p_status::order_status,

@@ -227,7 +227,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
   const isProcessing = (id: string) => processingId === id;
 
   return (
-    <div className="px-4 pb-28 space-y-4">
+    <div className="w-full pb-20 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -374,7 +374,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
 
                   {pay.codPaid > 0 && (
                     <div className="flex justify-between text-emerald-600 font-semibold items-center">
-                      <span className="flex items-center gap-1.5"><Banknote size={13} /> COD Settled</span>
+                      <span className="flex items-center gap-1.5"><Banknote size={13} /> COD Already Collected</span>
                       <span>- ₹{pay.codPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   )}

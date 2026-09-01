@@ -134,6 +134,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 8. Atomic RPC: Pay with Wallet (Split or Full)
+-- 1. Pay with Wallet using status: 'paid'
 CREATE OR REPLACE FUNCTION public.pay_with_wallet(
   p_order_id uuid,
   p_amount numeric
@@ -186,7 +187,7 @@ BEGIN
     v_user_id,
     'wallet',
     p_amount,
-    'completed'
+    'paid'
   );
 
   RETURN jsonb_build_object(
@@ -198,7 +199,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 9. Atomic RPC: Refund Wallet Payment
 CREATE OR REPLACE FUNCTION public.refund_wallet_payment(
   p_order_id uuid,
   p_reason text DEFAULT 'Order cancelled / Checkout aborted'
@@ -209,6 +209,18 @@ DECLARE
   v_wallet record;
   v_new_balance numeric;
 BEGIN
+  -- 1. Idempotency Check: Prevent duplicate refunds for the same order
+  IF EXISTS (
+    SELECT 1 
+    FROM public.wallet_transactions
+    WHERE reference_id = p_order_id::text
+      AND type = 'credit'
+      AND purpose = 'refund'
+  ) THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Order wallet deduction has already been refunded');
+  END IF;
+
+  -- 2. Check if a valid wallet debit exists for this order
   SELECT * INTO v_tx
   FROM public.wallet_transactions
   WHERE reference_id = p_order_id::text
@@ -218,20 +230,27 @@ BEGIN
   LIMIT 1;
 
   IF NOT FOUND THEN
-    RETURN jsonb_build_object('success', false, 'message', 'No wallet deduction found');
+    RETURN jsonb_build_object('success', false, 'message', 'No wallet deduction found for this order');
   END IF;
 
+  -- 3. Lock user wallet row for update
   SELECT * INTO v_wallet
   FROM public.wallets
   WHERE user_id = v_tx.user_id
   FOR UPDATE;
 
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Wallet not found');
+  END IF;
+
   v_new_balance := v_wallet.balance + v_tx.amount;
 
+  -- 4. Restore wallet balance
   UPDATE public.wallets
   SET balance = v_new_balance, updated_at = now()
   WHERE id = v_wallet.id;
 
+  -- 5. Record refund credit entry in ledger
   INSERT INTO public.wallet_transactions (
     wallet_id, user_id, amount, type, purpose, reference_id, description, balance_after
   ) VALUES (
@@ -239,8 +258,9 @@ BEGIN
     p_order_id::text, p_reason, v_new_balance
   );
 
+  -- 6. Mark payment record as refunded/cancelled
   UPDATE public.payments
-  SET status = 'cancelled'
+  SET status = 'cancelled', updated_at = now()
   WHERE order_id = p_order_id AND provider = 'wallet';
 
   RETURN jsonb_build_object(
@@ -251,11 +271,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 10. Option 1 Trigger: Automatic Wallet Refund on Order Cancellation
+
 CREATE OR REPLACE FUNCTION public.handle_order_cancellation_refund()
 RETURNS trigger AS $$
 BEGIN
-  IF NEW.status = 'cancelled' AND OLD.status <> 'cancelled' THEN
+  -- Strict guard: Fire ONLY when transitioning from non-cancelled to cancelled
+  IF NEW.status = 'cancelled' AND (OLD.status IS DISTINCT FROM 'cancelled') THEN
     PERFORM public.refund_wallet_payment(
       NEW.id,
       'Auto-refund: Order cancelled (Timeout / Aborted / Admin)'
@@ -275,3 +296,177 @@ CREATE TRIGGER trg_order_cancellation_wallet_refund
   AFTER UPDATE OF status ON public.orders
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_order_cancellation_refund();
+
+
+
+
+
+ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'cancelled';
+ALTER TYPE payment_status ADD VALUE IF NOT EXISTS 'refunded';
+
+
+CREATE OR REPLACE FUNCTION public.cleanup_stale_orders()
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_order_ids uuid[];
+  v_count integer := 0;
+BEGIN
+  -- 1. Select strictly pending orders older than 15 minutes
+  SELECT array_agg(o.id)
+  INTO v_order_ids
+  FROM public.orders o
+  WHERE o.status = 'pending'
+    AND o.updated_at < (now() - interval '15 minutes')
+    -- Ignore COD orders (fulfilled on delivery)
+    AND NOT EXISTS (
+      SELECT 1 
+      FROM public.payments p_cod 
+      WHERE p_cod.order_id = o.id 
+        AND p_cod.provider = 'cod'
+    )
+    -- Ignore orders where Razorpay payment succeeded
+    AND NOT EXISTS (
+      SELECT 1 
+      FROM public.payments p_rzp 
+      WHERE p_rzp.order_id = o.id 
+        AND p_rzp.provider = 'razorpay' 
+        AND p_rzp.status = 'paid'
+    )
+    -- Ignore orders that are already 100% paid by wallet
+    AND COALESCE(
+      (SELECT SUM(p_w.amount) 
+       FROM public.payments p_w 
+       WHERE p_w.order_id = o.id 
+         AND p_w.provider = 'wallet' 
+         AND p_w.status = 'paid'), 0
+    ) < o.total;
+
+  -- 2. Exit if no stale orders found
+  IF v_order_ids IS NULL OR array_length(v_order_ids, 1) IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  -- 3. Cancel only orders that are still pending
+  -- (Trigger automatically handles the refund once per order)
+  UPDATE public.orders
+  SET status = 'cancelled', updated_at = now()
+  WHERE id = ANY(v_order_ids)
+    AND status = 'pending';
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+
+  -- 4. Mark pending payment attempts as cancelled
+  UPDATE public.payments
+  SET status = 'cancelled', updated_at = now()
+  WHERE order_id = ANY(v_order_ids)
+    AND status = 'pending';
+
+  RETURN v_count;
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION public.update_order_status(
+  p_order_id uuid,
+  p_status text
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_current_status order_status;
+BEGIN
+  -- 1. Authorization check
+  IF NOT (public.is_admin() OR public.has_role('warehouse_manager')) THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  -- 2. Guard against bypassing stock deduction
+  IF p_status = 'confirmed' THEN
+    RAISE EXCEPTION 'Use confirm_order() to confirm an order and deduct stock.';
+  END IF;
+
+  -- 3. Acquire row lock to prevent race conditions during concurrent warehouse actions
+  SELECT status INTO v_current_status
+  FROM public.orders
+  WHERE id = p_order_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Order not found';
+  END IF;
+
+  -- 4. Update status and refresh updated_at
+  -- Note: If p_status is 'cancelled', the trg_order_cancellation_wallet_refund 
+  -- trigger fires automatically to process idempotent wallet refunds
+  UPDATE public.orders
+  SET status = p_status::order_status,
+      updated_at = now()
+  WHERE id = p_order_id;
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION public.confirm_order(p_order_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_order public.orders%rowtype;
+  v_item record;
+  v_new_stock integer;
+BEGIN
+  -- 1. Authorization check
+  IF NOT (public.is_admin() OR public.has_role('warehouse_manager')) THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  -- 2. Lock order row
+  SELECT * INTO v_order 
+  FROM public.orders 
+  WHERE id = p_order_id 
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Order not found';
+  END IF;
+
+  IF v_order.status != 'pending' THEN
+    RAISE EXCEPTION 'Only pending orders can be confirmed';
+  END IF;
+
+  -- 3. Deduct stock in deterministic order (ORDER BY product_id ASC) to eliminate deadlocks
+  FOR v_item IN 
+    SELECT product_id, quantity 
+    FROM public.order_items 
+    WHERE order_id = p_order_id 
+    ORDER BY product_id ASC 
+  LOOP
+    UPDATE public.products
+    SET stock_quantity = stock_quantity - v_item.quantity,
+        updated_at = now()
+    WHERE id = v_item.product_id
+    RETURNING stock_quantity INTO v_new_stock;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Product not found';
+    END IF;
+
+    -- Ensure stock doesn't go negative
+    IF v_new_stock < 0 THEN
+      RAISE EXCEPTION 'Insufficient stock for product';
+    END IF;
+  END LOOP;
+
+  -- 4. Mark order confirmed
+  UPDATE public.orders 
+  SET status = 'confirmed', 
+      updated_at = now() 
+  WHERE id = p_order_id;
+END;
+$$;

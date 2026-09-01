@@ -22,6 +22,8 @@ export function SlideToConfirm({
   const progress = useRef(0);
   const isDragging = useRef(false);
   const startX = useRef(0);
+  const startY = useRef(0);
+  const isHorizontal = useRef<boolean | null>(null);
   const startProgress = useRef(0);
 
   const snapBack = useCallback(() => {
@@ -40,36 +42,13 @@ export function SlideToConfirm({
     }
   }, []);
 
-  const updateUI = useCallback((clientX: number) => {
-    if (!trackRef.current) return;
-    const rect = trackRef.current.getBoundingClientRect();
-    const max = rect.width - 56;
-    let raw = (clientX - rect.left) / max;
-    raw = Math.min(Math.max(raw, 0), 1);
-    progress.current = raw;
-    const px = raw * max;
-
-    if (thumbRef.current) {
-      thumbRef.current.style.transform = `translateX(${px}px) translateY(-50%)`;
-      thumbRef.current.style.transition = 'none';
-    }
-    if (fillRef.current) {
-      fillRef.current.style.width = `${raw * 100}%`;
-      fillRef.current.style.transition = 'none';
-    }
-    if (labelRef.current) {
-      labelRef.current.style.color = raw > 0.4 ? 'white' : '#1e293b';
-      labelRef.current.style.mixBlendMode = raw > 0.4 ? 'normal' : 'multiply';
-    }
-  }, []);
-
   const handleMove = useCallback((clientX: number) => {
     if (!isDragging.current || !trackRef.current) return;
     const delta = clientX - startX.current;
     const rect = trackRef.current.getBoundingClientRect();
     const max = rect.width - 56;
     const deltaProgress = delta / max;
-    let newProgress = Math.min(
+    const newProgress = Math.min(
       Math.max(startProgress.current + deltaProgress, 0),
       1
     );
@@ -92,6 +71,7 @@ export function SlideToConfirm({
   const handleEnd = useCallback(() => {
     if (!isDragging.current) return;
     isDragging.current = false;
+    isHorizontal.current = null;
 
     if (thumbRef.current) {
       thumbRef.current.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -108,43 +88,76 @@ export function SlideToConfirm({
   }, [onConfirm, snapBack]);
 
   const handleStart = useCallback(
-    (clientX: number) => {
+    (clientX: number, clientY?: number) => {
       if (isLoading || disabled) return;
       isDragging.current = true;
       startX.current = clientX;
+      startY.current = clientY ?? 0;
+      isHorizontal.current = clientY === undefined ? true : null;
       startProgress.current = progress.current;
     },
     [isLoading, disabled]
   );
 
-  // Mouse listeners
   useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => handleMove(e.clientX);
-    const onMouseUp = () => handleEnd();
+    const onMouseMove = (e: MouseEvent) => {
+      if (isDragging.current) {
+        handleMove(e.clientX);
+      }
+    };
+    const onMouseUp = () => {
+      if (isDragging.current) {
+        handleEnd();
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isDragging.current) return;
+
+      const touch = e.touches[0];
+      const deltaX = Math.abs(touch.clientX - startX.current);
+      const deltaY = Math.abs(touch.clientY - startY.current);
+
+      // Differentiate vertical page scrolling from horizontal slider dragging
+      if (isHorizontal.current === null) {
+        if (deltaY > deltaX && deltaY > 6) {
+          isHorizontal.current = false;
+          isDragging.current = false;
+          snapBack();
+          return;
+        } else if (deltaX > 6) {
+          isHorizontal.current = true;
+        }
+      }
+
+      // Block default only when actively sliding horizontally
+      if (isHorizontal.current) {
+        if (e.cancelable) e.preventDefault();
+        handleMove(touch.clientX);
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (isDragging.current) {
+        handleEnd();
+      }
+    };
+
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchEnd);
+
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [handleMove, handleEnd]);
-
-  // Touch listeners
-  useEffect(() => {
-    const onTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      handleMove(e.touches[0].clientX);
-    };
-    const onTouchEnd = () => handleEnd();
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchend', onTouchEnd);
-    return () => {
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
     };
-  }, [handleMove, handleEnd]);
+  }, [handleMove, handleEnd, snapBack]);
 
-  // Reset on loading
   useEffect(() => {
     if (isLoading) {
       snapBack();
@@ -155,7 +168,7 @@ export function SlideToConfirm({
   return (
     <div
       ref={trackRef}
-      className={`relative h-14 rounded-2xl overflow-hidden select-none touch-none ${
+      className={`relative h-14 rounded-2xl overflow-hidden select-none touch-pan-y ${
         disabled || isLoading ? 'opacity-50 pointer-events-none' : ''
       }`}
       style={{
@@ -193,7 +206,7 @@ export function SlideToConfirm({
       </span>
       <div
         ref={thumbRef}
-        className="absolute top-1/2 h-12 w-14 bg-white rounded-2xl shadow-lg flex items-center justify-center cursor-grab active:cursor-grabbing"
+        className="absolute top-1/2 h-12 w-14 bg-white rounded-2xl shadow-lg flex items-center justify-center cursor-grab active:cursor-grabbing touch-none"
         style={{
           left: 0,
           transform: 'translateX(0px) translateY(-50%)',
@@ -206,8 +219,7 @@ export function SlideToConfirm({
           handleStart(e.clientX);
         }}
         onTouchStart={(e) => {
-          e.preventDefault();
-          handleStart(e.touches[0].clientX);
+          handleStart(e.touches[0].clientX, e.touches[0].clientY);
         }}
       >
         <ChevronRight

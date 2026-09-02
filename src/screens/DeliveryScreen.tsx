@@ -21,6 +21,7 @@ import {
   Sparkles,
   Wifi,
   ArrowUpRight,
+  ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
@@ -45,6 +46,14 @@ export interface DeliveryPaymentSummary {
   providers: string[];
 }
 
+interface SettlementRecord {
+  id: string;
+  amount: number;
+  payment_mode: string;
+  notes: string;
+  created_at: string;
+}
+
 interface ToastNotification {
   message: string;
   type: 'success' | 'error' | 'info' | 'warning';
@@ -62,6 +71,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
       paymentSummary: DeliveryPaymentSummary;
     }[]
   >([]);
+  const [settlements, setSettlements] = useState<SettlementRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -82,26 +92,40 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
         return;
       }
 
-      const { data: assignData, error: assignError } = await supabase
-        .from('delivery_assignments')
-        .select('*')
-        .eq('delivery_partner_id', authUser.id)
-        .order('created_at', { ascending: false });
+      // 1. Fetch active assignments and settlement clearance history in parallel
+      const [assignRes, settlementsRes] = await Promise.all([
+        supabase
+          .from('delivery_assignments')
+          .select('*')
+          .eq('delivery_partner_id', authUser.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('delivery_partner_cod_settlements')
+          .select('id, amount, payment_mode, notes, created_at')
+          .eq('delivery_partner_id', authUser.id)
+          .order('created_at', { ascending: false }),
+      ]);
 
-      if (assignError || !assignData) {
-        setLoading(false);
-        setRefreshing(false);
-        return;
+      if (settlementsRes.data) {
+        setSettlements(
+          settlementsRes.data.map((s) => ({
+            ...s,
+            amount: Number(s.amount) || 0,
+          }))
+        );
       }
 
-      const orderIds = assignData.map((a) => a.order_id);
-      if (orderIds.length === 0) {
+      const assignData = assignRes.data;
+      if (!assignData || assignData.length === 0) {
         setAssignments([]);
         setLoading(false);
         setRefreshing(false);
         return;
       }
 
+      const orderIds = assignData.map((a) => a.order_id);
+
+      // 2. Fetch order metadata
       const [ordersRes, itemsRes, paymentsRes] = await Promise.all([
         supabase.from('orders').select('*').in('id', orderIds),
         supabase.from('order_items').select('*').in('order_id', orderIds),
@@ -211,13 +235,15 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
   useEffect(() => {
     void load();
 
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let assignChannel: ReturnType<typeof supabase.channel> | null = null;
+    let settlementChannel: ReturnType<typeof supabase.channel> | null = null;
     let dispatchChannel: ReturnType<typeof supabase.channel> | null = null;
 
     supabase.auth.getUser().then(({ data: { user: authUser } }) => {
       if (!authUser) return;
 
-      channel = supabase
+      // 1. Scoped listener on assignments
+      assignChannel = supabase
         .channel(`driver_deliveries_${authUser.id}`)
         .on(
           'postgres_changes',
@@ -233,6 +259,25 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
         )
         .subscribe();
 
+      // 2. Scoped listener on COD settlements recorded by admin
+      settlementChannel = supabase
+        .channel(`driver_settlements_${authUser.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'delivery_partner_cod_settlements',
+            filter: `delivery_partner_id=eq.${authUser.id}`,
+          },
+          () => {
+            void load();
+            showToast('COD balance cleared by admin', 'success');
+          }
+        )
+        .subscribe();
+
+      // 3. Broadcast sync channel for immediate queue handovers
       dispatchChannel = supabase
         .channel('delivery_dispatch_sync')
         .on('broadcast', { event: 'assignment_changed' }, ({ payload }) => {
@@ -240,11 +285,18 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
             void load();
           }
         })
+        .on('broadcast', { event: 'cod_settled' }, ({ payload }) => {
+          if (payload?.deliveryPartnerId === authUser.id) {
+            void load();
+            showToast('COD balance cleared by admin', 'success');
+          }
+        })
         .subscribe();
     });
 
     return () => {
-      if (channel) void supabase.removeChannel(channel);
+      if (assignChannel) void supabase.removeChannel(assignChannel);
+      if (settlementChannel) void supabase.removeChannel(settlementChannel);
       if (dispatchChannel) void supabase.removeChannel(dispatchChannel);
     };
   }, [load]);
@@ -252,7 +304,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
   const handleRefresh = () => {
     setRefreshing(true);
     void load().then(() => {
-      showToast('Queue updated with latest server data', 'info');
+      showToast('Queue & settlements updated', 'info');
     });
   };
 
@@ -291,17 +343,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
     }
   };
 
-  const isTodayDate = (dateStr?: string | null) => {
-    if (!dateStr) return false;
-    const target = new Date(dateStr);
-    const now = new Date();
-    return (
-      target.getDate() === now.getDate() &&
-      target.getMonth() === now.getMonth() &&
-      target.getFullYear() === now.getFullYear()
-    );
-  };
-
+  // ── Financial Reconciliations ────────────────────────────────────
   const pendingList = useMemo(
     () => assignments.filter((a) => a.assignment.status === 'ready_for_pickup'),
     [assignments]
@@ -317,16 +359,23 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
     [assignments]
   );
 
-  const todayDeliveredList = useMemo(
-    () => deliveredList.filter((a) => isTodayDate(a.assignment.delivered_at || a.order.created_at)),
-    [deliveredList]
-  );
+  // Total Lifetime Delivered COD cash collected
+  const totalCodCollectedLifetime = useMemo(() => {
+    return deliveredList.reduce((acc, curr) => acc + (curr.paymentSummary.codPaid || 0), 0);
+  }, [deliveredList]);
 
-  const todayCodCollected = useMemo(() => {
-    return todayDeliveredList.reduce((acc, curr) => acc + (curr.paymentSummary.codPaid || 0), 0);
-  }, [todayDeliveredList]);
+  // Total Lifetime Settled with admin
+  const totalSettledWithAdmin = useMemo(() => {
+    return settlements.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+  }, [settlements]);
 
-  const totalOutstandingCod = useMemo(() => {
+  // Actual remaining cash the partner holds that must be handed over
+  const netCodCashToDeposit = useMemo(() => {
+    return Math.max(0, totalCodCollectedLifetime - totalSettledWithAdmin);
+  }, [totalCodCollectedLifetime, totalSettledWithAdmin]);
+
+  // Outstanding COD on current routes that is not yet picked up/delivered
+  const routeOutstandingCod = useMemo(() => {
     return [...pendingList, ...pickedUpList].reduce(
       (acc, curr) => acc + (curr.paymentSummary.amountToCollect || 0),
       0
@@ -371,7 +420,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
       )}
 
       <div>
-        {/* Sticky Solid Dark Green Header */}
+        {/* Sticky Solid Dark Green Header with Direct SVG Logo */}
         <header className="sticky top-0 z-30 bg-[#0a382c] text-white pt-[max(1rem,env(safe-area-inset-top))] pb-4 px-4 sm:px-6 shadow-md border-b border-[#0f4d3d]">
           <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -442,10 +491,10 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
           {/* TAB 1: DASHBOARD */}
           {navTab === 'dashboard' && (
             <div className="space-y-4">
-              {/* MODERN COD CASH-IN-HAND / REMITTANCE CARD */}
+              {/* COD REMITTANCE CARD */}
               <div className="rounded-3xl p-5 text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#064e3b] via-[#043d2f] to-[#022c22] border border-emerald-500/30">
                 <div className="relative z-10 flex flex-col justify-between h-48">
-                  {/* Top Bar: Fleet Tag & Contactless */}
+                  {/* Top Bar: Fleet Tag & Auto Sync */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="h-7 w-7 rounded-lg bg-emerald-500/20 flex items-center justify-center border border-emerald-400/30">
@@ -461,7 +510,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                     </div>
                   </div>
 
-                  {/* Main Focus: COD Cash to Deposit */}
+                  {/* Net Cash to Deposit */}
                   <div className="flex items-center justify-between my-auto">
                     {/* Metallic Security Chip */}
                     <div className="h-8 w-11 rounded-md bg-gradient-to-br from-amber-200 via-amber-300 to-amber-500 border border-amber-400/80 shadow-xs flex items-center justify-center relative shrink-0">
@@ -472,13 +521,15 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
 
                     <div className="text-right">
                       <p className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-300">
-                        COD Cash to Deposit
+                        Net COD Cash to Deposit
                       </p>
                       <p className="text-3xl font-black tracking-tight text-white mt-0.5">
-                        ₹{todayCodCollected.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{netCodCashToDeposit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                       <p className="text-[10px] text-emerald-200/75 mt-0.5 font-medium">
-                        Remit to warehouse at shift end
+                        {totalSettledWithAdmin > 0
+                          ? `₹${totalSettledWithAdmin.toLocaleString('en-IN')} already cleared with admin`
+                          : 'Remit to warehouse at shift end'}
                       </p>
                     </div>
                   </div>
@@ -509,13 +560,13 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                   style={{ background: 'linear-gradient(135deg, #047857, #10b981)' }}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-90">Today's COD</span>
-                    <TrendingUp size={16} className="opacity-80" />
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-90">Net Cash In Hand</span>
+                    <Banknote size={16} className="opacity-80" />
                   </div>
                   <div className="text-xl font-black mt-1.5 tracking-tight">
-                    ₹{todayCodCollected.toLocaleString('en-IN')}
+                    ₹{netCodCashToDeposit.toLocaleString('en-IN')}
                   </div>
-                  <p className="text-[10px] mt-1 opacity-80 font-medium">Collected from customers</p>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">Remaining to hand over</p>
                 </div>
 
                 <div
@@ -523,13 +574,13 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                   style={{ background: 'linear-gradient(135deg, #b45309, #f59e0b)' }}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-90">Pending COD</span>
-                    <Banknote size={16} className="opacity-80" />
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-90">Route Pending</span>
+                    <Clock size={16} className="opacity-80" />
                   </div>
                   <div className="text-xl font-black mt-1.5 tracking-tight">
-                    ₹{totalOutstandingCod.toLocaleString('en-IN')}
+                    ₹{routeOutstandingCod.toLocaleString('en-IN')}
                   </div>
-                  <p className="text-[10px] mt-1 opacity-80 font-medium">To collect on current routes</p>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">To collect on active runs</p>
                 </div>
 
                 <div
@@ -544,7 +595,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                     {pendingList.length + pickedUpList.length}
                   </div>
                   <p className="text-[10px] mt-1 opacity-80 font-medium">
-                    {pendingList.length} pending · {pickedUpList.length} out for delivery
+                    {pendingList.length} pending · {pickedUpList.length} in transit
                   </p>
                 </div>
 
@@ -553,15 +604,13 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                   style={{ background: 'linear-gradient(135deg, #1a56db, #3b82f6)' }}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-90">Delivered</span>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-90">Total Cleared</span>
                     <CheckCircle2 size={16} className="opacity-80" />
                   </div>
                   <div className="text-xl font-black mt-1.5 tracking-tight">
-                    {deliveredList.length}
+                    ₹{totalSettledWithAdmin.toLocaleString('en-IN')}
                   </div>
-                  <p className="text-[10px] mt-1 opacity-80 font-medium">
-                    {todayDeliveredList.length} completed today
-                  </p>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">Reconciled deposits</p>
                 </div>
               </div>
 
@@ -581,10 +630,10 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                 </div>
 
                 <div className="p-3.5 space-y-2">
-                  {todayDeliveredList.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-4">No orders settled today yet</p>
+                  {deliveredList.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-4">No completed orders settled yet</p>
                   ) : (
-                    todayDeliveredList.slice(0, 4).map(({ order, paymentSummary: pay }) => (
+                    deliveredList.slice(0, 4).map(({ order, paymentSummary: pay }) => (
                       <div
                         key={order.id}
                         className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0"
@@ -841,7 +890,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
             </div>
           )}
 
-          {/* TAB 5: DRIVER ACCOUNT & PROFILE */}
+          {/* TAB 5: DRIVER ACCOUNT & SETTLEMENT HISTORY */}
           {navTab === 'account' && (
             <div className="space-y-4">
               <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex items-center gap-4">
@@ -861,23 +910,62 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                 </div>
               </div>
 
+              {/* Financial Balance Summary */}
               <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-2.5 text-xs">
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-400 font-semibold">Today's COD Collected</span>
-                  <span className="font-extrabold text-emerald-700">₹{todayCodCollected.toLocaleString('en-IN')}</span>
+                  <span className="text-slate-500 font-semibold">Net COD to Hand Over</span>
+                  <span className="font-extrabold text-amber-700">₹{netCodCashToDeposit.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-400 font-semibold">Active Dispatches</span>
-                  <span className="font-extrabold text-slate-900">{pendingList.length + pickedUpList.length}</span>
+                  <span className="text-slate-500 font-semibold">Total Handed Over to Admin</span>
+                  <span className="font-extrabold text-emerald-700">₹{totalSettledWithAdmin.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-400 font-semibold">Total Delivered (All Time)</span>
-                  <span className="font-extrabold text-emerald-600">{deliveredList.length}</span>
+                  <span className="text-slate-500 font-semibold">Total Lifetime COD Collected</span>
+                  <span className="font-extrabold text-slate-800">₹{totalCodCollectedLifetime.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between py-1.5">
-                  <span className="text-slate-400 font-semibold">Outstanding COD to Deposit</span>
-                  <span className="font-extrabold text-amber-600">₹{totalOutstandingCod.toLocaleString('en-IN')}</span>
+                  <span className="text-slate-500 font-semibold">Completed Drops</span>
+                  <span className="font-extrabold text-emerald-600">{deliveredList.length}</span>
                 </div>
+              </div>
+
+              {/* Clearance Vouchers & Receipts */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-3">
+                <h3 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                  <ShieldCheck size={16} className="text-[#0a382c]" />
+                  Admin Clearance Receipts ({settlements.length})
+                </h3>
+
+                {settlements.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-3">No settlement clearances on file yet.</p>
+                ) : (
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1 divide-y divide-slate-100">
+                    {settlements.map((s) => (
+                      <div key={s.id} className="pt-2 first:pt-0 flex justify-between items-start text-xs">
+                        <div>
+                          <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                            <span>₹{s.amount.toLocaleString('en-IN')}</span>
+                            <span className="text-[9px] uppercase px-1.5 py-0.2 rounded font-black bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              {s.payment_mode.replace('_', ' ')}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {new Date(s.created_at).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                          {s.notes && <p className="text-[11px] text-slate-600 italic mt-0.5">Ref: {s.notes}</p>}
+                        </div>
+                        <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <button

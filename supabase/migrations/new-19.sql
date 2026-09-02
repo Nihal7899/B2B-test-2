@@ -81,3 +81,146 @@ END $$;
 ALTER TABLE public.profiles
 ADD COLUMN IF NOT EXISTS staff_registration_status text NOT NULL DEFAULT 'unregistered'::text
 CHECK (staff_registration_status = ANY (ARRAY['unregistered'::text, 'registered'::text]));
+
+-- 1. Table to log COD settlements between delivery partners and admin
+CREATE TABLE IF NOT EXISTS public.delivery_partner_cod_settlements (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  delivery_partner_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  amount numeric NOT NULL CHECK (amount > 0),
+  cleared_by uuid NOT NULL REFERENCES auth.users(id),
+  payment_mode text NOT NULL DEFAULT 'cash' CHECK (payment_mode IN ('cash', 'bank_transfer', 'upi')),
+  notes text DEFAULT ''::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE public.delivery_partner_cod_settlements ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admins can view all settlements"
+  ON public.delivery_partner_cod_settlements
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.user_roles
+      WHERE user_roles.user_id = auth.uid() AND user_roles.role = 'admin'
+    ) OR auth.uid() = delivery_partner_id
+  );
+
+CREATE POLICY "Admins can insert settlements"
+  ON public.delivery_partner_cod_settlements
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.user_roles
+      WHERE user_roles.user_id = auth.uid() AND user_roles.role = 'admin'
+    )
+  );
+
+-- 2. RPC to get real-time COD balances across all delivery partners
+CREATE OR REPLACE FUNCTION public.get_delivery_partners_cod_summary()
+RETURNS TABLE (
+  delivery_partner_id uuid,
+  driver_name text,
+  phone text,
+  total_cod_collected numeric,
+  total_cod_settled numeric,
+  outstanding_balance numeric,
+  last_settled_at timestamp with time zone
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  WITH driver_list AS (
+    SELECT 
+      ur.user_id,
+      COALESCE(NULLIF(TRIM(p.full_name), ''), NULLIF(TRIM(p.personal_name), ''), NULLIF(TRIM(p.business_name), ''), 'Delivery Partner') AS name,
+      COALESCE(p.phone, '') AS phone
+    FROM public.user_roles ur
+    JOIN public.profiles p ON p.id = ur.user_id
+    WHERE ur.role = 'delivery_partner'
+  ),
+  collected AS (
+    SELECT 
+      da.delivery_partner_id,
+      COALESCE(SUM(pay.amount), 0) AS total_collected
+    FROM public.delivery_assignments da
+    JOIN public.payments pay ON pay.order_id = da.order_id
+    WHERE da.status = 'delivered'
+      AND LOWER(pay.provider) = 'cod'
+      AND LOWER(pay.status) IN ('paid', 'completed')
+    GROUP BY da.delivery_partner_id
+  ),
+  settled AS (
+    SELECT 
+      s.delivery_partner_id,
+      COALESCE(SUM(s.amount), 0) AS total_settled,
+      MAX(s.created_at) AS last_settled
+    FROM public.delivery_partner_cod_settlements s
+    GROUP BY s.delivery_partner_id
+  )
+  SELECT 
+    d.user_id AS delivery_partner_id,
+    d.name AS driver_name,
+    d.phone,
+    COALESCE(c.total_collected, 0)::numeric AS total_cod_collected,
+    COALESCE(s.total_settled, 0)::numeric AS total_cod_settled,
+    (COALESCE(c.total_collected, 0) - COALESCE(s.total_settled, 0))::numeric AS outstanding_balance,
+    s.last_settled AS last_settled_at
+  FROM driver_list d
+  LEFT JOIN collected c ON c.delivery_partner_id = d.user_id
+  LEFT JOIN settled s ON s.delivery_partner_id = d.user_id
+  ORDER BY (COALESCE(c.total_collected, 0) - COALESCE(s.total_settled, 0)) DESC, d.name ASC;
+END;
+$$;
+
+-- 3. RPC to record a settlement and clear partner balance
+CREATE OR REPLACE FUNCTION public.record_cod_settlement(
+  p_delivery_partner_id uuid,
+  p_amount numeric,
+  p_payment_mode text DEFAULT 'cash',
+  p_notes text DEFAULT ''
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_settlement_id uuid;
+  v_admin_id uuid := auth.uid();
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.user_roles 
+    WHERE user_id = v_admin_id AND role = 'admin'
+  ) THEN
+    RAISE EXCEPTION 'Unauthorized: Only admins can record COD settlements';
+  END IF;
+
+  IF p_amount <= 0 THEN
+    RAISE EXCEPTION 'Settlement amount must be greater than 0';
+  END IF;
+
+  INSERT INTO public.delivery_partner_cod_settlements (
+    delivery_partner_id,
+    amount,
+    cleared_by,
+    payment_mode,
+    notes
+  )
+  VALUES (
+    p_delivery_partner_id,
+    p_amount,
+    v_admin_id,
+    p_payment_mode,
+    p_notes
+  )
+  RETURNING id INTO v_settlement_id;
+
+  RETURN v_settlement_id;
+END;
+$$;

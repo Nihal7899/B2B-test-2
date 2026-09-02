@@ -17,12 +17,13 @@ import {
   Bell,
   BarChart2,
   PenTool,
-  MessageSquare, // Added icon
+  MessageSquare,
+  Banknote,
 } from 'lucide-react';
 import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import InvoiceSettings from '@/components/InvoiceSettings';
 import AdminInvoices from '@/components/AdminInvoices';
-import WhatsAppCampaignManager from '@/components/Admin/WhatsAppCampaignManager'; // Added component
+import WhatsAppCampaignManager from '@/components/Admin/WhatsAppCampaignManager';
 
 import Dashboard from '@/components/Admin/Dashboard';
 import BannersManager from '@/components/Admin/BannersManager';
@@ -42,7 +43,7 @@ import Reports from '@/components/Admin/Reports';
 import SubcategoriesManager from '@/components/Admin/SubcategoriesManager';
 import CompressionSettings from '@/components/Admin/CompressionSettings';
 import SectionsManager from '@/components/Admin/SectionsManager';
-
+import CodSettlementManager from '@/components/Admin/CodSettlementManager';
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -64,11 +65,12 @@ type Tab =
   | 'deliverysettings'
   | 'smartcollections'
   | 'roles'
+  | 'codSettlement'
   | 'invoices'
   | 'invoiceSettings'
   | 'deliveryRanges'
   | 'push'
-  | 'whatsapp' // Added Tab ID
+  | 'whatsapp'
   | 'reports'
   | 'compression';
 
@@ -89,13 +91,14 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'volumepricing', label: 'Volume Pricing', icon: Percent },
     { id: 'promocodes', label: 'Promo Codes', icon: Gift },
     { id: 'deliverysettings', label: 'Delivery Settings', icon: Truck },
+    { id: 'codSettlement', label: 'COD Settlement', icon: Banknote },
     { id: 'smartcollections', label: 'Smart Collections', icon: LayoutGrid },
     { id: 'roles', label: 'Roles', icon: Users },
     { id: 'invoices', label: 'Invoices', icon: FileText },
     { id: 'invoiceSettings', label: 'Invoice Settings', icon: Settings },
     { id: 'deliveryRanges', label: 'Delivery Ranges', icon: MapPin },
     { id: 'push', label: 'Push Notifications', icon: Bell },
-    { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare }, // Add
+    { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
     { id: 'reports', label: 'Reports', icon: BarChart2 },
     { id: 'compression', label: 'Compression', icon: Settings },
   ];
@@ -148,6 +151,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'volumepricing' && <VolumePricingManager />}
         {tab === 'promocodes' && <PromoCodesManager />}
         {tab === 'deliverysettings' && <DeliverySettingsManager />}
+        {tab === 'codSettlement' && <CodSettlementManager />}
         {tab === 'smartcollections' && <SmartCollectionsManager />}
         {tab === 'roles' && <RolesManager />}
         {tab === 'invoices' && <AdminInvoices />}

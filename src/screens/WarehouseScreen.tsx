@@ -14,15 +14,14 @@ import {
   UserCheck,
   Eye,
   X,
-  Wallet,
-  CreditCard,
-  Banknote,
+  FileText,
   Check,
   CheckCircle,
   XCircle,
   ChevronDown,
   Edit2,
   AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
@@ -70,7 +69,7 @@ interface PaymentSummary {
 }
 
 export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
-  const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'low_stock'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'invoices' | 'inventory' | 'low_stock'>('orders');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
 
   // Orders State
@@ -97,7 +96,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 1. Fetch Drivers using the RPC
+  // 1. Fetch Drivers using RPC
   const loadDrivers = useCallback(async () => {
     try {
       const { data, error } = await supabase.rpc('get_delivery_partners');
@@ -108,14 +107,14 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
     }
   }, []);
 
-  // 2. Fetch Orders, Addresses, Assignments, and Payments
+  // 2. Fetch Orders: Ascending order (Oldest first, Newest at bottom)
   const loadOrders = useCallback(async () => {
     try {
       const { data: ordersData, error: ordersErr } = await supabase
         .from('orders')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .order('created_at', { ascending: true }) // Old orders at top, new orders at bottom
+        .limit(150);
 
       if (ordersErr || !ordersData) return;
 
@@ -148,7 +147,6 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         setAssignmentsMap(asgMap);
       }
 
-      // Compute exact payment breakdown
       const paySummaries: Record<string, PaymentSummary> = {};
       const allPayments: PaymentRecord[] = (paymentsRes.data as PaymentRecord[]) || [];
 
@@ -264,13 +262,16 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
     }
   };
 
-  // Order Actions
+  // Confirm order & immediately recalculate low stock
   const handleConfirmOrder = async (orderId: string) => {
     setActionOrderId(orderId);
     try {
       const { error } = await supabase.rpc('confirm_order', { p_order_id: orderId });
       if (error) alert('Could not confirm order: ' + error.message);
-      else await Promise.all([loadOrders(), loadInventory()]);
+      else {
+        // Run both so inventory and the low stock badge update instantly
+        await Promise.all([loadOrders(), loadInventory()]);
+      }
     } finally {
       setActionOrderId(null);
     }
@@ -291,7 +292,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
   };
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!confirm('Are you sure you want to cancel this order?')) return;
+    if (!confirm('Are you sure you want to cancel this order? Stock will be preserved.')) return;
     setActionOrderId(orderId);
     try {
       const { error } = await supabase.rpc('cancel_order_warehouse', {
@@ -307,8 +308,10 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
 
   const handleAssignDriver = async (orderId: string, driverId: string) => {
     setActionOrderId(orderId);
+    const existing = assignmentsMap[orderId];
+    const previousDriverId = existing?.delivery_partner_id || null;
+
     try {
-      const existing = assignmentsMap[orderId];
       if (existing) {
         await supabase
           .from('delivery_assignments')
@@ -319,6 +322,15 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
           .from('delivery_assignments')
           .insert({ order_id: orderId, delivery_partner_id: driverId, status: 'ready_for_pickup' });
       }
+
+      // Zero-load broadcast to update driver devices instantly
+      const syncChannel = supabase.channel('delivery_dispatch_sync');
+      await syncChannel.send({
+        type: 'broadcast',
+        event: 'assignment_changed',
+        payload: { orderId, previousDriverId, newDriverId: driverId },
+      });
+
       setEditingDriverOrderId(null);
       await loadOrders();
     } catch (err: any) {
@@ -349,6 +361,14 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
     setStockEdits((prev) => ({ ...prev, [productId]: isNaN(parsed) ? 0 : Math.max(0, parsed) }));
   };
 
+  const handleCancelStockEdit = (productId: string) => {
+    setStockEdits((prev) => {
+      const clone = { ...prev };
+      delete clone[productId];
+      return clone;
+    });
+  };
+
   const handleSaveStock = async (productId: string) => {
     const updatedQuantity = stockEdits[productId];
     if (updatedQuantity === undefined) return;
@@ -366,18 +386,14 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         setProducts((prev) =>
           prev.map((p) => (p.id === productId ? { ...p, stock_quantity: updatedQuantity } : p))
         );
-        setStockEdits((prev) => {
-          const clone = { ...prev };
-          delete clone[productId];
-          return clone;
-        });
+        handleCancelStockEdit(productId);
       }
     } finally {
       setSavingStockId(null);
     }
   };
 
-  // Filtered Orders
+  // Filter Pills for Orders
   const orderPills = [
     { id: 'all', label: 'All' },
     { id: 'pending', label: 'Pending' },
@@ -400,6 +416,17 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
       return matchesSearch && matchesStatus;
     });
   }, [orders, addressMap, searchQuery, orderStatusPill]);
+
+  const invoiceOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const recipient = o.address_id ? addressMap[o.address_id]?.recipient_name || '' : '';
+      const orderNum = o.order_number || '';
+      return (
+        orderNum.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        recipient.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    });
+  }, [orders, addressMap, searchQuery]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -446,8 +473,8 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
         </button>
       </div>
 
-      {/* Main Mode Tabs */}
-      <div className="grid grid-cols-3 gap-1 bg-ink-100 p-1 rounded-2xl">
+      {/* Main Mode Tabs with Invoices restored */}
+      <div className="grid grid-cols-4 gap-1 bg-ink-100 p-1 rounded-2xl">
         <button
           onClick={() => {
             setActiveTab('orders');
@@ -457,8 +484,22 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
             activeTab === 'orders' ? 'bg-white text-brand-700 shadow-sm' : 'text-ink-600 hover:text-ink-900'
           }`}
         >
-          <Package size={15} />
-          <span>Orders ({orders.length})</span>
+          <Package size={14} />
+          <span className="hidden sm:inline">Orders</span>
+          <span>({orders.length})</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('invoices');
+            setSearchQuery('');
+          }}
+          className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'invoices' ? 'bg-white text-brand-700 shadow-sm' : 'text-ink-600 hover:text-ink-900'
+          }`}
+        >
+          <FileText size={14} />
+          <span>Invoices</span>
         </button>
 
         <button
@@ -470,8 +511,9 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
             activeTab === 'inventory' ? 'bg-white text-brand-700 shadow-sm' : 'text-ink-600 hover:text-ink-900'
           }`}
         >
-          <Boxes size={15} />
-          <span>Inventory ({products.length})</span>
+          <Boxes size={14} />
+          <span className="hidden sm:inline">Inventory</span>
+          <span>({products.length})</span>
         </button>
 
         <button
@@ -479,27 +521,27 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
             setActiveTab('low_stock');
             setSearchQuery('');
           }}
-          className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all relative ${
             activeTab === 'low_stock' ? 'bg-white text-red-600 shadow-sm' : 'text-ink-600 hover:text-ink-900'
           }`}
         >
-          <AlertTriangle size={15} />
+          <AlertTriangle size={14} />
           <span>Low Stock</span>
           {lowStockProducts.length > 0 && (
-            <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full ml-1">
+            <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full ml-0.5">
               {lowStockProducts.length}
             </span>
           )}
         </button>
       </div>
 
-      {/* Search Input */}
+      {/* Search Bar */}
       <div className="relative">
         <Search size={15} className="absolute left-3 top-3 text-ink-400" />
         <input
           type="text"
           placeholder={
-            activeTab === 'orders'
+            activeTab === 'orders' || activeTab === 'invoices'
               ? 'Search by Order # or Merchant Name...'
               : 'Search product brand, name, or code...'
           }
@@ -587,7 +629,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                           : 'border-ink-100'
                       }`}
                     >
-                      {/* Order Header & Status Badge */}
+                      {/* Order Header */}
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-2">
@@ -628,7 +670,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                         </span>
                       </div>
 
-                      {/* Prominent Payment Due / Paid Banner */}
+                      {/* Payment Status Bar */}
                       <div
                         className={`p-3 rounded-xl border flex items-center justify-between font-bold text-xs ${
                           pay.isFullyPaid || isDelivered
@@ -665,10 +707,10 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                         </div>
                       </div>
 
-                      {/* Total & Items trigger */}
+                      {/* Line Item preview trigger */}
                       <div className="flex items-center justify-between text-xs pt-1">
                         <div>
-                          <span className="text-ink-400">Total Bill: </span>
+                          <span className="text-ink-400">Total: </span>
                           <span className="font-extrabold text-ink-900">
                             ₹{Number(ord.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                           </span>
@@ -681,7 +723,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                         </button>
                       </div>
 
-                      {/* Delivery Partner Assignment ONLY in 'ready_for_pickup' */}
+                      {/* Driver Assignment ONLY in 'ready_for_pickup' */}
                       {isReadyForPickup && (
                         <div className="rounded-xl bg-ink-50 border border-ink-200 p-2.5 space-y-2">
                           <div className="flex items-center justify-between">
@@ -741,7 +783,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                             className="flex-1 h-9 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-soft active:scale-98 transition disabled:opacity-50"
                           >
                             {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                            Confirm Order
+                            Confirm & Deduct Stock
                           </button>
                         )}
 
@@ -767,7 +809,6 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                           </button>
                         )}
 
-                        {/* Order Cancellation (Active in pre-delivery phases) */}
                         {!isDelivered && !isCancelled && (
                           <button
                             disabled={isProcessing}
@@ -778,7 +819,6 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                           </button>
                         )}
 
-                        {/* Invoice Generator */}
                         <button
                           onClick={() => void handlePrint(ord.id, ord.order_number)}
                           className="h-9 px-3 rounded-xl border border-ink-200 bg-white hover:bg-ink-50 text-ink-700 text-xs font-bold flex items-center gap-1.5 shadow-xs active:scale-98 transition"
@@ -793,7 +833,51 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
             </div>
           )}
 
-          {/* TAB 2 & 3: INVENTORY & LOW STOCK CONTROLS */}
+          {/* TAB 2: INVOICES TAB */}
+          {activeTab === 'invoices' && (
+            <div className="space-y-3">
+              {invoiceOrders.length === 0 ? (
+                <div className="bg-white border border-ink-100 rounded-3xl p-10 text-center text-ink-400 space-y-2">
+                  <FileText size={36} className="mx-auto text-ink-300" />
+                  <p className="font-bold text-sm text-ink-700">No invoices match your search</p>
+                </div>
+              ) : (
+                invoiceOrders.map((ord) => {
+                  const addr = ord.address_id ? addressMap[ord.address_id] : null;
+                  return (
+                    <div
+                      key={ord.id}
+                      className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card flex items-center justify-between gap-3"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-sm text-ink-900">{ord.order_number}</span>
+                          <span className="text-[10px] font-bold text-ink-500 uppercase px-2 py-0.5 rounded-md bg-ink-100">
+                            {ord.status.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-ink-600 font-medium mt-0.5">
+                          {addr?.recipient_name} · {addr?.city}
+                        </p>
+                        <p className="text-[11px] text-ink-400 mt-0.5">
+                          Total: <span className="font-extrabold text-ink-800">₹{Number(ord.total).toLocaleString('en-IN')}</span> · GST: ₹{Number(ord.gst_amount || 0).toLocaleString('en-IN')}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => void handlePrint(ord.id, ord.order_number)}
+                        className="h-9 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-soft active:scale-95 transition shrink-0"
+                      >
+                        <Printer size={14} /> Print GST Invoice
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* TAB 3 & 4: INVENTORY & LOW STOCK */}
           {(activeTab === 'inventory' || activeTab === 'low_stock') && (
             <div className="space-y-3">
               {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
@@ -850,7 +934,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                         </span>
                       </div>
 
-                      {/* Stock Adjustment Controls */}
+                      {/* Stock Adjustment Controls with Both Update & Cancel */}
                       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-2.5">
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs text-ink-400 font-semibold mr-1">Qty:</span>
@@ -892,15 +976,25 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
                           </div>
                         </div>
 
+                        {/* Both Cancel & Update Buttons */}
                         {isModified && (
-                          <button
-                            disabled={isSaving}
-                            onClick={() => void handleSaveStock(prod.id)}
-                            className="h-8 px-3 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs flex items-center gap-1 shadow-soft active:scale-95 transition"
-                          >
-                            {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                            Update
-                          </button>
+                          <div className="flex items-center gap-1.5 ml-auto">
+                            <button
+                              onClick={() => handleCancelStockEdit(prod.id)}
+                              className="h-8 px-2.5 rounded-lg border border-ink-200 bg-white hover:bg-ink-50 text-ink-600 font-bold text-xs flex items-center gap-1 shadow-xs active:scale-95 transition"
+                            >
+                              <RotateCcw size={12} />
+                              Cancel
+                            </button>
+                            <button
+                              disabled={isSaving}
+                              onClick={() => void handleSaveStock(prod.id)}
+                              className="h-8 px-3 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs flex items-center gap-1 shadow-soft active:scale-95 transition disabled:opacity-50"
+                            >
+                              {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                              Update
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -915,7 +1009,7 @@ export function WarehouseScreen({ onBack }: WarehouseScreenProps) {
       {/* Lazy Line-Item Inspection Modal */}
       {inspectOrderId && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-ink-100 pb-3">
               <div>
                 <h3 className="font-black text-sm text-ink-900">Package Contents</h3>

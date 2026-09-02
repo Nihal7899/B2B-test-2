@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   ArrowLeft, Package, Truck, CheckCircle2, MapPin, Loader2,
-  PhoneCall, Navigation, Wallet, Banknote, CreditCard, RefreshCw
+  PhoneCall, Navigation, Wallet, Banknote, CreditCard, RefreshCw, Clock
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
@@ -23,6 +23,7 @@ export interface DeliveryPaymentSummary {
 }
 
 export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
+  const [activeDeliveryTab, setActiveDeliveryTab] = useState<'pending' | 'picked_up' | 'delivered'>('pending');
   const [assignments, setAssignments] = useState<
     {
       assignment: { id: string; order_id: string; status: string; picked_up_at: string | null; delivered_at: string | null };
@@ -45,7 +46,6 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         return;
       }
 
-      // Fetch driver assignments
       const { data: assignData, error: assignError } = await supabase
         .from('delivery_assignments')
         .select('*')
@@ -53,7 +53,6 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         .order('created_at', { ascending: false });
 
       if (assignError || !assignData) {
-        console.error('Error fetching assignments:', assignError);
         setLoading(false);
         setRefreshing(false);
         return;
@@ -67,7 +66,6 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         return;
       }
 
-      // Parallel fetch order metadata & payment entries
       const [ordersRes, itemsRes, paymentsRes] = await Promise.all([
         supabase.from('orders').select('*').in('id', orderIds),
         supabase.from('order_items').select('*').in('order_id', orderIds),
@@ -92,7 +90,6 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         itemsMap[item.order_id].push(item);
       });
 
-      // Calculate dues per order
       const paymentsMap: Record<string, DeliveryPaymentSummary> = {};
       const allPayments = paymentsRes.data || [];
 
@@ -178,11 +175,12 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
     void load();
 
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let dispatchChannel: ReturnType<typeof supabase.channel> | null = null;
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
 
-      // Realtime subscription scoped to driver ID
+      // 1. Scoped user listener for updates/inserts
       channel = supabase
         .channel(`driver_deliveries_${user.id}`)
         .on(
@@ -198,12 +196,21 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
           }
         )
         .subscribe();
+
+      // 2. In-memory Zero-load broadcast listener: Drops reassigned orders immediately
+      dispatchChannel = supabase
+        .channel('delivery_dispatch_sync')
+        .on('broadcast', { event: 'assignment_changed' }, ({ payload }) => {
+          if (payload?.previousDriverId === user.id || payload?.newDriverId === user.id) {
+            void load();
+          }
+        })
+        .subscribe();
     });
 
     return () => {
-      if (channel) {
-        void supabase.removeChannel(channel);
-      }
+      if (channel) void supabase.removeChannel(channel);
+      if (dispatchChannel) void supabase.removeChannel(dispatchChannel);
     };
   }, [load]);
 
@@ -220,17 +227,32 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         p_status: status,
       });
       if (error) {
-        console.error('Error updating delivery:', error);
         alert('Could not update delivery: ' + error.message);
       } else {
         await load();
       }
-    } catch (err) {
-      console.error('Unexpected error:', err);
     } finally {
       setProcessingId(null);
     }
   };
+
+  const pendingList = useMemo(() => {
+    return assignments.filter((a) => a.assignment.status === 'ready_for_pickup');
+  }, [assignments]);
+
+  const pickedUpList = useMemo(() => {
+    return assignments.filter((a) => a.assignment.status === 'out_for_delivery');
+  }, [assignments]);
+
+  const deliveredList = useMemo(() => {
+    return assignments.filter((a) => a.assignment.status === 'delivered');
+  }, [assignments]);
+
+  const displayedList = useMemo(() => {
+    if (activeDeliveryTab === 'pending') return pendingList;
+    if (activeDeliveryTab === 'picked_up') return pickedUpList;
+    return deliveredList;
+  }, [activeDeliveryTab, pendingList, pickedUpList, deliveredList]);
 
   if (loading) {
     return (
@@ -243,7 +265,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
   const isProcessing = (id: string) => processingId === id;
 
   return (
-    <div className="px-4 pb-28 space-y-4">
+    <div className="safe-top px-4 pb-28 space-y-4 max-w-xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -267,19 +289,63 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         </button>
       </div>
 
-      {assignments.length === 0 ? (
+      {/* 3 Status Tabs */}
+      <div className="grid grid-cols-3 gap-1 bg-ink-100 p-1 rounded-2xl">
+        <button
+          onClick={() => setActiveDeliveryTab('pending')}
+          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeDeliveryTab === 'pending'
+              ? 'bg-white text-brand-700 shadow-sm'
+              : 'text-ink-600 hover:text-ink-900'
+          }`}
+        >
+          <Clock size={14} />
+          <span>Pending ({pendingList.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveDeliveryTab('picked_up')}
+          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeDeliveryTab === 'picked_up'
+              ? 'bg-white text-sky-700 shadow-sm'
+              : 'text-ink-600 hover:text-ink-900'
+          }`}
+        >
+          <Truck size={14} />
+          <span>Picked Up ({pickedUpList.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveDeliveryTab('delivered')}
+          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeDeliveryTab === 'delivered'
+              ? 'bg-white text-emerald-700 shadow-sm'
+              : 'text-ink-600 hover:text-ink-900'
+          }`}
+        >
+          <CheckCircle2 size={14} />
+          <span>Delivered ({deliveredList.length})</span>
+        </button>
+      </div>
+
+      {/* Deliveries List */}
+      {displayedList.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600">
             <Truck size={36} strokeWidth={1.5} />
           </div>
-          <h2 className="text-lg font-extrabold text-ink-900 mt-5">No deliveries assigned</h2>
+          <h2 className="text-lg font-extrabold text-ink-900 mt-5">No orders in this tab</h2>
           <p className="text-sm text-ink-500 mt-1 max-w-[250px]">
-            New dispatches assigned to you will show up here.
+            {activeDeliveryTab === 'pending'
+              ? 'No newly assigned dispatches pending pickup.'
+              : activeDeliveryTab === 'picked_up'
+              ? 'No packages currently out for delivery.'
+              : 'Delivered orders will appear here.'}
           </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {assignments.map(({ assignment, order, items, address, paymentSummary: pay }) => {
+          {displayedList.map(({ assignment, order, items, address, paymentSummary: pay }) => {
             const isCurrentProcessing = isProcessing(assignment.id);
             const isDelivered = assignment.status === 'delivered';
 
@@ -292,7 +358,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                     : 'border-ink-100'
                 }`}
               >
-                {/* Order Header */}
+                {/* Header */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5">
                     <div className="h-9 w-9 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
@@ -318,7 +384,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                   </span>
                 </div>
 
-                {/* Cash to Collect Card */}
+                {/* Cash To Collect Bar */}
                 <div
                   className={`p-3.5 rounded-xl border flex items-center justify-between font-extrabold ${
                     pay.isFullyPaid || isDelivered
@@ -377,26 +443,26 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                   {pay.walletPaid > 0 && (
                     <div className="flex justify-between text-emerald-600 font-semibold items-center">
                       <span className="flex items-center gap-1.5"><Wallet size={13} /> Paid via Wallet</span>
-                      <span>- ₹{pay.walletPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>- ₹{pay.walletPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
                   )}
 
                   {pay.onlinePaid > 0 && (
                     <div className="flex justify-between text-blue-600 font-semibold items-center">
                       <span className="flex items-center gap-1.5"><CreditCard size={13} /> Paid Online (Razorpay)</span>
-                      <span>- ₹{pay.onlinePaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>- ₹{pay.onlinePaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
                   )}
 
                   {pay.codPaid > 0 && (
                     <div className="flex justify-between text-emerald-600 font-semibold items-center">
                       <span className="flex items-center gap-1.5"><Banknote size={13} /> COD Settled</span>
-                      <span>- ₹{pay.codPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>- ₹{pay.codPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
                   )}
                 </div>
 
-                {/* Customer Contact & Navigation */}
+                {/* Customer Address & Calls */}
                 {address && (
                   <div className="rounded-2xl bg-ink-50 p-3 space-y-2.5 border border-ink-100">
                     <div className="flex items-start gap-2">
@@ -435,7 +501,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
                   </div>
                 )}
 
-                {/* Slider Controls */}
+                {/* Gesture-Aware Slide Controls */}
                 <div className="pt-2">
                   {assignment.status === 'ready_for_pickup' && (
                     <SlideToConfirm

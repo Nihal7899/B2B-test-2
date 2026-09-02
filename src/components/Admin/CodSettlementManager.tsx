@@ -41,7 +41,6 @@ export default function CodSettlementManager() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Settlement Modal State
   const [selectedDriver, setSelectedDriver] = useState<DriverCodSummary | null>(null);
   const [settleAmount, setSettleAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState<'cash' | 'bank_transfer' | 'upi'>('cash');
@@ -49,7 +48,6 @@ export default function CodSettlementManager() {
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState('');
 
-  // History Drawer State
   const [historyDriver, setHistoryDriver] = useState<DriverCodSummary | null>(null);
   const [historyLogs, setHistoryLogs] = useState<SettlementLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -114,7 +112,7 @@ export default function CodSettlementManager() {
 
       if (error) throw error;
 
-      // Realtime zero-load sync to immediately update driver's active screen
+      // Broadcast clearance over WebSocket so driver's card drops to 0 instantly
       const syncChannel = supabase.channel('delivery_dispatch_sync');
       await syncChannel.send({
         type: 'broadcast',

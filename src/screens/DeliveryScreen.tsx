@@ -8,7 +8,6 @@ import {
   Loader2,
   PhoneCall,
   Navigation,
-  Wallet,
   Banknote,
   CreditCard,
   RefreshCw,
@@ -60,7 +59,7 @@ interface ToastNotification {
 }
 
 export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScreenProps) {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, refreshProfile, signOut } = useAuth();
   const [navTab, setNavTab] = useState<'dashboard' | 'pending' | 'picked_up' | 'delivered' | 'account'>('dashboard');
   const [assignments, setAssignments] = useState<
     {
@@ -92,7 +91,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
         return;
       }
 
-      // 1. Fetch active assignments and settlement clearance history in parallel
+      // 1. Fetch assignments & clearance history
       const [assignRes, settlementsRes] = await Promise.all([
         supabase
           .from('delivery_assignments')
@@ -124,11 +123,18 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
       }
 
       const orderIds = assignData.map((a) => a.order_id);
+      
+      // Only fetch heavy line items for active orders to save mobile bandwidth
+      const activeOrderIds = assignData
+        .filter((a) => a.status === 'ready_for_pickup' || a.status === 'out_for_delivery')
+        .map((a) => a.order_id);
 
       // 2. Fetch order metadata
       const [ordersRes, itemsRes, paymentsRes] = await Promise.all([
         supabase.from('orders').select('*').in('id', orderIds),
-        supabase.from('order_items').select('*').in('order_id', orderIds),
+        activeOrderIds.length > 0
+          ? supabase.from('order_items').select('*').in('order_id', activeOrderIds)
+          : Promise.resolve({ data: [] }),
         supabase.from('payments').select('id, order_id, provider, status, amount').in('order_id', orderIds),
       ]);
 
@@ -236,13 +242,13 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
     void load();
 
     let assignChannel: ReturnType<typeof supabase.channel> | null = null;
-    let settlementChannel: ReturnType<typeof supabase.channel> | null = null;
+    let profileChannel: ReturnType<typeof supabase.channel> | null = null;
     let dispatchChannel: ReturnType<typeof supabase.channel> | null = null;
 
     supabase.auth.getUser().then(({ data: { user: authUser } }) => {
       if (!authUser) return;
 
-      // 1. Scoped listener on assignments
+      // 1. Scoped listener on delivery assignments
       assignChannel = supabase
         .channel(`driver_deliveries_${authUser.id}`)
         .on(
@@ -255,29 +261,29 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
           },
           () => {
             void load();
+            void refreshProfile();
           }
         )
         .subscribe();
 
-      // 2. Scoped listener on COD settlements recorded by admin
-      settlementChannel = supabase
-        .channel(`driver_settlements_${authUser.id}`)
+      // 2. Realtime listener on profiles table to sync current_cod_balance
+      profileChannel = supabase
+        .channel(`driver_profile_${authUser.id}`)
         .on(
           'postgres_changes',
           {
             event: '*',
             schema: 'public',
-            table: 'delivery_partner_cod_settlements',
-            filter: `delivery_partner_id=eq.${authUser.id}`,
+            table: 'profiles',
+            filter: `id=eq.${authUser.id}`,
           },
           () => {
-            void load();
-            showToast('COD balance cleared by admin', 'success');
+            void refreshProfile();
           }
         )
         .subscribe();
 
-      // 3. Broadcast sync channel for immediate queue handovers
+      // 3. In-memory zero-load broadcast listener
       dispatchChannel = supabase
         .channel('delivery_dispatch_sync')
         .on('broadcast', { event: 'assignment_changed' }, ({ payload }) => {
@@ -287,6 +293,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
         })
         .on('broadcast', { event: 'cod_settled' }, ({ payload }) => {
           if (payload?.deliveryPartnerId === authUser.id) {
+            void refreshProfile();
             void load();
             showToast('COD balance cleared by admin', 'success');
           }
@@ -296,15 +303,15 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
 
     return () => {
       if (assignChannel) void supabase.removeChannel(assignChannel);
-      if (settlementChannel) void supabase.removeChannel(settlementChannel);
+      if (profileChannel) void supabase.removeChannel(profileChannel);
       if (dispatchChannel) void supabase.removeChannel(dispatchChannel);
     };
-  }, [load]);
+  }, [load, refreshProfile]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    void load().then(() => {
-      showToast('Queue & settlements updated', 'info');
+    void Promise.all([load(), refreshProfile()]).then(() => {
+      showToast('Queue & balance refreshed', 'info');
     });
   };
 
@@ -325,16 +332,16 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
         showToast(`Could not update: ${error.message}`, 'error');
       } else {
         if (targetStatus === 'out_for_delivery') {
-          showToast(`Order ${orderNumber} picked up. Marked Out for Delivery!`, 'success');
+          showToast(`Order ${orderNumber} marked Out for Delivery!`, 'success');
         } else {
           showToast(
             collectedAmount > 0
-              ? `Delivered! ₹${collectedAmount.toLocaleString('en-IN')} COD cash collected.`
-              : `Order ${orderNumber} delivered & completed successfully!`,
+              ? `Delivered! ₹${collectedAmount.toLocaleString('en-IN')} added to cash-in-hand.`
+              : `Order ${orderNumber} delivered successfully!`,
             'success'
           );
         }
-        await load();
+        await Promise.all([load(), refreshProfile()]);
       }
     } catch (err: any) {
       showToast(err?.message || 'Action failed. Please retry.', 'error');
@@ -343,7 +350,6 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
     }
   };
 
-  // ── Financial Reconciliations ────────────────────────────────────
   const pendingList = useMemo(
     () => assignments.filter((a) => a.assignment.status === 'ready_for_pickup'),
     [assignments]
@@ -359,22 +365,15 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
     [assignments]
   );
 
-  // Total Lifetime Delivered COD cash collected
-  const totalCodCollectedLifetime = useMemo(() => {
-    return deliveredList.reduce((acc, curr) => acc + (curr.paymentSummary.codPaid || 0), 0);
-  }, [deliveredList]);
+  // O(1) Instant Balance lookup from profile row
+  const netCodCashToDeposit = Number(profile?.current_cod_balance ?? 0);
 
   // Total Lifetime Settled with admin
   const totalSettledWithAdmin = useMemo(() => {
     return settlements.reduce((acc, curr) => acc + (curr.amount || 0), 0);
   }, [settlements]);
 
-  // Actual remaining cash the partner holds that must be handed over
-  const netCodCashToDeposit = useMemo(() => {
-    return Math.max(0, totalCodCollectedLifetime - totalSettledWithAdmin);
-  }, [totalCodCollectedLifetime, totalSettledWithAdmin]);
-
-  // Outstanding COD on current routes that is not yet picked up/delivered
+  // Route Outstanding COD not yet collected
   const routeOutstandingCod = useMemo(() => {
     return [...pendingList, ...pickedUpList].reduce(
       (acc, curr) => acc + (curr.paymentSummary.amountToCollect || 0),
@@ -408,7 +407,6 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
 
   return (
     <div className="min-h-screen bg-[#f8faf9] flex flex-col justify-between pb-24">
-      {/* Toast Notification Container */}
       {toastNotification && (
         <div className="fixed top-4 inset-x-4 z-50 max-w-sm mx-auto animate-in fade-in slide-in-from-top-4 duration-200">
           <Toast
@@ -420,7 +418,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
       )}
 
       <div>
-        {/* Sticky Solid Dark Green Header with Direct SVG Logo */}
+        {/* Sticky Header with Direct Clean Logo */}
         <header className="sticky top-0 z-30 bg-[#0a382c] text-white pt-[max(1rem,env(safe-area-inset-top))] pb-4 px-4 sm:px-6 shadow-md border-b border-[#0f4d3d]">
           <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -528,7 +526,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                       </p>
                       <p className="text-[10px] text-emerald-200/75 mt-0.5 font-medium">
                         {totalSettledWithAdmin > 0
-                          ? `₹${totalSettledWithAdmin.toLocaleString('en-IN')} already cleared with admin`
+                          ? `₹${totalSettledWithAdmin.toLocaleString('en-IN')} cleared to date`
                           : 'Remit to warehouse at shift end'}
                       </p>
                     </div>
@@ -566,7 +564,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                   <div className="text-xl font-black mt-1.5 tracking-tight">
                     ₹{netCodCashToDeposit.toLocaleString('en-IN')}
                   </div>
-                  <p className="text-[10px] mt-1 opacity-80 font-medium">Remaining to hand over</p>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">Physical cash with driver</p>
                 </div>
 
                 <div
@@ -755,20 +753,22 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                           </div>
                         </div>
 
-                        {/* Items Details */}
-                        <div className="space-y-1.5 border-t border-dashed border-slate-200 pt-2.5">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Package Contents</p>
-                          {items.map((item) => (
-                            <div key={item.id} className="flex justify-between text-xs py-0.5">
-                              <span className="text-slate-700 font-semibold truncate flex-1">
-                                {item.brand} {item.product_name} × {item.quantity}
-                              </span>
-                              <span className="font-bold text-slate-900 ml-2">
-                                ₹{Number(item.line_total).toLocaleString('en-IN')}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                        {/* Items Details (Only loaded for active orders) */}
+                        {items.length > 0 && (
+                          <div className="space-y-1.5 border-t border-dashed border-slate-200 pt-2.5">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Package Contents</p>
+                            {items.map((item) => (
+                              <div key={item.id} className="flex justify-between text-xs py-0.5">
+                                <span className="text-slate-700 font-semibold truncate flex-1">
+                                  {item.brand} {item.product_name} × {item.quantity}
+                                </span>
+                                <span className="font-bold text-slate-900 ml-2">
+                                  ₹{Number(item.line_total).toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
                         {/* Bill Breakdown */}
                         <div className="border-t border-dashed border-slate-200 pt-2.5 space-y-1.5 text-xs">
@@ -838,7 +838,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                           </div>
                         )}
 
-                        {/* Slide to Confirm with Loading State */}
+                        {/* Slide to Confirm Controls */}
                         <div className="pt-2">
                           {assignment.status === 'ready_for_pickup' && (
                             <SlideToConfirm
@@ -913,16 +913,12 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
               {/* Financial Balance Summary */}
               <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-2.5 text-xs">
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500 font-semibold">Net COD to Hand Over</span>
+                  <span className="text-slate-500 font-semibold">Net Cash to Deposit</span>
                   <span className="font-extrabold text-amber-700">₹{netCodCashToDeposit.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
                   <span className="text-slate-500 font-semibold">Total Handed Over to Admin</span>
                   <span className="font-extrabold text-emerald-700">₹{totalSettledWithAdmin.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-500 font-semibold">Total Lifetime COD Collected</span>
-                  <span className="font-extrabold text-slate-800">₹{totalCodCollectedLifetime.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between py-1.5">
                   <span className="text-slate-500 font-semibold">Completed Drops</span>
@@ -980,7 +976,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
         </main>
       </div>
 
-      {/* Solid White Bottom Navigation Bar */}
+      {/* Bottom Navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] safe-bottom">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-2">
           <button

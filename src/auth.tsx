@@ -13,6 +13,7 @@ export interface ProfileData {
   avatar_url: string | null;
   registration_status: 'unregistered' | 'registered';
   staff_registration_status: 'unregistered' | 'registered';
+  current_cod_balance: number;
 }
 
 interface AuthContextValue {
@@ -53,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, personal_name, full_name, phone, business_name, avatar_url, registration_status, staff_registration_status')
+      .select('id, personal_name, full_name, phone, business_name, avatar_url, registration_status, staff_registration_status, current_cod_balance')
       .eq('id', userId)
       .maybeSingle();
 
@@ -63,7 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (data) {
-      setProfile(data as ProfileData);
+      setProfile({
+        ...data,
+        current_cod_balance: Number(data.current_cod_balance) || 0,
+      } as ProfileData);
     }
   }, []);
 

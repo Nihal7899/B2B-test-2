@@ -121,7 +121,7 @@ function parseRoute(pathname: string): {
   return { screen, key: pathname };
 }
 
-function BackButtonHandler() {
+function BackButtonHandler({ disableBack }: { disableBack?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { triggerBack } = useNavigation();
@@ -134,6 +134,23 @@ function BackButtonHandler() {
     let mounted = true;
 
     const handleBack = () => {
+      if (disableBack) {
+        // Staff locked screen: double tap to exit app
+        const now = Date.now();
+        if (now - lastBackPress.current < 2000) {
+          if (toastId.current) toast.dismiss(toastId.current);
+          CapApp.exitApp();
+        } else {
+          lastBackPress.current = now;
+          toastId.current = toast('Press back again to exit', {
+            duration: 2000,
+            icon: '←',
+            style: { background: 'var(--bg-card)', color: 'var(--text-primary)' },
+          });
+        }
+        return;
+      }
+
       if (triggerBack()) return;
 
       const now = Date.now();
@@ -169,7 +186,7 @@ function BackButtonHandler() {
         listenerRef.current = null;
       }
     };
-  }, [location.pathname, navigate, triggerBack]);
+  }, [location.pathname, navigate, triggerBack, disableBack]);
 
   return null;
 }
@@ -187,7 +204,13 @@ function App() {
 
   const { screen } = useMemo(() => parseRoute(location.pathname), [location.pathname]);
 
+  const isDeliveryPartner = role === 'delivery_partner';
+  const isWarehouseManager = role === 'warehouse_manager';
+  const isDedicatedStaff = isDeliveryPartner || isWarehouseManager;
+
   const key = useMemo(() => {
+    if (isDeliveryPartner) return 'delivery_dedicated';
+    if (isWarehouseManager) return 'warehouse_dedicated';
     if (screen === 'store') {
       const searchParams = new URLSearchParams(location.search);
       const storeId = searchParams.get('storeId') || 'default';
@@ -208,18 +231,19 @@ function App() {
       return `category|${categoryId}`;
     }
     return location.pathname;
-  }, [screen, location.pathname, location.search]);
+  }, [screen, location.pathname, location.search, isDeliveryPartner, isWarehouseManager]);
 
-  const isFullBleed = 
+  const isFullBleed =
+    isDedicatedStaff ||
     screen === 'home' ||
-    screen === 'store' || 
-    screen === 'categories' || 
-    screen === 'categoryDetail' || 
+    screen === 'store' ||
+    screen === 'categories' ||
+    screen === 'categoryDetail' ||
     screen === 'brand' ||
     screen === 'banner' ||
     screen === 'search' ||
     screen === 'product';
-  
+
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product'];
@@ -239,6 +263,7 @@ function App() {
   }, [user, loading]);
 
   const goTo = (next: ScreenName) => {
+    if (isDedicatedStaff) return;
     navigate(pathFor(next));
   };
 
@@ -310,7 +335,16 @@ function App() {
     return <AuthScreen />;
   }
 
+  // Strictly lock screens for dedicated roles
   const renderScreen = (): ReactNode => {
+    if (isDeliveryPartner) {
+      return <DeliveryScreen isDedicatedRole={true} />;
+    }
+
+    if (isWarehouseManager) {
+      return <WarehouseScreen isDedicatedRole={true} />;
+    }
+
     switch (screen) {
       case 'home':
         return (
@@ -485,11 +519,18 @@ function App() {
     }
   };
 
+  // Warehouse desktop layout expands up to 7xl; others stay mobile-optimized
+  const isWarehouseView = isWarehouseManager || screen === 'warehouse';
+
   return (
     <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
-      <div className="mx-auto flex-1 w-full max-w-[720px] bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col">
+      <div
+        className={`mx-auto flex-1 w-full bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col transition-all ${
+          isWarehouseView ? 'max-w-7xl' : 'max-w-[720px]'
+        }`}
+      >
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
-          <BackButtonHandler />
+          <BackButtonHandler disableBack={isDedicatedStaff} />
           <KeepAliveRenderer
             currentKey={key}
             render={renderScreen}
@@ -497,14 +538,21 @@ function App() {
           />
         </main>
 
-        {screen !== 'categoryDetail' && screen !== 'search' && screen !== 'product' && screen !== 'cart' && (
-          <div className="safe-bottom bg-white border-t border-gray-100">
-            <BottomNavigation
-              active={screen}
-              onNavigate={goTo}
-            />
-          </div>
-        )}
+        {/* Global Bottom Navigation is completely hidden for delivery partner & warehouse manager */}
+        {!isDedicatedStaff &&
+          screen !== 'categoryDetail' &&
+          screen !== 'search' &&
+          screen !== 'product' &&
+          screen !== 'cart' &&
+          screen !== 'warehouse' &&
+          screen !== 'delivery' && (
+            <div className="safe-bottom bg-white border-t border-gray-100">
+              <BottomNavigation
+                active={screen}
+                onNavigate={goTo}
+              />
+            </div>
+          )}
 
         {showSplash && (
           <SplashScreen

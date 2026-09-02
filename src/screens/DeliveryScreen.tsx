@@ -1,14 +1,31 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  ArrowLeft, Package, Truck, CheckCircle2, MapPin, Loader2,
-  PhoneCall, Navigation, Wallet, Banknote, CreditCard, RefreshCw, Clock
+  ArrowLeft,
+  Package,
+  Truck,
+  CheckCircle2,
+  MapPin,
+  Loader2,
+  PhoneCall,
+  Navigation,
+  Wallet,
+  Banknote,
+  CreditCard,
+  RefreshCw,
+  Clock,
+  LayoutDashboard,
+  User,
+  LogOut,
+  ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/auth';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
 import { SlideToConfirm } from '@/components/SlideToConfirm';
 
 interface DeliveryScreenProps {
-  onBack: () => void;
+  onBack?: () => void;
+  isDedicatedRole?: boolean;
 }
 
 export interface DeliveryPaymentSummary {
@@ -22,8 +39,9 @@ export interface DeliveryPaymentSummary {
   providers: string[];
 }
 
-export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
-  const [activeDeliveryTab, setActiveDeliveryTab] = useState<'pending' | 'picked_up' | 'delivered'>('pending');
+export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScreenProps) {
+  const { user, profile, signOut } = useAuth();
+  const [navTab, setNavTab] = useState<'dashboard' | 'pending' | 'picked_up' | 'delivered' | 'account'>('pending');
   const [assignments, setAssignments] = useState<
     {
       assignment: { id: string; order_id: string; status: string; picked_up_at: string | null; delivered_at: string | null };
@@ -39,8 +57,8 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
 
   const load = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
         setLoading(false);
         setRefreshing(false);
         return;
@@ -49,7 +67,7 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
       const { data: assignData, error: assignError } = await supabase
         .from('delivery_assignments')
         .select('*')
-        .eq('delivery_partner_id', user.id)
+        .eq('delivery_partner_id', authUser.id)
         .order('created_at', { ascending: false });
 
       if (assignError || !assignData) {
@@ -177,19 +195,18 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let dispatchChannel: ReturnType<typeof supabase.channel> | null = null;
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
+    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+      if (!authUser) return;
 
-      // 1. Scoped user listener for updates/inserts
       channel = supabase
-        .channel(`driver_deliveries_${user.id}`)
+        .channel(`driver_deliveries_${authUser.id}`)
         .on(
           'postgres_changes',
           {
             event: '*',
             schema: 'public',
             table: 'delivery_assignments',
-            filter: `delivery_partner_id=eq.${user.id}`,
+            filter: `delivery_partner_id=eq.${authUser.id}`,
           },
           () => {
             void load();
@@ -197,11 +214,10 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
         )
         .subscribe();
 
-      // 2. In-memory Zero-load broadcast listener: Drops reassigned orders immediately
       dispatchChannel = supabase
         .channel('delivery_dispatch_sync')
         .on('broadcast', { event: 'assignment_changed' }, ({ payload }) => {
-          if (payload?.previousDriverId === user.id || payload?.newDriverId === user.id) {
+          if (payload?.previousDriverId === authUser.id || payload?.newDriverId === authUser.id) {
             void load();
           }
         })
@@ -248,11 +264,12 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
     return assignments.filter((a) => a.assignment.status === 'delivered');
   }, [assignments]);
 
-  const displayedList = useMemo(() => {
-    if (activeDeliveryTab === 'pending') return pendingList;
-    if (activeDeliveryTab === 'picked_up') return pickedUpList;
-    return deliveredList;
-  }, [activeDeliveryTab, pendingList, pickedUpList, deliveredList]);
+  const currentOrderList = useMemo(() => {
+    if (navTab === 'pending') return pendingList;
+    if (navTab === 'picked_up') return pickedUpList;
+    if (navTab === 'delivered') return deliveredList;
+    return [];
+  }, [navTab, pendingList, pickedUpList, deliveredList]);
 
   if (loading) {
     return (
@@ -264,277 +281,376 @@ export function DeliveryScreen({ onBack }: DeliveryScreenProps) {
 
   const isProcessing = (id: string) => processingId === id;
 
+  const driverDisplayName =
+    profile?.full_name || profile?.personal_name || profile?.business_name || 'Fleet Partner';
+
   return (
-    <div className="safe-top px-4 pb-28 space-y-4 max-w-xl mx-auto">
+    <div className="safe-top px-4 pb-28 space-y-4 max-w-xl mx-auto min-h-screen flex flex-col justify-between">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center shadow-xs active:scale-95 transition-transform"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Delivery Panel</h1>
-            <p className="text-xs text-ink-500 mt-0.5">Fulfillment & Settlement</p>
-          </div>
-        </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center text-ink-600 shadow-xs active:scale-95 transition-transform"
-        >
-          <RefreshCw size={16} className={refreshing ? 'animate-spin text-brand-600' : ''} />
-        </button>
-      </div>
-
-      {/* 3 Status Tabs */}
-      <div className="grid grid-cols-3 gap-1 bg-ink-100 p-1 rounded-2xl">
-        <button
-          onClick={() => setActiveDeliveryTab('pending')}
-          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeDeliveryTab === 'pending'
-              ? 'bg-white text-brand-700 shadow-sm'
-              : 'text-ink-600 hover:text-ink-900'
-          }`}
-        >
-          <Clock size={14} />
-          <span>Pending ({pendingList.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveDeliveryTab('picked_up')}
-          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeDeliveryTab === 'picked_up'
-              ? 'bg-white text-sky-700 shadow-sm'
-              : 'text-ink-600 hover:text-ink-900'
-          }`}
-        >
-          <Truck size={14} />
-          <span>Picked Up ({pickedUpList.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveDeliveryTab('delivered')}
-          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeDeliveryTab === 'delivered'
-              ? 'bg-white text-emerald-700 shadow-sm'
-              : 'text-ink-600 hover:text-ink-900'
-          }`}
-        >
-          <CheckCircle2 size={14} />
-          <span>Delivered ({deliveredList.length})</span>
-        </button>
-      </div>
-
-      {/* Deliveries List */}
-      {displayedList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600">
-            <Truck size={36} strokeWidth={1.5} />
-          </div>
-          <h2 className="text-lg font-extrabold text-ink-900 mt-5">No orders in this tab</h2>
-          <p className="text-sm text-ink-500 mt-1 max-w-[250px]">
-            {activeDeliveryTab === 'pending'
-              ? 'No newly assigned dispatches pending pickup.'
-              : activeDeliveryTab === 'picked_up'
-              ? 'No packages currently out for delivery.'
-              : 'Delivered orders will appear here.'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {displayedList.map(({ assignment, order, items, address, paymentSummary: pay }) => {
-            const isCurrentProcessing = isProcessing(assignment.id);
-            const isDelivered = assignment.status === 'delivered';
-
-            return (
-              <div
-                key={assignment.id}
-                className={`bg-white border rounded-2xl p-4 shadow-card space-y-3 transition-all ${
-                  !pay.isFullyPaid && !isDelivered
-                    ? 'border-amber-300 ring-1 ring-amber-200'
-                    : 'border-ink-100'
-                }`}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {!isDedicatedRole && onBack && (
+              <button
+                onClick={onBack}
+                className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center shadow-xs active:scale-95 transition-transform"
               >
-                {/* Header */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
-                      <Package size={18} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-ink-900">{order.order_number}</p>
-                      <p className="text-[10px] text-ink-400 mt-0.5">
-                        Assigned: {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={`text-[9px] font-extrabold uppercase rounded-full px-2.5 py-1 ${
-                      isDelivered
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : assignment.status === 'out_for_delivery'
-                        ? 'bg-sky-100 text-sky-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {assignment.status.replace(/_/g, ' ')}
-                  </span>
+                <ArrowLeft size={18} />
+              </button>
+            )}
+            <div>
+              <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Delivery Fleet</h1>
+              <p className="text-xs text-ink-500 mt-0.5">Assigned Routes & Doorstep Cash Settlement</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center text-ink-600 shadow-xs active:scale-95 transition-transform"
+          >
+            <RefreshCw size={16} className={refreshing ? 'animate-spin text-brand-600' : ''} />
+          </button>
+        </div>
+
+        {/* ============================================================ */}
+        {/* TAB 1: DASHBOARD (EMPTY FOR FUTURE EXPANSION)                */}
+        {/* ============================================================ */}
+        {navTab === 'dashboard' && (
+          <div className="bg-white border border-ink-100 rounded-3xl p-8 text-center space-y-3 shadow-card">
+            <div className="h-16 w-16 bg-brand-50 text-brand-600 rounded-2xl flex items-center justify-center mx-auto">
+              <LayoutDashboard size={32} />
+            </div>
+            <h2 className="text-base font-extrabold text-ink-900">Partner Dashboard</h2>
+            <p className="text-xs text-ink-500 max-w-xs mx-auto leading-relaxed">
+              Performance metrics, daily earnings, and dispatch statistics will appear here.
+            </p>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB 2, 3, 4: ORDERS (PENDING, PICKED UP, DELIVERED)          */}
+        {/* ============================================================ */}
+        {(navTab === 'pending' || navTab === 'picked_up' || navTab === 'delivered') && (
+          <div>
+            {currentOrderList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600">
+                  <Truck size={36} strokeWidth={1.5} />
                 </div>
+                <h2 className="text-lg font-extrabold text-ink-900 mt-5">No packages in this section</h2>
+                <p className="text-sm text-ink-500 mt-1 max-w-[250px]">
+                  {navTab === 'pending'
+                    ? 'No newly assigned dispatches pending pickup.'
+                    : navTab === 'picked_up'
+                    ? 'No packages currently out for delivery.'
+                    : 'Delivered orders will appear here.'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {currentOrderList.map(({ assignment, order, items, address, paymentSummary: pay }) => {
+                  const isCurrentProcessing = isProcessing(assignment.id);
+                  const isDelivered = assignment.status === 'delivered';
 
-                {/* Cash To Collect Bar */}
-                <div
-                  className={`p-3.5 rounded-xl border flex items-center justify-between font-extrabold ${
-                    pay.isFullyPaid || isDelivered
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                      : 'bg-amber-500 text-white border-amber-600 shadow-md'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    {pay.isFullyPaid || isDelivered ? (
-                      <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
-                    ) : (
-                      <Banknote size={22} className="text-amber-100 shrink-0" />
-                    )}
-                    <div>
-                      <p className="text-xs uppercase tracking-wider">
-                        {pay.isFullyPaid || isDelivered ? 'Payment Status' : 'Cash to Collect on Delivery'}
-                      </p>
-                      <p className={`text-[10px] font-semibold ${pay.isFullyPaid || isDelivered ? 'text-emerald-700' : 'text-amber-100'}`}>
-                        {pay.isFullyPaid || isDelivered
-                          ? 'Prepaid in Full (Do NOT collect cash)'
-                          : 'Collect cash/UPI before handing over goods'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-base font-black tracking-tight">
-                      {pay.isFullyPaid || isDelivered
-                        ? '₹0.00'
-                        : `₹${pay.amountToCollect.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                    </p>
-                  </div>
-                </div>
+                  return (
+                    <div
+                      key={assignment.id}
+                      className={`bg-white border rounded-2xl p-4 shadow-card space-y-3 transition-all ${
+                        !pay.isFullyPaid && !isDelivered
+                          ? 'border-amber-300 ring-1 ring-amber-200'
+                          : 'border-ink-100'
+                      }`}
+                    >
+                      {/* Order Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-9 w-9 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
+                            <Package size={18} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-ink-900">{order.order_number}</p>
+                            <p className="text-[10px] text-ink-400 mt-0.5">
+                              Assigned: {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[9px] font-extrabold uppercase rounded-full px-2.5 py-1 ${
+                            isDelivered
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : assignment.status === 'out_for_delivery'
+                              ? 'bg-sky-100 text-sky-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {assignment.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
 
-                {/* Package Items */}
-                <div className="space-y-1.5 border-t border-dashed border-ink-200 pt-2.5">
-                  <p className="text-[10px] font-bold text-ink-400 uppercase tracking-wider">Package Contents</p>
-                  {items.map((item) => (
-                    <div key={item.id} className="flex justify-between text-xs">
-                      <span className="text-ink-700 font-medium truncate flex-1">
-                        {item.brand} {item.product_name} × {item.quantity}
-                      </span>
-                      <span className="font-bold text-ink-900 ml-2">
-                        ₹{Number(item.line_total).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                      {/* Cash to Collect Bar */}
+                      <div
+                        className={`p-3.5 rounded-xl border flex items-center justify-between font-extrabold ${
+                          pay.isFullyPaid || isDelivered
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            : 'bg-amber-500 text-white border-amber-600 shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          {pay.isFullyPaid || isDelivered ? (
+                            <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+                          ) : (
+                            <Banknote size={22} className="text-amber-100 shrink-0" />
+                          )}
+                          <div>
+                            <p className="text-xs uppercase tracking-wider">
+                              {pay.isFullyPaid || isDelivered ? 'Payment Status' : 'Cash to Collect on Delivery'}
+                            </p>
+                            <p className={`text-[10px] font-semibold ${pay.isFullyPaid || isDelivered ? 'text-emerald-700' : 'text-amber-100'}`}>
+                              {pay.isFullyPaid || isDelivered
+                                ? 'Prepaid in Full (Do NOT collect cash)'
+                                : 'Collect cash/UPI before handing over goods'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-base font-black tracking-tight">
+                            {pay.isFullyPaid || isDelivered
+                              ? '₹0.00'
+                              : `₹${pay.amountToCollect.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          </p>
+                        </div>
+                      </div>
 
-                {/* Multi-Payment Details */}
-                <div className="border-t border-dashed border-ink-200 pt-2.5 space-y-1.5 text-xs">
-                  <div className="flex justify-between text-ink-700 font-bold">
-                    <span>Total Order Bill</span>
-                    <span>₹{Number(order.total).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
+                      {/* Package Contents */}
+                      <div className="space-y-1.5 border-t border-dashed border-ink-200 pt-2.5">
+                        <p className="text-[10px] font-bold text-ink-400 uppercase tracking-wider">Package Contents</p>
+                        {items.map((item) => (
+                          <div key={item.id} className="flex justify-between text-xs">
+                            <span className="text-ink-700 font-medium truncate flex-1">
+                              {item.brand} {item.product_name} × {item.quantity}
+                            </span>
+                            <span className="font-bold text-ink-900 ml-2">
+                              ₹{Number(item.line_total).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
 
-                  {pay.walletPaid > 0 && (
-                    <div className="flex justify-between text-emerald-600 font-semibold items-center">
-                      <span className="flex items-center gap-1.5"><Wallet size={13} /> Paid via Wallet</span>
-                      <span>- ₹{pay.walletPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
+                      {/* Multi-Payment Details */}
+                      <div className="border-t border-dashed border-ink-200 pt-2.5 space-y-1.5 text-xs">
+                        <div className="flex justify-between text-ink-700 font-bold">
+                          <span>Total Order Bill</span>
+                          <span>₹{Number(order.total).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
 
-                  {pay.onlinePaid > 0 && (
-                    <div className="flex justify-between text-blue-600 font-semibold items-center">
-                      <span className="flex items-center gap-1.5"><CreditCard size={13} /> Paid Online (Razorpay)</span>
-                      <span>- ₹{pay.onlinePaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
+                        {pay.walletPaid > 0 && (
+                          <div className="flex justify-between text-emerald-600 font-semibold items-center">
+                            <span className="flex items-center gap-1.5"><Wallet size={13} /> Paid via Wallet</span>
+                            <span>- ₹{pay.walletPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
 
-                  {pay.codPaid > 0 && (
-                    <div className="flex justify-between text-emerald-600 font-semibold items-center">
-                      <span className="flex items-center gap-1.5"><Banknote size={13} /> COD Settled</span>
-                      <span>- ₹{pay.codPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                </div>
+                        {pay.onlinePaid > 0 && (
+                          <div className="flex justify-between text-blue-600 font-semibold items-center">
+                            <span className="flex items-center gap-1.5"><CreditCard size={13} /> Paid Online (Razorpay)</span>
+                            <span>- ₹{pay.onlinePaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
 
-                {/* Customer Address & Calls */}
-                {address && (
-                  <div className="rounded-2xl bg-ink-50 p-3 space-y-2.5 border border-ink-100">
-                    <div className="flex items-start gap-2">
-                      <MapPin size={16} className="text-brand-600 shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-ink-900">
-                          {address.label} · {address.recipient_name}
-                        </p>
-                        <p className="text-[11px] text-ink-600 mt-0.5 leading-relaxed">
-                          {address.line1}
-                          {address.line2 ? `, ${address.line2}` : ''}, {address.city}, {address.state} - {address.postal_code}
-                        </p>
+                        {pay.codPaid > 0 && (
+                          <div className="flex justify-between text-emerald-600 font-semibold items-center">
+                            <span className="flex items-center gap-1.5"><Banknote size={13} /> COD Settled</span>
+                            <span>- ₹{pay.codPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Customer Address & Calling */}
+                      {address && (
+                        <div className="rounded-2xl bg-ink-50 p-3 space-y-2.5 border border-ink-100">
+                          <div className="flex items-start gap-2">
+                            <MapPin size={16} className="text-brand-600 shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-ink-900">
+                                {address.label} · {address.recipient_name}
+                              </p>
+                              <p className="text-[11px] text-ink-600 mt-0.5 leading-relaxed">
+                                {address.line1}
+                                {address.line2 ? `, ${address.line2}` : ''}, {address.city}, {address.state} - {address.postal_code}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <a
+                              href={`tel:${address.phone}`}
+                              className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-white border border-emerald-200 text-emerald-700 text-xs font-bold shadow-xs hover:bg-emerald-50 active:scale-95 transition"
+                            >
+                              <PhoneCall size={14} className="text-emerald-600" />
+                              Call ({address.phone})
+                            </a>
+                            {address.latitude && address.longitude && (
+                              <a
+                                href={`https://www.google.com/maps?q=${address.latitude},${address.longitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-white border border-sky-200 text-sky-700 text-xs font-bold shadow-xs hover:bg-sky-50 active:scale-95 transition"
+                              >
+                                <Navigation size={14} className="text-sky-600" />
+                                GPS Navigate
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Swipe Confirm Controls */}
+                      <div className="pt-2">
+                        {assignment.status === 'ready_for_pickup' && (
+                          <SlideToConfirm
+                            label="Slide to confirm pickup"
+                            onConfirm={() => completeDelivery(assignment.id, 'out_for_delivery')}
+                            isLoading={isCurrentProcessing}
+                            disabled={isCurrentProcessing}
+                          />
+                        )}
+                        {assignment.status === 'out_for_delivery' && (
+                          <SlideToConfirm
+                            label={
+                              pay.amountToCollect > 0
+                                ? `Collect ₹${pay.amountToCollect.toFixed(0)} & slide to deliver`
+                                : 'Slide to confirm delivery'
+                            }
+                            onConfirm={() => completeDelivery(assignment.id, 'delivered')}
+                            isLoading={isCurrentProcessing}
+                            disabled={isCurrentProcessing}
+                          />
+                        )}
+                        {isDelivered && (
+                          <div className="h-12 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold flex items-center justify-center gap-1.5 border border-emerald-200">
+                            <CheckCircle2 size={18} />
+                            Delivered & Settled Successfully
+                          </div>
+                        )}
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <a
-                        href={`tel:${address.phone}`}
-                        className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-white border border-emerald-200 text-emerald-700 text-xs font-bold shadow-xs hover:bg-emerald-50 active:scale-95 transition"
-                      >
-                        <PhoneCall size={14} className="text-emerald-600" />
-                        Call ({address.phone})
-                      </a>
-                      {address.latitude && address.longitude && (
-                        <a
-                          href={`https://www.google.com/maps?q=${address.latitude},${address.longitude}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-white border border-sky-200 text-sky-700 text-xs font-bold shadow-xs hover:bg-sky-50 active:scale-95 transition"
-                        >
-                          <Navigation size={14} className="text-sky-600" />
-                          GPS Navigate
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Gesture-Aware Slide Controls */}
-                <div className="pt-2">
-                  {assignment.status === 'ready_for_pickup' && (
-                    <SlideToConfirm
-                      label="Slide to confirm pickup"
-                      onConfirm={() => completeDelivery(assignment.id, 'out_for_delivery')}
-                      isLoading={isCurrentProcessing}
-                      disabled={isCurrentProcessing}
-                    />
-                  )}
-                  {assignment.status === 'out_for_delivery' && (
-                    <SlideToConfirm
-                      label={
-                        pay.amountToCollect > 0
-                          ? `Collect ₹${pay.amountToCollect.toFixed(0)} & slide to deliver`
-                          : 'Slide to confirm delivery'
-                      }
-                      onConfirm={() => completeDelivery(assignment.id, 'delivered')}
-                      isLoading={isCurrentProcessing}
-                      disabled={isCurrentProcessing}
-                    />
-                  )}
-                  {isDelivered && (
-                    <div className="h-12 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold flex items-center justify-center gap-1.5 border border-emerald-200">
-                      <CheckCircle2 size={18} />
-                      Delivered & Settled Successfully
-                    </div>
-                  )}
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            )}
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB 5: ACCOUNT & LOGOUT FOR DELIVERY DRIVERS                */}
+        {/* ============================================================ */}
+        {navTab === 'account' && (
+          <div className="space-y-4">
+            <div className="bg-white border border-ink-100 rounded-3xl p-5 shadow-card flex items-center gap-4">
+              <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-sky-500 to-sky-700 text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
+                {driverDisplayName.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-base font-black text-ink-900 truncate">{driverDisplayName}</h2>
+                  <span className="bg-sky-100 text-sky-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <ShieldCheck size={11} /> FLEET
+                  </span>
+                </div>
+                <p className="text-xs text-ink-400 mt-0.5">
+                  {profile?.phone || user?.phone || 'No phone registered'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-2 text-xs">
+              <div className="flex justify-between py-1.5 border-b border-ink-50">
+                <span className="text-ink-400">Total Active Dispatches</span>
+                <span className="font-bold text-ink-800">{pendingList.length + pickedUpList.length}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-ink-400">Delivered Orders</span>
+                <span className="font-bold text-emerald-600">{deliveredList.length}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => void signOut()}
+              className="w-full h-12 rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center gap-2 border border-red-200 shadow-xs active:scale-95 transition"
+            >
+              <LogOut size={16} />
+              Sign Out from Fleet App
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================ */}
+      {/* INTERNAL 5-BUTTON BOTTOM NAVIGATION BAR                      */}
+      {/* ============================================================ */}
+      <div className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-ink-100 safe-bottom">
+        <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
+          <button
+            onClick={() => setNavTab('dashboard')}
+            className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors ${
+              navTab === 'dashboard' ? 'text-brand-600' : 'text-ink-400 hover:text-ink-700'
+            }`}
+          >
+            <LayoutDashboard size={19} />
+            <span className="text-[10px] font-extrabold">Dashboard</span>
+          </button>
+
+          <button
+            onClick={() => setNavTab('pending')}
+            className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 relative transition-colors ${
+              navTab === 'pending' ? 'text-brand-600' : 'text-ink-400 hover:text-ink-700'
+            }`}
+          >
+            <Clock size={19} />
+            <span className="text-[10px] font-extrabold">Pending</span>
+            {pendingList.length > 0 && (
+              <span className="absolute top-2 right-4 bg-amber-500 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
+                {pendingList.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setNavTab('picked_up')}
+            className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 relative transition-colors ${
+              navTab === 'picked_up' ? 'text-sky-600' : 'text-ink-400 hover:text-ink-700'
+            }`}
+          >
+            <Truck size={19} />
+            <span className="text-[10px] font-extrabold">Picked Up</span>
+            {pickedUpList.length > 0 && (
+              <span className="absolute top-2 right-4 bg-sky-500 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
+                {pickedUpList.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setNavTab('delivered')}
+            className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors ${
+              navTab === 'delivered' ? 'text-emerald-600' : 'text-ink-400 hover:text-ink-700'
+            }`}
+          >
+            <CheckCircle2 size={19} />
+            <span className="text-[10px] font-extrabold">Delivered</span>
+          </button>
+
+          <button
+            onClick={() => setNavTab('account')}
+            className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors ${
+              navTab === 'account' ? 'text-brand-600' : 'text-ink-400 hover:text-ink-700'
+            }`}
+          >
+            <User size={19} />
+            <span className="text-[10px] font-extrabold">Account</span>
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -41,7 +41,7 @@ export default function CodSettlementManager() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Settlement Dialog State
+  // Settlement Modal State
   const [selectedDriver, setSelectedDriver] = useState<DriverCodSummary | null>(null);
   const [settleAmount, setSettleAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState<'cash' | 'bank_transfer' | 'upi'>('cash');
@@ -113,6 +113,14 @@ export default function CodSettlementManager() {
       });
 
       if (error) throw error;
+
+      // Realtime zero-load sync to immediately update driver's active screen
+      const syncChannel = supabase.channel('delivery_dispatch_sync');
+      await syncChannel.send({
+        type: 'broadcast',
+        event: 'cod_settled',
+        payload: { deliveryPartnerId: selectedDriver.delivery_partner_id },
+      });
 
       setSelectedDriver(null);
       await loadData();
@@ -189,7 +197,7 @@ export default function CodSettlementManager() {
           <div className="text-2xl font-black mt-2 tracking-tight">
             ₹{totalOutstandingAll.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
-          <p className="text-[10px] mt-1 opacity-80 font-medium">Cash currently with delivery fleet</p>
+          <p className="text-[10px] mt-1 opacity-80 font-medium">Cash currently held by delivery fleet</p>
         </div>
 
         <div
@@ -221,7 +229,7 @@ export default function CodSettlementManager() {
         </div>
       </div>
 
-      {/* Search Input */}
+      {/* Search Bar */}
       <div className="relative">
         <Search size={16} className="absolute left-3.5 top-3 text-ink-400" />
         <input
@@ -233,7 +241,7 @@ export default function CodSettlementManager() {
         />
       </div>
 
-      {/* Driver Ledger List */}
+      {/* Partner Ledger */}
       {loading ? (
         <div className="flex justify-center py-20">
           <Loader2 size={32} className="animate-spin text-brand-600" />
@@ -242,7 +250,7 @@ export default function CodSettlementManager() {
         <div className="bg-white border border-ink-100 rounded-2xl p-12 text-center text-ink-400 space-y-2">
           <User size={36} className="mx-auto text-ink-300" />
           <p className="text-sm font-bold text-ink-800">No delivery partners found</p>
-          <p className="text-xs">Ensure users have been assigned the delivery_partner role.</p>
+          <p className="text-xs">Ensure staff profiles have the delivery_partner role assigned.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -332,7 +340,7 @@ export default function CodSettlementManager() {
         </div>
       )}
 
-      {/* Settle Modal Dialog */}
+      {/* Settle Modal */}
       {selectedDriver && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl border border-ink-100 space-y-4 animate-in fade-in zoom-in-95 duration-150">

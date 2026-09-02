@@ -118,7 +118,10 @@ CREATE POLICY "Admins can insert settlements"
     )
   );
 
--- 2. RPC to get real-time COD balances across all delivery partners
+-- 1. Drop existing function to avoid return-type conflict
+DROP FUNCTION IF EXISTS public.get_delivery_partners_cod_summary();
+
+-- 2. Re-create with explicit enum-to-text casts
 CREATE OR REPLACE FUNCTION public.get_delivery_partners_cod_summary()
 RETURNS TABLE (
   delivery_partner_id uuid,
@@ -142,7 +145,7 @@ BEGIN
       COALESCE(p.phone, '') AS phone
     FROM public.user_roles ur
     JOIN public.profiles p ON p.id = ur.user_id
-    WHERE ur.role = 'delivery_partner'
+    WHERE ur.role::text = 'delivery_partner'
   ),
   collected AS (
     SELECT 
@@ -150,9 +153,9 @@ BEGIN
       COALESCE(SUM(pay.amount), 0) AS total_collected
     FROM public.delivery_assignments da
     JOIN public.payments pay ON pay.order_id = da.order_id
-    WHERE da.status = 'delivered'
-      AND LOWER(pay.provider) = 'cod'
-      AND LOWER(pay.status) IN ('paid', 'completed')
+    WHERE da.status::text = 'delivered'
+      AND LOWER(pay.provider::text) = 'cod'
+      AND LOWER(pay.status::text) IN ('paid', 'completed')
     GROUP BY da.delivery_partner_id
   ),
   settled AS (
@@ -178,7 +181,9 @@ BEGIN
 END;
 $$;
 
--- 3. RPC to record a settlement and clear partner balance
+-- 3. Ensure record_cod_settlement safely casts role
+DROP FUNCTION IF EXISTS public.record_cod_settlement(uuid, numeric, text, text);
+
 CREATE OR REPLACE FUNCTION public.record_cod_settlement(
   p_delivery_partner_id uuid,
   p_amount numeric,
@@ -196,7 +201,7 @@ DECLARE
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.user_roles 
-    WHERE user_id = v_admin_id AND role = 'admin'
+    WHERE user_id = v_admin_id AND role::text = 'admin'
   ) THEN
     RAISE EXCEPTION 'Unauthorized: Only admins can record COD settlements';
   END IF;
@@ -224,3 +229,6 @@ BEGIN
   RETURN v_settlement_id;
 END;
 $$;
+
+-- 4. Force PostgREST to reload schema cache so 404 disappears immediately
+NOTIFY pgrst, 'reload schema';

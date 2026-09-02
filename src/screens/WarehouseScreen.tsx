@@ -30,6 +30,7 @@ import { useAuth } from '@/auth';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
 import { buildGstBillHtml } from '@/services/gstBill';
 import { printHtml } from '@/utils/printHtml';
+import { StaffRegistrationModal } from '@/components/StaffRegistrationModal';
 
 interface WarehouseScreenProps {
   onBack?: () => void;
@@ -101,6 +102,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const isStaffUnregistered = !profile?.staff_registration_status || profile.staff_registration_status === 'unregistered';
+
   const loadDrivers = useCallback(async () => {
     try {
       const { data, error } = await supabase.rpc('get_delivery_partners');
@@ -111,7 +114,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   }, []);
 
-  // FIFO sorting: oldest at top, new orders at bottom
   const loadOrders = useCallback(async () => {
     try {
       const { data: ordersData, error: ordersErr } = await supabase
@@ -448,7 +450,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   return (
     <div className="safe-top px-4 lg:px-8 pb-20 space-y-5 max-w-7xl mx-auto">
-      {/* Top Header - Responsive layout */}
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
         <div className="flex items-center gap-3">
           {!isDedicatedRole && onBack && (
@@ -555,7 +557,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           </button>
         </div>
 
-        {/* Global Search Bar */}
         <div className="relative w-full md:w-80">
           <Search size={15} className="absolute left-3 top-3 text-ink-400" />
           <input
@@ -610,9 +611,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       ) : (
         <>
-          {/* ======================================================== */}
-          {/* TAB 1: ORDERS FULFILLMENT (DESKTOP: 2-COLUMN GRID)       */}
-          {/* ======================================================== */}
+          {/* TAB 1: ORDERS FULFILLMENT */}
           {activeTab === 'orders' && (
             <div>
               {filteredOrders.length === 0 ? (
@@ -654,7 +653,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                         }`}
                       >
                         <div className="space-y-3">
-                          {/* Order Card Top Bar */}
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <div className="flex items-center gap-2">
@@ -695,7 +693,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                             </span>
                           </div>
 
-                          {/* Payment Highlight Bar */}
                           <div
                             className={`p-3 rounded-xl border flex items-center justify-between font-bold text-xs ${
                               pay.isFullyPaid || isDelivered
@@ -732,7 +729,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                             </div>
                           </div>
 
-                          {/* Items / Total Header */}
                           <div className="flex items-center justify-between text-xs pt-1">
                             <div>
                               <span className="text-ink-400">Total: </span>
@@ -748,7 +744,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                             </button>
                           </div>
 
-                          {/* Driver Assignment ONLY in 'ready_for_pickup' */}
                           {isReadyForPickup && (
                             <div className="rounded-xl bg-ink-50 border border-ink-200 p-2.5 space-y-2">
                               <div className="flex items-center justify-between">
@@ -800,7 +795,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                           )}
                         </div>
 
-                        {/* Order Progression Buttons */}
                         <div className="flex items-center gap-2 pt-2 border-t border-ink-50">
                           {ord.status === 'pending' && (
                             <button
@@ -860,9 +854,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* TAB 2: INVOICES TAB                                      */}
-          {/* ======================================================== */}
+          {/* TAB 2: INVOICES TAB */}
           {activeTab === 'invoices' && (
             <div>
               {invoiceOrders.length === 0 ? (
@@ -908,9 +900,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* TAB 3 & 4: INVENTORY & LOW STOCK (RESPONSIVE GRID)       */}
-          {/* ======================================================== */}
+          {/* TAB 3 & 4: INVENTORY & LOW STOCK */}
           {(activeTab === 'inventory' || activeTab === 'low_stock') && (
             <div>
               {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
@@ -968,7 +958,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                           </span>
                         </div>
 
-                        {/* Stock Controls */}
                         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-3">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs text-ink-400 font-semibold mr-1">Qty:</span>
@@ -1093,6 +1082,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           </div>
         </div>
       )}
+
+      {/* Staff Registration Modal Overlay */}
+      <StaffRegistrationModal isOpen={isStaffUnregistered} />
     </div>
   );
 }

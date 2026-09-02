@@ -16,10 +16,8 @@ import {
   LayoutDashboard,
   User,
   LogOut,
-  ShieldCheck,
   TrendingUp,
   ReceiptText,
-  Calendar,
   Sparkles,
   Wifi,
 } from 'lucide-react';
@@ -28,6 +26,7 @@ import { useAuth } from '@/auth';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
 import { SlideToConfirm } from '@/components/SlideToConfirm';
 import { Toast } from '@/components/ui/Toast';
+import { StaffRegistrationModal } from '@/components/StaffRegistrationModal';
 
 interface DeliveryScreenProps {
   onBack?: () => void;
@@ -66,6 +65,8 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [toastNotification, setToastNotification] = useState<ToastNotification | null>(null);
+
+  const isStaffUnregistered = !profile?.staff_registration_status || profile.staff_registration_status === 'unregistered';
 
   const showToast = (message: string, type: ToastNotification['type'] = 'info') => {
     setToastNotification({ message, type });
@@ -289,7 +290,6 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
     }
   };
 
-  // ── Metrics Calculation (IST/Today) ──────────────────────────────
   const isTodayDate = (dateStr?: string | null) => {
     if (!dateStr) return false;
     const target = new Date(dateStr);
@@ -358,7 +358,6 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
 
   return (
     <div className="min-h-screen bg-[#f8faf9] flex flex-col justify-between pb-24">
-      {/* Toast Notification Container */}
       {toastNotification && (
         <div className="fixed top-4 inset-x-4 z-50 max-w-sm mx-auto animate-in fade-in slide-in-from-top-4 duration-200">
           <Toast
@@ -370,12 +369,9 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
       )}
 
       <div>
-        {/* ============================================================ */}
-        {/* SOLID DARK GREEN HEADER WITH SIDEWAY CAFKART LOGO            */}
-        {/* ============================================================ */}
+        {/* Solid Dark Green Header with Sideway CafKart Logo */}
         <header className="bg-[#0a382c] text-white pt-[max(1rem,env(safe-area-inset-top))] pb-4 px-4 sm:px-6 shadow-md border-b border-[#0f4d3d]">
           <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
-            {/* Left: Back (if not dedicated) + CafKart Sideway Logo */}
             <div className="flex items-center gap-3">
               {!isDedicatedRole && onBack && (
                 <button
@@ -387,7 +383,6 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
               )}
 
               <div className="flex items-center gap-2.5 select-none">
-                {/* Sideway SVG Logo Icon */}
                 <div className="h-10 w-10 rounded-xl bg-white/10 border border-white/15 p-1.5 flex items-center justify-center shadow-xs">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -430,7 +425,6 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
               </div>
             </div>
 
-            {/* Right: Refresh Button */}
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -444,15 +438,12 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
 
         {/* Content Container */}
         <main className="px-4 sm:px-6 pt-4 max-w-xl mx-auto space-y-4">
-          {/* ============================================================ */}
-          {/* TAB 1: DASHBOARD (MODERN COMMERCIAL CARD + STATS)            */}
-          {/* ============================================================ */}
+          {/* TAB 1: DASHBOARD */}
           {navTab === 'dashboard' && (
             <div className="space-y-4">
               {/* Modern Credit Card */}
               <div className="rounded-3xl p-5 text-white shadow-2xl relative overflow-hidden bg-gradient-to-br from-[#042f24] via-[#064e3b] to-[#0f766e] border border-emerald-500/30">
                 <div className="relative z-10 flex flex-col justify-between h-48">
-                  {/* Top Bar: Bank Brand & Contactless Icon */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="h-7 w-7 rounded-lg bg-white/15 flex items-center justify-center border border-white/20">
@@ -465,9 +456,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                     <Wifi size={18} className="rotate-90 text-emerald-200 opacity-80" />
                   </div>
 
-                  {/* EMV Chip & Balance */}
                   <div className="flex items-center justify-between mt-1">
-                    {/* Metallic Chip */}
                     <div className="h-8 w-11 rounded-md bg-gradient-to-br from-amber-200 via-amber-300 to-amber-500 border border-amber-400/80 shadow-xs flex items-center justify-center relative">
                       <div className="w-full h-[1px] bg-amber-600/40 absolute" />
                       <div className="h-full w-[1px] bg-amber-600/40 absolute" />
@@ -484,12 +473,10 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                     </div>
                   </div>
 
-                  {/* Card Number Masked */}
                   <p className="text-xs font-mono font-bold tracking-[0.25em] text-emerald-100/90 pt-1">
                     •••• •••• •••• 8092
                   </p>
 
-                  {/* Bottom Row: Operator Name & Verified Status */}
                   <div className="flex items-center justify-between pt-2 border-t border-emerald-400/20 text-xs">
                     <div>
                       <p className="text-[9px] uppercase tracking-widest text-emerald-300 font-semibold">Operator</p>
@@ -502,12 +489,11 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                   </div>
                 </div>
 
-                {/* Decorative Background Orbs */}
                 <div className="absolute -right-10 -bottom-10 h-44 w-44 rounded-full bg-[#59D9B6]/15 blur-2xl pointer-events-none" />
                 <div className="absolute -left-10 -top-10 h-36 w-36 rounded-full bg-emerald-300/10 blur-xl pointer-events-none" />
               </div>
 
-              {/* Gradient Stat Cards (Inspired by Dashboard.tsx) */}
+              {/* Metric Cards */}
               <div className="grid grid-cols-2 gap-3">
                 <div
                   className="rounded-2xl p-4 text-white shadow-md relative overflow-hidden"
@@ -570,7 +556,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                 </div>
               </div>
 
-              {/* Recent Deliveries Activity */}
+              {/* Recent Activity */}
               <div className="bg-white border border-slate-200/80 rounded-2xl shadow-card overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
                   <span className="text-xs font-extrabold text-slate-800 flex items-center gap-2">
@@ -619,9 +605,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
             </div>
           )}
 
-          {/* ============================================================ */}
-          {/* TABS 2, 3, 4: ORDERS (PENDING, PICKED UP, DELIVERED)          */}
-          {/* ============================================================ */}
+          {/* TABS 2, 3, 4: ORDERS QUEUE */}
           {(navTab === 'pending' || navTab === 'picked_up' || navTab === 'delivered') && (
             <div>
               {currentOrderList.length === 0 ? (
@@ -653,7 +637,6 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                             : 'border-slate-200/80 hover:border-emerald-300'
                         }`}
                       >
-                        {/* Order Header */}
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-2xl bg-[#0a382c] text-[#59D9B6] flex items-center justify-center shadow-xs">
@@ -797,7 +780,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                           </div>
                         )}
 
-                        {/* Slide to Confirm Controls with Loading States */}
+                        {/* Slide to Confirm with Loading State */}
                         <div className="pt-2">
                           {assignment.status === 'ready_for_pickup' && (
                             <SlideToConfirm
@@ -849,9 +832,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
             </div>
           )}
 
-          {/* ============================================================ */}
-          {/* TAB 5: DRIVER ACCOUNT & PROFILE                              */}
-          {/* ============================================================ */}
+          {/* TAB 5: DRIVER ACCOUNT & PROFILE */}
           {navTab === 'account' && (
             <div className="space-y-4">
               <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex items-center gap-4">
@@ -902,9 +883,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
         </main>
       </div>
 
-      {/* ============================================================ */}
-      {/* SOLID WHITE BOTTOM NAVIGATION BAR                            */}
-      {/* ============================================================ */}
+      {/* Solid White Bottom Navigation Bar */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] safe-bottom">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-2">
           <button
@@ -968,6 +947,9 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
           </button>
         </div>
       </nav>
+
+      {/* Staff Registration Modal Overlay */}
+      <StaffRegistrationModal isOpen={isStaffUnregistered} />
     </div>
   );
 }

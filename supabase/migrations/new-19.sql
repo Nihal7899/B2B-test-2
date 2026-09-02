@@ -77,3 +77,7 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.payments;
   END IF;
 END $$;
+
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS staff_registration_status text NOT NULL DEFAULT 'unregistered'::text
+CHECK (staff_registration_status = ANY (ARRAY['unregistered'::text, 'registered'::text]));

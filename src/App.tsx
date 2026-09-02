@@ -69,6 +69,8 @@ import {
   initializePushNotifications,
 } from '@/services/push';
 
+import { getOrFetchHomeData, getHomeDataSync } from '@/services/homePreload';
+
 const SCREEN_TO_PATH: Record<ScreenName, string> = {
   home: '/',
   search: '/search',
@@ -135,7 +137,6 @@ function BackButtonHandler({ disableBack }: { disableBack?: boolean }) {
 
     const handleBack = () => {
       if (disableBack) {
-        // Staff locked screen: double tap to exit app
         const now = Date.now();
         if (now - lastBackPress.current < 2000) {
           if (toastId.current) toast.dismiss(toastId.current);
@@ -198,6 +199,24 @@ function App() {
   const location = useLocation();
 
   const [showSplash, setShowSplash] = useState(true);
+  const [isHomeReady, setIsHomeReady] = useState(() => Boolean(getHomeDataSync()));
+
+  // Preload all catalog data and decode all images before allowing splash screen exit
+  useEffect(() => {
+    let active = true;
+    getOrFetchHomeData()
+      .then(() => {
+        if (active) setIsHomeReady(true);
+      })
+      .catch((err) => {
+        console.error('Home preload error:', err);
+        if (active) setIsHomeReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
@@ -335,7 +354,6 @@ function App() {
     return <AuthScreen />;
   }
 
-  // Strictly lock screens for dedicated roles
   const renderScreen = (): ReactNode => {
     if (isDeliveryPartner) {
       return <DeliveryScreen isDedicatedRole={true} />;
@@ -519,7 +537,6 @@ function App() {
     }
   };
 
-  // Warehouse desktop layout expands up to 7xl; others stay mobile-optimized
   const isWarehouseView = isWarehouseManager || screen === 'warehouse';
 
   return (
@@ -531,14 +548,18 @@ function App() {
       >
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
           <BackButtonHandler disableBack={isDedicatedStaff} />
-          <KeepAliveRenderer
-            currentKey={key}
-            render={renderScreen}
-            excludeKeys={['/wallet', '/account', '/order']}
-          />
+          {/* Prevent mounting screens until cache is populated */}
+          {isHomeReady ? (
+            <KeepAliveRenderer
+              currentKey={key}
+              render={renderScreen}
+              excludeKeys={['/wallet', '/account', '/order']}
+            />
+          ) : (
+            <div className="min-h-screen bg-[#02402c]" />
+          )}
         </main>
 
-        {/* Global Bottom Navigation is completely hidden for delivery partner & warehouse manager */}
         {!isDedicatedStaff &&
           screen !== 'categoryDetail' &&
           screen !== 'search' &&
@@ -556,6 +577,7 @@ function App() {
 
         {showSplash && (
           <SplashScreen
+            isReady={isHomeReady}
             onFinish={() => {
               setShowSplash(false);
             }}

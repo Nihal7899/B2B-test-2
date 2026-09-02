@@ -5,7 +5,7 @@ interface SplashScreenProps {
   isReady?: boolean;
 }
 
-export function SplashScreen({ onFinish, isReady = true }: SplashScreenProps) {
+export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
   const [exiting, setExiting] = useState(false);
   const [minTimerDone, setMinTimerDone] = useState(false);
   const onFinishRef = useRef(onFinish);
@@ -14,16 +14,17 @@ export function SplashScreen({ onFinish, isReady = true }: SplashScreenProps) {
     onFinishRef.current = onFinish;
   }, [onFinish]);
 
-  // Clean 900ms brand presentation timer
+  // Minimum 1000ms brand presentation timer[span_0](start_span)[span_0](end_span)
   useEffect(() => {
     const minTimer = window.setTimeout(() => {
       setMinTimerDone(true);
-    }, 900);
+    }, 1000);
 
+    // Fallback safety timeout (8s) only for dead network connections
     const maxSafetyTimer = window.setTimeout(() => {
       setExiting(true);
       window.setTimeout(() => onFinishRef.current(), 350);
-    }, 2500);
+    }, 8000);
 
     return () => {
       window.clearTimeout(minTimer);
@@ -31,7 +32,7 @@ export function SplashScreen({ onFinish, isReady = true }: SplashScreenProps) {
     };
   }, []);
 
-  // Dismiss as soon as branding animation completes AND data is ready
+  // Dismiss only when brand timer finishes AND preloaded data/images are ready[span_1](start_span)[span_1](end_span)
   useEffect(() => {
     if (!minTimerDone || !isReady || exiting) return;
 

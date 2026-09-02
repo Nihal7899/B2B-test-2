@@ -39,7 +39,6 @@ export interface PreloadedHomeData {
 let memoryHomeData: PreloadedHomeData | null = null;
 let inFlightPromise: Promise<PreloadedHomeData> | null = null;
 
-// Synchronously read from memory or persistent session storage on boot
 export function getHomeDataSync(): PreloadedHomeData | null {
   if (memoryHomeData) return memoryHomeData;
   try {
@@ -76,23 +75,16 @@ export function preloadImage(url: string): Promise<void> {
   });
 }
 
-export async function preloadImages(urls: string[], timeoutMs = 800): Promise<void> {
-  if (!Array.isArray(urls)) return;
-  const validUrls = Array.from(new Set(urls.filter((u) => typeof u === 'string' && u.trim().length > 0))).slice(0, 16);
+export async function preloadAllImages(urls: string[], maxWaitMs = 5000): Promise<void> {
+  const validUrls = Array.from(new Set(urls.filter((u) => typeof u === 'string' && u.trim().length > 0)));
   if (validUrls.length === 0) return;
 
   await Promise.race([
-    Promise.all(validUrls.map(preloadImage)),
-    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+    Promise.allSettled(validUrls.map((url) => preloadImage(url))),
+    new Promise((resolve) => setTimeout(resolve, maxWaitMs)),
   ]);
 }
 
-// Alias for critical preloads
-export const preloadCriticalImages = preloadImages;
-
-/**
- * Single deduplicated fetch function shared across App, Auth, and Home
- */
 export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
   if (inFlightPromise) return inFlightPromise;
 
@@ -145,13 +137,6 @@ export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
         ? prodRes
         : [];
 
-      // Warm up only above-the-fold critical banner and category images
-      const criticalImages: string[] = [
-        ...safeBanners.slice(0, 3).map((b) => b?.image).filter((img): img is string => Boolean(img)),
-        ...safeCategories.slice(0, 8).map((c) => c?.image).filter((img): img is string => Boolean(img)),
-      ];
-      await preloadImages(criticalImages, 500);
-
       const addressList = Array.isArray(addrs) ? addrs : [];
       const defaultAddr = addressList.find((a) => a?.is_default) || addressList[0] || null;
 
@@ -172,6 +157,27 @@ export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
         stores: Array.isArray(storeRes) ? storeRes : [],
         brands: Array.isArray(brandRes) ? brandRes : [],
       };
+
+      // Extract all image URLs across all home modules
+      const allImageUrls: string[] = [];
+      safeBanners.forEach((b) => b?.image && allImageUrls.push(b.image));
+      safeCategories.forEach((c) => c?.image && allImageUrls.push(c.image));
+      safeProducts.forEach((p) => p?.image && allImageUrls.push(p.image));
+      fullData.popularProducts.forEach((p) => p?.image && allImageUrls.push(p.image));
+      fullData.reorderProducts.forEach((p) => p?.image && allImageUrls.push(p.image));
+      fullData.recentlyViewed.forEach((p) => p?.image && allImageUrls.push(p.image));
+      fullData.volumeDeals.forEach((p) => p?.image && allImageUrls.push(p.image));
+      fullData.newArrivals.forEach((p) => p?.image && allImageUrls.push(p.image));
+      fullData.topRated.forEach((p) => p?.image && allImageUrls.push(p.image));
+      fullData.limitedStock.forEach((p) => p?.image && allImageUrls.push(p.image));
+      if (fullData.brandSpotlight?.products) {
+        fullData.brandSpotlight.products.forEach((p) => p?.image && allImageUrls.push(p.image));
+      }
+      fullData.stores.forEach((s) => s?.logo && allImageUrls.push(s.logo));
+      fullData.brands.forEach((b) => b?.logo && allImageUrls.push(b.logo));
+
+      // Decode all assets into memory before resolving
+      await preloadAllImages(allImageUrls, 6000);
 
       memoryHomeData = fullData;
       try {
@@ -208,6 +214,5 @@ export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
   return inFlightPromise;
 }
 
-// Backward-compatible alias exports
 export const preloadHomeScreenDataAndImages = getOrFetchHomeData;
 export const getCachedHomeData = getHomeDataSync;

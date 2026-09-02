@@ -12,6 +12,7 @@ export interface ProfileData {
   business_name: string;
   avatar_url: string | null;
   registration_status: 'unregistered' | 'registered';
+  staff_registration_status: 'unregistered' | 'registered';
 }
 
 interface AuthContextValue {
@@ -50,7 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadProfile = useCallback(async (userId: string) => {
-    const { data, error } = await supabase.from('profiles').select('id, personal_name, full_name, phone, business_name, avatar_url, registration_status').eq('id', userId).maybeSingle();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, personal_name, full_name, phone, business_name, avatar_url, registration_status, staff_registration_status')
+      .eq('id', userId)
+      .maybeSingle();
+
     if (error) {
       console.error('Could not load profile', error);
       setProfile(null);
@@ -88,7 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_OUT') setLoading(false);
     });
 
-    return () => { mounted = false; listener.subscription.unsubscribe(); };
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, [loadRole, loadProfile]);
 
   const sendOtp = useCallback(async (phone: string) => {
@@ -117,7 +126,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session?.user) await loadProfile(session.user.id);
   }, [session, loadProfile]);
 
-  const value = useMemo(() => ({ session, user: session?.user ?? null, role, profile, loading, sendOtp, verifyOtp, resendOtp, signOut, refreshProfile }), [session, role, profile, loading, sendOtp, verifyOtp, resendOtp, signOut, refreshProfile]);
+  const value = useMemo(
+    () => ({
+      session,
+      user: session?.user ?? null,
+      role,
+      profile,
+      loading,
+      sendOtp,
+      verifyOtp,
+      resendOtp,
+      signOut,
+      refreshProfile,
+    }),
+    [session, role, profile, loading, sendOtp, verifyOtp, resendOtp, signOut, refreshProfile]
+  );
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

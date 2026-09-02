@@ -21,6 +21,7 @@ import {
   Wifi,
   ArrowUpRight,
   ShieldCheck,
+  Wallet,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';

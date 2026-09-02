@@ -17,15 +17,17 @@ import {
   User,
   LogOut,
   ShieldCheck,
-  ChevronRight,
   TrendingUp,
+  ReceiptText,
+  Calendar,
   Sparkles,
-  Zap,
+  Wifi,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
 import { SlideToConfirm } from '@/components/SlideToConfirm';
+import { Toast } from '@/components/ui/Toast';
 
 interface DeliveryScreenProps {
   onBack?: () => void;
@@ -43,9 +45,14 @@ export interface DeliveryPaymentSummary {
   providers: string[];
 }
 
+interface ToastNotification {
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+}
+
 export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScreenProps) {
   const { user, profile, signOut } = useAuth();
-  const [navTab, setNavTab] = useState<'dashboard' | 'pending' | 'picked_up' | 'delivered' | 'account'>('pending');
+  const [navTab, setNavTab] = useState<'dashboard' | 'pending' | 'picked_up' | 'delivered' | 'account'>('dashboard');
   const [assignments, setAssignments] = useState<
     {
       assignment: { id: string; order_id: string; status: string; picked_up_at: string | null; delivered_at: string | null };
@@ -58,6 +65,11 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [toastNotification, setToastNotification] = useState<ToastNotification | null>(null);
+
+  const showToast = (message: string, type: ToastNotification['type'] = 'info') => {
+    setToastNotification({ message, type });
+  };
 
   const load = useCallback(async () => {
     try {
@@ -187,6 +199,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
       setAssignments(results);
     } catch (err) {
       console.error('Unexpected error in load:', err);
+      showToast('Could not load deliveries', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -236,39 +249,83 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
 
   const handleRefresh = () => {
     setRefreshing(true);
-    void load();
+    void load().then(() => {
+      showToast('Queue updated with latest server data', 'info');
+    });
   };
 
-  const completeDelivery = async (assignmentId: string, status: 'out_for_delivery' | 'delivered') => {
+  const completeDelivery = async (
+    assignmentId: string,
+    orderNumber: string,
+    targetStatus: 'out_for_delivery' | 'delivered',
+    collectedAmount = 0
+  ) => {
     setProcessingId(assignmentId);
     try {
       const { error } = await supabase.rpc('complete_delivery', {
         p_assignment_id: assignmentId,
-        p_status: status,
+        p_status: targetStatus,
       });
+
       if (error) {
-        alert('Could not update delivery: ' + error.message);
+        showToast(`Could not update: ${error.message}`, 'error');
       } else {
+        if (targetStatus === 'out_for_delivery') {
+          showToast(`Order ${orderNumber} picked up. Marked Out for Delivery!`, 'success');
+        } else {
+          showToast(
+            collectedAmount > 0
+              ? `Delivered! ₹${collectedAmount.toLocaleString('en-IN')} COD cash collected.`
+              : `Order ${orderNumber} delivered & completed successfully!`,
+            'success'
+          );
+        }
         await load();
       }
+    } catch (err: any) {
+      showToast(err?.message || 'Action failed. Please retry.', 'error');
     } finally {
       setProcessingId(null);
     }
   };
 
-  const pendingList = useMemo(() => {
-    return assignments.filter((a) => a.assignment.status === 'ready_for_pickup');
-  }, [assignments]);
+  // ── Metrics Calculation (IST/Today) ──────────────────────────────
+  const isTodayDate = (dateStr?: string | null) => {
+    if (!dateStr) return false;
+    const target = new Date(dateStr);
+    const now = new Date();
+    return (
+      target.getDate() === now.getDate() &&
+      target.getMonth() === now.getMonth() &&
+      target.getFullYear() === now.getFullYear()
+    );
+  };
 
-  const pickedUpList = useMemo(() => {
-    return assignments.filter((a) => a.assignment.status === 'out_for_delivery');
-  }, [assignments]);
+  const pendingList = useMemo(
+    () => assignments.filter((a) => a.assignment.status === 'ready_for_pickup'),
+    [assignments]
+  );
 
-  const deliveredList = useMemo(() => {
-    return assignments.filter((a) => a.assignment.status === 'delivered');
-  }, [assignments]);
+  const pickedUpList = useMemo(
+    () => assignments.filter((a) => a.assignment.status === 'out_for_delivery'),
+    [assignments]
+  );
 
-  const totalCashToCollect = useMemo(() => {
+  const deliveredList = useMemo(
+    () => assignments.filter((a) => a.assignment.status === 'delivered'),
+    [assignments]
+  );
+
+  const todayDeliveredList = useMemo(
+    () => deliveredList.filter((a) => isTodayDate(a.assignment.delivered_at || a.order.created_at)),
+    [deliveredList]
+  );
+
+  const todayCodCollected = useMemo(() => {
+    return todayDeliveredList.reduce((acc, curr) => acc + (curr.paymentSummary.codPaid || 0), 0);
+  }, [todayDeliveredList]);
+
+  const totalOutstandingCod = useMemo(() => {
     return [...pendingList, ...pickedUpList].reduce(
       (acc, curr) => acc + (curr.paymentSummary.amountToCollect || 0),
       0
@@ -285,43 +342,53 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
   const isProcessing = (id: string) => processingId === id;
 
   const driverDisplayName =
-    profile?.full_name || profile?.personal_name || profile?.business_name || 'Fleet Partner';
+    profile?.full_name?.trim() ||
+    profile?.personal_name?.trim() ||
+    profile?.business_name?.trim() ||
+    'Fleet Operator';
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] gap-3">
-        <div className="h-10 w-10 rounded-full border-2 border-[#59D9B6]/30 border-t-[#59D9B6] animate-spin" />
+        <div className="h-10 w-10 rounded-full border-2 border-emerald-300 border-t-emerald-700 animate-spin" />
         <p className="text-xs font-bold text-slate-500 tracking-wider uppercase">Loading Fleet Portal...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f8faf9] flex flex-col justify-between pb-28">
+    <div className="min-h-screen bg-[#f8faf9] flex flex-col justify-between pb-24">
+      {/* Toast Notification Container */}
+      {toastNotification && (
+        <div className="fixed top-4 inset-x-4 z-50 max-w-sm mx-auto animate-in fade-in slide-in-from-top-4 duration-200">
+          <Toast
+            message={toastNotification.message}
+            type={toastNotification.type}
+            onClose={() => setToastNotification(null)}
+          />
+        </div>
+      )}
+
       <div>
         {/* ============================================================ */}
-        {/* MODERN HEADER WITH SIDEWAY CAFKART LOGO                      */}
+        {/* SOLID DARK GREEN HEADER WITH SIDEWAY CAFKART LOGO            */}
         {/* ============================================================ */}
-        <header className="relative bg-[#011f1a] text-white pt-[max(1rem,env(safe-area-inset-top))] pb-5 px-4 sm:px-6 shadow-xl border-b border-[#59D9B6]/15 overflow-hidden">
-          {/* Ambient Glow */}
-          <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[#59D9B6]/10 blur-[90px] pointer-events-none" />
-          <div className="absolute -bottom-20 -left-20 h-48 w-48 rounded-full bg-[#59D9B6]/10 blur-[80px] pointer-events-none" />
-
-          <div className="relative z-10 flex items-center justify-between gap-3">
-            {/* Left: Optional Back + Sideway CafKart Logo */}
+        <header className="bg-[#0a382c] text-white pt-[max(1rem,env(safe-area-inset-top))] pb-4 px-4 sm:px-6 shadow-md border-b border-[#0f4d3d]">
+          <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
+            {/* Left: Back (if not dedicated) + CafKart Sideway Logo */}
             <div className="flex items-center gap-3">
               {!isDedicatedRole && onBack && (
                 <button
                   onClick={onBack}
-                  className="h-10 w-10 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-white active:scale-95 transition-transform"
+                  className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center text-white active:scale-95 transition-transform"
                 >
                   <ArrowLeft size={18} />
                 </button>
               )}
 
               <div className="flex items-center gap-2.5 select-none">
-                {/* Authentic Splash SVG Logo */}
-                <div className="h-10 w-10 rounded-2xl bg-white/5 border border-white/10 p-1.5 flex items-center justify-center shadow-inner">
+                {/* Sideway SVG Logo Icon */}
+                <div className="h-10 w-10 rounded-xl bg-white/10 border border-white/15 p-1.5 flex items-center justify-center shadow-xs">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 1536 1535"
@@ -348,74 +415,206 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                 </div>
 
                 <div className="flex flex-col justify-center">
-                  <div className="flex items-center leading-none">
+                  <div className="flex items-center gap-1 leading-none">
                     <span className="text-xl font-black tracking-tight text-white font-sans">Caf</span>
                     <span className="text-xl font-black tracking-tight text-[#59D9B6] font-sans">Kart</span>
-                    <span className="ml-2.5 inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#59D9B6]/15 text-[#59D9B6] border border-[#59D9B6]/30">
+                    <span className="ml-2 inline-flex items-center gap-1 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-[#59D9B6] border border-emerald-400/30">
                       <span className="h-1.5 w-1.5 rounded-full bg-[#59D9B6] animate-pulse" />
-                      LIVE
+                      ONLINE
                     </span>
                   </div>
-                  <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-[#D3F6EB]/80 mt-1">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-emerald-200/90 mt-1">
                     FLEET DISPATCH
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Right: Refresh & On-Duty Indicator */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="h-10 w-10 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur-md flex items-center justify-center text-[#59D9B6] active:scale-95 transition-transform"
-                title="Refresh Deliveries"
-              >
-                <RefreshCw size={17} className={refreshing ? 'animate-spin text-white' : ''} />
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Metrics Glance */}
-          <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-white/10">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-2.5 text-center">
-              <p className="text-[10px] uppercase tracking-wider text-slate-300 font-bold">Active</p>
-              <p className="text-lg font-black text-white mt-0.5">
-                {pendingList.length + pickedUpList.length}
-              </p>
-            </div>
-
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-2.5 text-center">
-              <p className="text-[10px] uppercase tracking-wider text-[#59D9B6] font-bold">Cash Due</p>
-              <p className="text-lg font-black text-[#59D9B6] mt-0.5">
-                ₹{totalCashToCollect.toLocaleString('en-IN')}
-              </p>
-            </div>
-
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-2.5 text-center">
-              <p className="text-[10px] uppercase tracking-wider text-emerald-300 font-bold">Delivered</p>
-              <p className="text-lg font-black text-emerald-300 mt-0.5">
-                {deliveredList.length}
-              </p>
-            </div>
+            {/* Right: Refresh Button */}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center text-emerald-200 active:scale-95 transition-transform"
+              title="Refresh Queue"
+            >
+              <RefreshCw size={17} className={refreshing ? 'animate-spin text-white' : ''} />
+            </button>
           </div>
         </header>
 
         {/* Content Container */}
         <main className="px-4 sm:px-6 pt-4 max-w-xl mx-auto space-y-4">
           {/* ============================================================ */}
-          {/* TAB 1: DASHBOARD                                             */}
+          {/* TAB 1: DASHBOARD (MODERN COMMERCIAL CARD + STATS)            */}
           {/* ============================================================ */}
           {navTab === 'dashboard' && (
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-8 text-center space-y-4 shadow-sm">
-              <div className="h-16 w-16 bg-[#59D9B6]/10 text-[#0f7760] rounded-2xl flex items-center justify-center mx-auto border border-[#59D9B6]/20">
-                <LayoutDashboard size={32} />
+            <div className="space-y-4">
+              {/* Modern Credit Card */}
+              <div className="rounded-3xl p-5 text-white shadow-2xl relative overflow-hidden bg-gradient-to-br from-[#042f24] via-[#064e3b] to-[#0f766e] border border-emerald-500/30">
+                <div className="relative z-10 flex flex-col justify-between h-48">
+                  {/* Top Bar: Bank Brand & Contactless Icon */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-lg bg-white/15 flex items-center justify-center border border-white/20">
+                        <Wallet size={14} className="text-[#59D9B6]" />
+                      </div>
+                      <span className="text-[11px] font-extrabold tracking-wider uppercase text-emerald-100">
+                        CAFKART FLEET CARD
+                      </span>
+                    </div>
+                    <Wifi size={18} className="rotate-90 text-emerald-200 opacity-80" />
+                  </div>
+
+                  {/* EMV Chip & Balance */}
+                  <div className="flex items-center justify-between mt-1">
+                    {/* Metallic Chip */}
+                    <div className="h-8 w-11 rounded-md bg-gradient-to-br from-amber-200 via-amber-300 to-amber-500 border border-amber-400/80 shadow-xs flex items-center justify-center relative">
+                      <div className="w-full h-[1px] bg-amber-600/40 absolute" />
+                      <div className="h-full w-[1px] bg-amber-600/40 absolute" />
+                      <div className="h-4 w-5 rounded-xs border border-amber-600/50" />
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase font-bold tracking-wider text-emerald-200">
+                        Today's COD Cash Collected
+                      </p>
+                      <p className="text-2xl font-black tracking-tight text-white mt-0.5">
+                        ₹{todayCodCollected.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Card Number Masked */}
+                  <p className="text-xs font-mono font-bold tracking-[0.25em] text-emerald-100/90 pt-1">
+                    •••• •••• •••• 8092
+                  </p>
+
+                  {/* Bottom Row: Operator Name & Verified Status */}
+                  <div className="flex items-center justify-between pt-2 border-t border-emerald-400/20 text-xs">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest text-emerald-300 font-semibold">Operator</p>
+                      <p className="font-extrabold uppercase tracking-wide text-white">{driverDisplayName}</p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-emerald-400/20 px-2 py-0.5 rounded-full border border-emerald-300/30">
+                      <Sparkles size={11} className="text-[#59D9B6]" />
+                      <span className="text-[10px] font-black text-emerald-100">ACTIVE ON-DUTY</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Decorative Background Orbs */}
+                <div className="absolute -right-10 -bottom-10 h-44 w-44 rounded-full bg-[#59D9B6]/15 blur-2xl pointer-events-none" />
+                <div className="absolute -left-10 -top-10 h-36 w-36 rounded-full bg-emerald-300/10 blur-xl pointer-events-none" />
               </div>
-              <div>
-                <h2 className="text-base font-black text-slate-900">Partner Intelligence</h2>
-                <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto leading-relaxed">
-                  Real-time analytics, route efficiency, incentive tracking, and shift earnings will be displayed here.
-                </p>
+
+              {/* Gradient Stat Cards (Inspired by Dashboard.tsx) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div
+                  className="rounded-2xl p-4 text-white shadow-md relative overflow-hidden"
+                  style={{ background: 'linear-gradient(135deg, #047857, #10b981)' }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-90">Today's COD</span>
+                    <TrendingUp size={16} className="opacity-80" />
+                  </div>
+                  <div className="text-xl font-black mt-1.5 tracking-tight">
+                    ₹{todayCodCollected.toLocaleString('en-IN')}
+                  </div>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">Delivered & settled today</p>
+                </div>
+
+                <div
+                  className="rounded-2xl p-4 text-white shadow-md relative overflow-hidden"
+                  style={{ background: 'linear-gradient(135deg, #b45309, #f59e0b)' }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-90">Pending COD</span>
+                    <Banknote size={16} className="opacity-80" />
+                  </div>
+                  <div className="text-xl font-black mt-1.5 tracking-tight">
+                    ₹{totalOutstandingCod.toLocaleString('en-IN')}
+                  </div>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">To collect from customers</p>
+                </div>
+
+                <div
+                  className="rounded-2xl p-4 text-white shadow-md relative overflow-hidden"
+                  style={{ background: 'linear-gradient(135deg, #0e7490, #22d3ee)' }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-90">Active Queue</span>
+                    <Package size={16} className="opacity-80" />
+                  </div>
+                  <div className="text-xl font-black mt-1.5 tracking-tight">
+                    {pendingList.length + pickedUpList.length}
+                  </div>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">
+                    {pendingList.length} pending · {pickedUpList.length} picked up
+                  </p>
+                </div>
+
+                <div
+                  className="rounded-2xl p-4 text-white shadow-md relative overflow-hidden"
+                  style={{ background: 'linear-gradient(135deg, #1a56db, #3b82f6)' }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-90">Completed</span>
+                    <CheckCircle2 size={16} className="opacity-80" />
+                  </div>
+                  <div className="text-xl font-black mt-1.5 tracking-tight">
+                    {deliveredList.length}
+                  </div>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">
+                    {todayDeliveredList.length} delivered today
+                  </p>
+                </div>
+              </div>
+
+              {/* Recent Deliveries Activity */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl shadow-card overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                  <span className="text-xs font-extrabold text-slate-800 flex items-center gap-2">
+                    <ReceiptText size={15} className="text-[#0a382c]" />
+                    Recent Today Settlements
+                  </span>
+                  <button
+                    onClick={() => setNavTab('delivered')}
+                    className="text-[11px] font-bold text-emerald-700 hover:underline"
+                  >
+                    View All ({deliveredList.length})
+                  </button>
+                </div>
+
+                <div className="p-3.5 space-y-2">
+                  {todayDeliveredList.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-4">No completed orders settled today yet</p>
+                  ) : (
+                    todayDeliveredList.slice(0, 4).map(({ order, paymentSummary: pay }) => (
+                      <div
+                        key={order.id}
+                        className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0"
+                      >
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">{order.order_number}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {new Date(order.created_at).toLocaleTimeString('en-IN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-extrabold text-emerald-700">
+                            +₹{Number(order.total).toLocaleString('en-IN')}
+                          </p>
+                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded">
+                            {pay.codPaid > 0 ? 'COD Collected' : 'Prepaid'}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -427,7 +626,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
             <div>
               {currentOrderList.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <div className="h-20 w-20 rounded-3xl bg-[#59D9B6]/10 flex items-center justify-center text-[#0f7760] border border-[#59D9B6]/20 shadow-inner">
+                  <div className="h-20 w-20 rounded-3xl bg-emerald-50 flex items-center justify-center text-[#0a382c] border border-emerald-100 shadow-inner">
                     <Truck size={36} strokeWidth={1.5} />
                   </div>
                   <h2 className="text-base font-extrabold text-slate-900 mt-5">No packages in this queue</h2>
@@ -448,17 +647,17 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                     return (
                       <div
                         key={assignment.id}
-                        className={`bg-white border rounded-[26px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-3.5 transition-all ${
+                        className={`bg-white border rounded-[24px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] space-y-3.5 transition-all ${
                           !pay.isFullyPaid && !isDelivered
                             ? 'border-amber-300 ring-2 ring-amber-100'
-                            : 'border-slate-200/80 hover:border-[#59D9B6]/50'
+                            : 'border-slate-200/80 hover:border-emerald-300'
                         }`}
                       >
                         {/* Order Header */}
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-md">
-                              <Package size={19} className="text-[#59D9B6]" />
+                            <div className="h-10 w-10 rounded-2xl bg-[#0a382c] text-[#59D9B6] flex items-center justify-center shadow-xs">
+                              <Package size={18} />
                             </div>
                             <div>
                               <p className="text-sm font-black text-slate-900 tracking-tight">{order.order_number}</p>
@@ -486,7 +685,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                           className={`p-3.5 rounded-2xl border flex items-center justify-between font-extrabold ${
                             pay.isFullyPaid || isDelivered
                               ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
-                              : 'bg-gradient-to-r from-amber-500 to-amber-600 text-white border-amber-600 shadow-lg shadow-amber-500/20'
+                              : 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/15'
                           }`}
                         >
                           <div className="flex items-center gap-2.5">
@@ -502,7 +701,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                               <p className={`text-[10px] font-medium ${pay.isFullyPaid || isDelivered ? 'text-emerald-700' : 'text-amber-100'}`}>
                                 {pay.isFullyPaid || isDelivered
                                   ? 'Prepaid in Full — Do NOT collect cash'
-                                  : 'Collect cash / QR payment before delivery'}
+                                  : 'Collect cash / UPI before handing over goods'}
                               </p>
                             </div>
                           </div>
@@ -559,11 +758,11 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                           )}
                         </div>
 
-                        {/* Delivery Location & Direct Communication */}
+                        {/* Customer Address & Calls */}
                         {address && (
                           <div className="rounded-2xl bg-slate-50/80 p-3.5 space-y-3 border border-slate-200/70">
                             <div className="flex items-start gap-2.5">
-                              <MapPin size={17} className="text-[#0f7760] shrink-0 mt-0.5" />
+                              <MapPin size={17} className="text-[#0a382c] shrink-0 mt-0.5" />
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-black text-slate-900">
                                   {address.label} · {address.recipient_name}
@@ -578,9 +777,9 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                             <div className="flex items-center gap-2 pt-0.5">
                               <a
                                 href={`tel:${address.phone}`}
-                                className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-white border border-emerald-300/80 text-emerald-700 text-xs font-bold shadow-xs hover:bg-emerald-50 active:scale-95 transition-all"
+                                className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-white border border-emerald-300 text-emerald-800 text-xs font-bold shadow-xs hover:bg-emerald-50 active:scale-95 transition-all"
                               >
-                                <PhoneCall size={14} className="text-emerald-600" />
+                                <PhoneCall size={14} className="text-emerald-700" />
                                 Call ({address.phone})
                               </a>
                               {address.latitude && address.longitude && (
@@ -588,9 +787,9 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                                   href={`https://www.google.com/maps?q=${address.latitude},${address.longitude}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-white border border-sky-300/80 text-sky-700 text-xs font-bold shadow-xs hover:bg-sky-50 active:scale-95 transition-all"
+                                  className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl bg-white border border-sky-300 text-sky-800 text-xs font-bold shadow-xs hover:bg-sky-50 active:scale-95 transition-all"
                                 >
-                                  <Navigation size={14} className="text-sky-600" />
+                                  <Navigation size={14} className="text-sky-700" />
                                   GPS Navigate
                                 </a>
                               )}
@@ -598,16 +797,23 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                           </div>
                         )}
 
-                        {/* Slide to Confirm Controls */}
+                        {/* Slide to Confirm Controls with Loading States */}
                         <div className="pt-2">
                           {assignment.status === 'ready_for_pickup' && (
                             <SlideToConfirm
                               label="Slide to confirm pickup"
-                              onConfirm={() => completeDelivery(assignment.id, 'out_for_delivery')}
+                              onConfirm={() =>
+                                completeDelivery(
+                                  assignment.id,
+                                  order.order_number,
+                                  'out_for_delivery'
+                                )
+                              }
                               isLoading={isCurrentProcessing}
                               disabled={isCurrentProcessing}
                             />
                           )}
+
                           {assignment.status === 'out_for_delivery' && (
                             <SlideToConfirm
                               label={
@@ -615,13 +821,21 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
                                   ? `Collect ₹${pay.amountToCollect.toFixed(0)} & slide to deliver`
                                   : 'Slide to confirm delivery'
                               }
-                              onConfirm={() => completeDelivery(assignment.id, 'delivered')}
+                              onConfirm={() =>
+                                completeDelivery(
+                                  assignment.id,
+                                  order.order_number,
+                                  'delivered',
+                                  pay.amountToCollect
+                                )
+                              }
                               isLoading={isCurrentProcessing}
                               disabled={isCurrentProcessing}
                             />
                           )}
+
                           {isDelivered && (
-                            <div className="h-12 rounded-2xl bg-emerald-50 text-emerald-800 text-xs font-black flex items-center justify-center gap-2 border border-emerald-200/80">
+                            <div className="h-12 rounded-2xl bg-emerald-50 text-emerald-800 text-xs font-black flex items-center justify-center gap-2 border border-emerald-200">
                               <CheckCircle2 size={18} className="text-emerald-600" />
                               Delivered & Settled Successfully
                             </div>
@@ -641,13 +855,13 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
           {navTab === 'account' && (
             <div className="space-y-4">
               <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex items-center gap-4">
-                <div className="h-14 w-14 rounded-2xl bg-slate-900 text-[#59D9B6] flex items-center justify-center font-black text-2xl shadow-md shrink-0 border border-slate-800">
+                <div className="h-14 w-14 rounded-2xl bg-[#0a382c] text-[#59D9B6] flex items-center justify-center font-black text-2xl shadow-md shrink-0 border border-emerald-900">
                   {driverDisplayName.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <h2 className="text-base font-black text-slate-900 truncate">{driverDisplayName}</h2>
-                    <span className="bg-[#59D9B6]/15 text-[#0a5544] text-[9px] font-black px-2 py-0.5 rounded-full border border-[#59D9B6]/30">
+                    <span className="bg-emerald-100 text-emerald-900 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-200">
                       FLEET
                     </span>
                   </div>
@@ -659,16 +873,20 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
 
               <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-2.5 text-xs">
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-400 font-semibold">Today's COD Collected</span>
+                  <span className="font-extrabold text-emerald-700">₹{todayCodCollected.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
                   <span className="text-slate-400 font-semibold">Active Dispatches</span>
                   <span className="font-extrabold text-slate-900">{pendingList.length + pickedUpList.length}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-400 font-semibold">Total Delivered</span>
+                  <span className="text-slate-400 font-semibold">Total Delivered (All Time)</span>
                   <span className="font-extrabold text-emerald-600">{deliveredList.length}</span>
                 </div>
                 <div className="flex justify-between py-1.5">
                   <span className="text-slate-400 font-semibold">Outstanding COD to Deposit</span>
-                  <span className="font-extrabold text-amber-600">₹{totalCashToCollect.toLocaleString('en-IN')}</span>
+                  <span className="font-extrabold text-amber-600">₹{totalOutstandingCod.toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
@@ -685,30 +903,30 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
       </div>
 
       {/* ============================================================ */}
-      {/* ELEVATED BOTTOM NAVIGATION DOCK (5 TABS)                     */}
+      {/* SOLID WHITE BOTTOM NAVIGATION BAR                            */}
       {/* ============================================================ */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 bg-[#011f1a]/95 backdrop-blur-xl border-t border-white/10 shadow-[0_-8px_30px_rgba(0,0,0,0.3)] safe-bottom">
+      <nav className="fixed inset-x-0 bottom-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] safe-bottom">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-2">
           <button
             onClick={() => setNavTab('dashboard')}
             className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${
-              navTab === 'dashboard' ? 'text-[#59D9B6]' : 'text-slate-400 hover:text-white'
+              navTab === 'dashboard' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
-            <LayoutDashboard size={19} strokeWidth={navTab === 'dashboard' ? 2.5 : 2} />
+            <LayoutDashboard size={20} strokeWidth={navTab === 'dashboard' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Dashboard</span>
           </button>
 
           <button
             onClick={() => setNavTab('pending')}
             className={`flex flex-col items-center justify-center flex-1 h-full gap-1 relative transition-colors ${
-              navTab === 'pending' ? 'text-[#59D9B6]' : 'text-slate-400 hover:text-white'
+              navTab === 'pending' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
-            <Clock size={19} strokeWidth={navTab === 'pending' ? 2.5 : 2} />
+            <Clock size={20} strokeWidth={navTab === 'pending' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Pending</span>
             {pendingList.length > 0 && (
-              <span className="absolute top-1.5 right-3.5 bg-amber-500 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center shadow-md">
+              <span className="absolute top-1.5 right-3.5 bg-amber-500 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center shadow-xs">
                 {pendingList.length}
               </span>
             )}
@@ -717,13 +935,13 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
           <button
             onClick={() => setNavTab('picked_up')}
             className={`flex flex-col items-center justify-center flex-1 h-full gap-1 relative transition-colors ${
-              navTab === 'picked_up' ? 'text-[#59D9B6]' : 'text-slate-400 hover:text-white'
+              navTab === 'picked_up' ? 'text-sky-700' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
-            <Truck size={19} strokeWidth={navTab === 'picked_up' ? 2.5 : 2} />
+            <Truck size={20} strokeWidth={navTab === 'picked_up' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Picked Up</span>
             {pickedUpList.length > 0 && (
-              <span className="absolute top-1.5 right-3.5 bg-[#59D9B6] text-slate-950 text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center shadow-md">
+              <span className="absolute top-1.5 right-3.5 bg-sky-500 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center shadow-xs">
                 {pickedUpList.length}
               </span>
             )}
@@ -732,20 +950,20 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
           <button
             onClick={() => setNavTab('delivered')}
             className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${
-              navTab === 'delivered' ? 'text-[#59D9B6]' : 'text-slate-400 hover:text-white'
+              navTab === 'delivered' ? 'text-emerald-700' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
-            <CheckCircle2 size={19} strokeWidth={navTab === 'delivered' ? 2.5 : 2} />
+            <CheckCircle2 size={20} strokeWidth={navTab === 'delivered' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Delivered</span>
           </button>
 
           <button
             onClick={() => setNavTab('account')}
             className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${
-              navTab === 'account' ? 'text-[#59D9B6]' : 'text-slate-400 hover:text-white'
+              navTab === 'account' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
-            <User size={19} strokeWidth={navTab === 'account' ? 2.5 : 2} />
+            <User size={20} strokeWidth={navTab === 'account' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Account</span>
           </button>
         </div>

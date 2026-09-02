@@ -36,6 +36,9 @@ export interface PreloadedHomeData {
   brands: TrustedBrand[];
 }
 
+// Backward-compatibility type alias
+export type PreloadedHomePayload = PreloadedHomeData;
+
 let memoryHomeData: PreloadedHomeData | null = null;
 let inFlightPromise: Promise<PreloadedHomeData> | null = null;
 
@@ -75,15 +78,23 @@ export function preloadImage(url: string): Promise<void> {
   });
 }
 
-export async function preloadAllImages(urls: string[], maxWaitMs = 5000): Promise<void> {
-  const validUrls = Array.from(new Set(urls.filter((u) => typeof u === 'string' && u.trim().length > 0)));
+// Primary batch image preloader required by CategoriesScreen and other screens
+export async function preloadImages(urls: string[], timeoutMs = 5000): Promise<void> {
+  if (!Array.isArray(urls)) return;
+  const validUrls = Array.from(
+    new Set(urls.filter((u) => typeof u === 'string' && u.trim().length > 0))
+  );
   if (validUrls.length === 0) return;
 
   await Promise.race([
     Promise.allSettled(validUrls.map((url) => preloadImage(url))),
-    new Promise((resolve) => setTimeout(resolve, maxWaitMs)),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
   ]);
 }
+
+// Aliases for compatibility across existing screens
+export const preloadAllImages = preloadImages;
+export const preloadCriticalImages = preloadImages;
 
 export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
   if (inFlightPromise) return inFlightPromise;
@@ -158,7 +169,7 @@ export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
         brands: Array.isArray(brandRes) ? brandRes : [],
       };
 
-      // Extract all image URLs across all home modules
+      // Collect image URLs across all home feeds
       const allImageUrls: string[] = [];
       safeBanners.forEach((b) => b?.image && allImageUrls.push(b.image));
       safeCategories.forEach((c) => c?.image && allImageUrls.push(c.image));
@@ -176,8 +187,8 @@ export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
       fullData.stores.forEach((s) => s?.logo && allImageUrls.push(s.logo));
       fullData.brands.forEach((b) => b?.logo && allImageUrls.push(b.logo));
 
-      // Decode all assets into memory before resolving
-      await preloadAllImages(allImageUrls, 6000);
+      // Decode critical home assets prior to completing the payload
+      await preloadImages(allImageUrls, 6000);
 
       memoryHomeData = fullData;
       try {

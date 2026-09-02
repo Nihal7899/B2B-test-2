@@ -17,10 +17,10 @@ import {
   FileText,
   Check,
   CheckCircle,
+  CheckCircle2,
   XCircle,
   ChevronDown,
   Edit2,
-  AlertCircle,
   RotateCcw,
   LogOut,
   Wallet,
@@ -414,7 +414,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     { id: 'cancelled', label: 'Cancelled' },
   ];
 
-  // Reset pagination on filter or search updates
   useEffect(() => {
     setOrdersPage(1);
   }, [searchQuery, orderStatusPill]);
@@ -423,7 +422,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setInvoicesPage(1);
   }, [searchQuery, invoiceDatePreset, customStartDate, customEndDate]);
 
-  // Filtered Orders List
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       const recipient = o.address_id ? addressMap[o.address_id]?.recipient_name || '' : '';
@@ -442,7 +440,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     return filteredOrders.slice(start, start + ORDERS_PER_PAGE);
   }, [filteredOrders, ordersPage]);
 
-  // Invoice Date Matching Logic
   const filteredInvoices = useMemo(() => {
     const now = new Date();
     const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -467,22 +464,10 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       const ordDate = new Date(ord.created_at);
 
       if (invoiceDatePreset === 'all') return true;
-
-      if (invoiceDatePreset === 'today') {
-        return ordDate >= todayMidnight;
-      }
-
-      if (invoiceDatePreset === 'yesterday') {
-        return ordDate >= yesterdayMidnight && ordDate < todayMidnight;
-      }
-
-      if (invoiceDatePreset === 'week') {
-        return ordDate >= sevenDaysAgo;
-      }
-
-      if (invoiceDatePreset === 'month') {
-        return ordDate >= thirtyDaysAgo;
-      }
+      if (invoiceDatePreset === 'today') return ordDate >= todayMidnight;
+      if (invoiceDatePreset === 'yesterday') return ordDate >= yesterdayMidnight && ordDate < todayMidnight;
+      if (invoiceDatePreset === 'week') return ordDate >= sevenDaysAgo;
+      if (invoiceDatePreset === 'month') return ordDate >= thirtyDaysAgo;
 
       if (invoiceDatePreset === 'custom') {
         if (!customStartDate && !customEndDate) return true;
@@ -751,7 +736,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 })}
               </div>
 
-              {/* Custom Date Range Selectors */}
               {invoiceDatePreset === 'custom' && (
                 <div className="pt-2 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2 animate-in fade-in duration-150">
                   <div className="flex items-center gap-2">
@@ -783,7 +767,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           ) : (
             <>
-              {/* TAB 1: ORDERS FULFILLMENT WITH PAGINATION */}
+              {/* TAB 1: ORDERS FULFILLMENT WITH REFINED PAYMENT BREAKDOWN & HIGHLIGHTED CASH */}
               {activeTab === 'orders' && (
                 <div className="space-y-4">
                   {filteredOrders.length === 0 ? (
@@ -813,12 +797,15 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                         const assignedDriver = drivers.find((d) => d.id === asg?.delivery_partner_id);
                         const isEditingDriver = editingDriverOrderId === ord.id;
 
+                        const hasAnyPaymentPaid = pay.walletPaid > 0 || pay.onlinePaid > 0 || pay.codPaid > 0;
+                        const hasPendingCash = !pay.isFullyPaid && !isDelivered && pay.amountDue > 0;
+
                         return (
                           <div
                             key={ord.id}
                             className={`bg-white border rounded-[22px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] space-y-3.5 flex flex-col justify-between transition-all ${
-                              ord.status === 'pending'
-                                ? 'border-amber-300 ring-2 ring-amber-100'
+                              hasPendingCash
+                                ? 'border-amber-400 ring-2 ring-amber-100/70'
                                 : isCancelled
                                 ? 'border-red-200 bg-red-50/20'
                                 : 'border-slate-200/80 hover:border-slate-300'
@@ -866,78 +853,76 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </span>
                               </div>
 
-                              {/* BEAUTIFUL PAYMENT BREAKDOWN UI */}
-                              <div className="rounded-2xl p-3 bg-slate-50 border border-slate-200/80 space-y-2.5">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="font-extrabold text-slate-700">Payment Breakdown</span>
-                                  <span
-                                    className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                      pay.isFullyPaid || isDelivered
-                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                        : 'bg-amber-100 text-amber-900 border border-amber-300'
-                                    }`}
-                                  >
-                                    {pay.isFullyPaid || isDelivered
-                                      ? 'Prepaid in Full'
-                                      : `Collect ₹${pay.amountDue.toFixed(0)} COD`}
-                                  </span>
-                                </div>
-
-                                <div className="grid grid-cols-3 gap-1.5">
-                                  {/* Wallet Pill */}
-                                  <div
-                                    className={`p-2 rounded-xl border flex flex-col justify-between ${
-                                      pay.walletPaid > 0
-                                        ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
-                                        : 'bg-white border-slate-200 text-slate-400'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-1 text-[10px] font-bold">
-                                      <Wallet size={12} className={pay.walletPaid > 0 ? 'text-emerald-600' : 'text-slate-400'} />
-                                      Wallet
+                              {/* HIGHLIGHTED CASH TO COLLECT / PAYMENT STATUS BANNER */}
+                              <div className="space-y-2">
+                                {hasPendingCash ? (
+                                  <div className="p-3 rounded-2xl bg-amber-500 text-white shadow-sm border border-amber-600 flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="h-8 w-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                                        <Banknote size={18} className="text-white" />
+                                      </div>
+                                      <div>
+                                        <p className="text-[10px] uppercase font-black tracking-wider text-amber-100">
+                                          Cash to Collect (COD)
+                                        </p>
+                                        <p className="text-xs font-semibold text-white">
+                                          Collect at doorstep before handover
+                                        </p>
+                                      </div>
                                     </div>
-                                    <p className="text-xs font-black mt-1">
-                                      ₹{pay.walletPaid.toLocaleString('en-IN')}
-                                    </p>
-                                  </div>
-
-                                  {/* Razorpay / Online Pill */}
-                                  <div
-                                    className={`p-2 rounded-xl border flex flex-col justify-between ${
-                                      pay.onlinePaid > 0
-                                        ? 'bg-blue-50/80 border-blue-200 text-blue-900'
-                                        : 'bg-white border-slate-200 text-slate-400'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-1 text-[10px] font-bold">
-                                      <CreditCard size={12} className={pay.onlinePaid > 0 ? 'text-blue-600' : 'text-slate-400'} />
-                                      Razorpay
+                                    <div className="text-right">
+                                      <p className="text-base font-black tracking-tight">
+                                        ₹{pay.amountDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </p>
                                     </div>
-                                    <p className="text-xs font-black mt-1">
-                                      ₹{pay.onlinePaid.toLocaleString('en-IN')}
-                                    </p>
                                   </div>
-
-                                  {/* Cash on Delivery Pill */}
-                                  <div
-                                    className={`p-2 rounded-xl border flex flex-col justify-between ${
-                                      pay.codPaid > 0 || (!pay.isFullyPaid && !isDelivered)
-                                        ? 'bg-amber-50/80 border-amber-200 text-amber-900'
-                                        : 'bg-white border-slate-200 text-slate-400'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-1 text-[10px] font-bold">
-                                      <Banknote size={12} className={pay.codPaid > 0 ? 'text-amber-600' : 'text-slate-400'} />
-                                      COD
+                                ) : (
+                                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-emerald-900">
+                                    <div className="flex items-center gap-2">
+                                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                                      <span className="text-xs font-extrabold uppercase tracking-wide">
+                                        {isDelivered ? 'Delivered & Settled in Full' : 'Prepaid in Full — Do Not Collect Cash'}
+                                      </span>
                                     </div>
-                                    <p className="text-xs font-black mt-1">
-                                      ₹{pay.codPaid > 0 ? pay.codPaid.toLocaleString('en-IN') : pay.amountDue.toFixed(0)}
-                                    </p>
+                                    <span className="text-xs font-black">₹0.00 Due</span>
                                   </div>
-                                </div>
+                                )}
+
+                                {/* ONLY RENDER PAYMENT CHIPS WITH AMOUNT > 0 */}
+                                {hasAnyPaymentPaid && (
+                                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                    <span className="text-[10px] font-bold text-slate-400 mr-1 uppercase tracking-wider">
+                                      Paid via:
+                                    </span>
+
+                                    {pay.walletPaid > 0 && (
+                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-extrabold">
+                                        <Wallet size={13} className="text-emerald-600" />
+                                        <span>Wallet:</span>
+                                        <span className="font-black">₹{pay.walletPaid.toLocaleString('en-IN')}</span>
+                                      </div>
+                                    )}
+
+                                    {pay.onlinePaid > 0 && (
+                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-extrabold">
+                                        <CreditCard size={13} className="text-blue-600" />
+                                        <span>Razorpay:</span>
+                                        <span className="font-black">₹{pay.onlinePaid.toLocaleString('en-IN')}</span>
+                                      </div>
+                                    )}
+
+                                    {pay.codPaid > 0 && (
+                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-extrabold">
+                                        <Banknote size={13} className="text-amber-600" />
+                                        <span>COD Settled:</span>
+                                        <span className="font-black">₹{pay.codPaid.toLocaleString('en-IN')}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
 
-                              {/* Total and Line Items Modal Trigger */}
+                              {/* Total and Line Items Inspection */}
                               <div className="flex items-center justify-between text-xs pt-0.5">
                                 <div>
                                   <span className="text-slate-400">Total Bill: </span>
@@ -953,7 +938,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </button>
                               </div>
 
-                              {/* Driver Dispatch Selection */}
+                              {/* Driver Assignment Section */}
                               {isReadyForPickup && (
                                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 space-y-2">
                                   <div className="flex items-center justify-between">
@@ -1005,7 +990,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                               )}
                             </div>
 
-                            {/* Progression Actions */}
+                            {/* Operational Progression Buttons */}
                             <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                               {ord.status === 'pending' && (
                                 <button
@@ -1063,7 +1048,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     </div>
                   )}
 
-                  {/* Orders Pagination Controls */}
+                  {/* Orders Pagination */}
                   {filteredOrders.length > ORDERS_PER_PAGE && (
                     <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-xs">
                       <p className="text-xs font-semibold text-slate-500">
@@ -1102,7 +1087,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 2: INVOICES TAB WITH PAGINATION */}
+              {/* TAB 2: INVOICES TAB WITH HIGHLIGHTED COLLECT & PAID BADGES */}
               {activeTab === 'invoices' && (
                 <div className="space-y-4">
                   {filteredInvoices.length === 0 ? (
@@ -1115,11 +1100,14 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                       {paginatedInvoices.map((ord) => {
                         const addr = ord.address_id ? addressMap[ord.address_id] : null;
                         const pay = paymentsMap[ord.id];
+                        const hasPendingCash = pay && !pay.isFullyPaid && ord.status !== 'delivered' && pay.amountDue > 0;
 
                         return (
                           <div
                             key={ord.id}
-                            className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] flex flex-col justify-between space-y-3"
+                            className={`bg-white border rounded-2xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] flex flex-col justify-between space-y-3 transition ${
+                              hasPendingCash ? 'border-amber-300' : 'border-slate-200/80'
+                            }`}
                           >
                             <div className="space-y-2">
                               <div className="flex items-start justify-between gap-2">
@@ -1155,17 +1143,35 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               </div>
 
-                              {/* Mini Payment Status on Invoice Card */}
+                              {/* Clean Paid From Components */}
                               {pay && (
-                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold pt-1">
                                   {pay.walletPaid > 0 && (
-                                    <span className="text-emerald-700">Wallet: ₹{pay.walletPaid.toFixed(0)}</span>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800">
+                                      <Wallet size={11} className="text-emerald-600" />
+                                      Wallet: ₹{pay.walletPaid.toFixed(0)}
+                                    </span>
                                   )}
+
                                   {pay.onlinePaid > 0 && (
-                                    <span className="text-blue-700">Online: ₹{pay.onlinePaid.toFixed(0)}</span>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-800">
+                                      <CreditCard size={11} className="text-blue-600" />
+                                      Razorpay: ₹{pay.onlinePaid.toFixed(0)}
+                                    </span>
                                   )}
+
                                   {pay.codPaid > 0 && (
-                                    <span className="text-amber-800">COD: ₹{pay.codPaid.toFixed(0)}</span>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900">
+                                      <Banknote size={11} className="text-amber-600" />
+                                      COD Settled: ₹{pay.codPaid.toFixed(0)}
+                                    </span>
+                                  )}
+
+                                  {hasPendingCash && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500 text-white font-black">
+                                      <Banknote size={11} className="text-amber-100" />
+                                      Collect: ₹{pay.amountDue.toFixed(0)} COD
+                                    </span>
                                   )}
                                 </div>
                               )}
@@ -1183,7 +1189,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     </div>
                   )}
 
-                  {/* Invoice Pagination Controls */}
+                  {/* Invoice Pagination */}
                   {filteredInvoices.length > INVOICES_PER_PAGE && (
                     <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-xs">
                       <p className="text-xs font-semibold text-slate-500">
@@ -1353,7 +1359,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </main>
       </div>
 
-      {/* Solid White Bottom Navigation Bar (Mobile View) */}
+      {/* Solid White Bottom Navigation Bar (Mobile Only) */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] safe-bottom md:hidden">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
           <button

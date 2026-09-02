@@ -23,7 +23,13 @@ import {
   AlertCircle,
   RotateCcw,
   LogOut,
-  Warehouse,
+  Wallet,
+  CreditCard,
+  Banknote,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Filter,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
@@ -73,10 +79,24 @@ interface PaymentSummary {
   providers: string[];
 }
 
+type InvoiceDatePreset = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
+
+const ORDERS_PER_PAGE = 12;
+const INVOICES_PER_PAGE = 12;
+
 export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseScreenProps) {
   const { signOut, profile } = useAuth();
   const [activeTab, setActiveTab] = useState<'orders' | 'invoices' | 'inventory' | 'low_stock'>('orders');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
+
+  // Pagination States
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [invoicesPage, setInvoicesPage] = useState(1);
+
+  // Invoice Date Filter States
+  const [invoiceDatePreset, setInvoiceDatePreset] = useState<InvoiceDatePreset>('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   // Orders State
   const [orders, setOrders] = useState<DbOrder[]>([]);
@@ -120,7 +140,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         .from('orders')
         .select('*')
         .order('created_at', { ascending: true })
-        .limit(150);
+        .limit(250);
 
       if (ordersErr || !ordersData) return;
 
@@ -225,20 +245,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
     const channel = supabase
       .channel('warehouse_live_channel')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
-        () => {
-          void loadOrders();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'delivery_assignments' },
-        () => {
-          void loadOrders();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        void loadOrders();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_assignments' }, () => {
+        void loadOrders();
+      })
       .subscribe();
 
     return () => {
@@ -255,10 +267,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setInspectOrderId(orderId);
     setInspectLoading(true);
     try {
-      const { data } = await supabase
-        .from('order_items')
-        .select('*')
-        .eq('order_id', orderId);
+      const { data } = await supabase.from('order_items').select('*').eq('order_id', orderId);
       setInspectItems((data as DbOrderItem[]) || []);
     } catch (err) {
       console.error('Failed to fetch items:', err);
@@ -405,6 +414,16 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     { id: 'cancelled', label: 'Cancelled' },
   ];
 
+  // Reset pagination on filter or search updates
+  useEffect(() => {
+    setOrdersPage(1);
+  }, [searchQuery, orderStatusPill]);
+
+  useEffect(() => {
+    setInvoicesPage(1);
+  }, [searchQuery, invoiceDatePreset, customStartDate, customEndDate]);
+
+  // Filtered Orders List
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       const recipient = o.address_id ? addressMap[o.address_id]?.recipient_name || '' : '';
@@ -417,16 +436,70 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     });
   }, [orders, addressMap, searchQuery, orderStatusPill]);
 
-  const invoiceOrders = useMemo(() => {
-    return orders.filter((o) => {
-      const recipient = o.address_id ? addressMap[o.address_id]?.recipient_name || '' : '';
-      const orderNum = o.order_number || '';
-      return (
+  const totalOrderPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE) || 1;
+  const paginatedOrders = useMemo(() => {
+    const start = (ordersPage - 1) * ORDERS_PER_PAGE;
+    return filteredOrders.slice(start, start + ORDERS_PER_PAGE);
+  }, [filteredOrders, ordersPage]);
+
+  // Invoice Date Matching Logic
+  const filteredInvoices = useMemo(() => {
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayMidnight = new Date(todayMidnight);
+    yesterdayMidnight.setDate(yesterdayMidnight.getDate() - 1);
+
+    const sevenDaysAgo = new Date(todayMidnight);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+
+    const thirtyDaysAgo = new Date(todayMidnight);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+
+    return orders.filter((ord) => {
+      const recipient = ord.address_id ? addressMap[ord.address_id]?.recipient_name || '' : '';
+      const orderNum = ord.order_number || '';
+      const matchesSearch =
         orderNum.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        recipient.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+        recipient.toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      const ordDate = new Date(ord.created_at);
+
+      if (invoiceDatePreset === 'all') return true;
+
+      if (invoiceDatePreset === 'today') {
+        return ordDate >= todayMidnight;
+      }
+
+      if (invoiceDatePreset === 'yesterday') {
+        return ordDate >= yesterdayMidnight && ordDate < todayMidnight;
+      }
+
+      if (invoiceDatePreset === 'week') {
+        return ordDate >= sevenDaysAgo;
+      }
+
+      if (invoiceDatePreset === 'month') {
+        return ordDate >= thirtyDaysAgo;
+      }
+
+      if (invoiceDatePreset === 'custom') {
+        if (!customStartDate && !customEndDate) return true;
+        const start = customStartDate ? new Date(`${customStartDate}T00:00:00`) : new Date(0);
+        const end = customEndDate ? new Date(`${customEndDate}T23:59:59`) : new Date();
+        return ordDate >= start && ordDate <= end;
+      }
+
+      return true;
     });
-  }, [orders, addressMap, searchQuery]);
+  }, [orders, addressMap, searchQuery, invoiceDatePreset, customStartDate, customEndDate]);
+
+  const totalInvoicePages = Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE) || 1;
+  const paginatedInvoices = useMemo(() => {
+    const start = (invoicesPage - 1) * INVOICES_PER_PAGE;
+    return filteredInvoices.slice(start, start + INVOICES_PER_PAGE);
+  }, [filteredInvoices, invoicesPage]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -451,9 +524,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   return (
     <div className="min-h-screen bg-[#f8faf9] flex flex-col justify-between pb-28 md:pb-16">
       <div>
-        {/* ============================================================ */}
-        {/* STICKY SOLID DARK GREEN HEADER WITH DIRECT CAFKART LOGO      */}
-        {/* ============================================================ */}
+        {/* Sticky Solid Dark Green Header with Direct SVG Logo */}
         <header className="sticky top-0 z-30 bg-[#0a382c] text-white pt-[max(1rem,env(safe-area-inset-top))] pb-4 px-4 sm:px-6 shadow-md border-b border-[#0f4d3d]">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -466,7 +537,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </button>
               )}
 
-              {/* Direct Enlarged Logo without container box or overlay tint */}
               <div className="flex items-center gap-3 select-none">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -502,19 +572,18 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     </span>
                   </div>
                   <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-emerald-200/90 mt-1">
-                    WAREHOUSE FULFILLMENT
+                    WAREHOUSE OPERATIONS
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Right Action Controls */}
             <div className="flex items-center gap-2">
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
                 className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center text-emerald-200 active:scale-95 transition-transform"
-                title="Refresh Data"
+                title="Refresh Queue"
               >
                 <RefreshCw size={17} className={refreshing ? 'animate-spin text-white' : ''} />
               </button>
@@ -523,7 +592,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 <button
                   onClick={() => void signOut()}
                   className="h-10 px-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-200 flex items-center gap-1.5 text-xs font-bold active:scale-95 transition-transform"
-                  title="Sign Out"
                 >
                   <LogOut size={16} />
                   <span className="hidden sm:inline">Sign Out</span>
@@ -533,11 +601,10 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           </div>
         </header>
 
-        {/* Content Container */}
+        {/* Content Body */}
         <main className="px-4 lg:px-8 pt-4 max-w-7xl mx-auto space-y-4">
-          {/* DESKTOP TAB BAR & GLOBAL SEARCH */}
+          {/* Desktop Navigation Tabs Switcher */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            {/* Desktop Top Tabs Switcher - Hidden on mobile */}
             <div className="hidden md:grid grid-cols-4 gap-1 bg-slate-200/70 p-1 rounded-2xl w-auto">
               <button
                 onClick={() => {
@@ -597,7 +664,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               </button>
             </div>
 
-            {/* Search Input */}
+            {/* Global Search Bar */}
             <div className="relative w-full md:w-80">
               <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
               <input
@@ -614,7 +681,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           </div>
 
-          {/* Orders Status Pills */}
+          {/* Orders Tab Status Filter Pills */}
           {activeTab === 'orders' && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
               {orderPills.map((pill) => {
@@ -646,15 +713,79 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
+          {/* Invoices Tab Comprehensive Date Filters */}
+          {activeTab === 'invoices' && (
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-3.5 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                  <Filter size={14} className="text-[#0a382c]" /> Filter Invoices by Date
+                </span>
+                <span className="text-[11px] font-bold text-slate-400">
+                  {filteredInvoices.length} {filteredInvoices.length === 1 ? 'invoice' : 'invoices'} found
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                {[
+                  { id: 'all', label: 'All Time' },
+                  { id: 'today', label: 'Today' },
+                  { id: 'yesterday', label: 'Yesterday' },
+                  { id: 'week', label: 'Last 7 Days' },
+                  { id: 'month', label: 'This Month' },
+                  { id: 'custom', label: 'Custom Range' },
+                ].map((preset) => {
+                  const isActive = invoiceDatePreset === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => setInvoiceDatePreset(preset.id as InvoiceDatePreset)}
+                      className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        isActive
+                          ? 'bg-[#0a382c] text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Date Range Selectors */}
+              {invoiceDatePreset === 'custom' && (
+                <div className="pt-2 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-slate-500 w-12 shrink-0">From:</span>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="w-full h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:border-[#0a382c]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-slate-500 w-12 shrink-0">To:</span>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="w-full h-9 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:border-[#0a382c]"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center py-24">
               <Loader2 size={36} className="animate-spin text-[#0a382c]" />
             </div>
           ) : (
             <>
-              {/* TAB 1: ORDERS FULFILLMENT */}
+              {/* TAB 1: ORDERS FULFILLMENT WITH PAGINATION */}
               {activeTab === 'orders' && (
-                <div>
+                <div className="space-y-4">
                   {filteredOrders.length === 0 ? (
                     <div className="bg-white border border-slate-200/80 rounded-3xl p-12 text-center text-slate-400 space-y-2">
                       <Package size={40} className="mx-auto text-slate-300" />
@@ -663,7 +794,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {filteredOrders.map((ord) => {
+                      {paginatedOrders.map((ord) => {
                         const addr = ord.address_id ? addressMap[ord.address_id] : null;
                         const asg = assignmentsMap[ord.id];
                         const pay = paymentsMap[ord.id] || {
@@ -685,15 +816,16 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                         return (
                           <div
                             key={ord.id}
-                            className={`bg-white border rounded-2xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] space-y-3.5 flex flex-col justify-between transition-all ${
+                            className={`bg-white border rounded-[22px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] space-y-3.5 flex flex-col justify-between transition-all ${
                               ord.status === 'pending'
-                                ? 'border-amber-300 ring-1 ring-amber-100'
+                                ? 'border-amber-300 ring-2 ring-amber-100'
                                 : isCancelled
                                 ? 'border-red-200 bg-red-50/20'
                                 : 'border-slate-200/80 hover:border-slate-300'
                             }`}
                           >
                             <div className="space-y-3">
+                              {/* Order Card Header */}
                               <div className="flex items-start justify-between gap-2">
                                 <div>
                                   <div className="flex items-center gap-2">
@@ -716,7 +848,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
 
                                 <span
-                                  className={`text-[10px] font-black uppercase rounded-full px-2.5 py-1 ${
+                                  className={`text-[9px] font-black uppercase rounded-full px-2.5 py-1 ${
                                     isDelivered
                                       ? 'bg-emerald-100 text-emerald-800'
                                       : isReadyForPickup || ord.status === 'out_for_delivery'
@@ -734,46 +866,82 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </span>
                               </div>
 
-                              <div
-                                className={`p-3 rounded-xl border flex items-center justify-between font-bold text-xs ${
-                                  pay.isFullyPaid || isDelivered
-                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                                    : 'bg-amber-500 border-amber-600 text-white shadow-xs'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  {pay.isFullyPaid || isDelivered ? (
-                                    <CheckCircle size={17} className="text-emerald-600 shrink-0" />
-                                  ) : (
-                                    <AlertCircle size={18} className="text-amber-100 shrink-0" />
-                                  )}
-                                  <div>
-                                    <p className="text-[11px] uppercase tracking-wider font-extrabold">
-                                      {pay.isFullyPaid || isDelivered
-                                        ? 'Payment Settled (Prepaid)'
-                                        : 'Pending Cash Collection (COD)'}
+                              {/* BEAUTIFUL PAYMENT BREAKDOWN UI */}
+                              <div className="rounded-2xl p-3 bg-slate-50 border border-slate-200/80 space-y-2.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="font-extrabold text-slate-700">Payment Breakdown</span>
+                                  <span
+                                    className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                      pay.isFullyPaid || isDelivered
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                        : 'bg-amber-100 text-amber-900 border border-amber-300'
+                                    }`}
+                                  >
+                                    {pay.isFullyPaid || isDelivered
+                                      ? 'Prepaid in Full'
+                                      : `Collect ₹${pay.amountDue.toFixed(0)} COD`}
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-1.5">
+                                  {/* Wallet Pill */}
+                                  <div
+                                    className={`p-2 rounded-xl border flex flex-col justify-between ${
+                                      pay.walletPaid > 0
+                                        ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                                        : 'bg-white border-slate-200 text-slate-400'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-1 text-[10px] font-bold">
+                                      <Wallet size={12} className={pay.walletPaid > 0 ? 'text-emerald-600' : 'text-slate-400'} />
+                                      Wallet
+                                    </div>
+                                    <p className="text-xs font-black mt-1">
+                                      ₹{pay.walletPaid.toLocaleString('en-IN')}
                                     </p>
-                                    <p className={`text-[10px] ${pay.isFullyPaid || isDelivered ? 'text-emerald-700' : 'text-amber-100'}`}>
-                                      {pay.walletPaid > 0 && `Wallet: ₹${pay.walletPaid.toFixed(0)} `}
-                                      {pay.onlinePaid > 0 && `Online: ₹${pay.onlinePaid.toFixed(0)} `}
-                                      {pay.codPaid > 0 && `COD: ₹${pay.codPaid.toFixed(0)} `}
+                                  </div>
+
+                                  {/* Razorpay / Online Pill */}
+                                  <div
+                                    className={`p-2 rounded-xl border flex flex-col justify-between ${
+                                      pay.onlinePaid > 0
+                                        ? 'bg-blue-50/80 border-blue-200 text-blue-900'
+                                        : 'bg-white border-slate-200 text-slate-400'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-1 text-[10px] font-bold">
+                                      <CreditCard size={12} className={pay.onlinePaid > 0 ? 'text-blue-600' : 'text-slate-400'} />
+                                      Razorpay
+                                    </div>
+                                    <p className="text-xs font-black mt-1">
+                                      ₹{pay.onlinePaid.toLocaleString('en-IN')}
+                                    </p>
+                                  </div>
+
+                                  {/* Cash on Delivery Pill */}
+                                  <div
+                                    className={`p-2 rounded-xl border flex flex-col justify-between ${
+                                      pay.codPaid > 0 || (!pay.isFullyPaid && !isDelivered)
+                                        ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                                        : 'bg-white border-slate-200 text-slate-400'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-1 text-[10px] font-bold">
+                                      <Banknote size={12} className={pay.codPaid > 0 ? 'text-amber-600' : 'text-slate-400'} />
+                                      COD
+                                    </div>
+                                    <p className="text-xs font-black mt-1">
+                                      ₹{pay.codPaid > 0 ? pay.codPaid.toLocaleString('en-IN') : pay.amountDue.toFixed(0)}
                                     </p>
                                   </div>
                                 </div>
-
-                                <div className="text-right">
-                                  <p className="text-sm font-black">
-                                    {pay.isFullyPaid || isDelivered
-                                      ? `₹${Number(ord.total).toFixed(2)}`
-                                      : `Collect ₹${pay.amountDue.toFixed(2)}`}
-                                  </p>
-                                </div>
                               </div>
 
-                              <div className="flex items-center justify-between text-xs pt-1">
+                              {/* Total and Line Items Modal Trigger */}
+                              <div className="flex items-center justify-between text-xs pt-0.5">
                                 <div>
-                                  <span className="text-slate-400">Total: </span>
-                                  <span className="font-extrabold text-slate-900">
+                                  <span className="text-slate-400">Total Bill: </span>
+                                  <span className="font-extrabold text-slate-900 text-sm">
                                     ₹{Number(ord.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                   </span>
                                 </div>
@@ -785,6 +953,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </button>
                               </div>
 
+                              {/* Driver Dispatch Selection */}
                               {isReadyForPickup && (
                                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 space-y-2">
                                   <div className="flex items-center justify-between">
@@ -836,6 +1005,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                               )}
                             </div>
 
+                            {/* Progression Actions */}
                             <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                               {ord.status === 'pending' && (
                                 <button
@@ -892,50 +1062,161 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                       })}
                     </div>
                   )}
+
+                  {/* Orders Pagination Controls */}
+                  {filteredOrders.length > ORDERS_PER_PAGE && (
+                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-xs">
+                      <p className="text-xs font-semibold text-slate-500">
+                        Showing{' '}
+                        <span className="font-bold text-slate-800">
+                          {(ordersPage - 1) * ORDERS_PER_PAGE + 1}
+                        </span>{' '}
+                        to{' '}
+                        <span className="font-bold text-slate-800">
+                          {Math.min(ordersPage * ORDERS_PER_PAGE, filteredOrders.length)}
+                        </span>{' '}
+                        of <span className="font-bold text-slate-800">{filteredOrders.length}</span> orders
+                      </p>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          disabled={ordersPage === 1}
+                          onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
+                          className="h-8 w-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <span className="text-xs font-black text-[#0a382c] px-2">
+                          Page {ordersPage} of {totalOrderPages}
+                        </span>
+                        <button
+                          disabled={ordersPage >= totalOrderPages}
+                          onClick={() => setOrdersPage((p) => Math.min(totalOrderPages, p + 1))}
+                          className="h-8 w-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* TAB 2: INVOICES TAB */}
+              {/* TAB 2: INVOICES TAB WITH PAGINATION */}
               {activeTab === 'invoices' && (
-                <div>
-                  {invoiceOrders.length === 0 ? (
+                <div className="space-y-4">
+                  {filteredInvoices.length === 0 ? (
                     <div className="bg-white border border-slate-200/80 rounded-3xl p-12 text-center text-slate-400 space-y-2">
                       <FileText size={40} className="mx-auto text-slate-300" />
-                      <p className="font-bold text-sm text-slate-700">No invoices found</p>
+                      <p className="font-bold text-sm text-slate-700">No invoices match selected date range</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {invoiceOrders.map((ord) => {
+                      {paginatedInvoices.map((ord) => {
                         const addr = ord.address_id ? addressMap[ord.address_id] : null;
+                        const pay = paymentsMap[ord.id];
+
                         return (
                           <div
                             key={ord.id}
-                            className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-card flex items-center justify-between gap-3"
+                            className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] flex flex-col justify-between space-y-3"
                           >
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-black text-sm text-slate-900">{ord.order_number}</span>
-                                <span className="text-[10px] font-bold text-slate-500 uppercase px-2 py-0.5 rounded-md bg-slate-100">
-                                  {ord.status.replace(/_/g, ' ')}
-                                </span>
+                            <div className="space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-black text-sm text-slate-900">{ord.order_number}</span>
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase px-2 py-0.5 rounded-md bg-slate-100">
+                                      {ord.status.replace(/_/g, ' ')}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-slate-600 font-medium mt-0.5">
+                                    {addr?.recipient_name} · {addr?.city}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                    <Calendar size={11} />
+                                    {new Date(ord.created_at).toLocaleDateString('en-IN', {
+                                      day: 'numeric',
+                                      month: 'short',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </p>
+                                </div>
+
+                                <div className="text-right">
+                                  <p className="text-sm font-black text-slate-900">
+                                    ₹{Number(ord.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 mt-0.5 font-semibold">
+                                    GST: ₹{Number(ord.gst_amount || 0).toFixed(2)}
+                                  </p>
+                                </div>
                               </div>
-                              <p className="text-xs text-slate-600 font-medium mt-0.5">
-                                {addr?.recipient_name} · {addr?.city}
-                              </p>
-                              <p className="text-[11px] text-slate-400 mt-0.5">
-                                Total: <span className="font-extrabold text-slate-800">₹{Number(ord.total).toLocaleString('en-IN')}</span> · GST: ₹{Number(ord.gst_amount || 0).toLocaleString('en-IN')}
-                              </p>
+
+                              {/* Mini Payment Status on Invoice Card */}
+                              {pay && (
+                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                  {pay.walletPaid > 0 && (
+                                    <span className="text-emerald-700">Wallet: ₹{pay.walletPaid.toFixed(0)}</span>
+                                  )}
+                                  {pay.onlinePaid > 0 && (
+                                    <span className="text-blue-700">Online: ₹{pay.onlinePaid.toFixed(0)}</span>
+                                  )}
+                                  {pay.codPaid > 0 && (
+                                    <span className="text-amber-800">COD: ₹{pay.codPaid.toFixed(0)}</span>
+                                  )}
+                                </div>
+                              )}
                             </div>
 
                             <button
                               onClick={() => void handlePrint(ord.id, ord.order_number)}
-                              className="h-9 px-3.5 rounded-xl bg-[#0a382c] hover:bg-[#082d23] text-white font-bold text-xs flex items-center gap-1.5 shadow-xs active:scale-95 transition shrink-0"
+                              className="w-full h-10 rounded-xl bg-[#0a382c] hover:bg-[#082d23] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition"
                             >
-                              <Printer size={14} /> Print
+                              <Printer size={15} /> Print GST Invoice
                             </button>
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {/* Invoice Pagination Controls */}
+                  {filteredInvoices.length > INVOICES_PER_PAGE && (
+                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-xs">
+                      <p className="text-xs font-semibold text-slate-500">
+                        Showing{' '}
+                        <span className="font-bold text-slate-800">
+                          {(invoicesPage - 1) * INVOICES_PER_PAGE + 1}
+                        </span>{' '}
+                        to{' '}
+                        <span className="font-bold text-slate-800">
+                          {Math.min(invoicesPage * INVOICES_PER_PAGE, filteredInvoices.length)}
+                        </span>{' '}
+                        of <span className="font-bold text-slate-800">{filteredInvoices.length}</span> invoices
+                      </p>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          disabled={invoicesPage === 1}
+                          onClick={() => setInvoicesPage((p) => Math.max(1, p - 1))}
+                          className="h-8 w-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <span className="text-xs font-black text-[#0a382c] px-2">
+                          Page {invoicesPage} of {totalInvoicePages}
+                        </span>
+                        <button
+                          disabled={invoicesPage >= totalInvoicePages}
+                          onClick={() => setInvoicesPage((p) => Math.min(totalInvoicePages, p + 1))}
+                          className="h-8 w-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1072,9 +1353,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </main>
       </div>
 
-      {/* ============================================================ */}
-      {/* SOLID WHITE BOTTOM NAVIGATION BAR (MOBILE ONLY)              */}
-      {/* ============================================================ */}
+      {/* Solid White Bottom Navigation Bar (Mobile View) */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] safe-bottom md:hidden">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
           <button
@@ -1146,7 +1425,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       </nav>
 
-      {/* Lazy Inspection Modal */}
+      {/* Package Contents Inspection Modal */}
       {inspectOrderId && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
@@ -1200,7 +1479,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       )}
 
-      {/* Staff Registration Modal Overlay */}
+      {/* Staff Registration Modal */}
       <StaffRegistrationModal isOpen={isStaffUnregistered} />
     </div>
   );

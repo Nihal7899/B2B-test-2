@@ -16,6 +16,7 @@ import {
   fetchStores,
   fetchTrustedBrands,
 } from '@/services/catalog';
+import { supabase } from '@/lib/supabase';
 import type { Category, Product, PromoBanner, Store, TrustedBrand, HomeSection } from '@/types';
 
 export interface PreloadedHomeData {
@@ -34,13 +35,21 @@ export interface PreloadedHomeData {
   brandSpotlight: { brandName: string; products: Product[] } | null;
   stores: Store[];
   brands: TrustedBrand[];
+  _userId?: string | null;
 }
 
-// Backward-compatibility type alias
 export type PreloadedHomePayload = PreloadedHomeData;
 
 let memoryHomeData: PreloadedHomeData | null = null;
 let inFlightPromise: Promise<PreloadedHomeData> | null = null;
+
+export function clearHomeDataCache() {
+  memoryHomeData = null;
+  inFlightPromise = null;
+  try {
+    sessionStorage.removeItem('cafkart_home_cache');
+  } catch {}
+}
 
 export function getHomeDataSync(): PreloadedHomeData | null {
   if (memoryHomeData) return memoryHomeData;
@@ -78,7 +87,6 @@ export function preloadImage(url: string): Promise<void> {
   });
 }
 
-// Primary batch image preloader required by CategoriesScreen and other screens
 export async function preloadImages(urls: string[], timeoutMs = 5000): Promise<void> {
   if (!Array.isArray(urls)) return;
   const validUrls = Array.from(
@@ -92,11 +100,25 @@ export async function preloadImages(urls: string[], timeoutMs = 5000): Promise<v
   ]);
 }
 
-// Aliases for compatibility across existing screens
 export const preloadAllImages = preloadImages;
 export const preloadCriticalImages = preloadImages;
 
-export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
+export async function getOrFetchHomeData(force = false): Promise<PreloadedHomeData> {
+  // Check active Supabase auth identity
+  const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+  const currentUserId = sessionData?.session?.user?.id || null;
+
+  if (force) {
+    clearHomeDataCache();
+  } else if (memoryHomeData) {
+    // If cached as guest, but now logged in with a valid user ID, invalidate guest cache immediately
+    const cachedUserId = memoryHomeData._userId || null;
+    if (cachedUserId === currentUserId) {
+      return memoryHomeData;
+    }
+    clearHomeDataCache();
+  }
+
   if (inFlightPromise) return inFlightPromise;
 
   inFlightPromise = (async () => {
@@ -167,9 +189,9 @@ export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
         brandSpotlight: spotlightRes || null,
         stores: Array.isArray(storeRes) ? storeRes : [],
         brands: Array.isArray(brandRes) ? brandRes : [],
+        _userId: currentUserId,
       };
 
-      // Collect image URLs across all home feeds
       const allImageUrls: string[] = [];
       safeBanners.forEach((b) => b?.image && allImageUrls.push(b.image));
       safeCategories.forEach((c) => c?.image && allImageUrls.push(c.image));
@@ -187,8 +209,7 @@ export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
       fullData.stores.forEach((s) => s?.logo && allImageUrls.push(s.logo));
       fullData.brands.forEach((b) => b?.logo && allImageUrls.push(b.logo));
 
-      // Decode critical home assets prior to completing the payload
-      await preloadImages(allImageUrls, 6000);
+      await preloadImages(allImageUrls, 5000);
 
       memoryHomeData = fullData;
       try {
@@ -215,6 +236,7 @@ export async function getOrFetchHomeData(): Promise<PreloadedHomeData> {
           brandSpotlight: null,
           stores: [],
           brands: [],
+          _userId: currentUserId,
         }
       );
     } finally {

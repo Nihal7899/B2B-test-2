@@ -69,7 +69,7 @@ import {
   initializePushNotifications,
 } from '@/services/push';
 
-import { getOrFetchHomeData, getHomeDataSync } from '@/services/homePreload';
+import { getOrFetchHomeData, getHomeDataSync, clearHomeDataCache } from '@/services/homePreload';
 
 const SCREEN_TO_PATH: Record<ScreenName, string> = {
   home: '/',
@@ -201,22 +201,30 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isHomeReady, setIsHomeReady] = useState(() => Boolean(getHomeDataSync()));
 
-  // Preload all catalog data and decode all images before allowing splash screen exit
+  // React to auth session changes: invalidate guest cache when user signs in
   useEffect(() => {
     let active = true;
-    getOrFetchHomeData()
-      .then(() => {
-        if (active) setIsHomeReady(true);
-      })
-      .catch((err) => {
-        console.error('Home preload error:', err);
-        if (active) setIsHomeReady(true);
-      });
-
+    if (user) {
+      getOrFetchHomeData(true)
+        .then(() => {
+          if (active) setIsHomeReady(true);
+        })
+        .catch(() => {
+          if (active) setIsHomeReady(true);
+        });
+    } else if (!loading) {
+      getOrFetchHomeData(false)
+        .then(() => {
+          if (active) setIsHomeReady(true);
+        })
+        .catch(() => {
+          if (active) setIsHomeReady(true);
+        });
+    }
     return () => {
       active = false;
     };
-  }, []);
+  }, [user, loading]);
 
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
@@ -548,7 +556,6 @@ function App() {
       >
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
           <BackButtonHandler disableBack={isDedicatedStaff} />
-          {/* Prevent mounting screens until cache is populated */}
           {isHomeReady ? (
             <KeepAliveRenderer
               currentKey={key}

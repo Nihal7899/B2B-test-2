@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { ArrowLeft, Delete } from 'lucide-react';
 import { useAuth } from '@/auth';
-import { preloadHomeScreenDataAndImages } from '@/services/homePreload';
+import { getOrFetchHomeData } from '@/services/homePreload';
 import heroImage from './hero.jpg';
 
 function normalizeIndianPhone(value: string): string {
@@ -18,26 +18,21 @@ function OtpIllustration() {
   return (
     <div className="relative mx-auto flex h-44 w-full items-center justify-center pt-2">
       <div className="absolute bottom-2 h-32 w-52 rounded-t-full bg-gradient-to-t from-[#0f7760]/15 to-[#0f7760]/5" />
-
       <div className="relative z-10 flex h-36 w-24 flex-col items-center justify-between rounded-2xl border-[3px] border-slate-800 bg-white p-2 shadow-xl shadow-slate-200/50">
         <div className="h-1 w-6 rounded-full bg-slate-300" />
-
         <div className="flex w-full flex-col gap-2">
           <div className="h-2.5 w-10 animate-pulse rounded-full bg-slate-100" />
           <div className="h-2.5 w-14 self-end rounded-full bg-[#0f7760]/20" />
           <div className="h-2.5 w-8 rounded-full bg-slate-100" />
         </div>
-
         <div className="h-1 w-7 rounded-full bg-slate-200" />
       </div>
-
       <div className="animate-float absolute z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#0f7760] text-white shadow-lg shadow-[#0f7760]/40 -translate-x-6">
         <div className="flex flex-col items-center justify-center">
           <span className="text-[10px] font-black uppercase tracking-wider">OTP</span>
           <span className="text-[8px] font-medium opacity-80">CODE</span>
         </div>
       </div>
-
       <div className="absolute left-[24%] bottom-2 z-10 hidden sm:block">
         <div className="h-16 w-5 rounded-t-full bg-slate-800" />
       </div>
@@ -72,13 +67,11 @@ function OtpVerificationView({
   const handleKeyPress = useCallback(
     (key: string) => {
       if (busy || verifyStatus === 'success') return;
-
       const firstEmptyIndex = digits.findIndex((d) => d === '');
       if (firstEmptyIndex !== -1) {
         const updated = [...digits];
         updated[firstEmptyIndex] = key;
         setDigits(updated);
-
         if (firstEmptyIndex === 5) {
           onVerify(updated.join(''));
         }
@@ -89,7 +82,6 @@ function OtpVerificationView({
 
   const handleDelete = useCallback(() => {
     if (busy || verifyStatus === 'success') return;
-
     const lastFilledIndex = [...digits].reverse().findIndex((d) => d !== '');
     if (lastFilledIndex !== -1) {
       const targetIndex = 5 - lastFilledIndex;
@@ -145,7 +137,6 @@ function OtpVerificationView({
             {digits.map((digit, i) => {
               const isFilled = digit !== '';
               const isCurrent = digits.findIndex((d) => d === '') === i;
-
               let style = 'bg-[#0f7760]/10 text-transparent border-transparent';
 
               if (verifyStatus === 'success') {
@@ -225,8 +216,9 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  // Preload catalog data while on phone screen
   useEffect(() => {
-    void preloadHomeScreenDataAndImages();
+    void getOrFetchHomeData(false);
   }, []);
 
   useEffect(() => {
@@ -273,6 +265,8 @@ export function AuthScreen() {
         setVerifyStatus('error');
         setError(typeof result.error === 'string' ? result.error : result.error.message || 'Invalid verification code.');
       } else {
+        // Authenticated session established: force-refresh cache to retrieve user sections
+        await getOrFetchHomeData(true).catch(() => {});
         setVerifyStatus('success');
       }
     } catch (err: any) {

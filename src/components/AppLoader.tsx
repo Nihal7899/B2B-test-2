@@ -49,98 +49,211 @@ export const AppLoader = React.memo(function AppLoader({
           : 'w-full py-8'
       } ${className}`}
     >
-      <div className={`relative flex flex-col items-center justify-center w-72 h-48 overflow-hidden rounded-2xl ${scaleClass}`}>
+      <div className={`relative flex flex-col items-center justify-center w-80 h-56 overflow-hidden rounded-3xl ${scaleClass}`}>
         {/* Ambient Produce Glow */}
-        <div className="absolute h-36 w-56 rounded-full bg-emerald-100/40 blur-2xl pointer-events-none" />
+        <div className="absolute h-40 w-64 rounded-full bg-emerald-100/40 blur-3xl pointer-events-none" />
 
-        {/* ----------------- PARALLAX LAYER 1: SEAMLESS MOVING CITY BUILDINGS ----------------- */}
-        <div className="absolute bottom-9 left-0 w-full h-18 overflow-hidden pointer-events-none z-0">
-          <div className="flex w-[560px] animate-skyline-scroll opacity-45">
-            {/* Seamless Repeating Skyline Segment A */}
-            <svg viewBox="0 0 280 70" className="w-[280px] h-[70px] shrink-0" fill="none">
-              {/* Distant Silhouettes (Lighter) */}
-              <rect x="15" y="18" width="34" height="52" rx="1" fill="#cbd5e1" />
-              <rect x="58" y="10" width="28" height="60" rx="1" fill="#cbd5e1" />
-              <rect x="108" y="24" width="40" height="46" rx="1" fill="#cbd5e1" />
-              <rect x="168" y="14" width="32" height="56" rx="1" fill="#cbd5e1" />
-              <rect x="220" y="20" width="38" height="50" rx="1" fill="#cbd5e1" />
+        {/* ----------------- PARALLAX LAYER 1: TALL & COLORFUL CITY BUILDINGS (Towering above the truck) ----------------- */}
+        <div className="absolute bottom-9 left-0 w-full h-36 overflow-hidden pointer-events-none z-0">
+          <div className="flex w-[640px] animate-skyline-scroll opacity-85">
+            {/* Seamless Repeating Skyline Segment A (Width: 320px, Height: 140px) */}
+            <svg viewBox="0 0 320 140" className="w-[320px] h-[140px] shrink-0" fill="none">
+              {/* 1. Tall Sky-Blue Commercial Tower (Height: 110px) */}
+              <rect x="6" y="22" width="34" height="118" rx="2" fill="#0284c7" />
+              <rect x="10" y="26" width="26" height="4" fill="#38bdf8" opacity="0.6" />
+              {/* Lit Office Windows */}
+              <circle cx="14" cy="38" r="1.6" fill="#fef08a" />
+              <circle cx="23" cy="38" r="1.6" fill="#ffffff" />
+              <circle cx="32" cy="38" r="1.6" fill="#fef08a" />
+              <circle cx="14" cy="48" r="1.6" fill="#ffffff" />
+              <circle cx="23" cy="48" r="1.6" fill="#fef08a" />
+              <circle cx="32" cy="48" r="1.6" fill="#ffffff" />
+              <circle cx="14" cy="58" r="1.6" fill="#fef08a" />
+              <circle cx="23" cy="58" r="1.6" fill="#fef08a" />
+              <circle cx="32" cy="58" r="1.6" fill="#ffffff" />
+              <circle cx="14" cy="68" r="1.6" fill="#ffffff" />
+              <circle cx="23" cy="68" r="1.6" fill="#fef08a" />
+              <circle cx="32" cy="68" r="1.6" fill="#fef08a" />
+              <line x1="23" y1="12" x2="23" y2="22" stroke="#64748b" strokeWidth="1.5" />
+              <circle cx="23" cy="11" r="1.5" fill="#ef4444" />
 
-              {/* Foreground Storefronts & Warehouses (Medium Tint) */}
-              <rect x="0" y="32" width="22" height="38" fill="#94a3b8" />
-              <rect x="36" y="28" width="30" height="42" rx="1" fill="#94a3b8" />
-              {/* Warehouse Window Rows */}
-              <circle cx="43" cy="36" r="1.5" fill="#ffffff" />
-              <circle cx="51" cy="36" r="1.5" fill="#ffffff" />
-              <circle cx="59" cy="36" r="1.5" fill="#ffffff" />
-              <circle cx="43" cy="44" r="1.5" fill="#ffffff" />
-              <circle cx="51" cy="44" r="1.5" fill="#ffffff" />
-              <circle cx="59" cy="44" r="1.5" fill="#ffffff" />
+              {/* 2. Marigold Wholesale Storefront with Red-White Striped Awning (Height: 85px) */}
+              <rect x="44" y="52" width="40" height="88" rx="2" fill="#f59e0b" />
+              <rect x="48" y="56" width="32" height="6" rx="1" fill="#fbbf24" />
+              <rect x="52" y="68" width="10" height="8" rx="1" fill="#fef3c7" />
+              <rect x="68" y="68" width="10" height="8" rx="1" fill="#fef3c7" />
+              {/* Striped Store Awning */}
+              <path d="M42 80H86L83 87H45L42 80Z" fill="#ef4444" />
+              <path d="M47 80L49 87H54L52 80H47ZM57 80L59 87H64L62 80H57ZM67 80L69 87H74L72 80H67ZM77 80L79 87H84L82 80H77Z" fill="#ffffff" />
 
-              {/* Central Wholesale Hub Building with Flat Roof Awning */}
-              <rect x="78" y="22" width="38" height="48" rx="1" fill="#64748b" />
-              <rect x="74" y="20" width="46" height="3" fill="#475569" />
-              <rect x="84" y="28" width="8" height="6" rx="0.5" fill="#fef3c7" opacity="0.8" />
-              <rect x="100" y="28" width="8" height="6" rx="0.5" fill="#fef3c7" opacity="0.8" />
-              <rect x="84" y="38" width="8" height="6" rx="0.5" fill="#ffffff" opacity="0.6" />
-              <rect x="100" y="38" width="8" height="6" rx="0.5" fill="#ffffff" opacity="0.6" />
+              {/* 3. Very Tall Emerald Logistics Hub (Height: 125px) */}
+              <rect x="88" y="10" width="38" height="130" rx="3" fill="#047857" />
+              <rect x="92" y="14" width="30" height="12" rx="1.5" fill="#10b981" />
+              <rect x="96" y="17" width="22" height="6" rx="1" fill="#a7f3d0" />
+              {/* Grid Windows */}
+              <rect x="94" y="34" width="6" height="8" rx="1" fill="#fef08a" />
+              <rect x="104" y="34" width="6" height="8" rx="1" fill="#fef08a" />
+              <rect x="114" y="34" width="6" height="8" rx="1" fill="#ffffff" />
+              <rect x="94" y="48" width="6" height="8" rx="1" fill="#ffffff" />
+              <rect x="104" y="48" width="6" height="8" rx="1" fill="#fef08a" />
+              <rect x="114" y="48" width="6" height="8" rx="1" fill="#fef08a" />
+              <rect x="94" y="62" width="6" height="8" rx="1" fill="#fef08a" />
+              <rect x="104" y="62" width="6" height="8" rx="1" fill="#ffffff" />
+              <rect x="114" y="62" width="6" height="8" rx="1" fill="#fef08a" />
+              {/* Rooftop Solar & Antenna */}
+              <line x1="107" y1="2" x2="107" y2="10" stroke="#065f46" strokeWidth="1.8" />
+              <circle cx="107" cy="2" r="1.5" fill="#34d399" />
 
-              {/* Industrial Silo / Grain Tank */}
-              <rect x="154" y="30" width="20" height="40" rx="4" fill="#94a3b8" />
-              <ellipse cx="164" cy="30" rx="10" ry="3" fill="#cbd5e1" />
+              {/* 4. Warm Coral Grocery Warehouse (Height: 95px) */}
+              <rect x="130" y="42" width="36" height="98" rx="2" fill="#ea580c" />
+              <rect x="134" y="46" width="28" height="5" fill="#fb923c" />
+              <circle cx="140" cy="58" r="2" fill="#ffffff" />
+              <circle cx="148" cy="58" r="2" fill="#fef08a" />
+              <circle cx="156" cy="58" r="2" fill="#ffffff" />
+              <circle cx="140" cy="68" r="2" fill="#fef08a" />
+              <circle cx="148" cy="68" r="2" fill="#ffffff" />
+              <circle cx="156" cy="68" r="2" fill="#fef08a" />
+              {/* Rooftop Water Tank */}
+              <rect x="138" y="35" width="12" height="7" rx="1.5" fill="#cbd5e1" />
+              <rect x="140" y="40" width="8" height="2" fill="#94a3b8" />
 
-              {/* Commercial HoReCa Depot */}
-              <rect x="194" y="26" width="36" height="44" rx="1" fill="#64748b" />
-              <rect x="200" y="32" width="24" height="4" rx="0.5" fill="#59D9B6" opacity="0.6" />
-              <rect x="246" y="35" width="34" height="35" fill="#94a3b8" />
+              {/* 5. Tall Indigo Cold-Storage Center (Height: 120px) */}
+              <rect x="170" y="16" width="36" height="124" rx="2" fill="#4338ca" />
+              <rect x="174" y="20" width="28" height="4" fill="#6366f1" />
+              {/* Vertical Illuminated Slits */}
+              <rect x="176" y="30" width="3" height="14" rx="1" fill="#93c5fd" />
+              <rect x="183" y="30" width="3" height="14" rx="1" fill="#fef08a" />
+              <rect x="190" y="30" width="3" height="14" rx="1" fill="#93c5fd" />
+              <rect x="176" y="50" width="3" height="14" rx="1" fill="#fef08a" />
+              <rect x="183" y="50" width="3" height="14" rx="1" fill="#93c5fd" />
+              <rect x="190" y="50" width="3" height="14" rx="1" fill="#fef08a" />
+              <line x1="188" y1="8" x2="188" y2="16" stroke="#3730a3" strokeWidth="1.5" />
+
+              {/* 6. Mint Green Produce Outlet with Green-White Awning (Height: 78px) */}
+              <rect x="210" y="58" width="34" height="82" rx="2" fill="#059669" />
+              <rect x="214" y="62" width="26" height="4" fill="#34d399" />
+              <rect x="217" y="72" width="8" height="7" rx="1" fill="#fef08a" />
+              <rect x="229" y="72" width="8" height="7" rx="1" fill="#ffffff" />
+              {/* Striped Green Awning */}
+              <path d="M208 84H246L243 90H211L208 84Z" fill="#10b981" />
+              <path d="M213 84L215 90H219L217 84H213ZM223 84L225 90H229L227 84H223ZM233 84L235 90H239L237 84H233Z" fill="#ffffff" />
+
+              {/* 7. Violet Commercial Building (Height: 105px) */}
+              <rect x="248" y="28" width="32" height="112" rx="2" fill="#7c3aed" />
+              <rect x="252" y="32" width="24" height="5" fill="#a78bfa" />
+              <circle cx="258" cy="44" r="1.8" fill="#fef08a" />
+              <circle cx="268" cy="44" r="1.8" fill="#ffffff" />
+              <circle cx="258" cy="56" r="1.8" fill="#ffffff" />
+              <circle cx="268" cy="56" r="1.8" fill="#fef08a" />
+              <circle cx="258" cy="68" r="1.8" fill="#fef08a" />
+              <circle cx="268" cy="68" r="1.8" fill="#ffffff" />
+
+              {/* 8. Amber Grain & Spices Depot (Height: 90px) */}
+              <rect x="284" y="45" width="36" height="95" rx="2" fill="#d97706" />
+              <rect x="288" y="49" width="28" height="4" fill="#fbbf24" />
+              <rect x="292" y="60" width="8" height="7" rx="1" fill="#fef3c7" />
+              <rect x="304" y="60" width="8" height="7" rx="1" fill="#fef3c7" />
             </svg>
 
-            {/* Identical Clone Segment B (Guarantees Seamless Infinity Loop) */}
-            <svg viewBox="0 0 280 70" className="w-[280px] h-[70px] shrink-0" fill="none">
-              <rect x="15" y="18" width="34" height="52" rx="1" fill="#cbd5e1" />
-              <rect x="58" y="10" width="28" height="60" rx="1" fill="#cbd5e1" />
-              <rect x="108" y="24" width="40" height="46" rx="1" fill="#cbd5e1" />
-              <rect x="168" y="14" width="32" height="56" rx="1" fill="#cbd5e1" />
-              <rect x="220" y="20" width="38" height="50" rx="1" fill="#cbd5e1" />
+            {/* Seamless Repeating Skyline Segment B (Identical clone for continuous infinite loop) */}
+            <svg viewBox="0 0 320 140" className="w-[320px] h-[140px] shrink-0" fill="none">
+              <rect x="6" y="22" width="34" height="118" rx="2" fill="#0284c7" />
+              <rect x="10" y="26" width="26" height="4" fill="#38bdf8" opacity="0.6" />
+              <circle cx="14" cy="38" r="1.6" fill="#fef08a" />
+              <circle cx="23" cy="38" r="1.6" fill="#ffffff" />
+              <circle cx="32" cy="38" r="1.6" fill="#fef08a" />
+              <circle cx="14" cy="48" r="1.6" fill="#ffffff" />
+              <circle cx="23" cy="48" r="1.6" fill="#fef08a" />
+              <circle cx="32" cy="48" r="1.6" fill="#ffffff" />
+              <circle cx="14" cy="58" r="1.6" fill="#fef08a" />
+              <circle cx="23" cy="58" r="1.6" fill="#fef08a" />
+              <circle cx="32" cy="58" r="1.6" fill="#ffffff" />
+              <circle cx="14" cy="68" r="1.6" fill="#ffffff" />
+              <circle cx="23" cy="68" r="1.6" fill="#fef08a" />
+              <circle cx="32" cy="68" r="1.6" fill="#fef08a" />
+              <line x1="23" y1="12" x2="23" y2="22" stroke="#64748b" strokeWidth="1.5" />
+              <circle cx="23" cy="11" r="1.5" fill="#ef4444" />
 
-              <rect x="0" y="32" width="22" height="38" fill="#94a3b8" />
-              <rect x="36" y="28" width="30" height="42" rx="1" fill="#94a3b8" />
-              <circle cx="43" cy="36" r="1.5" fill="#ffffff" />
-              <circle cx="51" cy="36" r="1.5" fill="#ffffff" />
-              <circle cx="59" cy="36" r="1.5" fill="#ffffff" />
-              <circle cx="43" cy="44" r="1.5" fill="#ffffff" />
-              <circle cx="51" cy="44" r="1.5" fill="#ffffff" />
-              <circle cx="59" cy="44" r="1.5" fill="#ffffff" />
+              <rect x="44" y="52" width="40" height="88" rx="2" fill="#f59e0b" />
+              <rect x="48" y="56" width="32" height="6" rx="1" fill="#fbbf24" />
+              <rect x="52" y="68" width="10" height="8" rx="1" fill="#fef3c7" />
+              <rect x="68" y="68" width="10" height="8" rx="1" fill="#fef3c7" />
+              <path d="M42 80H86L83 87H45L42 80Z" fill="#ef4444" />
+              <path d="M47 80L49 87H54L52 80H47ZM57 80L59 87H64L62 80H57ZM67 80L69 87H74L72 80H67ZM77 80L79 87H84L82 80H77Z" fill="#ffffff" />
 
-              <rect x="78" y="22" width="38" height="48" rx="1" fill="#64748b" />
-              <rect x="74" y="20" width="46" height="3" fill="#475569" />
-              <rect x="84" y="28" width="8" height="6" rx="0.5" fill="#fef3c7" opacity="0.8" />
-              <rect x="100" y="28" width="8" height="6" rx="0.5" fill="#fef3c7" opacity="0.8" />
-              <rect x="84" y="38" width="8" height="6" rx="0.5" fill="#ffffff" opacity="0.6" />
-              <rect x="100" y="38" width="8" height="6" rx="0.5" fill="#ffffff" opacity="0.6" />
+              <rect x="88" y="10" width="38" height="130" rx="3" fill="#047857" />
+              <rect x="92" y="14" width="30" height="12" rx="1.5" fill="#10b981" />
+              <rect x="96" y="17" width="22" height="6" rx="1" fill="#a7f3d0" />
+              <rect x="94" y="34" width="6" height="8" rx="1" fill="#fef08a" />
+              <rect x="104" y="34" width="6" height="8" rx="1" fill="#fef08a" />
+              <rect x="114" y="34" width="6" height="8" rx="1" fill="#ffffff" />
+              <rect x="94" y="48" width="6" height="8" rx="1" fill="#ffffff" />
+              <rect x="104" y="48" width="6" height="8" rx="1" fill="#fef08a" />
+              <rect x="114" y="48" width="6" height="8" rx="1" fill="#fef08a" />
+              <rect x="94" y="62" width="6" height="8" rx="1" fill="#fef08a" />
+              <rect x="104" y="62" width="6" height="8" rx="1" fill="#ffffff" />
+              <rect x="114" y="62" width="6" height="8" rx="1" fill="#fef08a" />
+              <line x1="107" y1="2" x2="107" y2="10" stroke="#065f46" strokeWidth="1.8" />
+              <circle cx="107" cy="2" r="1.5" fill="#34d399" />
 
-              <rect x="154" y="30" width="20" height="40" rx="4" fill="#94a3b8" />
-              <ellipse cx="164" cy="30" rx="10" ry="3" fill="#cbd5e1" />
+              <rect x="130" y="42" width="36" height="98" rx="2" fill="#ea580c" />
+              <rect x="134" y="46" width="28" height="5" fill="#fb923c" />
+              <circle cx="140" cy="58" r="2" fill="#ffffff" />
+              <circle cx="148" cy="58" r="2" fill="#fef08a" />
+              <circle cx="156" cy="58" r="2" fill="#ffffff" />
+              <circle cx="140" cy="68" r="2" fill="#fef08a" />
+              <circle cx="148" cy="68" r="2" fill="#ffffff" />
+              <circle cx="156" cy="68" r="2" fill="#fef08a" />
+              <rect x="138" y="35" width="12" height="7" rx="1.5" fill="#cbd5e1" />
+              <rect x="140" y="40" width="8" height="2" fill="#94a3b8" />
 
-              <rect x="194" y="26" width="36" height="44" rx="1" fill="#64748b" />
-              <rect x="200" y="32" width="24" height="4" rx="0.5" fill="#59D9B6" opacity="0.6" />
-              <rect x="246" y="35" width="34" height="35" fill="#94a3b8" />
+              <rect x="170" y="16" width="36" height="124" rx="2" fill="#4338ca" />
+              <rect x="174" y="20" width="28" height="4" fill="#6366f1" />
+              <rect x="176" y="30" width="3" height="14" rx="1" fill="#93c5fd" />
+              <rect x="183" y="30" width="3" height="14" rx="1" fill="#fef08a" />
+              <rect x="190" y="30" width="3" height="14" rx="1" fill="#93c5fd" />
+              <rect x="176" y="50" width="3" height="14" rx="1" fill="#fef08a" />
+              <rect x="183" y="50" width="3" height="14" rx="1" fill="#93c5fd" />
+              <rect x="190" y="50" width="3" height="14" rx="1" fill="#fef08a" />
+              <line x1="188" y1="8" x2="188" y2="16" stroke="#3730a3" strokeWidth="1.5" />
+
+              <rect x="210" y="58" width="34" height="82" rx="2" fill="#059669" />
+              <rect x="214" y="62" width="26" height="4" fill="#34d399" />
+              <rect x="217" y="72" width="8" height="7" rx="1" fill="#fef08a" />
+              <rect x="229" y="72" width="8" height="7" rx="1" fill="#ffffff" />
+              <path d="M208 84H246L243 90H211L208 84Z" fill="#10b981" />
+              <path d="M213 84L215 90H219L217 84H213ZM223 84L225 90H229L227 84H223ZM233 84L235 90H239L237 84H233Z" fill="#ffffff" />
+
+              <rect x="248" y="28" width="32" height="112" rx="2" fill="#7c3aed" />
+              <rect x="252" y="32" width="24" height="5" fill="#a78bfa" />
+              <circle cx="258" cy="44" r="1.8" fill="#fef08a" />
+              <circle cx="268" cy="44" r="1.8" fill="#ffffff" />
+              <circle cx="258" cy="56" r="1.8" fill="#ffffff" />
+              <circle cx="268" cy="56" r="1.8" fill="#fef08a" />
+              <circle cx="258" cy="68" r="1.8" fill="#fef08a" />
+              <circle cx="268" cy="68" r="1.8" fill="#ffffff" />
+
+              <rect x="284" y="45" width="36" height="95" rx="2" fill="#d97706" />
+              <rect x="288" y="49" width="28" height="4" fill="#fbbf24" />
+              <rect x="292" y="60" width="8" height="7" rx="1" fill="#fef3c7" />
+              <rect x="304" y="60" width="8" height="7" rx="1" fill="#fef3c7" />
             </svg>
           </div>
         </div>
 
         {/* ----------------- SPEED WIND & FRESHNESS PARTICLES ----------------- */}
-        <div className="absolute top-11 left-1 z-0 animate-trail-leaf-1 pointer-events-none">
+        <div className="absolute top-14 left-1 z-0 animate-trail-leaf-1 pointer-events-none">
           <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 text-emerald-500 drop-shadow-xs" fill="currentColor">
             <path d="M10 2C5 2 2 7 2 12C2 17 7 18 10 18C15 18 18 13 18 8C18 3 15 2 10 2Z" />
             <path d="M6 14C8 11 11 8 14 6" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
           </svg>
         </div>
-        <div className="absolute top-18 left-3 z-0 animate-trail-leaf-2 pointer-events-none">
+        <div className="absolute top-22 left-3 z-0 animate-trail-leaf-2 pointer-events-none">
           <svg viewBox="0 0 20 20" className="h-3 w-3 text-emerald-400 drop-shadow-xs" fill="currentColor">
             <path d="M10 2C5 2 2 7 2 12C2 17 7 18 10 18C15 18 18 13 18 8C18 3 15 2 10 2Z" />
           </svg>
         </div>
-        <div className="absolute top-14 -left-1 z-0 animate-trail-citrus pointer-events-none">
+        <div className="absolute top-18 -left-1 z-0 animate-trail-citrus pointer-events-none">
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 drop-shadow-xs" fill="none">
             <circle cx="12" cy="12" r="10" fill="#f59e0b" />
             <circle cx="12" cy="12" r="8.5" fill="#fef3c7" />
@@ -150,7 +263,7 @@ export const AppLoader = React.memo(function AppLoader({
         </div>
 
         {/* ----------------- LAYER 2: THE COMMERCIAL CARGO TRUCK ----------------- */}
-        <div className="relative z-10 animate-truck-drive">
+        <div className="relative z-10 animate-truck-drive mt-4">
           <svg
             className="w-56 h-28 drop-shadow-md"
             viewBox="0 0 200 95"
@@ -217,7 +330,7 @@ export const AppLoader = React.memo(function AppLoader({
               <circle cx="16.5" cy="4.2" r="1" fill="#38bdf8" />
             </g>
 
-            {/* CAFKART SPLASH LOGO: CENTERED FORWARD ON CONTAINER */}
+            {/* CAFKART SPLASH LOGO: CLEAR OF WHEEL CUTOUT */}
             <g transform="translate(68, 17) scale(0.024)">
               <path
                 d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
@@ -275,13 +388,13 @@ export const AppLoader = React.memo(function AppLoader({
           </svg>
         </div>
 
-        {/* ----------------- LAYER 3: SOLID STRUCTURED HIGH-CONTRAST ROADWAY ----------------- */}
-        <div className="relative -mt-3.5 w-60 z-20 flex flex-col items-center">
+        {/* ----------------- LAYER 3: SOLID HIGH-CONTRAST STRUCTURED ROADWAY ----------------- */}
+        <div className="relative -mt-3.5 w-64 z-20 flex flex-col items-center">
           {/* Concrete Road Curb Line */}
           <div className="h-[2px] w-full bg-[#64748b] rounded-t-sm" />
-          {/* Main Asphalt Road Strip */}
+          {/* Asphalt Road Surface */}
           <div className="h-3 w-full bg-[#1e293b] flex items-center justify-center overflow-hidden shadow-inner">
-            {/* Rapid High-Visibility White Highway Lane Divider Dashes */}
+            {/* Rapid High-Contrast White Lane Divider Dashes */}
             <div className="animate-road-speed h-[2.5px] w-full bg-[repeating-linear-gradient(90deg,#ffffff_0px,#ffffff_14px,transparent_14px,transparent_28px)] opacity-90" />
           </div>
           {/* Road Bottom Border */}
@@ -289,7 +402,7 @@ export const AppLoader = React.memo(function AppLoader({
         </div>
 
         {/* Dynamic Ground Shadow */}
-        <div className="h-1.5 w-48 rounded-full bg-slate-500/30 blur-xs animate-shadow-run mt-0.5" />
+        <div className="h-1.5 w-52 rounded-full bg-slate-500/30 blur-xs animate-shadow-run mt-0.5" />
       </div>
 
       {/* ----------------- STATUS BADGE (HomeScreen Only) ----------------- */}
@@ -314,10 +427,10 @@ export const AppLoader = React.memo(function AppLoader({
       <style>{`
         @keyframes skylineScroll {
           0% { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(-280px, 0, 0); }
+          100% { transform: translate3d(-320px, 0, 0); }
         }
         .animate-skyline-scroll {
-          animation: skylineScroll 4.5s linear infinite;
+          animation: skylineScroll 4.2s linear infinite;
         }
 
         @keyframes truckDrive {
@@ -386,32 +499,6 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-trail-citrus {
           animation: trailCitrus 1.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite 0.2s;
-        }
-
-        @keyframes sparkleTrail {
-          0%, 100% { transform: scale(0) rotate(0deg); opacity: 0; }
-          50% { transform: scale(1) rotate(90deg); opacity: 1; }
-        }
-        .animate-sparkle-trail {
-          animation: sparkleTrail 1.5s ease-in-out infinite 0.3s;
-        }
-
-        @keyframes wind1 {
-          0% { transform: translateX(15px); opacity: 0; }
-          50% { opacity: 0.8; }
-          100% { transform: translateX(-35px); opacity: 0; }
-        }
-        .animate-wind-1 {
-          animation: wind1 0.7s linear infinite 0.1s;
-        }
-
-        @keyframes wind2 {
-          0% { transform: translateX(20px); opacity: 0; }
-          50% { opacity: 0.9; }
-          100% { transform: translateX(-40px); opacity: 0; }
-        }
-        .animate-wind-2 {
-          animation: wind2 0.55s linear infinite 0.25s;
         }
 
         @keyframes fadeIn {

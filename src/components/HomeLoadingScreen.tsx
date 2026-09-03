@@ -4,7 +4,9 @@ export function HomeLoadingScreen() {
   return (
     <AppLoader
       fullScreen={true}
-      subtext="Preparing your restaurant & retail catalog"
+      size="md"
+      showStatus={true}
+      subtext="Setting up live catalog & mandi rates"
     />
   );
 }

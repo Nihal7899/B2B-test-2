@@ -42,7 +42,7 @@ import { CategoryScreen } from '@/screens/CategoryScreen';
 import { BrandScreen } from '@/screens/BrandScreen';
 import { BannerScreen } from '@/screens/BannerScreen';
 import { WalletScreen } from '@/screens/WalletScreen';
-
+import { HomeLoadingScreen } from '@/components/HomeLoadingScreen';
 import type {
   Category,
   Product,
@@ -580,7 +580,7 @@ function App() {
               excludeKeys={['/wallet', '/account', '/order']}
             />
           ) : (
-            <div className="min-h-screen bg-[#02402c]" />
+            <HomeLoadingScreen />
           )}
         </main>
 

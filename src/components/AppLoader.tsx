@@ -23,173 +23,191 @@ export const AppLoader = React.memo(function AppLoader({
       } ${className}`}
     >
       <div className={`relative flex flex-col items-center justify-center ${scaleClass}`}>
-        {/* ========================================================= */}
-        {/* 1. EXACT SVG VECTOR ILLUSTRATION (MATCHING YOUR IMAGE)    */}
-        {/* ========================================================= */}
-        <div className="relative w-84 h-64 flex items-center justify-center">
+        {/* Main Stage Viewport */}
+        <div className="relative w-88 h-64 flex items-center justify-center overflow-hidden">
+          {/* ========================================================= */}
+          {/* 1. SEAMLESS MOVING CITY SKYLINE (PANS RIGHT TO LEFT)      */}
+          {/* ========================================================= */}
+          <div className="absolute top-8 left-0 w-full h-36 overflow-hidden pointer-events-none z-0">
+            <div className="flex w-[720px] animate-pan-skyline opacity-85">
+              {/* Skyline Segment 1 (Width: 360px) */}
+              <svg viewBox="0 0 360 130" className="w-[360px] h-[130px] shrink-0" fill="none">
+                {/* Clouds */}
+                <path d="M106 60C106 55.5 109.5 52 114 52C115.5 52 117 52.5 118 53.5C119.5 50 123 48 127 48C132.5 48 137 52.5 137 58C138.5 58 140 59.5 140 61C140 63 138.5 64.5 136.5 64.5H109C107.5 64.5 106 63 106 60Z" fill="#e4efe7" />
+                <path d="M256 64C256 60 259 57 263 57C264.5 57 265.5 57.5 266.5 58.5C268 55.5 271 54 274.5 54C279 54 283 57.5 283 62C284.5 62 286 63.5 286 65C286 67 284.5 68.5 282.5 68.5H259C257.5 68.5 256 67 256 64Z" fill="#e4efe7" />
+
+                {/* Left Storefront Building with Scalloped Awning */}
+                <rect x="68" y="78" width="50" height="52" rx="2" fill="#d9ebdf" />
+                <path d="M64 86H122L119 95H67L64 86Z" fill="#c3decc" />
+                <path d="M69 95C69 97 71 98.5 73 98.5C75 98.5 77 97 77 95H69Z" fill="#b1d3bc" />
+                <path d="M77 95C77 97 79 98.5 81 98.5C83 98.5 85 97 85 95H77Z" fill="#b1d3bc" />
+                <path d="M85 95C85 97 87 98.5 89 98.5C91 98.5 93 97 93 95H85Z" fill="#b1d3bc" />
+                <path d="M93 95C93 97 95 98.5 97 98.5C99 98.5 101 97 101 95H93Z" fill="#b1d3bc" />
+                <path d="M101 95C101 97 103 98.5 105 98.5C107 98.5 109 97 109 95H101Z" fill="#b1d3bc" />
+                <path d="M109 95C109 97 111 98.5 113 98.5C115 98.5 117 97 117 95H109Z" fill="#b1d3bc" />
+                <rect x="75" y="104" width="9" height="15" rx="1" fill="#eaf3ec" />
+                <rect x="88" y="104" width="9" height="15" rx="1" fill="#eaf3ec" />
+                <rect x="101" y="104" width="9" height="15" rx="1" fill="#eaf3ec" />
+
+                {/* Tall Central Spire Tower */}
+                <path d="M136 68L152 48V130H136V68Z" fill="#e2efe6" />
+                <rect x="164" y="38" width="38" height="92" rx="2" fill="#d9ebdf" />
+                <rect x="178" y="24" width="10" height="14" fill="#d9ebdf" />
+                <line x1="183" y1="16" x2="183" y2="24" stroke="#c3decc" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="174" cy="50" r="1.8" fill="#f0f7f2" />
+                <circle cx="183" cy="50" r="1.8" fill="#f0f7f2" />
+                <circle cx="192" cy="50" r="1.8" fill="#f0f7f2" />
+                <circle cx="174" cy="62" r="1.8" fill="#f0f7f2" />
+                <circle cx="183" cy="62" r="1.8" fill="#f0f7f2" />
+                <circle cx="192" cy="62" r="1.8" fill="#f0f7f2" />
+                <circle cx="174" cy="74" r="1.8" fill="#f0f7f2" />
+                <circle cx="183" cy="74" r="1.8" fill="#f0f7f2" />
+                <circle cx="192" cy="74" r="1.8" fill="#f0f7f2" />
+
+                {/* Right Commercial Outlets & Awning */}
+                <rect x="210" y="66" width="32" height="64" rx="2" fill="#e2efe6" />
+                <rect x="250" y="76" width="36" height="54" rx="2" fill="#d9ebdf" />
+                <path d="M246 86H288L285 95H249L246 86Z" fill="#c3decc" />
+                <path d="M251 95C251 97 253 98.5 255 98.5C257 98.5 259 97 259 95H251Z" fill="#b1d3bc" />
+                <path d="M259 95C259 97 261 98.5 263 98.5C265 98.5 267 97 267 95H259Z" fill="#b1d3bc" />
+                <path d="M267 95C267 97 269 98.5 271 98.5C273 98.5 275 97 275 95H267Z" fill="#b1d3bc" />
+                <path d="M275 95C275 97 277 98.5 279 98.5C281 98.5 283 97 283 95H275Z" fill="#b1d3bc" />
+
+                {/* Location Map Pins */}
+                <g transform="translate(126, 68) scale(0.75)">
+                  <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#c0dbca" />
+                  <circle cx="10" cy="9" r="4" fill="#ffffff" />
+                </g>
+                <g transform="translate(266, 70) scale(0.75)">
+                  <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#c0dbca" />
+                  <circle cx="10" cy="9" r="4" fill="#ffffff" />
+                </g>
+              </svg>
+
+              {/* Skyline Segment 2 (Duplicate for Seamless Loop) */}
+              <svg viewBox="0 0 360 130" className="w-[360px] h-[130px] shrink-0" fill="none">
+                <path d="M106 60C106 55.5 109.5 52 114 52C115.5 52 117 52.5 118 53.5C119.5 50 123 48 127 48C132.5 48 137 52.5 137 58C138.5 58 140 59.5 140 61C140 63 138.5 64.5 136.5 64.5H109C107.5 64.5 106 63 106 60Z" fill="#e4efe7" />
+                <path d="M256 64C256 60 259 57 263 57C264.5 57 265.5 57.5 266.5 58.5C268 55.5 271 54 274.5 54C279 54 283 57.5 283 62C284.5 62 286 63.5 286 65C286 67 284.5 68.5 282.5 68.5H259C257.5 68.5 256 67 256 64Z" fill="#e4efe7" />
+                <rect x="68" y="78" width="50" height="52" rx="2" fill="#d9ebdf" />
+                <path d="M64 86H122L119 95H67L64 86Z" fill="#c3decc" />
+                <path d="M69 95C69 97 71 98.5 73 98.5C75 98.5 77 97 77 95H69Z" fill="#b1d3bc" />
+                <path d="M77 95C77 97 79 98.5 81 98.5C83 98.5 85 97 85 95H77Z" fill="#b1d3bc" />
+                <path d="M85 95C85 97 87 98.5 89 98.5C91 98.5 93 97 93 95H85Z" fill="#b1d3bc" />
+                <path d="M93 95C93 97 95 98.5 97 98.5C99 98.5 101 97 101 95H93Z" fill="#b1d3bc" />
+                <path d="M101 95C101 97 103 98.5 105 98.5C107 98.5 109 97 109 95H101Z" fill="#b1d3bc" />
+                <path d="M109 95C109 97 111 98.5 113 98.5C115 98.5 117 97 117 95H109Z" fill="#b1d3bc" />
+                <rect x="75" y="104" width="9" height="15" rx="1" fill="#eaf3ec" />
+                <rect x="88" y="104" width="9" height="15" rx="1" fill="#eaf3ec" />
+                <rect x="101" y="104" width="9" height="15" rx="1" fill="#eaf3ec" />
+                <path d="M136 68L152 48V130H136V68Z" fill="#e2efe6" />
+                <rect x="164" y="38" width="38" height="92" rx="2" fill="#d9ebdf" />
+                <rect x="178" y="24" width="10" height="14" fill="#d9ebdf" />
+                <line x1="183" y1="16" x2="183" y2="24" stroke="#c3decc" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="174" cy="50" r="1.8" fill="#f0f7f2" />
+                <circle cx="183" cy="50" r="1.8" fill="#f0f7f2" />
+                <circle cx="192" cy="50" r="1.8" fill="#f0f7f2" />
+                <circle cx="174" cy="62" r="1.8" fill="#f0f7f2" />
+                <circle cx="183" cy="62" r="1.8" fill="#f0f7f2" />
+                <circle cx="192" cy="62" r="1.8" fill="#f0f7f2" />
+                <circle cx="174" cy="74" r="1.8" fill="#f0f7f2" />
+                <circle cx="183" cy="74" r="1.8" fill="#f0f7f2" />
+                <circle cx="192" cy="74" r="1.8" fill="#f0f7f2" />
+                <rect x="210" y="66" width="32" height="64" rx="2" fill="#e2efe6" />
+                <rect x="250" y="76" width="36" height="54" rx="2" fill="#d9ebdf" />
+                <path d="M246 86H288L285 95H249L246 86Z" fill="#c3decc" />
+                <path d="M251 95C251 97 253 98.5 255 98.5C257 98.5 259 97 259 95H251Z" fill="#b1d3bc" />
+                <path d="M259 95C259 97 261 98.5 263 98.5C265 98.5 267 97 267 95H259Z" fill="#b1d3bc" />
+                <path d="M267 95C267 97 269 98.5 271 98.5C273 98.5 275 97 275 95H267Z" fill="#b1d3bc" />
+                <path d="M275 95C275 97 277 98.5 279 98.5C281 98.5 283 97 283 95H275Z" fill="#b1d3bc" />
+                <g transform="translate(126, 68) scale(0.75)">
+                  <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#c0dbca" />
+                  <circle cx="10" cy="9" r="4" fill="#ffffff" />
+                </g>
+                <g transform="translate(266, 70) scale(0.75)">
+                  <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#c0dbca" />
+                  <circle cx="10" cy="9" r="4" fill="#ffffff" />
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          {/* ========================================================= */}
+          {/* 2. THE CAFKART GROCERY TRUCK (PROPORTIONAL & CENTERED)    */}
+          {/* ========================================================= */}
           <svg
-            viewBox="0 0 360 250"
-            className="w-full h-full"
+            viewBox="0 0 360 220"
+            className="w-full h-full z-10 pointer-events-none"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
             <defs>
-              {/* Soft Ground Shadow Gradient */}
-              <radialGradient id="softGroundGrad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#94a3b8" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="#94a3b8" stopOpacity="0" />
+              <radialGradient id="groundShadowMain" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#64748b" stopOpacity="0.32" />
+                <stop offset="100%" stopColor="#64748b" stopOpacity="0" />
               </radialGradient>
             </defs>
 
-            {/* ------------------------------------------------------------- */}
-            {/* A. SOFT SAGE-MINT CITY SILHOUETTE, CLOUDS & MAP PINS          */}
-            {/* ------------------------------------------------------------- */}
-            <g opacity="0.8">
-              {/* Left Cloud */}
-              <path
-                d="M106 74C106 69.5 109.5 66 114 66C115.5 66 117 66.5 118 67.5C119.5 64 123 62 127 62C132.5 62 137 66.5 137 72C138.5 72 140 73.5 140 75C140 77 138.5 78.5 136.5 78.5H109C107.5 78.5 106 77 106 74Z"
-                fill="#e4efe7"
-              />
-
-              {/* Right Cloud */}
-              <path
-                d="M242 78C242 74 245 71 249 71C250.5 71 251.5 71.5 252.5 72.5C254 69.5 257 68 260.5 68C265 68 269 71.5 269 76C270.5 76 272 77.5 272 79C272 81 270.5 82.5 268.5 82.5H245C243.5 82.5 242 81 242 78Z"
-                fill="#e4efe7"
-              />
-
-              {/* Left Shop with Scalloped Awning */}
-              <rect x="70" y="96" width="46" height="66" rx="2" fill="#d9ebdf" />
-              {/* Awning */}
-              <path d="M66 104H120L117 113H69L66 104Z" fill="#c3decc" />
-              <path d="M71 113C71 115 73 116.5 75 116.5C77 116.5 79 115 79 113H71Z" fill="#b1d3bc" />
-              <path d="M79 113C79 115 81 116.5 83 116.5C85 116.5 87 115 87 113H79Z" fill="#b1d3bc" />
-              <path d="M87 113C87 115 89 116.5 91 116.5C93 116.5 95 115 95 113H87Z" fill="#b1d3bc" />
-              <path d="M95 113C95 115 97 116.5 99 116.5C101 116.5 103 115 103 113H95Z" fill="#b1d3bc" />
-              <path d="M103 113C103 115 105 116.5 107 116.5C109 116.5 111 115 111 113H103Z" fill="#b1d3bc" />
-              <path d="M111 113C111 115 113 116.5 115 116.5C117 116.5 119 115 119 113H111Z" fill="#b1d3bc" />
-              {/* Windows */}
-              <rect x="76" y="122" width="8" height="14" rx="1" fill="#eaf3ec" />
-              <rect x="89" y="122" width="8" height="14" rx="1" fill="#eaf3ec" />
-              <rect x="102" y="122" width="8" height="14" rx="1" fill="#eaf3ec" />
-
-              {/* Center Tall Skyscraper with Spire Antenna */}
-              <path d="M136 82L152 62V162H136V82Z" fill="#e2efe6" />
-              <rect x="162" y="54" width="34" height="108" rx="2" fill="#d9ebdf" />
-              <rect x="174" y="40" width="10" height="14" fill="#d9ebdf" />
-              <line x1="179" y1="32" x2="179" y2="40" stroke="#c3decc" strokeWidth="2" strokeLinecap="round" />
-              {/* Tower Window Dots */}
-              <circle cx="171" cy="64" r="1.5" fill="#f0f7f2" />
-              <circle cx="179" cy="64" r="1.5" fill="#f0f7f2" />
-              <circle cx="187" cy="64" r="1.5" fill="#f0f7f2" />
-              <circle cx="171" cy="74" r="1.5" fill="#f0f7f2" />
-              <circle cx="179" cy="74" r="1.5" fill="#f0f7f2" />
-              <circle cx="187" cy="74" r="1.5" fill="#f0f7f2" />
-              <circle cx="171" cy="84" r="1.5" fill="#f0f7f2" />
-              <circle cx="179" cy="84" r="1.5" fill="#f0f7f2" />
-              <circle cx="187" cy="84" r="1.5" fill="#f0f7f2" />
-
-              {/* Right Side Buildings */}
-              <rect x="204" y="78" width="30" height="84" rx="2" fill="#e2efe6" />
-              <rect x="240" y="92" width="32" height="70" rx="2" fill="#d9ebdf" />
-              {/* Right Store Scalloped Awning */}
-              <path d="M236 104H274L271 113H239L236 104Z" fill="#c3decc" />
-              <path d="M241 113C241 115 243 116.5 245 116.5C247 116.5 249 115 249 113H241Z" fill="#b1d3bc" />
-              <path d="M249 113C249 115 251 116.5 253 116.5C255 116.5 257 115 257 113H249Z" fill="#b1d3bc" />
-              <path d="M257 113C257 115 259 116.5 261 116.5C263 116.5 265 115 265 113H257Z" fill="#b1d3bc" />
-              <path d="M265 113C265 115 267 116.5 269 116.5C271 116.5 273 115 273 113H265Z" fill="#b1d3bc" />
-
-              {/* Left Map Pin */}
-              <g transform="translate(126, 80) scale(0.7)">
-                <path
-                  d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z"
-                  fill="#c0dbca"
-                />
-                <circle cx="10" cy="9" r="4" fill="#ffffff" />
-              </g>
-
-              {/* Right Map Pin */}
-              <g transform="translate(254, 82) scale(0.7)">
-                <path
-                  d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z"
-                  fill="#c0dbca"
-                />
-                <circle cx="10" cy="9" r="4" fill="#ffffff" />
-              </g>
-            </g>
-
-            {/* ------------------------------------------------------------- */}
-            {/* B. TRAILING GREEN SPEED STREAKS                               */}
-            {/* ------------------------------------------------------------- */}
+            {/* Trailing Green Wind Streaks */}
             <g className="animate-speed-lines">
-              <line x1="68" y1="134" x2="108" y2="134" stroke="#22c55e" strokeWidth="2.4" strokeLinecap="round" />
-              <line x1="56" y1="140" x2="108" y2="140" stroke="#22c55e" strokeWidth="2.4" strokeLinecap="round" />
-              <line x1="64" y1="146" x2="108" y2="146" stroke="#22c55e" strokeWidth="2.4" strokeLinecap="round" />
-              <line x1="72" y1="152" x2="108" y2="152" stroke="#22c55e" strokeWidth="2.4" strokeLinecap="round" />
+              <line x1="42" y1="112" x2="80" y2="112" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
+              <line x1="28" y1="120" x2="80" y2="120" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
+              <line x1="38" y1="128" x2="80" y2="128" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
+              <line x1="50" y1="136" x2="80" y2="136" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
             </g>
 
-            {/* ------------------------------------------------------------- */}
-            {/* C. SOFT HORIZONTAL GROUND SHADOW                              */}
-            {/* ------------------------------------------------------------- */}
-            <ellipse cx="186" cy="164" rx="92" ry="4.5" fill="url(#softGroundGrad)" />
+            {/* Soft Elliptical Ground Shadow directly under tyres */}
+            <ellipse cx="180" cy="180" rx="104" ry="5.5" fill="url(#groundShadowMain)" />
 
-            {/* ------------------------------------------------------------- */}
-            {/* D. THE GROCERY DELIVERY TRUCK                                 */}
-            {/* ------------------------------------------------------------- */}
-            <g className="animate-truck-gentle">
-              {/* 1. FRESH LOADED GROCERIES PILED ON TOP OF CONTAINER */}
-              <g className="animate-groceries-bob">
-                {/* Yellow Bananas Bunch */}
-                <g transform="translate(106, 122) rotate(-14)">
-                  <path
-                    d="M12 26C17 29 27 28 32 18C34 14 34 10 33 6C32 6 30 9 27 12C21 19 15 22 12 26Z"
-                    fill="#fbbf24"
-                  />
-                  <path
-                    d="M6 24C11 27 21 26 26 16C28 12 28 8 27 4C26 4 24 7 21 10C15 17 9 20 6 24Z"
-                    fill="#facc15"
-                  />
-                  <path d="M26 16L29 13" stroke="#65a30d" strokeWidth="2" strokeLinecap="round" />
-                  <circle cx="6" cy="24" r="1.5" fill="#78350f" />
+            {/* TRUCK BODY & GROCERIES (BOUNCES GENTLY ON SPRINGS) */}
+            <g className="animate-truck-body">
+              {/* Fresh Groceries Overflowing Out of Top */}
+              <g className="animate-produce-jiggle">
+                {/* Yellow Banana Cluster */}
+                <g transform="translate(84, 82) rotate(-14)">
+                  <path d="M12 28C18 31 29 30 35 19C37 15 37 10 36 6C35 6 32 9 29 13C22 21 15 24 12 28Z" fill="#fbbf24" />
+                  <path d="M6 25C11 28 22 27 28 17C30 13 30 9 29 5C28 5 26 8 23 11C16 18 9 21 6 25Z" fill="#facc15" />
+                  <path d="M28 17L31 14" stroke="#65a30d" strokeWidth="2" strokeLinecap="round" />
+                  <circle cx="6" cy="25" r="1.5" fill="#78350f" />
                 </g>
 
-                {/* Bushy Green Cabbage / Kale */}
-                <ellipse cx="132" cy="128" rx="11" ry="12" fill="#15803d" />
-                <ellipse cx="132" cy="128" rx="9" ry="10" fill="#16a34a" />
-                <circle cx="130" cy="126" r="6" fill="#22c55e" />
+                {/* Bushy Green Cabbage */}
+                <ellipse cx="116" cy="88" rx="13" ry="14" fill="#15803d" />
+                <ellipse cx="116" cy="88" rx="10" ry="11" fill="#16a34a" />
+                <circle cx="114" cy="85" r="6" fill="#22c55e" />
 
-                {/* Crusty Brown Baguette / Bread Loaf */}
-                <rect x="148" y="120" width="10" height="26" rx="5" transform="rotate(18 148 120)" fill="#d97706" />
-                <line x1="149" y1="128" x2="153" y2="130" stroke="#fef3c7" strokeWidth="1.2" strokeLinecap="round" />
-                <line x1="147" y1="134" x2="151" y2="136" stroke="#fef3c7" strokeWidth="1.2" strokeLinecap="round" />
+                {/* Baked Bread Loaf */}
+                <rect x="134" y="78" width="11" height="30" rx="5.5" transform="rotate(18 134 78)" fill="#d97706" />
+                <line x1="135" y1="87" x2="140" y2="89" stroke="#fef3c7" strokeWidth="1.4" strokeLinecap="round" />
+                <line x1="133" y1="94" x2="138" y2="96" stroke="#fef3c7" strokeWidth="1.4" strokeLinecap="round" />
 
-                {/* Bright Red Bell Pepper & Plump Tomatoes */}
-                <circle cx="142" cy="136" r="6.5" fill="#dc2626" />
-                <circle cx="149" cy="137" r="6" fill="#ef4444" />
-                <circle cx="136" cy="138" r="5.5" fill="#dc2626" />
-                <path d="M142 129.5V127M149 131V128.5" stroke="#15803d" strokeWidth="1.6" strokeLinecap="round" />
+                {/* Red Bell Pepper & Juicy Tomatoes */}
+                <circle cx="127" cy="97" r="7" fill="#dc2626" />
+                <circle cx="135" cy="98" r="6.5" fill="#ef4444" />
+                <circle cx="120" cy="100" r="6" fill="#dc2626" />
+                <path d="M127 90V87M135 91.5V88.5" stroke="#15803d" strokeWidth="1.8" strokeLinecap="round" />
 
-                {/* Glass Dairy Milk Bottle (White bottle, blue label, blue cap) */}
-                <g transform="translate(158, 120) rotate(8)">
-                  <rect x="0" y="5" width="14" height="22" rx="3" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1" />
-                  <rect x="0" y="12" width="14" height="9" fill="#38bdf8" />
-                  <circle cx="7" cy="16.5" r="2.8" fill="#ffffff" />
-                  <rect x="3.5" y="1" width="7" height="4" rx="1" fill="#0284c7" />
+                {/* Milk Bottle */}
+                <g transform="translate(148, 79) rotate(8)">
+                  <rect x="0" y="5" width="15" height="24" rx="3" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1" />
+                  <rect x="0" y="13" width="15" height="10" fill="#38bdf8" />
+                  <circle cx="7.5" cy="18" r="3" fill="#ffffff" />
+                  <rect x="4" y="1" width="7" height="4" rx="1" fill="#0284c7" />
                 </g>
 
-                {/* Orange Grocery / Juice Carton */}
-                <g transform="translate(172, 125) rotate(14)">
-                  <rect x="0" y="4" width="15" height="19" rx="2" fill="#f97316" />
-                  <circle cx="7.5" cy="12.5" r="3.2" fill="#fed7aa" />
-                  <polygon points="0,4 7.5,0 15,4" fill="#ea580c" />
+                {/* Orange Juice Carton */}
+                <g transform="translate(164, 84) rotate(14)">
+                  <rect x="0" y="4" width="16" height="22" rx="2" fill="#f97316" />
+                  <circle cx="8" cy="14" r="3.5" fill="#fed7aa" />
+                  <polygon points="0,4 8,0 16,4" fill="#ea580c" />
                 </g>
               </g>
 
-              {/* 2. BRIGHT VIBRANT GREEN CARGO CONTAINER */}
-              <rect x="110" y="132" width="94" height="50" rx="5" fill="#22c55e" />
-              <rect x="110" y="177" width="94" height="5" fill="#16a34a" />
+              {/* ----------------- EXTENDED CARGO CONTAINER (x=82 to x=210) ----------------- */}
+              <rect x="82" y="94" width="128" height="64" rx="5" fill="#22c55e" />
+              <rect x="82" y="152" width="128" height="6" fill="#16a34a" />
 
-              {/* EXACT CAFKART LOGO: SOLID CRISP WHITE CENTERED ON GREEN CONTAINER */}
-              <g transform="translate(144, 142) scale(0.020)">
+              {/* CAFKART LOGO: SHIFTED FORWARD TO x=154 (CLEAR OF REAR TYRE AT x=112) */}
+              <g transform="translate(154, 107) scale(0.024)">
                 <path
                   d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
                   fill="#FFFFFF"
@@ -202,70 +220,76 @@ export const AppLoader = React.memo(function AppLoader({
                 />
               </g>
 
-              {/* 3. DEEP FOREST GREEN DRIVER CABIN */}
+              {/* ----------------- DRIVER CABIN (ATTACHED PROPORTIONALLY) ----------------- */}
               <path
-                d="M204 136H228C232 136 235.5 138.5 237.5 142L248 158C249.5 160.5 248 164 245 164H204V136Z"
+                d="M210 100H238C243 100 247 103 249.5 107.5L263 130C265 133.5 263.5 138 259 138H210V100Z"
                 fill="#02402c"
               />
-              {/* Light Mint Windshield & Door Divider */}
+
+              {/* Windshield & Door Frame */}
               <path
-                d="M209 140H227C229 140 231 141.5 232 143.5L240 155H209V140Z"
+                d="M216 104H236C238.5 104 241 105.8 242 108.5L251 124H216V104Z"
                 fill="#a7f3d0"
                 opacity="0.9"
               />
-              <line x1="224" y1="140" x2="224" y2="155" stroke="#02402c" strokeWidth="2.5" />
+              <line x1="233" y1="104" x2="233" y2="124" stroke="#02402c" strokeWidth="2.5" />
 
-              {/* Front Lower Bumper & Amber Turn Signal */}
-              <path d="M245 158H255C257.5 158 259 160 259 162.5V166H241L245 158Z" fill="#0f172a" />
-              <rect x="253" y="159" width="4.5" height="4.5" rx="1" fill="#f59e0b" />
+              {/* Front Bumper & Amber Turn Signal */}
+              <path d="M259 138H272C275 138 277 140.5 277 143.5V148H254L259 138Z" fill="#0f172a" />
+              <rect x="270" y="140" width="5" height="5" rx="1" fill="#f59e0b" />
 
-              {/* 4. CHASSIS CUTOUTS */}
+              {/* Chassis Under-rail with Two Wheel Cutouts */}
               <path
-                d="M106 176H126C128 176 130 174 130 172C130 161 140 153 151 153C162 153 172 161 172 172C172 174 174 176 176 176H206C208 176 210 174 210 172C210 161 220 153 231 153C242 153 252 161 252 172C252 174 254 176 256 176H264V180H106V176Z"
+                d="M80 156H94C96 156 98 153.5 98 151C98 138 108 128 121 128C134 128 144 138 144 151C144 153.5 146 156 148 156H222C224 156 226 153.5 226 151C226 138 236 128 249 128C262 128 272 138 272 151C272 153.5 274 156 276 156H282V162H80V156Z"
                 fill="#0f172a"
               />
+            </g>
 
-              {/* 5. TWO WHEELS WITH SILVER ALLOY RIMS */}
-              {/* Rear Wheel (x=151, y=172) */}
-              <g className="animate-spin-wheel origin-[151px_172px]">
-                <circle cx="151" cy="172" r="14" fill="#1e293b" />
-                <circle cx="151" cy="172" r="8" fill="#e2e8f0" />
-                <circle cx="151" cy="172" r="4" fill="#0f172a" />
-              </g>
+            {/* ========================================================= */}
+            {/* 3. ROTATING ALLOY WHEELS WITH VISIBLE SPOKES (FIXED PIVOT) */}
+            {/* ========================================================= */}
+            {/* Rear Tyre (Pivot exactly at cx=121, cy=158) */}
+            <g className="wheel-rear" style={{ transformOrigin: '121px 158px' }}>
+              <circle cx="121" cy="158" r="17" fill="#1e293b" />
+              <circle cx="121" cy="158" r="10.5" fill="#e2e8f0" />
+              {/* Visible Alloy Spokes That Clearly Spin */}
+              <line x1="121" y1="148" x2="121" y2="168" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="111" y1="158" x2="131" y2="158" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="114" y1="151" x2="128" y2="165" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
+              <line x1="114" y1="165" x2="128" y2="151" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="121" cy="158" r="4.5" fill="#0f172a" />
+            </g>
 
-              {/* Front Wheel (x=231, y=172) */}
-              <g className="animate-spin-wheel origin-[231px_172px]">
-                <circle cx="231" cy="172" r="14" fill="#1e293b" />
-                <circle cx="231" cy="172" r="8" fill="#e2e8f0" />
-                <circle cx="231" cy="172" r="4" fill="#0f172a" />
-              </g>
+            {/* Front Tyre (Pivot exactly at cx=249, cy=158) */}
+            <g className="wheel-front" style={{ transformOrigin: '249px 158px' }}>
+              <circle cx="249" cy="158" r="17" fill="#1e293b" />
+              <circle cx="249" cy="158" r="10.5" fill="#e2e8f0" />
+              {/* Visible Alloy Spokes That Clearly Spin */}
+              <line x1="249" y1="148" x2="249" y2="168" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="239" y1="158" x2="259" y2="158" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="242" y1="151" x2="256" y2="165" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
+              <line x1="242" y1="165" x2="256" y2="151" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="249" cy="158" r="4.5" fill="#0f172a" />
             </g>
           </svg>
         </div>
 
         {/* ========================================================= */}
-        {/* 2. SOLID PROGRESS STEPPER & TAGLINE (HOME SCREEN ONLY)    */}
+        {/* 4. SOLID ROAD STEPPER & TAGLINE (HOME SCREEN ONLY)        */}
         {/* ========================================================= */}
         {showStatus && (
-          <div className="mt-4 flex flex-col items-center justify-center animate-fade-in">
-            {/* 5-Node Progress Track */}
+          <div className="mt-2 flex flex-col items-center justify-center animate-fade-in">
+            {/* 5-Step Progress Track */}
             <div className="relative flex items-center justify-between w-48 mb-3">
-              {/* Base Inactive Grey Track */}
               <div className="absolute top-1/2 left-0 right-0 h-[2px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
-              {/* Active Green Track Segment */}
               <div className="absolute top-1/2 left-0 w-1/2 h-[2px] -translate-y-1/2 bg-[#22c55e] z-0" />
 
-              {/* Node 1 */}
               <div className="relative z-10 h-3 w-3 rounded-full bg-[#22c55e]" />
-              {/* Node 2 */}
               <div className="relative z-10 h-3 w-3 rounded-full bg-[#22c55e]" />
-              {/* Node 3 (Active Pulsing Ring) */}
               <div className="relative z-10 flex items-center justify-center h-4 w-4 rounded-full border-2 border-[#22c55e] bg-white">
                 <div className="h-2 w-2 rounded-full bg-[#22c55e] animate-pulse" />
               </div>
-              {/* Node 4 */}
               <div className="relative z-10 h-3 w-3 rounded-full bg-[#cbd5e1]" />
-              {/* Node 5 */}
               <div className="relative z-10 h-3 w-3 rounded-full bg-[#cbd5e1]" />
             </div>
 
@@ -280,32 +304,50 @@ export const AppLoader = React.memo(function AppLoader({
 
       {/* GPU Keyframe Animations */}
       <style>{`
-        @keyframes truckGentle {
+        /* Smooth, seamless infinite city pan */
+        @keyframes panSkyline {
+          0% { transform: translate3d(0, 0, 0); }
+          100% { transform: translate3d(-360px, 0, 0); }
+        }
+        .animate-pan-skyline {
+          animation: panSkyline 4.8s linear infinite;
+        }
+
+        /* Visible 360-degree Wheel Spin */
+        @keyframes spinWheelAnim {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .wheel-rear {
+          animation: spinWheelAnim 0.42s linear infinite;
+        }
+        .wheel-front {
+          animation: spinWheelAnim 0.42s linear infinite;
+        }
+
+        /* Suspension bob on truck body (wheels remain planted) */
+        @keyframes truckBodyBounce {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-1.2px); }
+          30% { transform: translateY(-1.4px); }
+          65% { transform: translateY(0.4px); }
         }
-        .animate-truck-gentle {
-          animation: truckGentle 0.75s ease-in-out infinite;
+        .animate-truck-body {
+          animation: truckBodyBounce 0.65s ease-in-out infinite;
         }
 
-        @keyframes groceriesBob {
+        /* Produce bobbing inside container */
+        @keyframes produceJiggle {
           0%, 100% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-1.5px) rotate(-0.4deg); }
+          50% { transform: translateY(-1.2px) rotate(-0.5deg); }
         }
-        .animate-groceries-bob {
-          animation: groceriesBob 0.75s ease-in-out infinite 0.08s;
-        }
-
-        @keyframes spinWheel {
-          100% { transform: rotate(360deg); }
-        }
-        .animate-spin-wheel {
-          animation: spinWheel 0.4s linear infinite;
+        .animate-produce-jiggle {
+          animation: produceJiggle 0.65s ease-in-out infinite 0.08s;
         }
 
+        /* Speed wind streaks */
         @keyframes speedLines {
           0%, 100% { opacity: 0.85; transform: translateX(0); }
-          50% { opacity: 0.45; transform: translateX(-3.5px); }
+          50% { opacity: 0.35; transform: translateX(-4px); }
         }
         .animate-speed-lines {
           animation: speedLines 0.5s ease-in-out infinite;

@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { fetchCategories } from '@/services/catalog';
 import type { Category } from '@/types';
 import { preloadImages } from '@/services/homePreload';
+import { AppLoader } from '@/components/AppLoader';
 
 export function CategoriesScreen({ onBack }: { onBack: () => void }) {
   const navigate = useNavigate();
@@ -35,15 +36,25 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <AppLoader
-          fullScreen={false}
-          message="Loading bulk categories..."
-          subtext="Fetching fresh produce, staples & FMCG"
-        />
+      <div className="min-h-screen bg-white flex flex-col">
+        <div className="p-4 safe-top">
+          <button
+            onClick={onBack}
+            className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 text-slate-700 active:scale-95 transition-transform"
+            aria-label="Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+        </div>
+
+        {/* Textless B2B produce loader */}
+        <div className="flex-1 flex items-center justify-center -mt-16">
+          <AppLoader fullScreen={false} size="md" />
+        </div>
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

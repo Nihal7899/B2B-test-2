@@ -219,7 +219,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
-        {/* Top bar preserving navigation back */}
+        {/* Navigation header preserved */}
         <div className="p-4 safe-top">
           <button
             onClick={onBack}
@@ -230,17 +230,14 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           </button>
         </div>
 
-        {/* Centered Modern Animated B2B Delivery Loader */}
+        {/* Clean, textless creative loader */}
         <div className="flex-1 flex items-center justify-center -mt-16">
-          <AppLoader
-            fullScreen={false}
-            message="Loading product details..."
-            subtext="Fetching live wholesale rates & stock tiers"
-          />
+          <AppLoader fullScreen={false} size="md" />
         </div>
       </div>
     );
   }
+
 
   if (!product) {
     return (

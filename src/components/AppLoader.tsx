@@ -1,380 +1,318 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 
 interface AppLoaderProps {
-  message?: string;
-  subtext?: string;
-  messages?: string[];
   fullScreen?: boolean;
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
-const DEFAULT_GROCERY_MESSAGES = [
-  'Picking freshest farm produce...',
-  'Inspecting quality & mandi rates...',
-  'Packing your bulk crates...',
-  'Preparing rapid cold-chain dispatch...',
-];
-
 export const AppLoader = React.memo(function AppLoader({
-  message,
-  subtext = 'Direct from farms & verified wholesale brands',
-  messages = DEFAULT_GROCERY_MESSAGES,
   fullScreen = true,
+  size = 'md',
   className = '',
 }: AppLoaderProps) {
-  const [msgIndex, setMsgIndex] = useState(0);
-
-  useEffect(() => {
-    if (message) return;
-    const interval = setInterval(() => {
-      setMsgIndex((prev) => (prev + 1) % messages.length);
-    }, 1400);
-    return () => clearInterval(interval);
-  }, [message, messages]);
-
-  const activeMessage = message || messages[msgIndex];
+  const scaleClass =
+    size === 'sm' ? 'scale-75' : size === 'lg' ? 'scale-110' : 'scale-95 sm:scale-100';
 
   return (
     <div
-      className={`flex flex-col items-center justify-center bg-white select-none ${
+      className={`flex items-center justify-center bg-white select-none ${
         fullScreen
-          ? 'fixed inset-0 z-50 px-6 animate-fade-in'
-          : 'w-full py-12 px-4'
+          ? 'fixed inset-0 z-50 animate-fade-in'
+          : 'w-full py-10'
       } ${className}`}
     >
-      {/* Visual Centerpiece */}
-      <div className="relative flex flex-col items-center justify-center w-72 h-72">
-        {/* Soft Ambient Radial Glow */}
-        <div className="absolute h-56 w-56 rounded-full bg-emerald-100/70 blur-3xl pointer-events-none" />
+      <div className={`relative flex flex-col items-center justify-center ${scaleClass}`}>
+        {/* Soft Radial Ambient Glow */}
+        <div className="absolute h-48 w-48 rounded-full bg-emerald-200/40 blur-3xl pointer-events-none" />
 
-        {/* Orbit Path Guide Ring */}
-        <div className="absolute h-52 w-52 rounded-full border border-dashed border-emerald-200/80 animate-spin-slow pointer-events-none" />
+        {/* Orbit Glow Ring */}
+        <div className="absolute h-44 w-44 rounded-full border border-emerald-100/80 animate-ping-slow pointer-events-none" />
 
-        {/* ------------------- FLOATING GROCERY ICONS ------------------- */}
+        {/* ----------------- ANIMATED PRODUCER ITEMS ----------------- */}
 
-        {/* 1. CRISP RED APPLE (Top Left) */}
-        <div className="animate-item-bounce-1 absolute top-3 left-6 z-20">
-          <div className="relative h-12 w-12 rounded-2xl bg-rose-50/90 p-2 shadow-md border border-rose-100 backdrop-blur-xs flex items-center justify-center">
-            <svg viewBox="0 0 48 48" className="h-8 w-8 drop-shadow-xs" fill="none">
-              <defs>
-                <linearGradient id="appleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#ff4d6d" />
-                  <stop offset="100%" stopColor="#c9184a" />
-                </linearGradient>
-              </defs>
-              {/* Apple Body */}
-              <path
-                d="M24 13C20 8 10 9 8 18C6 27 12 40 22 41C23.5 41.2 24.5 41.2 26 41C36 40 42 27 40 18C38 9 28 8 24 13Z"
-                fill="url(#appleGrad)"
-              />
-              {/* Gloss Highlight */}
-              <path
-                d="M13 18C12 22 14 28 16 30"
-                stroke="white"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                opacity="0.4"
-              />
-              {/* Stem */}
-              <path
-                d="M24 13C24 9 26 6 28 5"
-                stroke="#6c584c"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              {/* Green Leaf */}
-              <path
-                d="M25 9C29 8 33 10 33 10C33 10 32 14 27 13C25 12.5 25 9 25 9Z"
-                fill="#52b788"
-              />
-            </svg>
-          </div>
+        {/* 1. HEIRLOOM TOMATO (Left arc into crate) */}
+        <div className="absolute -top-6 left-6 z-20 animate-produce-drop-1 pointer-events-none">
+          <svg viewBox="0 0 40 40" className="h-9 w-9 drop-shadow-md" fill="none">
+            <defs>
+              <radialGradient id="tomatoGlow" cx="35%" cy="35%" r="65%">
+                <stop offset="0%" stopColor="#ff5a5f" />
+                <stop offset="70%" stopColor="#d90429" />
+                <stop offset="100%" stopColor="#7a0016" />
+              </radialGradient>
+            </defs>
+            {/* Tomato Body */}
+            <circle cx="20" cy="22" r="14" fill="url(#tomatoGlow)" />
+            {/* Gloss Reflection */}
+            <path
+              d="M13 15C15 13 18 13 20 14"
+              stroke="#ffffff"
+              strokeWidth="2"
+              strokeLinecap="round"
+              opacity="0.6"
+            />
+            {/* Stem & Calyx */}
+            <path
+              d="M20 9V5M16 8L20 9L24 8M18 11L20 9L22 11"
+              stroke="#2d6a4f"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </div>
 
-        {/* 2. RIPE GOLDEN BANANA (Top Right) */}
-        <div className="animate-item-bounce-2 absolute top-4 right-6 z-20">
-          <div className="relative h-12 w-12 rounded-2xl bg-amber-50/90 p-2 shadow-md border border-amber-100 backdrop-blur-xs flex items-center justify-center">
-            <svg viewBox="0 0 48 48" className="h-8 w-8 drop-shadow-xs" fill="none">
-              <defs>
-                <linearGradient id="bananaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#ffe66d" />
-                  <stop offset="100%" stopColor="#f4b41a" />
-                </linearGradient>
-              </defs>
-              {/* Banana Body */}
-              <path
-                d="M10 34C15 38 29 38 38 24C41 19 41 12 40 8C39 8 36 12 33 15C25 24 16 28 10 34Z"
-                fill="url(#bananaGrad)"
-              />
-              {/* Inner Curve Ridge */}
-              <path
-                d="M11 32C19 34 30 30 36 18"
-                stroke="#e09f3e"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                opacity="0.7"
-              />
-              {/* Green Top Stem */}
-              <path
-                d="M39 9L43 6"
-                stroke="#70a040"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              {/* Dark Tip */}
-              <circle cx="9.5" cy="34.5" r="1.5" fill="#582f0e" />
-            </svg>
-          </div>
+        {/* 2. GOLDEN BANANA (Top arc flip) */}
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 animate-produce-drop-2 pointer-events-none">
+          <svg viewBox="0 0 40 40" className="h-10 w-10 drop-shadow-md" fill="none">
+            <defs>
+              <linearGradient id="bananaGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#fff3b0" />
+                <stop offset="40%" stopColor="#ffd166" />
+                <stop offset="100%" stopColor="#f77f00" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M8 26C13 31 25 31 32 19C34 15 34 10 33 6C32 6 30 9 27 12C20 19 13 22 8 26Z"
+              fill="url(#bananaGlow)"
+            />
+            <path
+              d="M10 24C16 26 25 24 30 14"
+              stroke="#d48b00"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+              opacity="0.5"
+            />
+            {/* Stalk */}
+            <path d="M33 6L36 4" stroke="#588157" strokeWidth="2" strokeLinecap="round" />
+          </svg>
         </div>
 
-        {/* 3. FARM FRESH CARROT (Left Center) */}
-        <div className="animate-item-bounce-3 absolute top-28 -left-1 z-20">
-          <div className="relative h-12 w-12 rounded-2xl bg-orange-50/90 p-2 shadow-md border border-orange-100 backdrop-blur-xs flex items-center justify-center">
-            <svg viewBox="0 0 48 48" className="h-8 w-8 drop-shadow-xs" fill="none">
-              <defs>
-                <linearGradient id="carrotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#ff9f1c" />
-                  <stop offset="100%" stopColor="#e85d04" />
-                </linearGradient>
-              </defs>
-              {/* Carrot Foliage */}
-              <path
-                d="M34 14L41 7M36 11L43 11M38 16L44 14"
-                stroke="#2d6a4f"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              {/* Carrot Root Body */}
-              <path
-                d="M34 12C36 14 36 18 32 21L12 39C10 41 8 40 7 38C7 37 9 34 11 32L27 14C30 11 33 11 34 12Z"
-                fill="url(#carrotGrad)"
-              />
-              {/* Texture Ribs */}
-              <path
-                d="M24 19L27 22M19 25L22 28M15 31L17 33"
-                stroke="#dc2f02"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                opacity="0.6"
-              />
-            </svg>
-          </div>
+        {/* 3. HASS AVOCADO (Right arc dive) */}
+        <div className="absolute -top-6 right-6 z-20 animate-produce-drop-3 pointer-events-none">
+          <svg viewBox="0 0 40 40" className="h-9 w-9 drop-shadow-md" fill="none">
+            <path
+              d="M20 7C14 7 10 14 10 23C10 30 14 35 20 35C26 35 30 30 30 23C30 14 26 7 20 7Z"
+              fill="#2b3a1a"
+            />
+            <path
+              d="M20 9C15 9 12 15 12 23C12 29 15 33 20 33C25 33 28 29 28 23C28 15 25 9 20 9Z"
+              fill="#c7d97b"
+            />
+            {/* Seed */}
+            <circle cx="20" cy="24" r="6" fill="#79441f" />
+            <circle cx="18.5" cy="22.5" r="1.5" fill="#ffffff" opacity="0.4" />
+          </svg>
         </div>
 
-        {/* 4. FRESH AVOCADO (Right Center) */}
-        <div className="animate-item-bounce-4 absolute top-28 -right-1 z-20">
-          <div className="relative h-12 w-12 rounded-2xl bg-emerald-50/90 p-2 shadow-md border border-emerald-100 backdrop-blur-xs flex items-center justify-center">
-            <svg viewBox="0 0 48 48" className="h-8 w-8 drop-shadow-xs" fill="none">
-              {/* Outer Skin */}
-              <path
-                d="M24 6C16 6 11 16 11 26C11 35 16 42 24 42C32 42 37 35 37 26C37 16 32 6 24 6Z"
-                fill="#283618"
-              />
-              {/* Flesh */}
-              <path
-                d="M24 9C18 9 14 17 14 26C14 33 18 39 24 39C30 39 34 33 34 26C34 17 30 9 24 9Z"
-                fill="#c3d977"
-              />
-              {/* Inner Pit Rim */}
-              <circle cx="24" cy="28" r="8" fill="#bc6c25" />
-              {/* Pit Shading */}
-              <circle cx="24" cy="28" r="6.5" fill="#603808" />
-              <circle cx="22" cy="26" r="1.8" fill="white" opacity="0.4" />
-            </svg>
-          </div>
+        {/* 4. FARM MILK FLASK (Rear pop) */}
+        <div className="absolute -top-4 left-1/3 z-10 animate-produce-drop-4 pointer-events-none">
+          <svg viewBox="0 0 32 32" className="h-8 w-8 drop-shadow-xs" fill="none">
+            <rect x="11" y="4" width="10" height="3" rx="1.5" fill="#0284c7" />
+            <path
+              d="M13 7V10L10 14V26C10 27.5 11.2 28.5 12.5 28.5H19.5C20.8 28.5 22 27.5 22 26V14L19 10V7H13Z"
+              fill="#e0f2fe"
+              stroke="#38bdf8"
+              strokeWidth="1.2"
+            />
+            <rect x="12" y="15" width="8" height="11" rx="1" fill="#ffffff" />
+            <circle cx="16" cy="20" r="2" fill="#0ea5e9" opacity="0.8" />
+          </svg>
         </div>
 
-        {/* 5. FRESH DAIRY MILK BOTTLE (Bottom Right) */}
-        <div className="animate-item-bounce-2 absolute bottom-5 right-8 z-20">
-          <div className="relative h-11 w-11 rounded-2xl bg-sky-50/90 p-2 shadow-md border border-sky-100 backdrop-blur-xs flex items-center justify-center">
-            <svg viewBox="0 0 48 48" className="h-7 w-7 drop-shadow-xs" fill="none">
-              {/* Glass Bottle Body */}
-              <path
-                d="M19 12V8H29V12L32 17V38C32 40.2 30.2 42 28 42H20C17.8 42 16 40.2 16 38V17L19 12Z"
-                fill="#e0f2fe"
-                stroke="#38bdf8"
-                strokeWidth="2"
-              />
-              {/* Milk Liquid */}
-              <path
-                d="M17 23C17 23 20 22 24 22C28 22 31 23 31 23V38C31 39.5 29.8 41 28 41H20C18.2 41 17 39.5 17 38V23Z"
-                fill="white"
-              />
-              {/* Cap */}
-              <rect x="18" y="5" width="12" height="4" rx="2" fill="#0284c7" />
-              {/* Fresh Drop Badge */}
-              <circle cx="24" cy="31" r="3.5" fill="#38bdf8" />
-              <path d="M24 29L26 32H22L24 29Z" fill="white" />
-            </svg>
-          </div>
+        {/* Sparkle Glints */}
+        <div className="absolute -top-8 right-2 animate-sparkle-1 pointer-events-none">
+          <svg className="h-4 w-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" />
+          </svg>
+        </div>
+        <div className="absolute top-2 -left-6 animate-sparkle-2 pointer-events-none">
+          <svg className="h-3 w-3 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" />
+          </svg>
         </div>
 
-        {/* ------------------- CENTRAL MODERN TOTE BAG ------------------- */}
-        <div className="relative z-10 flex flex-col items-center justify-center animate-bag-pulse">
-          {/* Peeking Fresh Produce Leaves Inside Bag */}
-          <div className="relative -mb-3 flex items-center justify-center gap-1">
-            <div className="h-4 w-4 rounded-full bg-emerald-500 border border-emerald-600 animate-leaf-left transform -rotate-12" />
-            <div className="h-5 w-3 rounded-full bg-amber-400 border border-amber-500 animate-pulse" />
-            <div className="h-4 w-4 rounded-full bg-lime-400 border border-lime-500 animate-leaf-right transform rotate-12" />
-          </div>
-
-          {/* Bag Graphic */}
+        {/* ----------------- CENTRAL MODERN CRATE ----------------- */}
+        <div className="relative z-10 flex flex-col items-center justify-center animate-crate-jiggle mt-6">
           <svg
-            className="h-28 w-28 drop-shadow-xl"
-            viewBox="0 0 100 100"
+            className="h-24 w-32 drop-shadow-2xl"
+            viewBox="0 0 128 96"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {/* Bag Handle */}
+            {/* Interior Depth Shadow */}
+            <ellipse cx="64" cy="38" rx="46" ry="16" fill="#011f15" />
+
+            {/* Peeking Fresh Produce Top Leaves */}
             <path
-              d="M36 40V24C36 16.268 42.268 10 50 10C57.732 10 64 16.268 64 24V40"
-              stroke="#012b1e"
-              strokeWidth="5"
-              strokeLinecap="round"
+              d="M52 32C46 22 34 26 34 26C34 26 38 36 48 34Z"
+              fill="#10b981"
+              className="animate-leaf-sway-1"
             />
-            {/* Bag Body (CafKart Deep Brand Emerald) */}
-            <rect
-              x="16"
-              y="34"
-              width="68"
-              height="58"
-              rx="14"
-              fill="#02402c"
-            />
-            {/* Fabric Fold Gradient Overlay */}
             <path
-              d="M20 34H80C82 34 84 36 84 38L80 84C80 88 76 92 72 92H28C24 92 20 88 20 84L16 38C16 36 18 34 20 34Z"
-              fill="url(#bagGradient)"
-              opacity="0.95"
+              d="M76 32C82 22 94 26 94 26C94 26 90 36 80 34Z"
+              fill="#34d399"
+              className="animate-leaf-sway-2"
             />
+
+            {/* Back Wall of Crate */}
+            <rect x="18" y="24" width="92" height="18" rx="4" fill="#02402c" />
+
+            {/* Crate Main Front Body */}
+            <path
+              d="M14 36H114L104 84C103.5 86.5 101.5 88 99 88H29C26.5 88 24.5 86.5 24 84L14 36Z"
+              fill="url(#crateBodyGrad)"
+            />
+
+            {/* Modern Top Rim */}
+            <rect x="10" y="32" width="108" height="10" rx="5" fill="#046243" />
+            <rect x="12" y="33" width="104" height="2" rx="1" fill="#59D9B6" opacity="0.6" />
+
+            {/* Slat Lines & Grip Slots */}
+            <rect x="24" y="52" width="80" height="2" rx="1" fill="#012b1e" opacity="0.4" />
+            <rect x="28" y="68" width="72" height="2" rx="1" fill="#012b1e" opacity="0.4" />
+
+            {/* Center Handle Cutout */}
+            <rect x="48" y="44" width="32" height="9" rx="4.5" fill="#011f15" />
+            <rect x="50" y="45" width="28" height="2" rx="1" fill="#02402c" />
+
+            {/* Glowing Brand Accent Leaf Badge */}
+            <g transform="translate(56, 62)">
+              <circle cx="8" cy="8" r="8" fill="#ffffff" fillOpacity="0.08" />
+              <path
+                d="M8 14C8 14 8 4 14 4C14 9 10 14 8 14Z"
+                fill="#59D9B6"
+              />
+              <path
+                d="M8 14C8 14 8 6 3 6C3 10 6 14 8 14Z"
+                fill="#9af0d4"
+              />
+            </g>
+
             <defs>
-              <linearGradient id="bagGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <linearGradient id="crateBodyGrad" x1="64" y1="36" x2="64" y2="88" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#03543a" />
-                <stop offset="100%" stopColor="#01291c" />
+                <stop offset="100%" stopColor="#012b1e" />
               </linearGradient>
             </defs>
-
-            {/* Glowing Accent Brand Emblem: Sprout / Leaf */}
-            <circle cx="50" cy="62" r="14" fill="#ffffff" fillOpacity="0.1" />
-            <path
-              d="M50 72C50 72 50 56 62 56C62 64 54 72 50 72Z"
-              fill="#59D9B6"
-            />
-            <path
-              d="M50 72C50 72 50 60 41 60C41 66 47 72 50 72Z"
-              fill="#9af0d4"
-            />
-            <line x1="50" y1="56" x2="50" y2="73" stroke="#02402c" strokeWidth="2" strokeLinecap="round" />
           </svg>
 
           {/* Dynamic Ground Shadow */}
-          <div className="h-2.5 w-24 rounded-full bg-slate-300/60 blur-xs animate-shadow-scale -mt-1" />
+          <div className="h-2 w-24 rounded-full bg-slate-400/40 blur-xs animate-shadow-squash -mt-2" />
         </div>
       </div>
 
-      {/* Modern Status Badge & Dynamic Text */}
-      <div className="mt-4 flex flex-col items-center text-center max-w-xs">
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/60 shadow-xs">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
-          </span>
-          <p className="text-xs font-black text-emerald-950 tracking-tight transition-all duration-300">
-            {activeMessage}
-          </p>
-        </div>
-
-        <p className="mt-2 text-[11px] font-medium text-slate-400">
-          {subtext}
-        </p>
-
-        {/* Triple Micro-Pulse Dots */}
-        <div className="mt-3 flex items-center gap-1.5">
-          <div className="h-1.5 w-1.5 rounded-full bg-[#02402c] animate-pulse" />
-          <div className="h-1.5 w-1.5 rounded-full bg-[#59D9B6] animate-pulse [animation-delay:200ms]" />
-          <div className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse [animation-delay:400ms]" />
-        </div>
-      </div>
-
-      {/* CSS Keyframes */}
+      {/* Smooth GPU Keyframe Animations */}
       <style>{`
-        @keyframes bagPulse {
-          0%, 100% { transform: translateY(0) scale(1); }
-          50% { transform: translateY(-4px) scale(1.02); }
+        @keyframes crateJiggle {
+          0%, 100% { transform: translateY(0) scale(1, 1); }
+          30% { transform: translateY(2px) scale(1.03, 0.97); }
+          60% { transform: translateY(-3px) scale(0.98, 1.02); }
         }
-        .animate-bag-pulse {
-          animation: bagPulse 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-
-        @keyframes shadowScale {
-          0%, 100% { transform: scaleX(1); opacity: 0.6; }
-          50% { transform: scaleX(0.85); opacity: 0.3; }
-        }
-        .animate-shadow-scale {
-          animation: shadowScale 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        .animate-crate-jiggle {
+          animation: crateJiggle 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
 
-        @keyframes itemBounce1 {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-10px) rotate(-6deg); }
+        @keyframes shadowSquash {
+          0%, 100% { transform: scale(1); opacity: 0.5; }
+          30% { transform: scale(1.15, 0.9); opacity: 0.7; }
+          60% { transform: scale(0.85, 1); opacity: 0.3; }
         }
-        .animate-item-bounce-1 {
-          animation: itemBounce1 2.4s ease-in-out infinite;
-        }
-
-        @keyframes itemBounce2 {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-8px) rotate(8deg); }
-        }
-        .animate-item-bounce-2 {
-          animation: itemBounce2 2s ease-in-out infinite 0.3s;
+        .animate-shadow-squash {
+          animation: shadowSquash 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
 
-        @keyframes itemBounce3 {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-11px) rotate(-8deg); }
+        @keyframes produceDrop1 {
+          0% { transform: translate3d(0, -22px, 0) scale(0.6) rotate(-20deg); opacity: 0; }
+          20% { opacity: 1; }
+          50% { transform: translate3d(12px, 18px, 0) scale(1) rotate(5deg); }
+          75% { transform: translate3d(14px, 24px, 0) scale(0.85) rotate(10deg); opacity: 0.9; }
+          100% { transform: translate3d(16px, 32px, 0) scale(0.4) rotate(15deg); opacity: 0; }
         }
-        .animate-item-bounce-3 {
-          animation: itemBounce3 2.6s ease-in-out infinite 0.6s;
-        }
-
-        @keyframes itemBounce4 {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-9px) rotate(6deg); }
-        }
-        .animate-item-bounce-4 {
-          animation: itemBounce4 2.1s ease-in-out infinite 0.15s;
+        .animate-produce-drop-1 {
+          animation: produceDrop1 2.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
         }
 
-        @keyframes spinSlow {
-          100% { transform: rotate(360deg); }
+        @keyframes produceDrop2 {
+          0% { transform: translate3d(0, -26px, 0) scale(0.6) rotate(30deg); opacity: 0; }
+          25% { opacity: 1; }
+          55% { transform: translate3d(0, 18px, 0) scale(1) rotate(-10deg); }
+          75% { transform: translate3d(0, 26px, 0) scale(0.85) rotate(-5deg); opacity: 0.9; }
+          100% { transform: translate3d(0, 34px, 0) scale(0.4) rotate(0deg); opacity: 0; }
         }
-        .animate-spin-slow {
-          animation: spinSlow 18s linear infinite;
-        }
-
-        @keyframes leafLeft {
-          0%, 100% { transform: rotate(-12deg); }
-          50% { transform: rotate(-20deg) translateY(-2px); }
-        }
-        .animate-leaf-left {
-          animation: leafLeft 2s ease-in-out infinite;
+        .animate-produce-drop-2 {
+          animation: produceDrop2 2.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite 0.55s;
         }
 
-        @keyframes leafRight {
-          0%, 100% { transform: rotate(12deg); }
-          50% { transform: rotate(22deg) translateY(-2px); }
+        @keyframes produceDrop3 {
+          0% { transform: translate3d(0, -22px, 0) scale(0.6) rotate(20deg); opacity: 0; }
+          20% { opacity: 1; }
+          50% { transform: translate3d(-12px, 18px, 0) scale(1) rotate(-5deg); }
+          75% { transform: translate3d(-14px, 24px, 0) scale(0.85) rotate(-10deg); opacity: 0.9; }
+          100% { transform: translate3d(-16px, 32px, 0) scale(0.4) rotate(-15deg); opacity: 0; }
         }
-        .animate-leaf-right {
-          animation: leafRight 2.2s ease-in-out infinite 0.2s;
+        .animate-produce-drop-3 {
+          animation: produceDrop3 2.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite 1.1s;
+        }
+
+        @keyframes produceDrop4 {
+          0% { transform: translate3d(0, -20px, 0) scale(0.6) rotate(-10deg); opacity: 0; }
+          25% { opacity: 1; }
+          55% { transform: translate3d(6px, 16px, 0) scale(0.9) rotate(5deg); }
+          75% { transform: translate3d(8px, 22px, 0) scale(0.8) rotate(0deg); opacity: 0.9; }
+          100% { transform: translate3d(10px, 30px, 0) scale(0.4) rotate(0deg); opacity: 0; }
+        }
+        .animate-produce-drop-4 {
+          animation: produceDrop4 2.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite 1.65s;
+        }
+
+        @keyframes leafSway1 {
+          0%, 100% { transform: rotate(0deg); }
+          50% { transform: rotate(-8deg); }
+        }
+        .animate-leaf-sway-1 {
+          animation: leafSway1 2s ease-in-out infinite;
+        }
+
+        @keyframes leafSway2 {
+          0%, 100% { transform: rotate(0deg); }
+          50% { transform: rotate(8deg); }
+        }
+        .animate-leaf-sway-2 {
+          animation: leafSway2 2.2s ease-in-out infinite 0.3s;
+        }
+
+        @keyframes sparkle1 {
+          0%, 100% { transform: scale(0) rotate(0deg); opacity: 0; }
+          50% { transform: scale(1.1) rotate(90deg); opacity: 1; }
+        }
+        .animate-sparkle-1 {
+          animation: sparkle1 1.6s ease-in-out infinite 0.2s;
+        }
+
+        @keyframes sparkle2 {
+          0%, 100% { transform: scale(0) rotate(0deg); opacity: 0; }
+          50% { transform: scale(1) rotate(-90deg); opacity: 1; }
+        }
+        .animate-sparkle-2 {
+          animation: sparkle2 1.8s ease-in-out infinite 0.8s;
+        }
+
+        @keyframes pingSlow {
+          0% { transform: scale(0.9); opacity: 0.6; }
+          50% { transform: scale(1.1); opacity: 0.1; }
+          100% { transform: scale(0.9); opacity: 0.6; }
+        }
+        .animate-ping-slow {
+          animation: pingSlow 3s ease-in-out infinite;
         }
 
         @keyframes fadeIn {
-          from { opacity: 0; transform: scale(0.98); }
-          to { opacity: 1; transform: scale(1); }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         .animate-fade-in {
-          animation: fadeIn 0.2s ease-out forwards;
+          animation: fadeIn 0.15s ease-out forwards;
         }
       `}</style>
     </div>

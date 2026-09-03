@@ -141,7 +141,6 @@ export const ProductCard = React.memo(
         `}
         style={{ borderColor }}
       >
-        {/* Product Image: Loaded eager from pre-decoded cache */}
         <div className="relative flex h-[135px] w-full items-center justify-center overflow-hidden bg-slate-50">
           {hasValidImage ? (
             <img
@@ -198,7 +197,6 @@ export const ProductCard = React.memo(
           </div>
         </div>
 
-        {/* Product Details */}
         <div className="relative p-2.5 flex flex-col justify-between flex-1 bg-white">
           <div>
             <div className="flex items-center gap-1">
@@ -329,7 +327,6 @@ export const ProductCard = React.memo(
       </article>
     );
   },
-  // Re-render purely if product, quantity, or wishlist status changes
   (prev, next) =>
     prev.product.id === next.product.id &&
     prev.quantity === next.quantity &&

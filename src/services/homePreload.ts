@@ -43,7 +43,7 @@ export type PreloadedHomePayload = PreloadedHomeData;
 let memoryHomeData: PreloadedHomeData | null = null;
 let inFlightPromise: Promise<PreloadedHomeData> | null = null;
 
-export function clearHomeDataCache() {
+export function clearHomeDataCache(): void {
   memoryHomeData = null;
   inFlightPromise = null;
   try {
@@ -87,7 +87,7 @@ export function preloadImage(url: string): Promise<void> {
   });
 }
 
-export async function preloadImages(urls: string[], timeoutMs = 5000): Promise<void> {
+export async function preloadImages(urls: string[], timeoutMs = 4000): Promise<void> {
   if (!Array.isArray(urls)) return;
   const validUrls = Array.from(
     new Set(urls.filter((u) => typeof u === 'string' && u.trim().length > 0))
@@ -104,16 +104,13 @@ export const preloadAllImages = preloadImages;
 export const preloadCriticalImages = preloadImages;
 
 export async function getOrFetchHomeData(force = false): Promise<PreloadedHomeData> {
-  // Check active Supabase auth identity
   const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
   const currentUserId = sessionData?.session?.user?.id || null;
 
   if (force) {
     clearHomeDataCache();
   } else if (memoryHomeData) {
-    // If cached as guest, but now logged in with a valid user ID, invalidate guest cache immediately
-    const cachedUserId = memoryHomeData._userId || null;
-    if (cachedUserId === currentUserId) {
+    if (memoryHomeData._userId === currentUserId && currentUserId !== null) {
       return memoryHomeData;
     }
     clearHomeDataCache();
@@ -209,7 +206,7 @@ export async function getOrFetchHomeData(force = false): Promise<PreloadedHomeDa
       fullData.stores.forEach((s) => s?.logo && allImageUrls.push(s.logo));
       fullData.brands.forEach((b) => b?.logo && allImageUrls.push(b.logo));
 
-      await preloadImages(allImageUrls, 5000);
+      await preloadImages(allImageUrls, 4500);
 
       memoryHomeData = fullData;
       try {

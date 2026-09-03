@@ -4,6 +4,7 @@ import {
   useRef,
   type ReactNode,
   useEffect,
+  useCallback,
 } from 'react';
 import {
   useNavigate,
@@ -69,7 +70,7 @@ import {
   initializePushNotifications,
 } from '@/services/push';
 
-import { getOrFetchHomeData, getHomeDataSync, clearHomeDataCache } from '@/services/homePreload';
+import { getOrFetchHomeData, getHomeDataSync } from '@/services/homePreload';
 
 const SCREEN_TO_PATH: Record<ScreenName, string> = {
   home: '/',
@@ -194,37 +195,42 @@ function BackButtonHandler({ disableBack }: { disableBack?: boolean }) {
 
 function App() {
   const cart = useCart();
-  const { user, role, loading, profile } = useAuth();
+  const { user, role, loading: authLoading, profile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [showSplash, setShowSplash] = useState(true);
-  const [isHomeReady, setIsHomeReady] = useState(() => Boolean(getHomeDataSync()));
+  const [isHomeReady, setIsHomeReady] = useState(() => {
+    const cache = getHomeDataSync();
+    return Boolean(cache && cache._userId);
+  });
 
-  // React to auth session changes: invalidate guest cache when user signs in
+  // Flow gate: preload only when user is authenticated
   useEffect(() => {
     let active = true;
-    if (user) {
-      getOrFetchHomeData(true)
-        .then(() => {
-          if (active) setIsHomeReady(true);
-        })
-        .catch(() => {
-          if (active) setIsHomeReady(true);
-        });
-    } else if (!loading) {
-      getOrFetchHomeData(false)
-        .then(() => {
-          if (active) setIsHomeReady(true);
-        })
-        .catch(() => {
-          if (active) setIsHomeReady(true);
-        });
+
+    if (authLoading) return;
+
+    if (!user) {
+      // Guest: dismiss splash immediately without rendering home
+      setShowSplash(false);
+      setIsHomeReady(false);
+      return;
     }
+
+    // Authenticated: preload catalog data & images under splash
+    getOrFetchHomeData(false)
+      .then(() => {
+        if (active) setIsHomeReady(true);
+      })
+      .catch(() => {
+        if (active) setIsHomeReady(true);
+      });
+
     return () => {
       active = false;
     };
-  }, [user, loading]);
+  }, [user, authLoading]);
 
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
@@ -283,39 +289,40 @@ function App() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     if (!user) return;
-    if (loading) return;
+    if (authLoading) return;
     if (initPushRef.current) return;
     initPushRef.current = true;
     initializePushNotifications(user.id);
-  }, [user, loading]);
+  }, [user, authLoading]);
 
-  const goTo = (next: ScreenName) => {
+  // Stabilize callbacks to prevent child re-renders
+  const goTo = useCallback((next: ScreenName) => {
     if (isDedicatedStaff) return;
     navigate(pathFor(next));
-  };
+  }, [isDedicatedStaff, navigate]);
 
-  const openProduct = (product: Product | { id: string; name?: string }) => {
+  const openProduct = useCallback((product: Product | { id: string; name?: string }) => {
     const productId = (product as any)?.id || (product as any)?.product_id || (product as any)?._id;
     if (!productId) {
       navigate('/');
       return;
     }
     navigate(pathFor('product', { id: productId }));
-  };
+  }, [navigate]);
 
-  const openCategory = (category: Category | { id: string; name?: string }) => {
+  const openCategory = useCallback((category: Category | { id: string; name?: string }) => {
     navigate(pathFor('categoryDetail', { id: category.id }));
-  };
+  }, [navigate]);
 
-  const openStore = (store: Store | { id: string }) => {
+  const openStore = useCallback((store: Store | { id: string }) => {
     navigate(pathFor('store', { storeId: store.id }));
-  };
+  }, [navigate]);
 
-  const openBrand = (brand: { id: string }) => {
+  const openBrand = useCallback((brand: { id: string }) => {
     navigate(pathFor('brand', { id: brand.id }));
-  };
+  }, [navigate]);
 
-  const actionCtx: ActionContext = {
+  const actionCtx: ActionContext = useMemo(() => ({
     setScreen: goTo,
     setSearch: (query: string) => {
       navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
@@ -331,21 +338,21 @@ function App() {
     setFilterTitle: (title) => {
       filterTitleRef.current = title;
     },
-  };
+  }), [goTo, openProduct, openCategory, openBrand, openStore, navigate]);
 
-  const handleBannerAction = async (banner: PromoBanner) => {
+  const handleBannerAction = useCallback(async (banner: PromoBanner) => {
     await handleHomeAction(banner.actionType, banner.actionConfig, actionCtx);
-  };
+  }, [actionCtx]);
 
-  const handleBusinessRegistered = (_business: Business) => {
+  const handleBusinessRegistered = useCallback((_business: Business) => {
     goTo('checkout');
-  };
+  }, [goTo]);
 
-  const openOrder = (orderId: string) => {
+  const openOrder = useCallback((orderId: string) => {
     navigate(pathFor('orderDetail', { id: orderId }));
-  };
+  }, [navigate]);
 
-  const openProtected = (next: ScreenName) => {
+  const openProtected = useCallback((next: ScreenName) => {
     const allowed =
       next === 'admin'
         ? role === 'admin'
@@ -356,9 +363,19 @@ function App() {
         : true;
 
     goTo(allowed ? next : 'home');
-  };
+  }, [role, goTo]);
 
-  if (!user && !loading && !showSplash) {
+  // Auth check pending: render splash exclusively
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#02402c]">
+        {showSplash && <SplashScreen isReady={false} onFinish={() => setShowSplash(false)} />}
+      </div>
+    );
+  }
+
+  // Not logged in: directly render AuthScreen
+  if (!user) {
     return <AuthScreen />;
   }
 

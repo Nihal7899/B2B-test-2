@@ -28,7 +28,7 @@ import {
   fetchRecentlyViewedProducts,
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
-import { getHomeDataSync, getOrFetchHomeData, type PreloadedHomeData } from '@/services/homePreload';
+import { getHomeDataSync, type PreloadedHomeData } from '@/services/homePreload';
 
 interface HomeScreenProps {
   onCategory: (category: Category) => void;
@@ -52,6 +52,7 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
+// Isolated search component: rotating interval text never re-renders parent HomeScreen
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
   const [keywordIndex, setKeywordIndex] = useState(0);
@@ -139,60 +140,29 @@ export function HomeScreen({
 
   const [sections, setSections] = useState<HomeSection[]>(initialCache.sections);
   const [banners, setBanners] = useState<PromoBanner[]>(initialCache.banners);
-  const [categories, setCategories] = useState<Category[]>(initialCache.categories);
-  const [products, setProducts] = useState<Product[]>(initialCache.products);
-  const [popularProducts, setPopularProducts] = useState<Product[]>(initialCache.popularProducts);
+  const [categories] = useState<Category[]>(initialCache.categories);
+  const [products] = useState<Product[]>(initialCache.products);
+  const [popularProducts] = useState<Product[]>(initialCache.popularProducts);
   const [reorderProducts, setReorderProducts] = useState<Product[]>(initialCache.reorderProducts);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>(initialCache.recentlyViewed);
-  const [volumeDeals, setVolumeDeals] = useState<Product[]>(initialCache.volumeDeals);
-  const [newArrivals, setNewArrivals] = useState<Product[]>(initialCache.newArrivals);
-  const [topRated, setTopRated] = useState<Product[]>(initialCache.topRated);
-  const [limitedStock, setLimitedStock] = useState<Product[]>(initialCache.limitedStock);
-  const [brandSpotlight, setBrandSpotlight] = useState(initialCache.brandSpotlight);
-  const [stores, setStores] = useState<Store[]>(initialCache.stores);
-  const [brands, setBrands] = useState<TrustedBrand[]>(initialCache.brands);
-  const [address, setAddress] = useState<DbAddress | null>(initialCache.address);
+  const [volumeDeals] = useState<Product[]>(initialCache.volumeDeals);
+  const [newArrivals] = useState<Product[]>(initialCache.newArrivals);
+  const [topRated] = useState<Product[]>(initialCache.topRated);
+  const [limitedStock] = useState<Product[]>(initialCache.limitedStock);
+  const [brandSpotlight] = useState(initialCache.brandSpotlight);
+  const [stores] = useState<Store[]>(initialCache.stores);
+  const [brands] = useState<TrustedBrand[]>(initialCache.brands);
+  const [address] = useState<DbAddress | null>(initialCache.address);
 
-  // Synchronizes full catalog payload
-  const applyCatalogData = useCallback((data: PreloadedHomeData) => {
-    setSections(data.sections || []);
-    setBanners(data.banners || []);
-    setCategories(data.categories || []);
-    setProducts(data.products || []);
-    setPopularProducts(data.popularProducts || []);
-    setReorderProducts(data.reorderProducts || []);
-    setRecentlyViewed(data.recentlyViewed || []);
-    setVolumeDeals(data.volumeDeals || []);
-    setNewArrivals(data.newArrivals || []);
-    setTopRated(data.topRated || []);
-    setLimitedStock(data.limitedStock || []);
-    setBrandSpotlight(data.brandSpotlight || null);
-    setStores(data.stores || []);
-    setBrands(data.brands || []);
-    if (data.address) setAddress(data.address);
-  }, []);
-
-  // Hydrate authenticated data on initial mount
-  useEffect(() => {
-    let active = true;
-    void getOrFetchHomeData(false).then((data) => {
-      if (active && data) {
-        applyCatalogData(data);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, [applyCatalogData]);
-
+  // Background updates for reorder and recently viewed without rebuilding static feeds
   const refreshDynamicSections = useCallback(async () => {
     try {
       const [recent, reorder] = await Promise.all([
         fetchRecentlyViewedProducts().catch(() => []),
         fetchUserReorderProducts(10).catch(() => []),
       ]);
-      setRecentlyViewed(Array.isArray(recent) ? recent : []);
-      setReorderProducts(Array.isArray(reorder) ? reorder : []);
+      if (Array.isArray(recent)) setRecentlyViewed(recent);
+      if (Array.isArray(reorder)) setReorderProducts(reorder);
     } catch (e) {
       console.warn('Failed to refresh dynamic sections:', e);
     }
@@ -204,8 +174,8 @@ export function HomeScreen({
         fetchHomeSections().catch(() => []),
         fetchHomeBanners().catch(() => []),
       ]);
-      setSections(Array.isArray(secRes) ? secRes.filter((s) => s && s.isActive) : []);
-      setBanners(Array.isArray(banRes) ? banRes : []);
+      if (Array.isArray(secRes)) setSections(secRes.filter((s) => s && s.isActive));
+      if (Array.isArray(banRes)) setBanners(banRes);
     } catch (e) {
       console.warn('Failed to refresh layout:', e);
     }

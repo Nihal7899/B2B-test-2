@@ -12,6 +12,7 @@ const HOME_MESSAGES = [
   'Verifying mandi rates & cold-chain stock...',
   'Loading bulk crates & staples...',
   'Routing your express store delivery...',
+  'Finalizing wholesale dispatch...',
 ];
 
 export const AppLoader = React.memo(function AppLoader({
@@ -32,6 +33,9 @@ export const AppLoader = React.memo(function AppLoader({
 
   const scaleClass =
     size === 'sm' ? 'scale-75' : size === 'lg' ? 'scale-105' : 'scale-95 sm:scale-100';
+
+  // Dynamic percentage for progress line based on current message step
+  const progressPercent = (msgIndex / (HOME_MESSAGES.length - 1)) * 100;
 
   return (
     <div
@@ -63,31 +67,24 @@ export const AppLoader = React.memo(function AppLoader({
           {/* ========================================================= */}
           {/* 2. TALLER, WIDER, DISTINCT ARCHITECTURAL CITY BUILDINGS    */}
           {/* ========================================================= */}
-          {/* Each building has a unique structural shape with modest 8px gaps */}
           <div className="absolute top-6 left-0 w-full h-52 overflow-hidden pointer-events-none z-0">
             <div className="flex w-[840px] animate-skyline-scroll opacity-85">
               {/* Segment 1: Exactly 420px wide */}
               <svg viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
-                {/* 1. Wholesale Cold-Storage Facility (W: 60, H: 138) (Gap 60..68 = 8px) */}
                 <rect x="0" y="52" width="60" height="138" rx="3" fill="#d9ebdf" />
                 <rect x="6" y="58" width="48" height="6" rx="1" fill="#c3decc" />
-                {/* Ventilation Louver Slits */}
                 <line x1="12" y1="74" x2="48" y2="74" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
                 <line x1="12" y1="82" x2="48" y2="82" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
                 <line x1="12" y1="90" x2="48" y2="90" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
                 <line x1="12" y1="98" x2="48" y2="98" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                {/* Industrial Cargo Shutter Bay */}
                 <rect x="15" y="116" width="30" height="40" rx="1.5" fill="#cbe3d3" />
                 <line x1="15" y1="126" x2="45" y2="126" stroke="#d9ebdf" strokeWidth="1.5" />
                 <line x1="15" y1="136" x2="45" y2="136" stroke="#d9ebdf" strokeWidth="1.5" />
 
-                {/* 2. Modern Glass Tower with Dual Antennas (W: 56, H: 168) (Gap 124..132 = 8px) */}
                 <rect x="68" y="22" width="56" height="168" rx="2" fill="#e2efe6" />
                 <rect x="74" y="26" width="44" height="4" fill="#cbe3d3" />
-                {/* Dual Antenna Spires */}
                 <line x1="78" y1="10" x2="78" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
                 <line x1="114" y1="10" x2="114" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
-                {/* Modern Window Grid */}
                 <rect x="76" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
                 <rect x="91" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
                 <rect x="106" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
@@ -98,7 +95,6 @@ export const AppLoader = React.memo(function AppLoader({
                 <rect x="91" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
                 <rect x="106" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
 
-                {/* 3. Artisan Mandi Storefront with Awning (W: 66, H: 122) (Gap 198..206 = 8px) */}
                 <rect x="132" y="68" width="66" height="122" rx="3" fill="#d9ebdf" />
                 <path d="M129 78H201L197 90H133L129 78Z" fill="#c3decc" />
                 <path d="M134 90C134 92.5 136.5 94 139 94C141.5 94 144 92.5 144 90H134Z" fill="#b1d3bc" />
@@ -107,17 +103,14 @@ export const AppLoader = React.memo(function AppLoader({
                 <path d="M164 90C164 92.5 166.5 94 169 94C171.5 94 174 92.5 174 90H164Z" fill="#b1d3bc" />
                 <path d="M174 90C174 92.5 176.5 94 179 94C181.5 94 184 92.5 184 90H174Z" fill="#b1d3bc" />
                 <path d="M184 90C184 92.5 186.5 94 189 94C191.5 94 194 92.5 194 90H184Z" fill="#b1d3bc" />
-                {/* Arched Windows */}
                 <path d="M143 118V106C143 103 145 101 148 101C151 101 153 103 153 106V118H143Z" fill="#f0f7f2" />
                 <path d="M160 118V106C160 103 162 101 165 101C168 101 170 103 170 106V118H160Z" fill="#f0f7f2" />
                 <path d="M177 118V106C177 103 179 101 182 101C185 101 187 103 187 106V118H177Z" fill="#f0f7f2" />
 
-                {/* 4. Multi-Tier Stepped Highrise with Spire (W: 68, H: 178) (Gap 274..282 = 8px) */}
                 <rect x="206" y="50" width="68" height="140" fill="#cbe3d3" />
                 <rect x="216" y="24" width="48" height="26" fill="#d9ebdf" />
                 <rect x="228" y="8" width="24" height="16" fill="#e2efe6" />
                 <line x1="240" y1="-4" x2="240" y2="8" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
-                {/* Windows Column Matrix */}
                 <circle cx="224" cy="62" r="2.2" fill="#f0f7f2" />
                 <circle cx="240" cy="62" r="2.2" fill="#f0f7f2" />
                 <circle cx="256" cy="62" r="2.2" fill="#f0f7f2" />
@@ -127,30 +120,23 @@ export const AppLoader = React.memo(function AppLoader({
                 <circle cx="224" cy="94" r="2.2" fill="#f0f7f2" />
                 <circle cx="240" cy="94" r="2.2" fill="#f0f7f2" />
                 <circle cx="256" cy="94" r="2.2" fill="#f0f7f2" />
-                {/* Map Pin on Tower */}
                 <g transform="translate(210, 26) scale(0.75)">
                   <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
                   <circle cx="10" cy="9" r="4" fill="#ffffff" />
                 </g>
 
-                {/* 5. Industrial Twin Grain Silos & Terminal (W: 62, H: 145) (Gap 344..352 = 8px) */}
-                {/* Left Dome Silo */}
                 <rect x="282" y="55" width="28" height="135" fill="#e2efe6" />
                 <ellipse cx="296" cy="55" rx="14" ry="7" fill="#d9ebdf" />
-                {/* Right Dome Silo */}
                 <rect x="314" y="45" width="30" height="145" fill="#d9ebdf" />
                 <ellipse cx="329" cy="45" rx="15" ry="8" fill="#cbe3d3" />
-                {/* Inter-silo Gantry Pipe */}
                 <rect x="296" y="68" width="33" height="4" fill="#b1d3bc" />
 
-                {/* 6. Corporate Produce Logistics Arcade (W: 60, H: 150) (Gap to 420 = 8px) */}
                 <rect x="352" y="40" width="60" height="150" rx="2" fill="#cbe3d3" />
                 <rect x="360" y="45" width="44" height="4" fill="#b1d3bc" />
                 <rect x="362" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
                 <rect x="382" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
                 <rect x="362" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
                 <rect x="382" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
-                {/* Right Map Pin */}
                 <g transform="translate(390, 24) scale(0.75)">
                   <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
                   <circle cx="10" cy="9" r="4" fill="#ffffff" />
@@ -403,25 +389,43 @@ export const AppLoader = React.memo(function AppLoader({
         </div>
 
         {/* ========================================================= */}
-        {/* 5. 5-STEP STEPPER & DYNAMIC ROTATING TEXT (HOME SCREEN)   */}
+        {/* 5. DYNAMIC 5-STEP STEPPER & ROTATING WHOLESALE STATUS     */}
         {/* ========================================================= */}
         {showStatus && (
-          <div className="mt-2 flex flex-col items-center justify-center animate-fade-in">
-            {/* 5-Step Progress Track */}
-            <div className="relative flex items-center justify-between w-48 mb-3">
-              <div className="absolute top-1/2 left-0 right-0 h-[2px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
-              <div className="absolute top-1/2 left-0 w-1/2 h-[2px] -translate-y-1/2 bg-[#22c55e] z-0" />
+          <div className="mt-1 flex flex-col items-center justify-center animate-fade-in">
+            {/* Dynamic 5-Step Stepper Line */}
+            <div className="relative flex items-center justify-between w-52 mb-3">
+              {/* Base Inactive Grey Track */}
+              <div className="absolute top-1/2 left-0 right-0 h-[2.5px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
 
-              <div className="relative z-10 h-3 w-3 rounded-full bg-[#22c55e]" />
-              <div className="relative z-10 h-3 w-3 rounded-full bg-[#22c55e]" />
-              <div className="relative z-10 flex items-center justify-center h-4 w-4 rounded-full border-2 border-[#22c55e] bg-white">
-                <div className="h-2 w-2 rounded-full bg-[#22c55e] animate-pulse" />
-              </div>
-              <div className="relative z-10 h-3 w-3 rounded-full bg-[#cbd5e1]" />
-              <div className="relative z-10 h-3 w-3 rounded-full bg-[#cbd5e1]" />
+              {/* Dynamic Animated Green Progress Fill */}
+              <div
+                className="absolute top-1/2 left-0 h-[2.5px] -translate-y-1/2 bg-[#22c55e] z-0 transition-all duration-500 ease-out"
+                style={{ width: `${progressPercent}%` }}
+              />
+
+              {/* Dynamic Animated Progress Nodes */}
+              {HOME_MESSAGES.map((_, idx) => {
+                const isCompleted = idx < msgIndex;
+                const isActive = idx === msgIndex;
+
+                return (
+                  <div key={idx} className="relative z-10 flex items-center justify-center w-5 h-5">
+                    {isActive ? (
+                      <div className="flex items-center justify-center h-4.5 w-4.5 rounded-full border-2 border-[#22c55e] bg-white transition-all duration-300 scale-110 shadow-xs">
+                        <div className="h-2 w-2 rounded-full bg-[#22c55e] animate-pulse" />
+                      </div>
+                    ) : isCompleted ? (
+                      <div className="h-3 w-3 rounded-full bg-[#22c55e] transition-all duration-300" />
+                    ) : (
+                      <div className="h-3 w-3 rounded-full bg-[#cbd5e1] transition-all duration-300" />
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Dynamic Status Text Rotator */}
+            {/* Dynamic Rotating Message Box */}
             <div className="h-6 flex items-center justify-center">
               <p
                 key={msgIndex}
@@ -437,13 +441,13 @@ export const AppLoader = React.memo(function AppLoader({
 
       {/* GPU Keyframe Animations */}
       <style>{`
-        /* Infinite city skyline pan with continuous 8px gaps */
+        /* Continuous pan for distinct tall buildings */
         @keyframes skylineInfiniteScroll {
           0% { transform: translate3d(0, 0, 0); }
           100% { transform: translate3d(-420px, 0, 0); }
         }
         .animate-skyline-scroll {
-          animation: skylineInfiniteScroll 5.4s linear infinite;
+          animation: skylineInfiniteScroll 5.6s linear infinite;
         }
 
         /* Parallax cloud drift */
@@ -452,7 +456,7 @@ export const AppLoader = React.memo(function AppLoader({
           100% { transform: translate3d(-420px, 0, 0); }
         }
         .animate-clouds-scroll {
-          animation: cloudsDrift 9.5s linear infinite;
+          animation: cloudsDrift 10s linear infinite;
         }
 
         /* 360-degree alloy wheel spin */
@@ -467,7 +471,7 @@ export const AppLoader = React.memo(function AppLoader({
           animation: spinWheelAnim 0.42s linear infinite;
         }
 
-        /* Suspension bounce */
+        /* Truck body suspension bounce */
         @keyframes truckBodyBounce {
           0%, 100% { transform: translateY(0); }
           30% { transform: translateY(-1.4px); }

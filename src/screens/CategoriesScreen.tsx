@@ -35,8 +35,12 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <AppLoader
+          fullScreen={false}
+          message="Loading bulk categories..."
+          subtext="Fetching fresh produce, staples & FMCG"
+        />
       </div>
     );
   }

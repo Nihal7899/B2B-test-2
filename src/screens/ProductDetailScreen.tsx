@@ -22,6 +22,7 @@ import { useCart } from '@/store';
 import { OfferBadge } from '@/components/OfferBadge';
 import { ProductCard } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
+import { AppLoader } from '@/components/AppLoader';
 import {
   fetchProductById,
   fetchWishlist,
@@ -51,7 +52,7 @@ const defaultTheme = {
   gradientTo: '#03543a',
 };
 
-export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDetailScreenProps) {
+export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }: ProductDetailScreenProps) {
   const navigate = useNavigate();
   const cart = useCart();
   const [searchParams] = useSearchParams();
@@ -86,9 +87,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
 
   const {
     primaryColor = '#02402c',
-    secondaryColor = '#03543a',
-    textColor = '#1f2937',
-    borderColor = '#e5e7eb',
   } = theme;
 
   useEffect(() => {
@@ -220,11 +218,26 @@ export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDet
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div 
-          className="h-8 w-8 rounded-full border-2 border-slate-200 animate-spin" 
-          style={{ borderTopColor: primaryColor }}
-        />
+      <div className="min-h-screen bg-white flex flex-col">
+        {/* Top bar preserving navigation back */}
+        <div className="p-4 safe-top">
+          <button
+            onClick={onBack}
+            className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 text-slate-700 active:scale-95 transition-transform"
+            aria-label="Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+        </div>
+
+        {/* Centered Modern Animated B2B Delivery Loader */}
+        <div className="flex-1 flex items-center justify-center -mt-16">
+          <AppLoader
+            fullScreen={false}
+            message="Loading product details..."
+            subtext="Fetching live wholesale rates & stock tiers"
+          />
+        </div>
       </div>
     );
   }

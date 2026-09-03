@@ -44,186 +44,184 @@ export const AppLoader = React.memo(function AppLoader({
           </div>
 
           {/* ========================================================= */}
-          {/* 2. CONTINUOUS ZERO-GAP TALL SKYLINE (PANS INFINITELY)     */}
+          {/* 2. TALL SKYLINE WITH CRISP, MODEST GAPS (6PX SEPARATION)   */}
           {/* ========================================================= */}
           <div className="absolute top-8 left-0 w-full h-44 overflow-hidden pointer-events-none z-0">
             <div className="flex w-[760px] animate-skyline-scroll opacity-85">
-              {/* Segment 1: Exactly 380px wide with contiguous buildings */}
+              {/* Segment 1: Exactly 380px wide with clean 6px gaps between every building */}
               <svg viewBox="0 0 380 160" className="w-[380px] h-[160px] shrink-0" fill="none">
-                {/* Building 1: x=0 to 42 (H: 118) */}
-                <rect x="0" y="42" width="42" height="118" fill="#d9ebdF" />
-                <circle cx="12" cy="56" r="2" fill="#f0f7f2" />
-                <circle cx="21" cy="56" r="2" fill="#f0f7f2" />
+                {/* Building 1: x=0 to 40 (Gap 40..46 = 6px) */}
+                <rect x="0" y="42" width="40" height="118" rx="2" fill="#d9ebdF" />
+                <circle cx="10" cy="56" r="2" fill="#f0f7f2" />
+                <circle cx="20" cy="56" r="2" fill="#f0f7f2" />
                 <circle cx="30" cy="56" r="2" fill="#f0f7f2" />
-                <circle cx="12" cy="70" r="2" fill="#f0f7f2" />
-                <circle cx="21" cy="70" r="2" fill="#f0f7f2" />
+                <circle cx="10" cy="70" r="2" fill="#f0f7f2" />
+                <circle cx="20" cy="70" r="2" fill="#f0f7f2" />
                 <circle cx="30" cy="70" r="2" fill="#f0f7f2" />
 
-                {/* Building 2: x=42 to 86 (H: 140) */}
-                <rect x="42" y="20" width="44" height="140" fill="#e2efe6" />
-                <rect x="52" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="66" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="52" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="66" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
+                {/* Building 2: x=46 to 88 (Gap 88..94 = 6px) */}
+                <rect x="46" y="20" width="42" height="140" rx="2" fill="#e2efe6" />
+                <rect x="54" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="70" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="54" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="70" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
 
-                {/* Building 3: x=86 to 134 (Storefront with Awning) */}
-                <rect x="86" y="56" width="48" height="104" fill="#d9ebdF" />
-                <path d="M84 64H136L133 74H87L84 64Z" fill="#c3decc" />
-                <path d="M89 74C89 76 91 77.5 93 77.5C95 77.5 97 76 97 74H89Z" fill="#b1d3bc" />
-                <path d="M97 74C97 76 99 77.5 101 77.5C103 77.5 105 76 105 74H97Z" fill="#b1d3bc" />
-                <path d="M105 74C105 76 107 77.5 109 77.5C111 77.5 113 76 113 74H105Z" fill="#b1d3bc" />
-                <path d="M113 74C113 76 115 77.5 117 77.5C119 77.5 121 76 121 74H113Z" fill="#b1d3bc" />
-                <path d="M121 74C121 76 123 77.5 125 77.5C127 77.5 129 76 129 74H121Z" fill="#b1d3bc" />
-                <rect x="94" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="112" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
+                {/* Building 3: x=94 to 138 (Shop with Awning) (Gap 138..144 = 6px) */}
+                <rect x="94" y="56" width="44" height="104" rx="2" fill="#d9ebdF" />
+                <path d="M92 64H140L137 74H95L92 64Z" fill="#c3decc" />
+                <path d="M96 74C96 76 98 77.5 100 77.5C102 77.5 104 76 104 74H96Z" fill="#b1d3bc" />
+                <path d="M104 74C104 76 106 77.5 108 77.5C110 77.5 112 76 112 74H104Z" fill="#b1d3bc" />
+                <path d="M112 74C112 76 114 77.5 116 77.5C118 77.5 120 76 120 74H112Z" fill="#b1d3bc" />
+                <path d="M120 74C120 76 122 77.5 124 77.5C126 77.5 128 76 128 74H120Z" fill="#b1d3bc" />
+                <path d="M128 74C128 76 130 77.5 132 77.5C134 77.5 136 76 136 74H128Z" fill="#b1d3bc" />
+                <rect x="100" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="122" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
 
-                {/* Building 4: x=134 to 190 (Tall Skyscraper with Spire, H: 154) */}
-                <path d="M134 46L152 24V160H134V46Z" fill="#cbe3d3" />
-                <rect x="152" y="14" width="38" height="146" fill="#d9ebdF" />
-                <rect x="164" y="2" width="14" height="12" fill="#d9ebdF" />
-                <line x1="171" y1="-8" x2="171" y2="2" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
-                <circle cx="163" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="171" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="179" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="163" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="171" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="179" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="163" cy="54" r="2" fill="#f0f7f2" />
-                <circle cx="171" cy="54" r="2" fill="#f0f7f2" />
-                <circle cx="179" cy="54" r="2" fill="#f0f7f2" />
+                {/* Building 4: x=144 to 194 (Tall Spire Skyscraper, H: 154) (Gap 194..200 = 6px) */}
+                <path d="M144 46L160 24V160H144V46Z" fill="#cbe3d3" />
+                <rect x="160" y="14" width="34" height="146" rx="2" fill="#d9ebdF" />
+                <rect x="170" y="2" width="14" height="12" fill="#d9ebdF" />
+                <line x1="177" y1="-8" x2="177" y2="2" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
+                <circle cx="169" cy="26" r="2" fill="#f0f7f2" />
+                <circle cx="177" cy="26" r="2" fill="#f0f7f2" />
+                <circle cx="185" cy="26" r="2" fill="#f0f7f2" />
+                <circle cx="169" cy="40" r="2" fill="#f0f7f2" />
+                <circle cx="177" cy="40" r="2" fill="#f0f7f2" />
+                <circle cx="185" cy="40" r="2" fill="#f0f7f2" />
+                <circle cx="169" cy="54" r="2" fill="#f0f7f2" />
+                <circle cx="177" cy="54" r="2" fill="#f0f7f2" />
+                <circle cx="185" cy="54" r="2" fill="#f0f7f2" />
 
                 {/* Map Pin on Skyscraper */}
-                <g transform="translate(142, 36) scale(0.75)">
+                <g transform="translate(148, 34) scale(0.75)">
                   <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
                   <circle cx="10" cy="9" r="4" fill="#ffffff" />
                 </g>
 
-                {/* Building 5: x=190 to 234 (Modern Glass Center, H: 132) */}
-                <rect x="190" y="28" width="44" height="132" fill="#e2efe6" />
-                <rect x="198" y="40" width="8" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="210" y="40" width="8" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="222" y="40" width="8" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="198" y="60" width="8" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="210" y="60" width="8" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="222" y="60" width="8" height="14" rx="1" fill="#f0f7f2" />
+                {/* Building 5: x=200 to 242 (Modern Glass Center, H: 132) (Gap 242..248 = 6px) */}
+                <rect x="200" y="28" width="42" height="132" rx="2" fill="#e2efe6" />
+                <rect x="207" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="217" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="227" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="207" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="217" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="227" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
 
-                {/* Building 6: x=234 to 286 (Produce Market with Awning) */}
-                <rect x="234" y="52" width="52" height="108" fill="#d9ebdF" />
-                <path d="M232 62H288L285 72H235L232 62Z" fill="#c3decc" />
-                <path d="M237 72C237 74 239 75.5 241 75.5C243 75.5 245 74 245 72H237Z" fill="#b1d3bc" />
-                <path d="M245 72C245 74 247 75.5 249 75.5C251 75.5 253 74 253 72H245Z" fill="#b1d3bc" />
-                <path d="M253 72C253 74 255 75.5 257 75.5C259 75.5 261 74 261 72H253Z" fill="#b1d3bc" />
-                <path d="M261 72C261 74 263 75.5 265 75.5C267 75.5 269 74 269 72H261Z" fill="#b1d3bc" />
-                <path d="M269 72C269 74 271 75.5 273 75.5C275 75.5 277 74 277 72H269Z" fill="#b1d3bc" />
-                <rect x="244" y="82" width="12" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="264" y="82" width="12" height="16" rx="1" fill="#f0f7f2" />
+                {/* Building 6: x=248 to 292 (Produce Market with Awning) (Gap 292..298 = 6px) */}
+                <rect x="248" y="52" width="44" height="108" rx="2" fill="#d9ebdF" />
+                <path d="M246 62H294L291 72H249L246 62Z" fill="#c3decc" />
+                <path d="M250 72C250 74 252 75.5 254 75.5C256 75.5 258 74 258 72H250Z" fill="#b1d3bc" />
+                <path d="M258 72C258 74 260 75.5 262 75.5C264 75.5 266 74 266 72H258Z" fill="#b1d3bc" />
+                <path d="M266 72C266 74 268 75.5 270 75.5C272 75.5 274 74 274 72H266Z" fill="#b1d3bc" />
+                <path d="M274 72C274 74 276 75.5 278 75.5C280 75.5 282 74 282 72H274Z" fill="#b1d3bc" />
+                <path d="M282 72C282 74 284 75.5 286 75.5C288 75.5 290 74 290 72H282Z" fill="#b1d3bc" />
+                <rect x="256" y="82" width="11" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="274" y="82" width="11" height="16" rx="1" fill="#f0f7f2" />
 
                 {/* Right Map Pin */}
-                <g transform="translate(274, 40) scale(0.75)">
+                <g transform="translate(278, 38) scale(0.75)">
                   <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
                   <circle cx="10" cy="9" r="4" fill="#ffffff" />
                 </g>
 
-                {/* Building 7: x=286 to 334 (Commercial Office, H: 136) */}
-                <rect x="286" y="24" width="48" height="136" fill="#cbe3d3" />
-                <circle cx="298" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="310" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="322" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="298" cy="52" r="2" fill="#f0f7f2" />
-                <circle cx="310" cy="52" r="2" fill="#f0f7f2" />
-                <circle cx="322" cy="52" r="2" fill="#f0f7f2" />
+                {/* Building 7: x=298 to 340 (Commercial Office, H: 136) (Gap 340..346 = 6px) */}
+                <rect x="298" y="24" width="42" height="136" rx="2" fill="#cbe3d3" />
+                <circle cx="308" cy="38" r="2" fill="#f0f7f2" />
+                <circle cx="319" cy="38" r="2" fill="#f0f7f2" />
+                <circle cx="330" cy="38" r="2" fill="#f0f7f2" />
+                <circle cx="308" cy="52" r="2" fill="#f0f7f2" />
+                <circle cx="319" cy="52" r="2" fill="#f0f7f2" />
+                <circle cx="330" cy="52" r="2" fill="#f0f7f2" />
 
-                {/* Building 8: x=334 to 380 (Contiguous connection back to 0) */}
-                <rect x="334" y="44" width="46" height="116" fill="#d9ebdF" />
-                <rect x="344" y="56" width="10" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="360" y="56" width="10" height="14" rx="1" fill="#f0f7f2" />
+                {/* Building 8: x=346 to 374 (Gap to 380 = 6px, perfectly matches gap to next x=0!) */}
+                <rect x="346" y="44" width="28" height="116" rx="2" fill="#d9ebdF" />
+                <rect x="354" y="56" width="12" height="15" rx="1" fill="#f0f7f2" />
               </svg>
 
-              {/* Segment 2: Exact Duplicate for Perfectly Continuous Pan */}
+              {/* Segment 2: Exact Duplicate for Seamless Infinite Pan */}
               <svg viewBox="0 0 380 160" className="w-[380px] h-[160px] shrink-0" fill="none">
-                <rect x="0" y="42" width="42" height="118" fill="#d9ebdF" />
-                <circle cx="12" cy="56" r="2" fill="#f0f7f2" />
-                <circle cx="21" cy="56" r="2" fill="#f0f7f2" />
+                <rect x="0" y="42" width="40" height="118" rx="2" fill="#d9ebdF" />
+                <circle cx="10" cy="56" r="2" fill="#f0f7f2" />
+                <circle cx="20" cy="56" r="2" fill="#f0f7f2" />
                 <circle cx="30" cy="56" r="2" fill="#f0f7f2" />
-                <circle cx="12" cy="70" r="2" fill="#f0f7f2" />
-                <circle cx="21" cy="70" r="2" fill="#f0f7f2" />
+                <circle cx="10" cy="70" r="2" fill="#f0f7f2" />
+                <circle cx="20" cy="70" r="2" fill="#f0f7f2" />
                 <circle cx="30" cy="70" r="2" fill="#f0f7f2" />
 
-                <rect x="42" y="20" width="44" height="140" fill="#e2efe6" />
-                <rect x="52" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="66" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="52" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="66" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="46" y="20" width="42" height="140" rx="2" fill="#e2efe6" />
+                <rect x="54" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="70" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="54" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="70" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
 
-                <rect x="86" y="56" width="48" height="104" fill="#d9ebdF" />
-                <path d="M84 64H136L133 74H87L84 64Z" fill="#c3decc" />
-                <path d="M89 74C89 76 91 77.5 93 77.5C95 77.5 97 76 97 74H89Z" fill="#b1d3bc" />
-                <path d="M97 74C97 76 99 77.5 101 77.5C103 77.5 105 76 105 74H97Z" fill="#b1d3bc" />
-                <path d="M105 74C105 76 107 77.5 109 77.5C111 77.5 113 76 113 74H105Z" fill="#b1d3bc" />
-                <path d="M113 74C113 76 115 77.5 117 77.5C119 77.5 121 76 121 74H113Z" fill="#b1d3bc" />
-                <path d="M121 74C121 76 123 77.5 125 77.5C127 77.5 129 76 129 74H121Z" fill="#b1d3bc" />
-                <rect x="94" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="112" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="94" y="56" width="44" height="104" rx="2" fill="#d9ebdF" />
+                <path d="M92 64H140L137 74H95L92 64Z" fill="#c3decc" />
+                <path d="M96 74C96 76 98 77.5 100 77.5C102 77.5 104 76 104 74H96Z" fill="#b1d3bc" />
+                <path d="M104 74C104 76 106 77.5 108 77.5C110 77.5 112 76 112 74H104Z" fill="#b1d3bc" />
+                <path d="M112 74C112 76 114 77.5 116 77.5C118 77.5 120 76 120 74H112Z" fill="#b1d3bc" />
+                <path d="M120 74C120 76 122 77.5 124 77.5C126 77.5 128 76 128 74H120Z" fill="#b1d3bc" />
+                <path d="M128 74C128 76 130 77.5 132 77.5C134 77.5 136 76 136 74H128Z" fill="#b1d3bc" />
+                <rect x="100" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="122" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
 
-                <path d="M134 46L152 24V160H134V46Z" fill="#cbe3d3" />
-                <rect x="152" y="14" width="38" height="146" fill="#d9ebdF" />
-                <rect x="164" y="2" width="14" height="12" fill="#d9ebdF" />
-                <line x1="171" y1="-8" x2="171" y2="2" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
-                <circle cx="163" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="171" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="179" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="163" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="171" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="179" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="163" cy="54" r="2" fill="#f0f7f2" />
-                <circle cx="171" cy="54" r="2" fill="#f0f7f2" />
-                <circle cx="179" cy="54" r="2" fill="#f0f7f2" />
+                <path d="M144 46L160 24V160H144V46Z" fill="#cbe3d3" />
+                <rect x="160" y="14" width="34" height="146" rx="2" fill="#d9ebdF" />
+                <rect x="170" y="2" width="14" height="12" fill="#d9ebdF" />
+                <line x1="177" y1="-8" x2="177" y2="2" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
+                <circle cx="169" cy="26" r="2" fill="#f0f7f2" />
+                <circle cx="177" cy="26" r="2" fill="#f0f7f2" />
+                <circle cx="185" cy="26" r="2" fill="#f0f7f2" />
+                <circle cx="169" cy="40" r="2" fill="#f0f7f2" />
+                <circle cx="177" cy="40" r="2" fill="#f0f7f2" />
+                <circle cx="185" cy="40" r="2" fill="#f0f7f2" />
+                <circle cx="169" cy="54" r="2" fill="#f0f7f2" />
+                <circle cx="177" cy="54" r="2" fill="#f0f7f2" />
+                <circle cx="185" cy="54" r="2" fill="#f0f7f2" />
 
-                <g transform="translate(142, 36) scale(0.75)">
+                <g transform="translate(148, 34) scale(0.75)">
                   <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
                   <circle cx="10" cy="9" r="4" fill="#ffffff" />
                 </g>
 
-                <rect x="190" y="28" width="44" height="132" fill="#e2efe6" />
-                <rect x="198" y="40" width="8" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="210" y="40" width="8" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="222" y="40" width="8" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="198" y="60" width="8" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="210" y="60" width="8" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="222" y="60" width="8" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="200" y="28" width="42" height="132" rx="2" fill="#e2efe6" />
+                <rect x="207" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="217" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="227" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="207" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="217" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="227" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
 
-                <rect x="234" y="52" width="52" height="108" fill="#d9ebdF" />
-                <path d="M232 62H288L285 72H235L232 62Z" fill="#c3decc" />
-                <path d="M237 72C237 74 239 75.5 241 75.5C243 75.5 245 74 245 72H237Z" fill="#b1d3bc" />
-                <path d="M245 72C245 74 247 75.5 249 75.5C251 75.5 253 74 253 72H245Z" fill="#b1d3bc" />
-                <path d="M253 72C253 74 255 75.5 257 75.5C259 75.5 261 74 261 72H253Z" fill="#b1d3bc" />
-                <path d="M261 72C261 74 263 75.5 265 75.5C267 75.5 269 74 269 72H261Z" fill="#b1d3bc" />
-                <path d="M269 72C269 74 271 75.5 273 75.5C275 75.5 277 74 277 72H269Z" fill="#b1d3bc" />
-                <rect x="244" y="82" width="12" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="264" y="82" width="12" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="248" y="52" width="44" height="108" rx="2" fill="#d9ebdF" />
+                <path d="M246 62H294L291 72H249L246 62Z" fill="#c3decc" />
+                <path d="M250 72C250 74 252 75.5 254 75.5C256 75.5 258 74 258 72H250Z" fill="#b1d3bc" />
+                <path d="M258 72C258 74 260 75.5 262 75.5C264 75.5 266 74 266 72H258Z" fill="#b1d3bc" />
+                <path d="M266 72C266 74 268 75.5 270 75.5C272 75.5 274 74 274 72H266Z" fill="#b1d3bc" />
+                <path d="M274 72C274 74 276 75.5 278 75.5C280 75.5 282 74 282 72H274Z" fill="#b1d3bc" />
+                <path d="M282 72C282 74 284 75.5 286 75.5C288 75.5 290 74 290 72H282Z" fill="#b1d3bc" />
+                <rect x="256" y="82" width="11" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="274" y="82" width="11" height="16" rx="1" fill="#f0f7f2" />
 
-                <g transform="translate(274, 40) scale(0.75)">
+                <g transform="translate(278, 38) scale(0.75)">
                   <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
                   <circle cx="10" cy="9" r="4" fill="#ffffff" />
                 </g>
 
-                <rect x="286" y="24" width="48" height="136" fill="#cbe3d3" />
-                <circle cx="298" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="310" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="322" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="298" cy="52" r="2" fill="#f0f7f2" />
-                <circle cx="310" cy="52" r="2" fill="#f0f7f2" />
-                <circle cx="322" cy="52" r="2" fill="#f0f7f2" />
+                <rect x="298" y="24" width="42" height="136" rx="2" fill="#cbe3d3" />
+                <circle cx="308" cy="38" r="2" fill="#f0f7f2" />
+                <circle cx="319" cy="38" r="2" fill="#f0f7f2" />
+                <circle cx="330" cy="38" r="2" fill="#f0f7f2" />
+                <circle cx="308" cy="52" r="2" fill="#f0f7f2" />
+                <circle cx="319" cy="52" r="2" fill="#f0f7f2" />
+                <circle cx="330" cy="52" r="2" fill="#f0f7f2" />
 
-                <rect x="334" y="44" width="46" height="116" fill="#d9ebdF" />
-                <rect x="344" y="56" width="10" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="360" y="56" width="10" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="346" y="44" width="28" height="116" rx="2" fill="#d9ebdF" />
+                <rect x="354" y="56" width="12" height="15" rx="1" fill="#f0f7f2" />
               </svg>
             </div>
           </div>
 
           {/* ========================================================= */}
-          {/* 3. TRUCK & HIGHLY DETAILED GROCERY LOAD                   */}
+          {/* 3. TRUCK & HEAVY LOADED GROCERY PRODUCE                   */}
           {/* ========================================================= */}
           <svg
             viewBox="0 0 360 230"
@@ -246,16 +244,14 @@ export const AppLoader = React.memo(function AppLoader({
               <line x1="50" y1="148" x2="80" y2="148" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
             </g>
 
-            {/* Soft Elliptical Ground Shadow under wheels */}
+            {/* Ground Shadow */}
             <ellipse cx="180" cy="186" rx="106" ry="5.5" fill="url(#groundShadowMain)" />
 
-            {/* TRUCK BODY & HEAVY GROCERY STACK */}
+            {/* TRUCK BODY & GROCERY STACK */}
             <g className="animate-truck-body">
-              {/* =================================================== */}
-              {/* CLEAN, POLISHED, HIGH-DETAIL LOADED PRODUCE STACK   */}
-              {/* =================================================== */}
+              {/* Fresh Produce Overflowing */}
               <g className="animate-produce-jiggle">
-                {/* 1. LAYER 1 (BACK): ARTISAN BREAD / BAGUETTE */}
+                {/* 1. Crusty Artisan Baguette */}
                 <g transform="translate(138, 76) rotate(18)">
                   <rect x="0" y="0" width="12" height="34" rx="6" fill="#d97706" />
                   <line x1="2" y1="8" x2="9" y2="11" stroke="#fef3c7" strokeWidth="1.6" strokeLinecap="round" />
@@ -263,7 +259,7 @@ export const AppLoader = React.memo(function AppLoader({
                   <line x1="2" y1="24" x2="9" y2="27" stroke="#fef3c7" strokeWidth="1.6" strokeLinecap="round" />
                 </g>
 
-                {/* 2. LAYER 1 (BACK): FRESH DAIRY MILK BOTTLE */}
+                {/* 2. Glass Dairy Milk Bottle */}
                 <g transform="translate(154, 78) rotate(8)">
                   <rect x="0" y="6" width="16" height="26" rx="3.5" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1" />
                   <rect x="0" y="14" width="16" height="11" fill="#0284c7" />
@@ -271,7 +267,7 @@ export const AppLoader = React.memo(function AppLoader({
                   <rect x="4" y="1.5" width="8" height="4.5" rx="1" fill="#38bdf8" />
                 </g>
 
-                {/* 3. LAYER 1 (BACK): ORANGE JUICE CARTON */}
+                {/* 3. Orange Juice Carton */}
                 <g transform="translate(172, 82) rotate(14)">
                   <rect x="0" y="5" width="17" height="24" rx="2" fill="#ea580c" />
                   <circle cx="8.5" cy="16" r="3.8" fill="#ffedd5" />
@@ -279,50 +275,41 @@ export const AppLoader = React.memo(function AppLoader({
                   <circle cx="8.5" cy="16" r="1.8" fill="#ea580c" />
                 </g>
 
-                {/* 4. BUSHY FRESH KALE / CABBAGE */}
+                {/* 4. Bushy Fresh Green Kale / Cabbage */}
                 <ellipse cx="118" cy="92" rx="14" ry="15" fill="#15803d" />
                 <ellipse cx="118" cy="92" rx="11" ry="12" fill="#16a34a" />
                 <circle cx="116" cy="89" r="7" fill="#22c55e" />
                 <path d="M112 85C115 90 120 92 124 90" stroke="#86efac" strokeWidth="1.2" strokeLinecap="round" />
 
-                {/* 5. VIBRANT CURVED BANANA BUNCH */}
+                {/* 5. Curved Yellow Banana Bunch */}
                 <g transform="translate(80, 88) rotate(-14)">
-                  {/* Outer Banana */}
                   <path d="M8 29C16 32 30 30 38 18C40 13 40 8 38 4C37 4 34 8 30 12C22 21 14 24 8 29Z" fill="#eab308" />
-                  {/* Middle Banana */}
                   <path d="M2 26C10 29 23 27 30 16C32 12 32 7 30 3C29 3 27 7 23 10C16 18 8 21 2 26Z" fill="#fde047" />
-                  {/* Stem & Dark Tip */}
                   <path d="M30 16L34 13" stroke="#65a30d" strokeWidth="2.5" strokeLinecap="round" />
                   <circle cx="2.5" cy="26.5" r="1.8" fill="#451a03" />
                   <circle cx="8.5" cy="29.5" r="1.8" fill="#451a03" />
                 </g>
 
-                {/* 6. SHINY RED APPLE WITH STEM & LEAF */}
+                {/* 6. Shiny Red Apple with Stem & Green Leaf */}
                 <g transform="translate(104, 94)">
                   <path d="M12 4C8 1 2 3 1 9C0 16 5 23 12 24C19 23 24 16 23 9C22 3 16 1 12 4Z" fill="#dc2626" />
-                  {/* Specular White Shine */}
                   <path d="M6 8C4 11 4 16 7 19" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
-                  {/* Apple Stem & Leaf */}
                   <path d="M12 4C12 1 14 -1 16 -2" stroke="#78350f" strokeWidth="1.6" strokeLinecap="round" />
                   <path d="M13 1C17 0 19 2 18 5C15 5 13 3 13 1Z" fill="#22c55e" />
                 </g>
 
-                {/* 7. GLOSSY GREEN CAPSICUM (BELL PEPPER) */}
+                {/* 7. Glossy Green Capsicum (Bell Pepper) */}
                 <g transform="translate(122, 92)">
                   <path d="M4 8C2 12 2 20 6 23C9 25 15 25 18 23C22 20 22 12 20 8C18 5 15 5 12 7C9 5 6 5 4 8Z" fill="#16a34a" />
-                  {/* Lobes Shading */}
                   <path d="M8 8C7 13 7 19 9 23" stroke="#15803d" strokeWidth="1.2" strokeLinecap="round" />
                   <path d="M16 8C17 13 17 19 15 23" stroke="#15803d" strokeWidth="1.2" strokeLinecap="round" />
-                  {/* Stout Stalk */}
                   <path d="M12 7V2" stroke="#14532d" strokeWidth="2.2" strokeLinecap="round" />
-                  {/* Capsicum Crown Leaf */}
                   <circle cx="12" cy="6" r="2.5" fill="#15803d" />
                 </g>
 
-                {/* 8. PLUMP RED TOMATOES (FOREGROUND) */}
+                {/* 8. Plump Red Tomatoes */}
                 <g transform="translate(142, 99)">
                   <circle cx="8" cy="8" r="7.5" fill="#ef4444" />
-                  {/* Star Calyx */}
                   <path d="M8 3L6 1M8 3L10 1M8 3L5 4M8 3L11 4M8 3V0.5" stroke="#166534" strokeWidth="1.4" strokeLinecap="round" />
                   <circle cx="6" cy="6" r="1.5" fill="#fca5a5" opacity="0.7" />
                 </g>
@@ -332,11 +319,11 @@ export const AppLoader = React.memo(function AppLoader({
                 </g>
               </g>
 
-              {/* ----------------- EXTENDED VIBRANT GREEN CARGO CONTAINER ----------------- */}
+              {/* ----------------- EXTENDED CARGO CONTAINER ----------------- */}
               <rect x="82" y="106" width="130" height="66" rx="5" fill="#22c55e" />
               <rect x="82" y="166" width="130" height="6" fill="#16a34a" />
 
-              {/* CAFKART LOGO: SHIFTED FORWARD TO x=156 (ZERO CLIPPING FROM TYRE WELL) */}
+              {/* CAFKART LOGO: SHIFTED FORWARD (ZERO CLIPPING FROM WHEEL CUTOUT) */}
               <g transform="translate(156, 119) scale(0.024)">
                 <path
                   d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
@@ -356,7 +343,7 @@ export const AppLoader = React.memo(function AppLoader({
                 fill="#02402c"
               />
 
-              {/* Windshield & Window Divider */}
+              {/* Windshield & Door Frame */}
               <path
                 d="M218 114H238C240.5 114 243 115.8 244 118.5L253 134H218V114Z"
                 fill="#a7f3d0"
@@ -430,7 +417,7 @@ export const AppLoader = React.memo(function AppLoader({
 
       {/* GPU Keyframe Animations */}
       <style>{`
-        /* Continuous zero-gap city skyline pan */
+        /* Continuous pan for buildings with exact 6px gap wrapping */
         @keyframes skylineInfiniteScroll {
           0% { transform: translate3d(0, 0, 0); }
           100% { transform: translate3d(-380px, 0, 0); }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface AppLoaderProps {
   fullScreen?: boolean;
@@ -7,12 +7,29 @@ interface AppLoaderProps {
   className?: string;
 }
 
+const HOME_MESSAGES = [
+  'Dispatching wholesale catalog...',
+  'Verifying mandi rates & cold-chain stock...',
+  'Loading bulk crates & staples...',
+  'Routing your express store delivery...',
+];
+
 export const AppLoader = React.memo(function AppLoader({
   fullScreen = true,
   size = 'md',
   showStatus = false,
   className = '',
 }: AppLoaderProps) {
+  const [msgIndex, setMsgIndex] = useState(0);
+
+  useEffect(() => {
+    if (!showStatus) return;
+    const interval = setInterval(() => {
+      setMsgIndex((prev) => (prev + 1) % HOME_MESSAGES.length);
+    }, 1800);
+    return () => clearInterval(interval);
+  }, [showStatus]);
+
   const scaleClass =
     size === 'sm' ? 'scale-75' : size === 'lg' ? 'scale-105' : 'scale-95 sm:scale-100';
 
@@ -24,207 +41,203 @@ export const AppLoader = React.memo(function AppLoader({
     >
       <div className={`relative flex flex-col items-center justify-center ${scaleClass}`}>
         {/* Main Stage Viewport */}
-        <div className="relative w-88 h-72 flex items-center justify-center overflow-hidden">
+        <div className="relative w-92 h-80 flex items-center justify-center overflow-hidden">
           {/* ========================================================= */}
-          {/* 1. SEAMLESS MOVING CLOUDS (TOP DRIFT LAYER)               */}
+          {/* 1. SEAMLESS MOVING CLOUDS (DRIFTING ABOVE TALL BUILDINGS) */}
           {/* ========================================================= */}
-          <div className="absolute top-2 left-0 w-full h-16 overflow-hidden pointer-events-none z-0">
-            <div className="flex w-[760px] animate-clouds-scroll opacity-70">
-              <svg viewBox="0 0 380 50" className="w-[380px] h-[50px] shrink-0" fill="none">
+          <div className="absolute top-1 left-0 w-full h-16 overflow-hidden pointer-events-none z-0">
+            <div className="flex w-[840px] animate-clouds-scroll opacity-75">
+              <svg viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
                 <path d="M40 28C40 22 45 18 51 18C53 18 55 18.8 56.5 20C58.5 15.5 63 13 68 13C75 13 81 18.5 81 25.5C83 25.5 85 27.5 85 29.5C85 32 83 34 80.5 34H44C41.8 34 40 31.5 40 28Z" fill="#e2efe6" />
-                <path d="M190 22C190 16.5 194.5 12 200 12C201.8 12 203.5 12.6 205 13.8C207 9.8 211 7.5 215.5 7.5C222 7.5 227 12.5 227 19C229 19 231 21 231 23C231 25.5 229 27.5 226.5 27.5H194C191.8 27.5 190 25 190 22Z" fill="#d9ebdF" />
-                <path d="M310 26C310 21 314 17 319 17C320.5 17 322 17.5 323.5 18.5C325 15 329 13 333 13C339 13 344 17.5 344 23.5C345.5 23.5 347 25 347 27C347 29.5 345 31.5 343 31.5H314C311.8 31.5 310 29.2 310 26Z" fill="#e2efe6" />
+                <path d="M190 22C190 16.5 194.5 12 200 12C201.8 12 203.5 12.6 205 13.8C207 9.8 211 7.5 215.5 7.5C222 7.5 227 12.5 227 19C229 19 231 21 231 23C231 25.5 229 27.5 226.5 27.5H194C191.8 27.5 190 25 190 22Z" fill="#d9ebdf" />
+                <path d="M330 25C330 20 334 16 339 16C340.5 16 342 16.5 343.5 17.5C345 14 349 12 353 12C359 12 364 16.5 364 22.5C365.5 22.5 367 24 367 26C367 28.5 365 30.5 363 30.5H334C331.8 30.5 330 28.2 330 25Z" fill="#e2efe6" />
               </svg>
-              <svg viewBox="0 0 380 50" className="w-[380px] h-[50px] shrink-0" fill="none">
+              <svg viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
                 <path d="M40 28C40 22 45 18 51 18C53 18 55 18.8 56.5 20C58.5 15.5 63 13 68 13C75 13 81 18.5 81 25.5C83 25.5 85 27.5 85 29.5C85 32 83 34 80.5 34H44C41.8 34 40 31.5 40 28Z" fill="#e2efe6" />
-                <path d="M190 22C190 16.5 194.5 12 200 12C201.8 12 203.5 12.6 205 13.8C207 9.8 211 7.5 215.5 7.5C222 7.5 227 12.5 227 19C229 19 231 21 231 23C231 25.5 229 27.5 226.5 27.5H194C191.8 27.5 190 25 190 22Z" fill="#d9ebdF" />
-                <path d="M310 26C310 21 314 17 319 17C320.5 17 322 17.5 323.5 18.5C325 15 329 13 333 13C339 13 344 17.5 344 23.5C345.5 23.5 347 25 347 27C347 29.5 345 31.5 343 31.5H314C311.8 31.5 310 29.2 310 26Z" fill="#e2efe6" />
+                <path d="M190 22C190 16.5 194.5 12 200 12C201.8 12 203.5 12.6 205 13.8C207 9.8 211 7.5 215.5 7.5C222 7.5 227 12.5 227 19C229 19 231 21 231 23C231 25.5 229 27.5 226.5 27.5H194C191.8 27.5 190 25 190 22Z" fill="#d9ebdf" />
+                <path d="M330 25C330 20 334 16 339 16C340.5 16 342 16.5 343.5 17.5C345 14 349 12 353 12C359 12 364 16.5 364 22.5C365.5 22.5 367 24 367 26C367 28.5 365 30.5 363 30.5H334C331.8 30.5 330 28.2 330 25Z" fill="#e2efe6" />
               </svg>
             </div>
           </div>
 
           {/* ========================================================= */}
-          {/* 2. TALL SKYLINE WITH CRISP, MODEST GAPS (6PX SEPARATION)   */}
+          {/* 2. TALLER, WIDER, DISTINCT ARCHITECTURAL CITY BUILDINGS    */}
           {/* ========================================================= */}
-          <div className="absolute top-8 left-0 w-full h-44 overflow-hidden pointer-events-none z-0">
-            <div className="flex w-[760px] animate-skyline-scroll opacity-85">
-              {/* Segment 1: Exactly 380px wide with clean 6px gaps between every building */}
-              <svg viewBox="0 0 380 160" className="w-[380px] h-[160px] shrink-0" fill="none">
-                {/* Building 1: x=0 to 40 (Gap 40..46 = 6px) */}
-                <rect x="0" y="42" width="40" height="118" rx="2" fill="#d9ebdF" />
-                <circle cx="10" cy="56" r="2" fill="#f0f7f2" />
-                <circle cx="20" cy="56" r="2" fill="#f0f7f2" />
-                <circle cx="30" cy="56" r="2" fill="#f0f7f2" />
-                <circle cx="10" cy="70" r="2" fill="#f0f7f2" />
-                <circle cx="20" cy="70" r="2" fill="#f0f7f2" />
-                <circle cx="30" cy="70" r="2" fill="#f0f7f2" />
+          {/* Each building has a unique structural shape with modest 8px gaps */}
+          <div className="absolute top-6 left-0 w-full h-52 overflow-hidden pointer-events-none z-0">
+            <div className="flex w-[840px] animate-skyline-scroll opacity-85">
+              {/* Segment 1: Exactly 420px wide */}
+              <svg viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
+                {/* 1. Wholesale Cold-Storage Facility (W: 60, H: 138) (Gap 60..68 = 8px) */}
+                <rect x="0" y="52" width="60" height="138" rx="3" fill="#d9ebdf" />
+                <rect x="6" y="58" width="48" height="6" rx="1" fill="#c3decc" />
+                {/* Ventilation Louver Slits */}
+                <line x1="12" y1="74" x2="48" y2="74" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                <line x1="12" y1="82" x2="48" y2="82" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                <line x1="12" y1="90" x2="48" y2="90" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                <line x1="12" y1="98" x2="48" y2="98" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                {/* Industrial Cargo Shutter Bay */}
+                <rect x="15" y="116" width="30" height="40" rx="1.5" fill="#cbe3d3" />
+                <line x1="15" y1="126" x2="45" y2="126" stroke="#d9ebdf" strokeWidth="1.5" />
+                <line x1="15" y1="136" x2="45" y2="136" stroke="#d9ebdf" strokeWidth="1.5" />
 
-                {/* Building 2: x=46 to 88 (Gap 88..94 = 6px) */}
-                <rect x="46" y="20" width="42" height="140" rx="2" fill="#e2efe6" />
-                <rect x="54" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="70" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="54" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="70" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
+                {/* 2. Modern Glass Tower with Dual Antennas (W: 56, H: 168) (Gap 124..132 = 8px) */}
+                <rect x="68" y="22" width="56" height="168" rx="2" fill="#e2efe6" />
+                <rect x="74" y="26" width="44" height="4" fill="#cbe3d3" />
+                {/* Dual Antenna Spires */}
+                <line x1="78" y1="10" x2="78" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
+                <line x1="114" y1="10" x2="114" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
+                {/* Modern Window Grid */}
+                <rect x="76" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="91" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="106" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="76" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="91" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="106" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="76" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="91" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="106" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
 
-                {/* Building 3: x=94 to 138 (Shop with Awning) (Gap 138..144 = 6px) */}
-                <rect x="94" y="56" width="44" height="104" rx="2" fill="#d9ebdF" />
-                <path d="M92 64H140L137 74H95L92 64Z" fill="#c3decc" />
-                <path d="M96 74C96 76 98 77.5 100 77.5C102 77.5 104 76 104 74H96Z" fill="#b1d3bc" />
-                <path d="M104 74C104 76 106 77.5 108 77.5C110 77.5 112 76 112 74H104Z" fill="#b1d3bc" />
-                <path d="M112 74C112 76 114 77.5 116 77.5C118 77.5 120 76 120 74H112Z" fill="#b1d3bc" />
-                <path d="M120 74C120 76 122 77.5 124 77.5C126 77.5 128 76 128 74H120Z" fill="#b1d3bc" />
-                <path d="M128 74C128 76 130 77.5 132 77.5C134 77.5 136 76 136 74H128Z" fill="#b1d3bc" />
-                <rect x="100" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="122" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
+                {/* 3. Artisan Mandi Storefront with Awning (W: 66, H: 122) (Gap 198..206 = 8px) */}
+                <rect x="132" y="68" width="66" height="122" rx="3" fill="#d9ebdf" />
+                <path d="M129 78H201L197 90H133L129 78Z" fill="#c3decc" />
+                <path d="M134 90C134 92.5 136.5 94 139 94C141.5 94 144 92.5 144 90H134Z" fill="#b1d3bc" />
+                <path d="M144 90C144 92.5 146.5 94 149 94C151.5 94 154 92.5 154 90H144Z" fill="#b1d3bc" />
+                <path d="M154 90C154 92.5 156.5 94 159 94C161.5 94 164 92.5 164 90H154Z" fill="#b1d3bc" />
+                <path d="M164 90C164 92.5 166.5 94 169 94C171.5 94 174 92.5 174 90H164Z" fill="#b1d3bc" />
+                <path d="M174 90C174 92.5 176.5 94 179 94C181.5 94 184 92.5 184 90H174Z" fill="#b1d3bc" />
+                <path d="M184 90C184 92.5 186.5 94 189 94C191.5 94 194 92.5 194 90H184Z" fill="#b1d3bc" />
+                {/* Arched Windows */}
+                <path d="M143 118V106C143 103 145 101 148 101C151 101 153 103 153 106V118H143Z" fill="#f0f7f2" />
+                <path d="M160 118V106C160 103 162 101 165 101C168 101 170 103 170 106V118H160Z" fill="#f0f7f2" />
+                <path d="M177 118V106C177 103 179 101 182 101C185 101 187 103 187 106V118H177Z" fill="#f0f7f2" />
 
-                {/* Building 4: x=144 to 194 (Tall Spire Skyscraper, H: 154) (Gap 194..200 = 6px) */}
-                <path d="M144 46L160 24V160H144V46Z" fill="#cbe3d3" />
-                <rect x="160" y="14" width="34" height="146" rx="2" fill="#d9ebdF" />
-                <rect x="170" y="2" width="14" height="12" fill="#d9ebdF" />
-                <line x1="177" y1="-8" x2="177" y2="2" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
-                <circle cx="169" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="177" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="185" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="169" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="177" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="185" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="169" cy="54" r="2" fill="#f0f7f2" />
-                <circle cx="177" cy="54" r="2" fill="#f0f7f2" />
-                <circle cx="185" cy="54" r="2" fill="#f0f7f2" />
-
-                {/* Map Pin on Skyscraper */}
-                <g transform="translate(148, 34) scale(0.75)">
+                {/* 4. Multi-Tier Stepped Highrise with Spire (W: 68, H: 178) (Gap 274..282 = 8px) */}
+                <rect x="206" y="50" width="68" height="140" fill="#cbe3d3" />
+                <rect x="216" y="24" width="48" height="26" fill="#d9ebdf" />
+                <rect x="228" y="8" width="24" height="16" fill="#e2efe6" />
+                <line x1="240" y1="-4" x2="240" y2="8" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
+                {/* Windows Column Matrix */}
+                <circle cx="224" cy="62" r="2.2" fill="#f0f7f2" />
+                <circle cx="240" cy="62" r="2.2" fill="#f0f7f2" />
+                <circle cx="256" cy="62" r="2.2" fill="#f0f7f2" />
+                <circle cx="224" cy="78" r="2.2" fill="#f0f7f2" />
+                <circle cx="240" cy="78" r="2.2" fill="#f0f7f2" />
+                <circle cx="256" cy="78" r="2.2" fill="#f0f7f2" />
+                <circle cx="224" cy="94" r="2.2" fill="#f0f7f2" />
+                <circle cx="240" cy="94" r="2.2" fill="#f0f7f2" />
+                <circle cx="256" cy="94" r="2.2" fill="#f0f7f2" />
+                {/* Map Pin on Tower */}
+                <g transform="translate(210, 26) scale(0.75)">
                   <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
                   <circle cx="10" cy="9" r="4" fill="#ffffff" />
                 </g>
 
-                {/* Building 5: x=200 to 242 (Modern Glass Center, H: 132) (Gap 242..248 = 6px) */}
-                <rect x="200" y="28" width="42" height="132" rx="2" fill="#e2efe6" />
-                <rect x="207" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="217" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="227" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="207" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="217" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="227" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
+                {/* 5. Industrial Twin Grain Silos & Terminal (W: 62, H: 145) (Gap 344..352 = 8px) */}
+                {/* Left Dome Silo */}
+                <rect x="282" y="55" width="28" height="135" fill="#e2efe6" />
+                <ellipse cx="296" cy="55" rx="14" ry="7" fill="#d9ebdf" />
+                {/* Right Dome Silo */}
+                <rect x="314" y="45" width="30" height="145" fill="#d9ebdf" />
+                <ellipse cx="329" cy="45" rx="15" ry="8" fill="#cbe3d3" />
+                {/* Inter-silo Gantry Pipe */}
+                <rect x="296" y="68" width="33" height="4" fill="#b1d3bc" />
 
-                {/* Building 6: x=248 to 292 (Produce Market with Awning) (Gap 292..298 = 6px) */}
-                <rect x="248" y="52" width="44" height="108" rx="2" fill="#d9ebdF" />
-                <path d="M246 62H294L291 72H249L246 62Z" fill="#c3decc" />
-                <path d="M250 72C250 74 252 75.5 254 75.5C256 75.5 258 74 258 72H250Z" fill="#b1d3bc" />
-                <path d="M258 72C258 74 260 75.5 262 75.5C264 75.5 266 74 266 72H258Z" fill="#b1d3bc" />
-                <path d="M266 72C266 74 268 75.5 270 75.5C272 75.5 274 74 274 72H266Z" fill="#b1d3bc" />
-                <path d="M274 72C274 74 276 75.5 278 75.5C280 75.5 282 74 282 72H274Z" fill="#b1d3bc" />
-                <path d="M282 72C282 74 284 75.5 286 75.5C288 75.5 290 74 290 72H282Z" fill="#b1d3bc" />
-                <rect x="256" y="82" width="11" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="274" y="82" width="11" height="16" rx="1" fill="#f0f7f2" />
-
+                {/* 6. Corporate Produce Logistics Arcade (W: 60, H: 150) (Gap to 420 = 8px) */}
+                <rect x="352" y="40" width="60" height="150" rx="2" fill="#cbe3d3" />
+                <rect x="360" y="45" width="44" height="4" fill="#b1d3bc" />
+                <rect x="362" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="382" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="362" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="382" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
                 {/* Right Map Pin */}
-                <g transform="translate(278, 38) scale(0.75)">
+                <g transform="translate(390, 24) scale(0.75)">
                   <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
                   <circle cx="10" cy="9" r="4" fill="#ffffff" />
                 </g>
-
-                {/* Building 7: x=298 to 340 (Commercial Office, H: 136) (Gap 340..346 = 6px) */}
-                <rect x="298" y="24" width="42" height="136" rx="2" fill="#cbe3d3" />
-                <circle cx="308" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="319" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="330" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="308" cy="52" r="2" fill="#f0f7f2" />
-                <circle cx="319" cy="52" r="2" fill="#f0f7f2" />
-                <circle cx="330" cy="52" r="2" fill="#f0f7f2" />
-
-                {/* Building 8: x=346 to 374 (Gap to 380 = 6px, perfectly matches gap to next x=0!) */}
-                <rect x="346" y="44" width="28" height="116" rx="2" fill="#d9ebdF" />
-                <rect x="354" y="56" width="12" height="15" rx="1" fill="#f0f7f2" />
               </svg>
 
-              {/* Segment 2: Exact Duplicate for Seamless Infinite Pan */}
-              <svg viewBox="0 0 380 160" className="w-[380px] h-[160px] shrink-0" fill="none">
-                <rect x="0" y="42" width="40" height="118" rx="2" fill="#d9ebdF" />
-                <circle cx="10" cy="56" r="2" fill="#f0f7f2" />
-                <circle cx="20" cy="56" r="2" fill="#f0f7f2" />
-                <circle cx="30" cy="56" r="2" fill="#f0f7f2" />
-                <circle cx="10" cy="70" r="2" fill="#f0f7f2" />
-                <circle cx="20" cy="70" r="2" fill="#f0f7f2" />
-                <circle cx="30" cy="70" r="2" fill="#f0f7f2" />
+              {/* Segment 2: Duplicate for Seamless Looping */}
+              <svg viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
+                <rect x="0" y="52" width="60" height="138" rx="3" fill="#d9ebdf" />
+                <rect x="6" y="58" width="48" height="6" rx="1" fill="#c3decc" />
+                <line x1="12" y1="74" x2="48" y2="74" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                <line x1="12" y1="82" x2="48" y2="82" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                <line x1="12" y1="90" x2="48" y2="90" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                <line x1="12" y1="98" x2="48" y2="98" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                <rect x="15" y="116" width="30" height="40" rx="1.5" fill="#cbe3d3" />
+                <line x1="15" y1="126" x2="45" y2="126" stroke="#d9ebdf" strokeWidth="1.5" />
+                <line x1="15" y1="136" x2="45" y2="136" stroke="#d9ebdf" strokeWidth="1.5" />
 
-                <rect x="46" y="20" width="42" height="140" rx="2" fill="#e2efe6" />
-                <rect x="54" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="70" y="32" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="54" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="70" y="55" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="68" y="22" width="56" height="168" rx="2" fill="#e2efe6" />
+                <rect x="74" y="26" width="44" height="4" fill="#cbe3d3" />
+                <line x1="78" y1="10" x2="78" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
+                <line x1="114" y1="10" x2="114" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
+                <rect x="76" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="91" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="106" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="76" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="91" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="106" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="76" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="91" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
+                <rect x="106" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
 
-                <rect x="94" y="56" width="44" height="104" rx="2" fill="#d9ebdF" />
-                <path d="M92 64H140L137 74H95L92 64Z" fill="#c3decc" />
-                <path d="M96 74C96 76 98 77.5 100 77.5C102 77.5 104 76 104 74H96Z" fill="#b1d3bc" />
-                <path d="M104 74C104 76 106 77.5 108 77.5C110 77.5 112 76 112 74H104Z" fill="#b1d3bc" />
-                <path d="M112 74C112 76 114 77.5 116 77.5C118 77.5 120 76 120 74H112Z" fill="#b1d3bc" />
-                <path d="M120 74C120 76 122 77.5 124 77.5C126 77.5 128 76 128 74H120Z" fill="#b1d3bc" />
-                <path d="M128 74C128 76 130 77.5 132 77.5C134 77.5 136 76 136 74H128Z" fill="#b1d3bc" />
-                <rect x="100" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="122" y="85" width="10" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="132" y="68" width="66" height="122" rx="3" fill="#d9ebdf" />
+                <path d="M129 78H201L197 90H133L129 78Z" fill="#c3decc" />
+                <path d="M134 90C134 92.5 136.5 94 139 94C141.5 94 144 92.5 144 90H134Z" fill="#b1d3bc" />
+                <path d="M144 90C144 92.5 146.5 94 149 94C151.5 94 154 92.5 154 90H144Z" fill="#b1d3bc" />
+                <path d="M154 90C154 92.5 156.5 94 159 94C161.5 94 164 92.5 164 90H154Z" fill="#b1d3bc" />
+                <path d="M164 90C164 92.5 166.5 94 169 94C171.5 94 174 92.5 174 90H164Z" fill="#b1d3bc" />
+                <path d="M174 90C174 92.5 176.5 94 179 94C181.5 94 184 92.5 184 90H174Z" fill="#b1d3bc" />
+                <path d="M184 90C184 92.5 186.5 94 189 94C191.5 94 194 92.5 194 90H184Z" fill="#b1d3bc" />
+                <path d="M143 118V106C143 103 145 101 148 101C151 101 153 103 153 106V118H143Z" fill="#f0f7f2" />
+                <path d="M160 118V106C160 103 162 101 165 101C168 101 170 103 170 106V118H160Z" fill="#f0f7f2" />
+                <path d="M177 118V106C177 103 179 101 182 101C185 101 187 103 187 106V118H177Z" fill="#f0f7f2" />
 
-                <path d="M144 46L160 24V160H144V46Z" fill="#cbe3d3" />
-                <rect x="160" y="14" width="34" height="146" rx="2" fill="#d9ebdF" />
-                <rect x="170" y="2" width="14" height="12" fill="#d9ebdF" />
-                <line x1="177" y1="-8" x2="177" y2="2" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
-                <circle cx="169" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="177" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="185" cy="26" r="2" fill="#f0f7f2" />
-                <circle cx="169" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="177" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="185" cy="40" r="2" fill="#f0f7f2" />
-                <circle cx="169" cy="54" r="2" fill="#f0f7f2" />
-                <circle cx="177" cy="54" r="2" fill="#f0f7f2" />
-                <circle cx="185" cy="54" r="2" fill="#f0f7f2" />
-
-                <g transform="translate(148, 34) scale(0.75)">
+                <rect x="206" y="50" width="68" height="140" fill="#cbe3d3" />
+                <rect x="216" y="24" width="48" height="26" fill="#d9ebdf" />
+                <rect x="228" y="8" width="24" height="16" fill="#e2efe6" />
+                <line x1="240" y1="-4" x2="240" y2="8" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
+                <circle cx="224" cy="62" r="2.2" fill="#f0f7f2" />
+                <circle cx="240" cy="62" r="2.2" fill="#f0f7f2" />
+                <circle cx="256" cy="62" r="2.2" fill="#f0f7f2" />
+                <circle cx="224" cy="78" r="2.2" fill="#f0f7f2" />
+                <circle cx="240" cy="78" r="2.2" fill="#f0f7f2" />
+                <circle cx="256" cy="78" r="2.2" fill="#f0f7f2" />
+                <circle cx="224" cy="94" r="2.2" fill="#f0f7f2" />
+                <circle cx="240" cy="94" r="2.2" fill="#f0f7f2" />
+                <circle cx="256" cy="94" r="2.2" fill="#f0f7f2" />
+                <g transform="translate(210, 26) scale(0.75)">
                   <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
                   <circle cx="10" cy="9" r="4" fill="#ffffff" />
                 </g>
 
-                <rect x="200" y="28" width="42" height="132" rx="2" fill="#e2efe6" />
-                <rect x="207" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="217" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="227" y="40" width="7" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="207" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="217" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
-                <rect x="227" y="60" width="7" height="14" rx="1" fill="#f0f7f2" />
+                <rect x="282" y="55" width="28" height="135" fill="#e2efe6" />
+                <ellipse cx="296" cy="55" rx="14" ry="7" fill="#d9ebdf" />
+                <rect x="314" y="45" width="30" height="145" fill="#d9ebdf" />
+                <ellipse cx="329" cy="45" rx="15" ry="8" fill="#cbe3d3" />
+                <rect x="296" y="68" width="33" height="4" fill="#b1d3bc" />
 
-                <rect x="248" y="52" width="44" height="108" rx="2" fill="#d9ebdF" />
-                <path d="M246 62H294L291 72H249L246 62Z" fill="#c3decc" />
-                <path d="M250 72C250 74 252 75.5 254 75.5C256 75.5 258 74 258 72H250Z" fill="#b1d3bc" />
-                <path d="M258 72C258 74 260 75.5 262 75.5C264 75.5 266 74 266 72H258Z" fill="#b1d3bc" />
-                <path d="M266 72C266 74 268 75.5 270 75.5C272 75.5 274 74 274 72H266Z" fill="#b1d3bc" />
-                <path d="M274 72C274 74 276 75.5 278 75.5C280 75.5 282 74 282 72H274Z" fill="#b1d3bc" />
-                <path d="M282 72C282 74 284 75.5 286 75.5C288 75.5 290 74 290 72H282Z" fill="#b1d3bc" />
-                <rect x="256" y="82" width="11" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="274" y="82" width="11" height="16" rx="1" fill="#f0f7f2" />
-
-                <g transform="translate(278, 38) scale(0.75)">
+                <rect x="352" y="40" width="60" height="150" rx="2" fill="#cbe3d3" />
+                <rect x="360" y="45" width="44" height="4" fill="#b1d3bc" />
+                <rect x="362" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="382" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="362" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
+                <rect x="382" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
+                <g transform="translate(390, 24) scale(0.75)">
                   <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
                   <circle cx="10" cy="9" r="4" fill="#ffffff" />
                 </g>
-
-                <rect x="298" y="24" width="42" height="136" rx="2" fill="#cbe3d3" />
-                <circle cx="308" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="319" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="330" cy="38" r="2" fill="#f0f7f2" />
-                <circle cx="308" cy="52" r="2" fill="#f0f7f2" />
-                <circle cx="319" cy="52" r="2" fill="#f0f7f2" />
-                <circle cx="330" cy="52" r="2" fill="#f0f7f2" />
-
-                <rect x="346" y="44" width="28" height="116" rx="2" fill="#d9ebdF" />
-                <rect x="354" y="56" width="12" height="15" rx="1" fill="#f0f7f2" />
               </svg>
             </div>
           </div>
 
           {/* ========================================================= */}
-          {/* 3. TRUCK & HEAVY LOADED GROCERY PRODUCE                   */}
+          {/* 3. TRUCK & FRESH BOUNTIFUL GROCERY LOAD                   */}
           {/* ========================================================= */}
           <svg
-            viewBox="0 0 360 230"
+            viewBox="0 0 360 250"
             className="w-full h-full z-10 pointer-events-none"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -236,53 +249,53 @@ export const AppLoader = React.memo(function AppLoader({
               </radialGradient>
             </defs>
 
-            {/* Trailing Green Wind Streaks */}
+            {/* Trailing Green Speed Streaks */}
             <g className="animate-speed-lines">
-              <line x1="42" y1="124" x2="80" y2="124" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
-              <line x1="28" y1="132" x2="80" y2="132" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
-              <line x1="38" y1="140" x2="80" y2="140" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
-              <line x1="50" y1="148" x2="80" y2="148" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
+              <line x1="42" y1="138" x2="80" y2="138" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
+              <line x1="28" y1="146" x2="80" y2="146" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
+              <line x1="38" y1="154" x2="80" y2="154" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
+              <line x1="50" y1="162" x2="80" y2="162" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
             </g>
 
-            {/* Ground Shadow */}
-            <ellipse cx="180" cy="186" rx="106" ry="5.5" fill="url(#groundShadowMain)" />
+            {/* Ground Shadow under wheels */}
+            <ellipse cx="180" cy="200" rx="106" ry="5.5" fill="url(#groundShadowMain)" />
 
-            {/* TRUCK BODY & GROCERY STACK */}
+            {/* TRUCK BODY & LOADED GROCERIES */}
             <g className="animate-truck-body">
-              {/* Fresh Produce Overflowing */}
+              {/* FRESH BOUNTIFUL PRODUCE OVERFLOWING */}
               <g className="animate-produce-jiggle">
-                {/* 1. Crusty Artisan Baguette */}
-                <g transform="translate(138, 76) rotate(18)">
+                {/* Baguette */}
+                <g transform="translate(138, 90) rotate(18)">
                   <rect x="0" y="0" width="12" height="34" rx="6" fill="#d97706" />
                   <line x1="2" y1="8" x2="9" y2="11" stroke="#fef3c7" strokeWidth="1.6" strokeLinecap="round" />
                   <line x1="2" y1="16" x2="9" y2="19" stroke="#fef3c7" strokeWidth="1.6" strokeLinecap="round" />
                   <line x1="2" y1="24" x2="9" y2="27" stroke="#fef3c7" strokeWidth="1.6" strokeLinecap="round" />
                 </g>
 
-                {/* 2. Glass Dairy Milk Bottle */}
-                <g transform="translate(154, 78) rotate(8)">
+                {/* Milk Bottle */}
+                <g transform="translate(154, 92) rotate(8)">
                   <rect x="0" y="6" width="16" height="26" rx="3.5" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1" />
                   <rect x="0" y="14" width="16" height="11" fill="#0284c7" />
                   <circle cx="8" cy="19.5" r="3.2" fill="#ffffff" />
                   <rect x="4" y="1.5" width="8" height="4.5" rx="1" fill="#38bdf8" />
                 </g>
 
-                {/* 3. Orange Juice Carton */}
-                <g transform="translate(172, 82) rotate(14)">
+                {/* Juice Carton */}
+                <g transform="translate(172, 96) rotate(14)">
                   <rect x="0" y="5" width="17" height="24" rx="2" fill="#ea580c" />
                   <circle cx="8.5" cy="16" r="3.8" fill="#ffedd5" />
                   <polygon points="0,5 8.5,0 17,5" fill="#c2410c" />
                   <circle cx="8.5" cy="16" r="1.8" fill="#ea580c" />
                 </g>
 
-                {/* 4. Bushy Fresh Green Kale / Cabbage */}
-                <ellipse cx="118" cy="92" rx="14" ry="15" fill="#15803d" />
-                <ellipse cx="118" cy="92" rx="11" ry="12" fill="#16a34a" />
-                <circle cx="116" cy="89" r="7" fill="#22c55e" />
-                <path d="M112 85C115 90 120 92 124 90" stroke="#86efac" strokeWidth="1.2" strokeLinecap="round" />
+                {/* Bushy Green Kale */}
+                <ellipse cx="118" cy="106" rx="14" ry="15" fill="#15803d" />
+                <ellipse cx="118" cy="106" rx="11" ry="12" fill="#16a34a" />
+                <circle cx="116" cy="103" r="7" fill="#22c55e" />
+                <path d="M112 99C115 104 120 106 124 104" stroke="#86efac" strokeWidth="1.2" strokeLinecap="round" />
 
-                {/* 5. Curved Yellow Banana Bunch */}
-                <g transform="translate(80, 88) rotate(-14)">
+                {/* Banana Bunch */}
+                <g transform="translate(80, 102) rotate(-14)">
                   <path d="M8 29C16 32 30 30 38 18C40 13 40 8 38 4C37 4 34 8 30 12C22 21 14 24 8 29Z" fill="#eab308" />
                   <path d="M2 26C10 29 23 27 30 16C32 12 32 7 30 3C29 3 27 7 23 10C16 18 8 21 2 26Z" fill="#fde047" />
                   <path d="M30 16L34 13" stroke="#65a30d" strokeWidth="2.5" strokeLinecap="round" />
@@ -290,16 +303,16 @@ export const AppLoader = React.memo(function AppLoader({
                   <circle cx="8.5" cy="29.5" r="1.8" fill="#451a03" />
                 </g>
 
-                {/* 6. Shiny Red Apple with Stem & Green Leaf */}
-                <g transform="translate(104, 94)">
+                {/* Shiny Red Apple */}
+                <g transform="translate(104, 108)">
                   <path d="M12 4C8 1 2 3 1 9C0 16 5 23 12 24C19 23 24 16 23 9C22 3 16 1 12 4Z" fill="#dc2626" />
                   <path d="M6 8C4 11 4 16 7 19" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
                   <path d="M12 4C12 1 14 -1 16 -2" stroke="#78350f" strokeWidth="1.6" strokeLinecap="round" />
                   <path d="M13 1C17 0 19 2 18 5C15 5 13 3 13 1Z" fill="#22c55e" />
                 </g>
 
-                {/* 7. Glossy Green Capsicum (Bell Pepper) */}
-                <g transform="translate(122, 92)">
+                {/* Glossy Green Capsicum */}
+                <g transform="translate(122, 106)">
                   <path d="M4 8C2 12 2 20 6 23C9 25 15 25 18 23C22 20 22 12 20 8C18 5 15 5 12 7C9 5 6 5 4 8Z" fill="#16a34a" />
                   <path d="M8 8C7 13 7 19 9 23" stroke="#15803d" strokeWidth="1.2" strokeLinecap="round" />
                   <path d="M16 8C17 13 17 19 15 23" stroke="#15803d" strokeWidth="1.2" strokeLinecap="round" />
@@ -307,24 +320,24 @@ export const AppLoader = React.memo(function AppLoader({
                   <circle cx="12" cy="6" r="2.5" fill="#15803d" />
                 </g>
 
-                {/* 8. Plump Red Tomatoes */}
-                <g transform="translate(142, 99)">
+                {/* Plump Tomatoes */}
+                <g transform="translate(142, 113)">
                   <circle cx="8" cy="8" r="7.5" fill="#ef4444" />
                   <path d="M8 3L6 1M8 3L10 1M8 3L5 4M8 3L11 4M8 3V0.5" stroke="#166534" strokeWidth="1.4" strokeLinecap="round" />
                   <circle cx="6" cy="6" r="1.5" fill="#fca5a5" opacity="0.7" />
                 </g>
-                <g transform="translate(133, 102)">
+                <g transform="translate(133, 116)">
                   <circle cx="6" cy="6" r="6" fill="#dc2626" />
                   <path d="M6 2L4 0.5M6 2L8 0.5M6 2V0" stroke="#166534" strokeWidth="1.2" strokeLinecap="round" />
                 </g>
               </g>
 
               {/* ----------------- EXTENDED CARGO CONTAINER ----------------- */}
-              <rect x="82" y="106" width="130" height="66" rx="5" fill="#22c55e" />
-              <rect x="82" y="166" width="130" height="6" fill="#16a34a" />
+              <rect x="82" y="120" width="130" height="66" rx="5" fill="#22c55e" />
+              <rect x="82" y="180" width="130" height="6" fill="#16a34a" />
 
-              {/* CAFKART LOGO: SHIFTED FORWARD (ZERO CLIPPING FROM WHEEL CUTOUT) */}
-              <g transform="translate(156, 119) scale(0.024)">
+              {/* CAFKART LOGO: SHIFTED FORWARD (ZERO CLIPPING) */}
+              <g transform="translate(156, 133) scale(0.024)">
                 <path
                   d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
                   fill="#FFFFFF"
@@ -339,61 +352,62 @@ export const AppLoader = React.memo(function AppLoader({
 
               {/* ----------------- DRIVER CABIN ----------------- */}
               <path
-                d="M212 110H240C245 110 249 113.5 251.5 118L265 141C267 144.5 265.5 149 261 149H212V110Z"
+                d="M212 124H240C245 124 249 127.5 251.5 132L265 155C267 158.5 265.5 163 261 163H212V124Z"
                 fill="#02402c"
               />
 
               {/* Windshield & Door Frame */}
               <path
-                d="M218 114H238C240.5 114 243 115.8 244 118.5L253 134H218V114Z"
+                d="M218 128H238C240.5 128 243 129.8 244 132.5L253 148H218V128Z"
                 fill="#a7f3d0"
                 opacity="0.9"
               />
-              <line x1="235" y1="114" x2="235" y2="134" stroke="#02402c" strokeWidth="2.5" />
+              <line x1="235" y1="128" x2="235" y2="148" stroke="#02402c" strokeWidth="2.5" />
 
               {/* Front Bumper & Turn Indicator */}
-              <path d="M261 149H274C277 149 279 151.5 279 154.5V159H256L261 149Z" fill="#0f172a" />
-              <rect x="272" y="151" width="5" height="5" rx="1" fill="#f59e0b" />
+              <path d="M261 163H274C277 163 279 165.5 279 168.5V173H256L261 163Z" fill="#0f172a" />
+              <rect x="272" y="165" width="5" height="5" rx="1" fill="#f59e0b" />
 
               {/* Chassis Cutouts */}
               <path
-                d="M80 166H94C96 166 98 163.5 98 161C98 148 108 138 121 138C134 138 144 148 144 161C144 163.5 146 166 148 166H222C224 166 226 163.5 226 161C226 148 236 138 249 138C262 138 272 148 272 161C272 163.5 274 166 276 166H284V172H80V166Z"
+                d="M80 180H94C96 180 98 177.5 98 175C98 162 108 152 121 152C134 152 144 162 144 175C144 177.5 146 180 148 180H222C224 180 226 177.5 226 175C226 162 236 152 249 152C262 152 272 162 272 175C272 177.5 274 180 276 180H284V186H80V180Z"
                 fill="#0f172a"
               />
             </g>
 
             {/* ========================================================= */}
-            {/* 4. VISIBLY SPINNING ALLOY WHEELS (EXPLICIT ROTATION AXIS) */}
+            {/* 4. VISIBLY SPINNING ALLOY WHEELS                          */}
             {/* ========================================================= */}
-            {/* Rear Wheel (Pivot at cx=121, cy=168) */}
-            <g className="wheel-rear" style={{ transformOrigin: '121px 168px' }}>
-              <circle cx="121" cy="168" r="17" fill="#1e293b" />
-              <circle cx="121" cy="168" r="10.5" fill="#e2e8f0" />
-              <line x1="121" y1="158" x2="121" y2="178" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="111" y1="168" x2="131" y2="168" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="114" y1="161" x2="128" y2="175" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <line x1="114" y1="175" x2="128" y2="161" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="121" cy="168" r="4.5" fill="#0f172a" />
+            {/* Rear Wheel (Pivot at cx=121, cy=182) */}
+            <g className="wheel-rear" style={{ transformOrigin: '121px 182px' }}>
+              <circle cx="121" cy="182" r="17" fill="#1e293b" />
+              <circle cx="121" cy="182" r="10.5" fill="#e2e8f0" />
+              <line x1="121" y1="172" x2="121" y2="192" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="111" y1="182" x2="131" y2="182" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="114" y1="175" x2="128" y2="189" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
+              <line x1="114" y1="189" x2="128" y2="175" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="121" cy="182" r="4.5" fill="#0f172a" />
             </g>
 
-            {/* Front Wheel (Pivot at cx=249, cy=168) */}
-            <g className="wheel-front" style={{ transformOrigin: '249px 168px' }}>
-              <circle cx="249" cy="168" r="17" fill="#1e293b" />
-              <circle cx="249" cy="168" r="10.5" fill="#e2e8f0" />
-              <line x1="249" y1="158" x2="249" y2="178" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="239" y1="168" x2="259" y2="168" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="242" y1="161" x2="256" y2="175" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <line x1="242" y1="175" x2="256" y2="161" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="249" cy="168" r="4.5" fill="#0f172a" />
+            {/* Front Wheel (Pivot at cx=249, cy=182) */}
+            <g className="wheel-front" style={{ transformOrigin: '249px 182px' }}>
+              <circle cx="249" cy="182" r="17" fill="#1e293b" />
+              <circle cx="249" cy="182" r="10.5" fill="#e2e8f0" />
+              <line x1="249" y1="172" x2="249" y2="192" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="239" y1="182" x2="259" y2="182" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="242" y1="175" x2="256" y2="189" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
+              <line x1="242" y1="189" x2="256" y2="175" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="249" cy="182" r="4.5" fill="#0f172a" />
             </g>
           </svg>
         </div>
 
         {/* ========================================================= */}
-        {/* 5. 5-STEP STEPPER & TAGLINE (HOME SCREEN ONLY)            */}
+        {/* 5. 5-STEP STEPPER & DYNAMIC ROTATING TEXT (HOME SCREEN)   */}
         {/* ========================================================= */}
         {showStatus && (
           <div className="mt-2 flex flex-col items-center justify-center animate-fade-in">
+            {/* 5-Step Progress Track */}
             <div className="relative flex items-center justify-between w-48 mb-3">
               <div className="absolute top-1/2 left-0 right-0 h-[2px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
               <div className="absolute top-1/2 left-0 w-1/2 h-[2px] -translate-y-1/2 bg-[#22c55e] z-0" />
@@ -407,35 +421,41 @@ export const AppLoader = React.memo(function AppLoader({
               <div className="relative z-10 h-3 w-3 rounded-full bg-[#cbd5e1]" />
             </div>
 
-            <p className="flex items-center gap-1.5 text-xs font-bold text-slate-800 tracking-tight">
-              Delivering Quality, Every Time
-              <span className="text-emerald-500 text-sm">🍃</span>
-            </p>
+            {/* Dynamic Status Text Rotator */}
+            <div className="h-6 flex items-center justify-center">
+              <p
+                key={msgIndex}
+                className="flex items-center gap-1.5 text-xs font-bold text-slate-800 tracking-tight animate-text-fade"
+              >
+                {HOME_MESSAGES[msgIndex]}
+                <span className="text-emerald-500 text-sm">🍃</span>
+              </p>
+            </div>
           </div>
         )}
       </div>
 
       {/* GPU Keyframe Animations */}
       <style>{`
-        /* Continuous pan for buildings with exact 6px gap wrapping */
+        /* Infinite city skyline pan with continuous 8px gaps */
         @keyframes skylineInfiniteScroll {
           0% { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(-380px, 0, 0); }
+          100% { transform: translate3d(-420px, 0, 0); }
         }
         .animate-skyline-scroll {
-          animation: skylineInfiniteScroll 5.2s linear infinite;
+          animation: skylineInfiniteScroll 5.4s linear infinite;
         }
 
         /* Parallax cloud drift */
         @keyframes cloudsDrift {
           0% { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(-380px, 0, 0); }
+          100% { transform: translate3d(-420px, 0, 0); }
         }
         .animate-clouds-scroll {
-          animation: cloudsDrift 9s linear infinite;
+          animation: cloudsDrift 9.5s linear infinite;
         }
 
-        /* Visible 360-degree alloy wheel spin */
+        /* 360-degree alloy wheel spin */
         @keyframes spinWheelAnim {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
@@ -447,7 +467,7 @@ export const AppLoader = React.memo(function AppLoader({
           animation: spinWheelAnim 0.42s linear infinite;
         }
 
-        /* Light suspension bounce */
+        /* Suspension bounce */
         @keyframes truckBodyBounce {
           0%, 100% { transform: translateY(0); }
           30% { transform: translateY(-1.4px); }
@@ -466,13 +486,24 @@ export const AppLoader = React.memo(function AppLoader({
           animation: produceJiggle 0.65s ease-in-out infinite 0.08s;
         }
 
-        /* Speed lines */
+        /* Speed wind streaks */
         @keyframes speedLines {
           0%, 100% { opacity: 0.85; transform: translateX(0); }
           50% { opacity: 0.35; transform: translateX(-4px); }
         }
         .animate-speed-lines {
           animation: speedLines 0.5s ease-in-out infinite;
+        }
+
+        /* Message switch fade transition */
+        @keyframes textFade {
+          0% { opacity: 0; transform: translateY(3px); }
+          10% { opacity: 1; transform: translateY(0); }
+          90% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-3px); }
+        }
+        .animate-text-fade {
+          animation: textFade 1.8s ease-in-out infinite;
         }
 
         @keyframes fadeIn {

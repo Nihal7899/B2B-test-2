@@ -11,10 +11,10 @@ interface AppLoaderProps {
 }
 
 const DEFAULT_HOME_MESSAGES = [
-  'Fetching wholesale catalog...',
-  'Checking live bulk rates...',
-  'Preparing your personalized deals...',
-  'Setting up rapid dispatch...',
+  'Dispatching wholesale catalog...',
+  'Verifying mandi rates & cold-chain stock...',
+  'Loading bulk crates & staples...',
+  'Routing your express store delivery...',
 ];
 
 export const AppLoader = React.memo(function AppLoader({
@@ -22,7 +22,7 @@ export const AppLoader = React.memo(function AppLoader({
   size = 'md',
   showStatus = false,
   message,
-  subtext = 'Direct from verified wholesale brands',
+  subtext = 'Direct from farms & verified wholesale brands',
   messages = DEFAULT_HOME_MESSAGES,
   className = '',
 }: AppLoaderProps) {
@@ -32,7 +32,7 @@ export const AppLoader = React.memo(function AppLoader({
     if (!showStatus || message) return;
     const interval = setInterval(() => {
       setMsgIndex((prev) => (prev + 1) % messages.length);
-    }, 1200);
+    }, 1250);
     return () => clearInterval(interval);
   }, [showStatus, message, messages]);
 
@@ -49,57 +49,65 @@ export const AppLoader = React.memo(function AppLoader({
           : 'w-full py-8'
       } ${className}`}
     >
-      <div className={`relative flex flex-col items-center justify-center w-64 h-40 ${scaleClass}`}>
-        {/* Soft Ambient Radial Glow */}
-        <div className="absolute h-32 w-48 rounded-full bg-emerald-100/50 blur-2xl pointer-events-none" />
+      <div className={`relative flex flex-col items-center justify-center w-68 h-44 ${scaleClass}`}>
+        {/* Ambient Radial Produce Glow */}
+        <div className="absolute h-36 w-56 rounded-full bg-emerald-100/50 blur-2xl pointer-events-none" />
 
-        {/* ----------------- SPEED WIND & FRESHNESS PARTICLES ----------------- */}
-        {/* Trailing Mint Leaves */}
-        <div className="absolute top-8 left-1 z-0 animate-trail-leaf-1 pointer-events-none">
-          <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 text-emerald-500 drop-shadow-xs" fill="currentColor">
-            <path d="M10 2C5 2 2 7 2 12C2 17 7 18 10 18C15 18 18 13 18 8C18 3 15 2 10 2Z" />
+        {/* ----------------- TRAILING FRESHNESS PARTICLES & COLD MIST ----------------- */}
+        {/* Cold-Chain Mist Droplets */}
+        <div className="absolute top-11 left-0 z-0 flex gap-1 pointer-events-none opacity-70">
+          <div className="h-1.5 w-1.5 rounded-full bg-cyan-200 animate-mist-drop-1" />
+          <div className="h-2 w-2 rounded-full bg-emerald-200 animate-mist-drop-2 ml-1" />
+          <div className="h-1 w-1 rounded-full bg-cyan-300 animate-mist-drop-3" />
+        </div>
+
+        {/* Floating Farm Mint Leaves */}
+        <div className="absolute top-7 left-1 z-0 animate-trail-leaf-1 pointer-events-none">
+          <svg viewBox="0 0 20 20" className="h-4 w-4 text-emerald-500 drop-shadow-xs" fill="currentColor">
+            <path d="M10 2C5 2 2 7 2 12C2 17 7 18 10 18C15 18 18 13 18 8C18 3 15 2 10 2ZM10 16C8 16 4 14 4 11C4 8 7 4 10 4C13 4 16 7 16 10C16 13 12 16 10 16Z" />
             <path d="M6 14C8 11 11 8 14 6" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
           </svg>
         </div>
-        <div className="absolute top-16 left-3 z-0 animate-trail-leaf-2 pointer-events-none">
+        <div className="absolute top-18 left-3 z-0 animate-trail-leaf-2 pointer-events-none">
           <svg viewBox="0 0 20 20" className="h-3 w-3 text-emerald-400 drop-shadow-xs" fill="currentColor">
             <path d="M10 2C5 2 2 7 2 12C2 17 7 18 10 18C15 18 18 13 18 8C18 3 15 2 10 2Z" />
           </svg>
         </div>
 
-        {/* Trailing Citrus Wedge */}
-        <div className="absolute top-12 -left-1 z-0 animate-trail-citrus pointer-events-none">
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 drop-shadow-xs" fill="none">
+        {/* Floating Citrus Slice */}
+        <div className="absolute top-13 -left-2 z-0 animate-trail-citrus pointer-events-none">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 drop-shadow-xs" fill="none">
             <circle cx="12" cy="12" r="10" fill="#f59e0b" />
             <circle cx="12" cy="12" r="8.5" fill="#fef3c7" />
             <circle cx="12" cy="12" r="7" fill="#fbbf24" />
-            <path d="M12 5V19M5 12H19" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" />
+            <path d="M12 5V19M5 12H19M7 7L17 17M7 17L17 7" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" />
+            <circle cx="12" cy="12" r="2" fill="#fef3c7" />
           </svg>
         </div>
 
-        {/* Sparkle Glint */}
-        <div className="absolute top-3 left-8 animate-sparkle-trail pointer-events-none">
+        {/* Quality Sparkle Glints */}
+        <div className="absolute top-4 left-9 animate-sparkle-trail pointer-events-none">
           <svg className="h-3 w-3 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" />
           </svg>
         </div>
 
         {/* Speed Streaks */}
-        <div className="absolute top-7 -left-2 flex flex-col gap-2 pointer-events-none opacity-60">
-          <div className="h-[2px] w-6 bg-gradient-to-l from-emerald-400 to-transparent rounded-full animate-wind-1" />
-          <div className="h-[2px] w-10 bg-gradient-to-l from-emerald-500 to-transparent rounded-full animate-wind-2 ml-2" />
+        <div className="absolute top-8 -left-3 flex flex-col gap-2 pointer-events-none opacity-60">
+          <div className="h-[2px] w-7 bg-gradient-to-l from-emerald-400 to-transparent rounded-full animate-wind-1" />
+          <div className="h-[2px] w-11 bg-gradient-to-l from-emerald-500 to-transparent rounded-full animate-wind-2 ml-2" />
         </div>
 
-        {/* ----------------- BOX TRUCK (MATCHING YOUR PROPORTIONS) ----------------- */}
+        {/* ----------------- COMMERCIAL B2B GROCERY TRUCK ----------------- */}
         <div className="relative z-10 animate-truck-drive">
           <svg
-            className="w-56 h-28 drop-shadow-md"
-            viewBox="0 0 200 95"
+            className="w-60 h-30 drop-shadow-md"
+            viewBox="0 0 210 100"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
             <defs>
-              {/* Container Body Gradient */}
+              {/* Box Container Gradient */}
               <linearGradient id="boxContainerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stopColor="#03543a" />
                 <stop offset="100%" stopColor="#012419" />
@@ -111,13 +119,25 @@ export const AppLoader = React.memo(function AppLoader({
                 <stop offset="100%" stopColor="#011810" />
               </linearGradient>
 
-              {/* Headlight Beam Cone */}
+              {/* Wind Deflector Gradient */}
+              <linearGradient id="deflectorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#046243" />
+                <stop offset="100%" stopColor="#02402c" />
+              </linearGradient>
+
+              {/* Burlap Sack Gradient */}
+              <linearGradient id="burlapGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#d97706" />
+                <stop offset="100%" stopColor="#92400e" />
+              </linearGradient>
+
+              {/* Headlight Cone */}
               <linearGradient id="headlightBeam" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#fef08a" stopOpacity="0.8" />
                 <stop offset="100%" stopColor="#fef08a" stopOpacity="0" />
               </linearGradient>
 
-              {/* Splash Logo Green Gradient */}
+              {/* CafKart Splash Logo Gradient */}
               <linearGradient id="truckLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#59D9B6" />
                 <stop offset="100%" stopColor="#58D5A5" />
@@ -125,40 +145,77 @@ export const AppLoader = React.memo(function AppLoader({
             </defs>
 
             {/* Headlight Beam */}
-            <polygon points="188,67 200,63 200,73" fill="url(#headlightBeam)" opacity="0.6" />
+            <polygon points="194,66 210,61 210,73" fill="url(#headlightBeam)" opacity="0.6" />
 
-            {/* 1. TALL CARGO CONTAINER (x=14 to x=124, y=14 to y=72) */}
+            {/* 1. ROOF-MOUNTED WHOLESALE CARGO (Atta Burlap Sack & Herb Crate) */}
+            <g className="animate-roof-cargo">
+              {/* Roof Rack Rail */}
+              <rect x="22" y="9" width="46" height="2" rx="1" fill="#475569" />
+              <rect x="24" y="11" width="2" height="3" fill="#334155" />
+              <rect x="66" y="11" width="2" height="3" fill="#334155" />
+
+              {/* Tied Burlap Grain / Atta Sack */}
+              <ellipse cx="36" cy="7.5" rx="9" ry="4.5" fill="url(#burlapGrad)" />
+              <rect x="27" y="6.5" width="2" height="2" rx="0.5" fill="#78350f" />
+              {/* Wheat Grain Stamp on Sack */}
+              <path d="M34 6L37 9M37 6L34 9M35.5 5V10" stroke="#fef3c7" strokeWidth="0.8" strokeLinecap="round" />
+
+              {/* Fresh Herb Wooden Crate */}
+              <rect x="48" y="5" width="18" height="6.5" rx="1" fill="#b45309" />
+              <rect x="49" y="6.5" width="16" height="1" fill="#d97706" />
+              {/* Fresh Mint/Coriander Foliage */}
+              <ellipse cx="53" cy="4" rx="3.5" ry="2.5" fill="#22c55e" />
+              <ellipse cx="60" cy="3.5" rx="4" ry="2.5" fill="#16a34a" />
+              <circle cx="56" cy="3" r="2" fill="#4ade80" />
+            </g>
+
+            {/* 2. TALL REAR FREIGHT CONTAINER */}
             <rect
               x="14"
-              y="14"
-              width="110"
+              y="12"
+              width="116"
               height="58"
               rx="4"
               fill="url(#boxContainerGrad)"
             />
 
-            {/* Container Slat Grooves */}
+            {/* Container Slat Corrugation */}
             <path
-              d="M26 16V70M38 16V70M50 16V70M62 16V70M74 16V70M86 16V70M98 16V70M110 16V70M122 16V70"
+              d="M26 14V68M38 14V68M50 14V68M62 14V68M74 14V68M86 14V68M98 14V68M110 14V68M122 14V68"
               stroke="#012015"
               strokeWidth="1.2"
               opacity="0.3"
             />
 
-            {/* Container Top Rail & Bottom Accent Line */}
-            <rect x="14" y="13" width="110" height="3" rx="1" fill="#046243" />
-            <rect x="14" y="14" width="110" height="0.8" fill="#59D9B6" opacity="0.5" />
-            <rect x="14" y="69" width="110" height="3" fill="#59D9B6" />
+            {/* Container Framing Rails */}
+            <rect x="14" y="11" width="116" height="3" rx="1" fill="#046243" />
+            <rect x="14" y="12" width="116" height="0.8" fill="#59D9B6" opacity="0.5" />
+            <rect x="14" y="67" width="116" height="3" fill="#59D9B6" />
 
-            {/* 2. CAFKART SPLASH LOGO: CENTERED IN CONTAINER, CLEAR OF WHEEL CUTOUT */}
-            <g transform="translate(68, 22) scale(0.024)">
-              {/* Exact Splash White Shape */}
+            {/* Rear Door Dual Lock Rods & QC Inspection Tag */}
+            <line x1="16" y1="14" x2="16" y2="68" stroke="#043a28" strokeWidth="1.5" />
+            <rect x="15" y="40" width="3" height="3" rx="0.5" fill="#334155" />
+            <circle cx="17.5" cy="43.5" r="1.5" fill="#22c55e" /> {/* QC Passed Green Seal */}
+
+            {/* 3. COLD-CHAIN DIGITAL MONITOR ON CONTAINER (Chilled Perishables) */}
+            <g transform="translate(22, 54)">
+              <rect x="0" y="0" width="22" height="9" rx="2" fill="#011b13" stroke="#046243" strokeWidth="0.8" />
+              <text x="3" y="6.8" fill="#59D9B6" fontSize="5.5" fontWeight="bold" fontFamily="monospace">
+                -2°C
+              </text>
+              {/* Micro Snowflake */}
+              <circle cx="17.5" cy="4.5" r="1" fill="#38bdf8" />
+            </g>
+
+            {/* 4. CAFKART SPLASH LOGO: CENTERED FORWARD IN CONTAINER, WELL CLEAR OF REAR WHEEL */}
+            <g transform="translate(70, 19) scale(0.024)">
+              {/* Splash White Shape */}
               <path
                 d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
                 fill="#FFFFFF"
                 fillRule="evenodd"
               />
-              {/* Exact Splash Green Gradient Shape */}
+              {/* Splash Green Gradient Shape */}
               <path
                 d="M 169 1186 L 169 1199 170 1200 170 1203 171 1204 171 1205 173 1208 173 1210 176 1213 176 1214 177 1215 178 1215 179 1216 179 1217 180 1218 181 1218 184 1221 185 1221 187 1223 188 1223 191 1225 194 1225 195 1226 206 1226 207 1227 372 1227 373 1226 392 1226 393 1225 395 1225 396 1224 398 1224 399 1223 400 1223 402 1221 403 1221 405 1219 406 1219 411 1214 411 1213 412 1212 412 1211 414 1209 414 1208 416 1205 416 1203 417 1202 417 1200 418 1199 418 1186 417 1185 417 1183 416 1182 416 1180 415 1179 415 1178 414 1177 414 1176 413 1175 413 1174 411 1172 411 1171 407 1167 407 1166 406 1166 405 1165 404 1165 402 1163 401 1163 398 1161 396 1161 393 1159 194 1159 191 1161 189 1161 188 1162 187 1162 186 1163 185 1163 183 1165 182 1165 176 1171 176 1172 173 1175 173 1177 172 1178 172 1179 170 1182 170 1185 Z M 987 1142 L 986 1143 981 1143 980 1144 977 1144 976 1145 974 1145 973 1146 970 1146 969 1147 968 1147 967 1148 966 1148 965 1149 964 1149 963 1150 962 1150 961 1151 960 1151 959 1152 958 1152 956 1154 955 1154 953 1156 952 1156 949 1159 948 1159 935 1172 935 1173 933 1175 933 1176 931 1178 931 1179 930 1180 930 1181 929 1182 929 1183 928 1184 928 1185 927 1186 927 1188 925 1190 925 1192 924 1193 924 1196 923 1197 923 1199 922 1200 922 1203 921 1204 921 1231 922 1232 922 1235 923 1236 923 1238 924 1239 924 1242 925 1243 925 1245 927 1247 927 1249 928 1250 928 1251 930 1253 930 1254 931 1255 931 1256 934 1259 934 1260 939 1265 939 1266 949 1276 950 1276 953 1279 954 1279 955 1280 956 1280 958 1282 959 1282 960 1283 962 1283 964 1285 966 1285 967 1286 969 1286 970 1287 971 1287 972 1288 973 1288 974 1289 979 1289 980 1290 983 1290 984 1291 990 1291 991 1292 1002 1292 1003 1291 1007 1291 1008 1290 1012 1290 1013 1289 1017 1289 1018 1288 1020 1288 1021 1287 1023 1287 1024 1286 1026 1286 1027 1285 1028 1285 1029 1284 1030 1284 1031 1283 1033 1283 1034 1282 1035 1282 1037 1280 1038 1280 1041 1277 1042 1277 1046 1273 1047 1273 1055 1265 1055 1264 1056 1263 1057 1263 1057 1262 1060 1259 1060 1258 1062 1256 1062 1255 1064 1253 1064 1252 1065 1251 1065 1250 1066 1249 1066 1248 1067 1247 1067 1246 1068 1245 1068 1243 1069 1242 1069 1240 1070 1239 1070 1237 1071 1236 1071 1232 1072 1231 1072 1204 1071 1203 1071 1199 1070 1198 1070 1196 1069 1195 1069 1193 1068 1192 1068 1190 1067 1189 1067 1188 1066 1187 1066 1185 1065 1184 1065 1183 1064 1182 1064 1181 1063 1180 1063 1179 1061 1177 1061 1176 1058 1174 1058 1173 1055 1170 1055 1169 1044 1158 1043 1158 1040 1155 1039 1155 1038 1154 1037 1154 1035 1152 1034 1152 1033 1151 1032 1151 1031 1150 1030 1150 1029 1149 1028 1149 1027 1148 1025 1148 1024 1147 1023 1147 1022 1146 1018 1146 1017 1145 1015 1145 1014 1144 1011 1144 1010 1143 1006 1143 1005 1142 Z M 634 1142 L 633 1143 629 1143 628 1144 626 1144 625 1145 622 1145 621 1146 618 1146 617 1147 616 1147 615 1148 613 1148 612 1149 610 1149 609 1150 608 1150 606 1152 604 1152 601 1155 600 1155 597 1158 596 1158 582 1172 582 1173 580 1175 580 1176 578 1178 578 1179 577 1180 577 1181 576 1182 576 1183 575 1184 575 1185 574 1186 574 1188 573 1189 573 1190 572 1191 572 1193 571 1194 571 1197 570 1198 570 1200 569 1201 569 1204 568 1205 568 1231 569 1232 569 1234 570 1235 570 1238 571 1239 571 1241 572 1242 572 1244 573 1245 573 1246 574 1247 574 1248 575 1249 575 1250 576 1251 576 1252 578 1254 578 1255 580 1257 580 1258 583 1261 583 1262 587 1266 587 1267 593 1273 594 1273 598 1277 599 1277 602 1280 603 1280 605 1282 606 1282 607 1283 608 1283 609 1284 610 1284 611 1285 612 1285 613 1286 616 1286 617 1287 618 1287 619 1288 621 1288 622 1289 626 1289 627 1290 631 1290 632 1291 639 1291 640 1292 647 1292 648 1291 654 1291 655 1290 659 1290 660 1289 664 1289 665 1288 667 1288 668 1287 670 1287 671 1286 673 1286 674 1285 675 1285 676 1284 677 1284 678 1283 680 1283 681 1282 682 1282 684 1280 685 1280 686 1279 687 1279 693 1273 694 1273 695 1272 695 1271 697 1269 698 1269 698 1268 703 1263 703 1262 706 1259 706 1258 708 1256 708 1255 711 1252 711 1251 712 1250 712 1248 714 1246 714 1244 715 1243 715 1240 716 1239 716 1236 717 1235 717 1233 718 1232 718 1226 719 1225 719 1207 718 1206 718 1201 717 1200 717 1198 716 1197 716 1195 715 1194 715 1191 714 1190 714 1189 713 1188 713 1187 712 1186 712 1184 711 1183 711 1182 709 1180 709 1179 707 1177 707 1176 704 1173 704 1172 699 1167 699 1166 694 1161 693 1161 689 1157 688 1157 686 1155 685 1155 682 1152 680 1152 678 1150 677 1150 676 1149 674 1149 673 1148 672 1148 671 1147 670 1147 669 1146 666 1146 665 1145 663 1145 662 1144 660 1144 659 1143 655 1143 654 1142 Z M 48 1054 L 48 1068 49 1069 49 1072 50 1073 50 1074 52 1077 52 1079 54 1081 54 1082 55 1083 55 1084 61 1090 62 1090 63 1091 64 1091 66 1093 68 1093 69 1094 71 1094 72 1095 75 1095 76 1096 267 1096 268 1095 271 1095 272 1094 274 1094 275 1093 276 1093 277 1092 278 1092 280 1090 281 1090 286 1085 287 1085 287 1084 290 1081 290 1080 291 1079 291 1078 293 1076 293 1075 294 1074 294 1071 295 1070 295 1068 296 1067 296 1055 295 1054 295 1052 294 1051 294 1049 293 1048 293 1047 291 1045 291 1044 290 1043 290 1042 287 1039 287 1038 286 1038 282 1034 281 1034 279 1032 278 1032 275 1030 273 1030 270 1028 74 1028 73 1029 71 1029 68 1031 66 1031 65 1032 64 1032 61 1035 60 1035 54 1041 54 1042 52 1044 52 1045 51 1046 51 1048 50 1049 50 1050 49 1051 49 1053 Z M 1315 281 L 1292 287 1277 294 1248 318 856 713 846 730 843 745 849 768 855 776 1287 1207 1311 1220 1340 1227 1460 1227 1474 1224 1483 1219 1492 1210 1496 1202 1497 1185 1487 1165 1069 746 1072 739 1447 364 1453 355 1459 336 1459 324 1456 313 1450 303 1430 287 1402 280 Z"
                 fill="url(#truckLogoGrad)"
@@ -166,63 +223,87 @@ export const AppLoader = React.memo(function AppLoader({
               />
             </g>
 
-            {/* 3. STEPPED-DOWN CABIN (ROOF DROPS DOWN TO y=32, EXACTLY LIKE YOUR SVG) */}
+            {/* 5. AERO ROOF DEFLECTOR */}
             <path
-              d="M124 32H156C160 32 163.5 34.5 165.5 38.5L178 58C179.5 61.5 177.5 66 173.5 66H124V32Z"
+              d="M130 14L152 34H130V14Z"
+              fill="url(#deflectorGrad)"
+            />
+            <path d="M130 15L150 33" stroke="#59D9B6" strokeWidth="1.2" opacity="0.6" />
+
+            {/* 6. LOW DRIVER CABIN */}
+            <path
+              d="M130 34H160C164.5 34 168 36.8 170 41L182 59C183.5 62 181.5 66 177.5 66H130V34Z"
               fill="url(#lowCabGrad)"
             />
 
-            {/* Forward Slanted Windshield Window */}
+            {/* Low Windshield with Delivery Manifest / Invoice Clipboard */}
             <path
-              d="M130 36H154C156.5 36 158.8 37.8 159.8 40.2L168 53H130V36Z"
+              d="M136 38H158C160.5 38 162.8 39.8 163.8 42.2L172 54H136V38Z"
               fill="#a7f3d0"
               opacity="0.85"
             />
-            <path d="M152 37L161 51H157L149 37H152Z" fill="#ffffff" opacity="0.6" />
+            {/* Delivery Manifest Invoice Card Behind Windshield */}
+            <rect x="142" y="44" width="6" height="8" rx="0.5" fill="#ffffff" />
+            <line x1="143" y1="46" x2="147" y2="46" stroke="#02402c" strokeWidth="0.6" />
+            <line x1="143" y1="48" x2="146" y2="48" stroke="#02402c" strokeWidth="0.6" />
+            <line x1="143" y1="50" x2="147" y2="50" stroke="#02402c" strokeWidth="0.6" />
+
+            <path d="M156 39L164 52H160L153 39H156Z" fill="#ffffff" opacity="0.6" />
 
             {/* Side Mirror */}
-            <rect x="157" y="42" width="2.5" height="6.5" rx="1.2" fill="#02402c" />
-            <rect x="157" y="44" width="4" height="1.5" rx="0.5" fill="#64748b" />
+            <rect x="162" y="43" width="2.5" height="7" rx="1.2" fill="#02402c" />
+            <rect x="162" y="45" width="4.5" height="1.5" rx="0.5" fill="#64748b" />
 
-            {/* Front Grill, Headlight & Lower Nose Bumper */}
-            <path d="M172 61H186C189 61 191 63 191 66V71H168L172 61Z" fill="#0f172a" />
-            <rect x="187" y="63" width="4" height="4" rx="1" fill="#fef08a" />
-            <rect x="180" y="67" width="9" height="1.5" rx="0.7" fill="#475569" />
+            {/* Front Grill & Headlight */}
+            <path d="M178 60H192C195 60 197 62 197 65V70H174L178 60Z" fill="#0f172a" />
+            <rect x="193" y="62" width="4" height="4" rx="1" fill="#fef08a" />
+            <rect x="186" y="66" width="9" height="1.5" rx="0.7" fill="#475569" />
 
-            {/* 4. CHASSIS CUTOUT WITH EXACTLY TWO PROPORTIONAL WHEEL ARCHES */}
+            {/* 7. CHASSIS WITH INTEGRATED 15L EDIBLE OIL CANISTER */}
             <path
-              d="M10 71H28C30 71 32 69 32 67C32 55.5 41.5 47 53 47C64.5 47 74 55.5 74 67C74 69 76 71 78 71H134C136 71 138 69 138 67C138 55.5 147.5 47 159 47C170.5 47 180 55.5 180 67C180 69 182 71 184 71H192V75H10V71Z"
+              d="M10 70H28C30 70 32 68 32 66C32 55 41 47 52 47C63 47 72 55 72 66C72 68 74 70 76 70H142C144 70 146 68 146 66C146 55 155 47 166 47C177 47 186 55 186 66C186 68 188 70 190 70H198V74H10V70Z"
               fill="#0f172a"
             />
 
-            {/* 5. EXACTLY TWO TYRES (PROPORTIONALLY SIZED & POSITIONED) */}
-            {/* TYRE 1: REAR CONTAINER TYRE (Under container arch at x=53) */}
-            <g className="animate-spin-wheel origin-[53px_71px]">
-              <circle cx="53" cy="71" r="14" fill="#1e293b" />
-              <circle cx="53" cy="71" r="8.5" fill="#64748b" />
-              <circle cx="53" cy="71" r="3.5" fill="#f8fafc" />
-              <line x1="53" y1="62.5" x2="53" y2="79.5" stroke="#f8fafc" strokeWidth="1.8" strokeLinecap="round" />
-              <line x1="44.5" y1="71" x2="61.5" y2="71" stroke="#f8fafc" strokeWidth="1.8" strokeLinecap="round" />
+            {/* Mounted 15L Mustard/Sunflower Oil Tin on Chassis Step */}
+            <g transform="translate(100, 58)">
+              <rect x="0" y="2" width="9" height="10" rx="1" fill="#f59e0b" stroke="#b45309" strokeWidth="0.6" />
+              <rect x="2.5" y="0.5" width="4" height="1.5" rx="0.5" fill="#b45309" />
+              <circle cx="4.5" cy="7" r="2" fill="#fef3c7" />
             </g>
 
-            {/* TYRE 2: FRONT CABIN TYRE (Under cabin arch at x=159) */}
-            <g className="animate-spin-wheel origin-[159px_71px]">
-              <circle cx="159" cy="71" r="14" fill="#1e293b" />
-              <circle cx="159" cy="71" r="8.5" fill="#64748b" />
-              <circle cx="159" cy="71" r="3.5" fill="#f8fafc" />
-              <line x1="159" y1="62.5" x2="159" y2="79.5" stroke="#f8fafc" strokeWidth="1.8" strokeLinecap="round" />
-              <line x1="150.5" y1="71" x2="167.5" y2="71" stroke="#f8fafc" strokeWidth="1.8" strokeLinecap="round" />
+            {/* 8. EXACTLY TWO WHEELS WITH FRESH CITRUS-SPOKE RIMS */}
+            {/* Rear Cargo Tyre (x=52) */}
+            <g className="animate-spin-wheel origin-[52px_70px]">
+              <circle cx="52" cy="70" r="14" fill="#1e293b" />
+              <circle cx="52" cy="70" r="9" fill="#15803d" />
+              <circle cx="52" cy="70" r="8" fill="#fef08a" />
+              {/* Citrus Wheel Spokes */}
+              <line x1="52" y1="62" x2="52" y2="78" stroke="#15803d" strokeWidth="1.5" strokeLinecap="round" />
+              <line x1="44" y1="70" x2="60" y2="70" stroke="#15803d" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="52" cy="70" r="3" fill="#ffffff" />
+            </g>
+
+            {/* Front Steering Tyre (x=166) */}
+            <g className="animate-spin-wheel origin-[166px_70px]">
+              <circle cx="166" cy="70" r="14" fill="#1e293b" />
+              <circle cx="166" cy="70" r="9" fill="#15803d" />
+              <circle cx="166" cy="70" r="8" fill="#fef08a" />
+              {/* Citrus Wheel Spokes */}
+              <line x1="166" y1="62" x2="166" y2="78" stroke="#15803d" strokeWidth="1.5" strokeLinecap="round" />
+              <line x1="158" y1="70" x2="174" y2="70" stroke="#15803d" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="166" cy="70" r="3" fill="#ffffff" />
             </g>
           </svg>
         </div>
 
         {/* ----------------- SPEED ROAD SURFACE ----------------- */}
-        <div className="relative -mt-3.5 h-1 w-52 overflow-hidden rounded-full bg-slate-100 flex items-center">
+        <div className="relative -mt-3.5 h-1 w-54 overflow-hidden rounded-full bg-slate-100 flex items-center">
           <div className="animate-road-speed h-full w-full bg-[repeating-linear-gradient(90deg,#02402c_0px,#02402c_14px,transparent_14px,transparent_28px)]" />
         </div>
 
         {/* Dynamic Ground Shadow */}
-        <div className="h-1.5 w-44 rounded-full bg-slate-400/30 blur-xs animate-shadow-run -mt-0.5" />
+        <div className="h-1.5 w-46 rounded-full bg-slate-400/30 blur-xs animate-shadow-run -mt-0.5" />
       </div>
 
       {/* ----------------- STATUS BADGE (HomeScreen Only) ----------------- */}
@@ -253,6 +334,14 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-truck-drive {
           animation: truckDrive 0.65s ease-in-out infinite;
+        }
+
+        @keyframes roofCargo {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-1.2px) rotate(-0.8deg); }
+        }
+        .animate-roof-cargo {
+          animation: roofCargo 0.65s ease-in-out infinite 0.05s;
         }
 
         @keyframes spinWheel {
@@ -303,6 +392,30 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-trail-citrus {
           animation: trailCitrus 1.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite 0.2s;
+        }
+
+        @keyframes mistDrop1 {
+          0% { transform: translate3d(15px, 0, 0); opacity: 0.8; }
+          100% { transform: translate3d(-30px, -6px, 0) scale(2); opacity: 0; }
+        }
+        .animate-mist-drop-1 {
+          animation: mistDrop1 0.9s ease-out infinite;
+        }
+
+        @keyframes mistDrop2 {
+          0% { transform: translate3d(18px, 0, 0); opacity: 0.7; }
+          100% { transform: translate3d(-26px, -4px, 0) scale(2.2); opacity: 0; }
+        }
+        .animate-mist-drop-2 {
+          animation: mistDrop2 1.1s ease-out infinite 0.2s;
+        }
+
+        @keyframes mistDrop3 {
+          0% { transform: translate3d(12px, 0, 0); opacity: 0.6; }
+          100% { transform: translate3d(-22px, -8px, 0) scale(1.8); opacity: 0; }
+        }
+        .animate-mist-drop-3 {
+          animation: mistDrop3 0.8s ease-out infinite 0.4s;
         }
 
         @keyframes sparkleTrail {

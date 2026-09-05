@@ -105,7 +105,10 @@ const PATH_TO_SCREEN: Record<string, ScreenName> =
     )
   );
 
-function pathFor(screen: ScreenName, params?: Record<string, string>): string {
+function pathFor(
+  screen: ScreenName,
+  params?: Record<string, string>
+): string {
   const base = SCREEN_TO_PATH[screen] ?? '/';
   if (!params) return base;
   const qs = new URLSearchParams(params);
@@ -113,7 +116,10 @@ function pathFor(screen: ScreenName, params?: Record<string, string>): string {
   return str ? `${base}?${str}` : base;
 }
 
-function parseRoute(pathname: string): { screen: ScreenName; key: string } {
+function parseRoute(pathname: string): {
+  screen: ScreenName;
+  key: string;
+} {
   const screen = PATH_TO_SCREEN[pathname] ?? 'home';
   return { screen, key: pathname };
 }
@@ -199,17 +205,20 @@ function App() {
     return Boolean(cache && cache._userId);
   });
 
+  // Flow gate: preload only when user is authenticated
   useEffect(() => {
     let active = true;
 
     if (authLoading) return;
 
     if (!user) {
+      // Guest: dismiss splash immediately without rendering home
       setShowSplash(false);
       setIsHomeReady(false);
       return;
     }
 
+    // Authenticated: preload catalog data & images under splash
     getOrFetchHomeData(false)
       .then(() => {
         if (active) setIsHomeReady(true);
@@ -286,14 +295,11 @@ function App() {
     initializePushNotifications(user.id);
   }, [user, authLoading]);
 
+  // Stabilize callbacks to prevent child re-renders
   const goTo = useCallback((next: ScreenName) => {
     if (isDedicatedStaff) return;
     navigate(pathFor(next));
   }, [isDedicatedStaff, navigate]);
-
-  const goToCategories = useCallback(() => {
-    goTo('categories');
-  }, [goTo]);
 
   const openProduct = useCallback((product: Product | { id: string; name?: string }) => {
     const productId = (product as any)?.id || (product as any)?.product_id || (product as any)?._id;
@@ -359,6 +365,7 @@ function App() {
     goTo(allowed ? next : 'home');
   }, [role, goTo]);
 
+  // Auth check pending: render splash exclusively
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#02402c]">
@@ -367,6 +374,7 @@ function App() {
     );
   }
 
+  // Not logged in: directly render AuthScreen
   if (!user) {
     return <AuthScreen />;
   }
@@ -386,8 +394,9 @@ function App() {
           <HomeScreen
             onCategory={openCategory}
             onProduct={openProduct}
-            onViewAll={goToCategories}
+            onViewAll={() => goTo('categories')}
             onStoreClick={openStore}
+            cart={cart}
             onBannerAction={handleBannerAction}
           />
         );
@@ -460,9 +469,9 @@ function App() {
           <HomeScreen
             onCategory={openCategory}
             onProduct={openProduct}
-            onViewAll={goToCategories}
+            onViewAll={() => goTo('categories')}
             onStoreClick={openStore}
-            onBannerAction={handleBannerAction}
+            cart={cart}
           />
         );
 
@@ -473,9 +482,9 @@ function App() {
             <HomeScreen
               onCategory={openCategory}
               onProduct={openProduct}
-              onViewAll={goToCategories}
+              onViewAll={() => goTo('categories')}
               onStoreClick={openStore}
-              onBannerAction={handleBannerAction}
+              cart={cart}
             />
           );
 
@@ -486,9 +495,9 @@ function App() {
             <HomeScreen
               onCategory={openCategory}
               onProduct={openProduct}
-              onViewAll={goToCategories}
+              onViewAll={() => goTo('categories')}
               onStoreClick={openStore}
-              onBannerAction={handleBannerAction}
+              cart={cart}
             />
           );
 
@@ -544,8 +553,9 @@ function App() {
           <HomeScreen
             onCategory={openCategory}
             onProduct={openProduct}
-            onViewAll={goToCategories}
+            onViewAll={() => goTo('categories')}
             onStoreClick={openStore}
+            cart={cart}
             onBannerAction={handleBannerAction}
           />
         );

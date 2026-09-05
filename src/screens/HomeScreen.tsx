@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -35,6 +35,7 @@ interface HomeScreenProps {
   onProduct: (product: Product) => void;
   onViewAll: () => void;
   onStoreClick: (store: Store) => void;
+  cart?: ReturnType<typeof useCart>;
   onBannerAction?: (banner: PromoBanner) => void;
 }
 
@@ -51,6 +52,7 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
+// Isolated search component: rotating interval text never re-renders parent HomeScreen
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
   const [keywordIndex, setKeywordIndex] = useState(0);
@@ -73,8 +75,6 @@ const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchC
   useEffect(() => {
     if (!displayKeywords || displayKeywords.length === 0) return;
     const interval = setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-
       setIsFading(true);
       setTimeout(() => {
         setKeywordIndex((prev) => (prev + 1) % displayKeywords.length);
@@ -105,7 +105,7 @@ const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchC
   );
 });
 
-export const HomeScreen = memo(function HomeScreen({
+export function HomeScreen({
   onCategory: _onCategory,
   onProduct,
   onViewAll,
@@ -154,6 +154,7 @@ export const HomeScreen = memo(function HomeScreen({
   const [brands] = useState<TrustedBrand[]>(initialCache.brands);
   const [address] = useState<DbAddress | null>(initialCache.address);
 
+  // Background updates for reorder and recently viewed without rebuilding static feeds
   const refreshDynamicSections = useCallback(async () => {
     try {
       const [recent, reorder] = await Promise.all([
@@ -261,42 +262,21 @@ export const HomeScreen = memo(function HomeScreen({
   );
   const handleGetQuantity = useCallback((id: string) => cart.getQuantity(id), [cart]);
 
-  const handleSearchClick = useCallback(() => {
-    navigate('/search');
-  }, [navigate]);
-
-  const handleCartClick = useCallback(() => {
-    navigate('/cart');
-  }, [navigate]);
-
   const locationText = useMemo(() => {
     if (!address) return 'Choose location';
     if (address.label && address.city) return `${address.label} - ${address.city}`;
     return address.city || address.line1;
   }, [address]);
 
-  const slotBannersMap = useMemo(() => {
-    if (!Array.isArray(banners)) return new Map<string, PromoBanner[]>();
-    const map = new Map<string, PromoBanner[]>();
-    banners.forEach((b) => {
-      const pos = b?.position || 'middle_1';
-      if (!map.has(pos)) map.set(pos, []);
-      map.get(pos)!.push(b);
-      if (pos === 'middle') {
-        if (!map.has('middle_1')) map.set('middle_1', []);
-        map.get('middle_1')!.push(b);
-      }
+  const getSlotBanners = useCallback((slotPosition?: string) => {
+    if (!Array.isArray(banners)) return [];
+    const target = slotPosition || 'middle_1';
+    return banners.filter((b) => {
+      if (b?.position === target) return true;
+      if (target === 'middle_1' && (b?.position === 'middle' || !b?.position)) return true;
+      return false;
     });
-    return map;
   }, [banners]);
-
-  const getSlotBanners = useCallback(
-    (slotPosition?: string) => {
-      const target = slotPosition || 'middle_1';
-      return slotBannersMap.get(target) || [];
-    },
-    [slotBannersMap]
-  );
 
   return (
     <div className="min-h-screen bg-slate-50 pb-36 safe-bottom">
@@ -330,15 +310,15 @@ export const HomeScreen = memo(function HomeScreen({
         </div>
       </div>
 
-      {/* Clean native sticky header: no transforms to prevent compositor jitter */}
       <div 
-        className="sticky top-0 z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
+        className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
+        style={{ top: 'env(safe-area-inset-top, 0px)' }} 
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
-          <HomeSearchBar onSearchClick={handleSearchClick} />
+          <HomeSearchBar onSearchClick={() => navigate('/search')} />
 
           <button
-            onClick={handleCartClick}
+            onClick={() => navigate('/cart')}
             type="button"
             className="relative h-11 px-3.5 rounded-xl bg-white/10 text-white flex items-center justify-center gap-1.5 border border-white/15 shrink-0 shadow-sm"
             aria-label="View Cart"
@@ -386,7 +366,7 @@ export const HomeScreen = memo(function HomeScreen({
                     </button>
                   </div>
                   <div className="grid grid-cols-4 gap-3">
-                    {categories.slice(0, 12).map((category, idx) => (
+                    {categories.slice(0, 12).map((category) => (
                       <button
                         key={category.id}
                         onClick={() => navigate(`/category?id=${category.id}`)}
@@ -399,10 +379,8 @@ export const HomeScreen = memo(function HomeScreen({
                           <img
                             src={category.image}
                             alt={category.name}
-                            loading={idx < 8 ? 'eager' : 'lazy'}
+                            loading="eager"
                             decoding="async"
-                            width={64}
-                            height={64}
                             className="h-full w-full rounded-[14px] object-cover"
                           />
                         </div>
@@ -660,4 +638,4 @@ export const HomeScreen = memo(function HomeScreen({
       </div>
     </div>
   );
-});
+}

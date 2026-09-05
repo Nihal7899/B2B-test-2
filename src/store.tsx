@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { Product, CartItem as CartItemType } from './types';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
@@ -193,52 +193,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setAppliedPromo(null);
   }, []);
 
-  const subtotal = useMemo(() => items.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0), [items]);
-  const totalMrp = useMemo(() => items.reduce((sum, i) => sum + i.product.mrp * i.quantity, 0), [items]);
-  const discount = useMemo(() => totalMrp - subtotal, [totalMrp, subtotal]);
-  const totalItems = useMemo(() => items.reduce((sum, i) => sum + i.quantity, 0), [items]);
-
-  // Stable memoized object reference prevents parent/child re-render cascades
-  const contextValue = useMemo<CartContextValue>(() => ({
-    items,
-    addToCart,
-    removeFromCart,
-    updateQuantity,
-    getQuantity,
-    clearCart,
-    subtotal,
-    totalMrp,
-    discount,
-    totalItems,
-    loading,
-    cartId,
-    appliedPromo,
-    applyPromo,
-    clearPromo,
-    refreshCart,
-    revalidatePromo,
-  }), [
-    items,
-    addToCart,
-    removeFromCart,
-    updateQuantity,
-    getQuantity,
-    clearCart,
-    subtotal,
-    totalMrp,
-    discount,
-    totalItems,
-    loading,
-    cartId,
-    appliedPromo,
-    applyPromo,
-    clearPromo,
-    refreshCart,
-    revalidatePromo,
-  ]);
+  const subtotal = items.reduce((sum, i) => sum + i.effectiveUnitPrice * i.quantity, 0);
+  const totalMrp = items.reduce((sum, i) => sum + i.product.mrp * i.quantity, 0);
+  const discount = totalMrp - subtotal;
+  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (
-    <CartContext.Provider value={contextValue}>
+    <CartContext.Provider value={{
+      items,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      getQuantity,
+      clearCart,
+      subtotal,
+      totalMrp,
+      discount,
+      totalItems,
+      loading,
+      cartId,
+      appliedPromo,
+      applyPromo,
+      clearPromo,
+      refreshCart,
+      revalidatePromo,
+    }}>
       {children}
     </CartContext.Provider>
   );

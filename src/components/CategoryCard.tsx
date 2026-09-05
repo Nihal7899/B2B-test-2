@@ -15,23 +15,26 @@ export const CategoryCard = React.memo(function CategoryCard({
   return (
     <button
       onClick={onClick}
-      className={`group shrink-0 text-center tap-highlight transform-gpu ${
+      type="button"
+      className={`group shrink-0 text-center tap-highlight ${
         compact ? 'w-[76px]' : 'w-[104px]'
       }`}
     >
       <div
         className={`${category.color} ${
           compact ? 'h-[68px]' : 'h-[88px]'
-        } rounded-2xl overflow-hidden relative border border-white shadow-card group-active:scale-95 transition-transform`}
+        } rounded-2xl overflow-hidden relative border border-white/60 shadow-xs group-active:scale-95 transition-transform`}
       >
         <img
           src={category.image}
           alt={category.name}
           loading="eager"
-          decoding="sync"
-          className="h-full w-full object-cover mix-blend-multiply opacity-85"
+          decoding="async"
+          width={compact ? 76 : 104}
+          height={compact ? 68 : 88}
+          className="h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-white/10" />
+        <div className="absolute inset-0 bg-black/5" />
       </div>
       <p
         className={`${
@@ -57,7 +60,7 @@ export const CategoryCarousel = React.memo(function CategoryCarousel({
   onCategoryClick,
 }: CategoryCarouselProps) {
   return (
-    <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">
+    <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1">
       {categories.map((category) => (
         <CategoryCard
           key={category.id}

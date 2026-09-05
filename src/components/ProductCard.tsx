@@ -34,6 +34,7 @@ interface ProductCardProps {
   onDecrement: (product: Product) => void;
   onClick: (product: Product) => void;
   horizontal?: boolean;
+  priority?: boolean;
   theme?: ThemeProps;
   isWishlisted?: boolean;
   onWishlistToggle?: (productId: string) => void;
@@ -54,13 +55,13 @@ export const ProductCard = React.memo(
     onDecrement,
     onClick,
     horizontal = false,
+    priority = false,
     theme = DEFAULT_THEME,
     isWishlisted = false,
     onWishlistToggle,
   }: ProductCardProps) {
     const {
       primaryColor = '#02402c',
-      secondaryColor = '#03543a',
       textColor = '#172033',
       borderColor = '#e8edf0',
       buttonStyle = 'brand',
@@ -90,7 +91,7 @@ export const ProductCard = React.memo(
         setAdded(true);
         setTimeout(() => {
           setAdded(false);
-        }, 1000);
+        }, 800);
       },
       [onAdd, product]
     );
@@ -121,9 +122,8 @@ export const ProductCard = React.memo(
     const quantityTheme = useMemo(
       () => ({
         primaryColor,
-        secondaryColor,
       }),
-      [primaryColor, secondaryColor]
+      [primaryColor]
     );
 
     const productTag = discount >= 10 ? 'BEST DEAL' : 'FRESH';
@@ -146,7 +146,9 @@ export const ProductCard = React.memo(
             <img
               src={product.image}
               alt={product.name}
-              loading="eager"
+              width={172}
+              height={135}
+              loading={priority ? 'eager' : 'lazy'}
               decoding="async"
               onError={() => setImageError(true)}
               className="h-full w-full object-cover"
@@ -330,7 +332,8 @@ export const ProductCard = React.memo(
   (prev, next) =>
     prev.product.id === next.product.id &&
     prev.quantity === next.quantity &&
-    prev.isWishlisted === next.isWishlisted
+    prev.isWishlisted === next.isWishlisted &&
+    prev.priority === next.priority
 );
 
 interface QuantitySelectorProps {
@@ -340,7 +343,6 @@ interface QuantitySelectorProps {
   size?: 'sm' | 'md';
   theme?: {
     primaryColor?: string;
-    secondaryColor?: string;
   };
 }
 
@@ -410,6 +412,7 @@ interface ProductCarouselProps {
   onWishlistToggle?: (id: string) => void;
 }
 
+// Clean memoization allows live quantity updates through props
 export const ProductCarousel = React.memo(function ProductCarousel({
   title,
   subtitle,
@@ -462,7 +465,7 @@ export const ProductCarousel = React.memo(function ProductCarousel({
       </div>
 
       <div className="flex gap-2.5 overflow-x-auto px-4 pb-2 no-scrollbar scroll-touch">
-        {products.map((product) => (
+        {products.map((product, idx) => (
           <ProductCard
             key={product.id}
             product={product}
@@ -472,6 +475,7 @@ export const ProductCarousel = React.memo(function ProductCarousel({
             onDecrement={onDecrement}
             onClick={onProductClick}
             horizontal
+            priority={idx < 3}
             theme={theme}
             isWishlisted={wishlist.includes(product.id)}
             onWishlistToggle={onWishlistToggle}

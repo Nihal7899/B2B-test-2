@@ -481,7 +481,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
               <Wallet size={18} />
             </div>
             <div>
-              <p className="text-sm font-bold text-ink-900">Stackknit B2B Wallet</p>
+              <p className="text-sm font-bold text-ink-900">CafKart B2B Wallet</p>
               <p className="text-xs text-ink-500">Balance: <span className="font-bold text-brand-700">₹{walletBalance.toLocaleString('en-IN')}</span></p>
             </div>
           </div>

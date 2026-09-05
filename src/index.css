@@ -5,10 +5,12 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
   }
   body {
     @apply bg-ink-100 text-ink-900 font-sans antialiased;
-    text-rendering: optimizeLegibility;
+    text-rendering: optimizeSpeed;
+    overscroll-behavior-y: none;
   }
   *, *::before, *::after {
     -webkit-font-smoothing: antialiased;
@@ -48,10 +50,16 @@
   }
 }
 
-/* Smooth touch scrolling momentum */
+/* ========================================================
+   HARDWARE COMPOSITOR & TOUCH SCROLLING MOMENTUM
+   ======================================================== */
+
 .scroll-touch {
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-behavior: auto;
 }
+
 .scroll-snap-item {
   scroll-snap-align: start;
 }

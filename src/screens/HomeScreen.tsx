@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -35,7 +35,6 @@ interface HomeScreenProps {
   onProduct: (product: Product) => void;
   onViewAll: () => void;
   onStoreClick: (store: Store) => void;
-  cart?: ReturnType<typeof useCart>;
   onBannerAction?: (banner: PromoBanner) => void;
 }
 
@@ -52,11 +51,28 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
-// Isolated search component: rotating interval text never re-renders parent HomeScreen
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
   const [keywordIndex, setKeywordIndex] = useState(0);
   const [isFading, setIsFading] = useState(false);
+  const isScrollingRef = useRef(false);
+
+  useEffect(() => {
+    let scrollTimer: ReturnType<typeof setTimeout>;
+    const handleScroll = () => {
+      isScrollingRef.current = true;
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => {
+        isScrollingRef.current = false;
+      }, 300);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimer);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -75,6 +91,8 @@ const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchC
   useEffect(() => {
     if (!displayKeywords || displayKeywords.length === 0) return;
     const interval = setInterval(() => {
+      if (isScrollingRef.current || document.visibilityState !== 'visible') return;
+
       setIsFading(true);
       setTimeout(() => {
         setKeywordIndex((prev) => (prev + 1) % displayKeywords.length);
@@ -154,7 +172,6 @@ export function HomeScreen({
   const [brands] = useState<TrustedBrand[]>(initialCache.brands);
   const [address] = useState<DbAddress | null>(initialCache.address);
 
-  // Background updates for reorder and recently viewed without rebuilding static feeds
   const refreshDynamicSections = useCallback(async () => {
     try {
       const [recent, reorder] = await Promise.all([
@@ -254,6 +271,7 @@ export function HomeScreen({
   const topSliderBanners = useMemo(() => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'top_slider') : []), [banners]);
   const carouselBanners = useMemo(() => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'carousel') : []), [banners]);
 
+  // Live cart bindings
   const handleAddToCart = useCallback((p: Product) => cart.addToCart(p), [cart]);
   const handleIncrement = useCallback((p: Product) => cart.addToCart(p), [cart]);
   const handleDecrement = useCallback(
@@ -262,21 +280,42 @@ export function HomeScreen({
   );
   const handleGetQuantity = useCallback((id: string) => cart.getQuantity(id), [cart]);
 
+  const handleSearchClick = useCallback(() => {
+    navigate('/search');
+  }, [navigate]);
+
+  const handleCartClick = useCallback(() => {
+    navigate('/cart');
+  }, [navigate]);
+
   const locationText = useMemo(() => {
     if (!address) return 'Choose location';
     if (address.label && address.city) return `${address.label} - ${address.city}`;
     return address.city || address.line1;
   }, [address]);
 
-  const getSlotBanners = useCallback((slotPosition?: string) => {
-    if (!Array.isArray(banners)) return [];
-    const target = slotPosition || 'middle_1';
-    return banners.filter((b) => {
-      if (b?.position === target) return true;
-      if (target === 'middle_1' && (b?.position === 'middle' || !b?.position)) return true;
-      return false;
+  const slotBannersMap = useMemo(() => {
+    if (!Array.isArray(banners)) return new Map<string, PromoBanner[]>();
+    const map = new Map<string, PromoBanner[]>();
+    banners.forEach((b) => {
+      const pos = b?.position || 'middle_1';
+      if (!map.has(pos)) map.set(pos, []);
+      map.get(pos)!.push(b);
+      if (pos === 'middle') {
+        if (!map.has('middle_1')) map.set('middle_1', []);
+        map.get('middle_1')!.push(b);
+      }
     });
+    return map;
   }, [banners]);
+
+  const getSlotBanners = useCallback(
+    (slotPosition?: string) => {
+      const target = slotPosition || 'middle_1';
+      return slotBannersMap.get(target) || [];
+    },
+    [slotBannersMap]
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 pb-36 safe-bottom">
@@ -310,15 +349,21 @@ export function HomeScreen({
         </div>
       </div>
 
+      {/* Layer isolation stops GPU overdraw and clipping jitter on scroll */}
       <div 
         className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
-        style={{ top: 'env(safe-area-inset-top, 0px)' }} 
+        style={{
+          top: 'env(safe-area-inset-top, 0px)',
+          transform: 'translateZ(0)',
+          willChange: 'transform',
+          isolation: 'isolate',
+        }} 
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
-          <HomeSearchBar onSearchClick={() => navigate('/search')} />
+          <HomeSearchBar onSearchClick={handleSearchClick} />
 
           <button
-            onClick={() => navigate('/cart')}
+            onClick={handleCartClick}
             type="button"
             className="relative h-11 px-3.5 rounded-xl bg-white/10 text-white flex items-center justify-center gap-1.5 border border-white/15 shrink-0 shadow-sm"
             aria-label="View Cart"
@@ -366,7 +411,7 @@ export function HomeScreen({
                     </button>
                   </div>
                   <div className="grid grid-cols-4 gap-3">
-                    {categories.slice(0, 12).map((category) => (
+                    {categories.slice(0, 12).map((category, idx) => (
                       <button
                         key={category.id}
                         onClick={() => navigate(`/category?id=${category.id}`)}
@@ -379,8 +424,10 @@ export function HomeScreen({
                           <img
                             src={category.image}
                             alt={category.name}
-                            loading="eager"
+                            loading={idx < 8 ? 'eager' : 'lazy'}
                             decoding="async"
+                            width={64}
+                            height={64}
                             className="h-full w-full rounded-[14px] object-cover"
                           />
                         </div>

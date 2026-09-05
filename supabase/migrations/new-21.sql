@@ -6,6 +6,7 @@ DECLARE
   v_target_user_id uuid;
   v_channel_id text;
   v_small_icon text;
+  v_sound text;
   v_player_ids text[];
   v_title text;
   v_body text;
@@ -15,7 +16,6 @@ DECLARE
   v_payload jsonb;
   v_status text;
 
-  -- ── CONFIGURATION (Add your project URL & service_role key here) ──
   v_supabase_url text := 'https://<YOUR-PROJECT-REF>.supabase.co';
   v_service_key  text := '<YOUR-SERVICE-ROLE-KEY>';
 BEGIN
@@ -41,8 +41,9 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  SELECT channel_id, small_icon
-  INTO v_channel_id, v_small_icon
+  -- Query channel_id, small_icon, and the new sound column
+  SELECT channel_id, small_icon, sound
+  INTO v_channel_id, v_small_icon, v_sound
   FROM public.notification_channels
   WHERE lower(trim(name)) = lower(trim(v_status))
   LIMIT 1;
@@ -98,6 +99,7 @@ BEGIN
       RETURN NEW;
   END CASE;
 
+  -- Add sound to payload
   v_payload := jsonb_build_object(
     'playerIds', to_jsonb(v_player_ids),
     'userId', v_target_user_id,
@@ -105,11 +107,22 @@ BEGIN
     'body', v_body,
     'channelId', v_channel_id,
     'smallIcon', v_small_icon,
+    'sound', v_sound,
     'accentColor', '0a382c',
     'deepLink', v_deep_link,
     'buttons', v_buttons,
     'data', v_data
   );
+
+  BEGIN
+    INSERT INTO public.push_notifications (
+      title, body, data, audience, small_icon, sound, deep_link, action_buttons, status
+    ) VALUES (
+      v_title, v_body, v_data, 'targeted', v_small_icon, v_sound, v_deep_link, v_buttons, 'sent'
+    );
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'Failed to log notification: %', SQLERRM;
+  END;
 
   BEGIN
     PERFORM net.http_post(
@@ -123,12 +136,13 @@ BEGIN
       body := v_payload
     );
   EXCEPTION WHEN OTHERS THEN
-    RAISE WARNING 'Push notification dispatch failed: %', SQLERRM;
+    RAISE WARNING 'Push dispatch failed: %', SQLERRM;
   END;
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
 
 
 DROP TRIGGER IF EXISTS trg_order_status_push_notification ON public.orders;

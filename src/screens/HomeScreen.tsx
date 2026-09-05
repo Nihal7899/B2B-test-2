@@ -273,11 +273,13 @@ export function HomeScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-36 safe-bottom">
+      {/* 1. Status Bar Solid Protector */}
       <div 
         className="fixed top-0 left-0 right-0 z-50 bg-[#02402c] pointer-events-none" 
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
+      {/* 2. Top Location Bar */}
       <div className="bg-[#02402c] text-white safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-2">
           <button
@@ -303,9 +305,10 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* Sticky search bar with safe-top applied */}
+      {/* 3. Original Sticky Search Bar: No extra top padding, sticks right under safe-area-inset-top */}
       <div 
-        className="sticky top-0 z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-sm safe-top"
+        className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
+        style={{ top: 'env(safe-area-inset-top, 0px)' }} 
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
           <HomeSearchBar onSearchClick={() => navigate('/search')} />

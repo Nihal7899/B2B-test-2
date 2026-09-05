@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect, useCallback } from 'react';
 import type { PromoBanner, BannerSize } from '@/types';
 
 interface PromoBannerCardProps {
@@ -101,7 +101,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl flex shadow-sm transform-gpu ${sizeConfig.container} ${tailwindBgClass} ${className}`}
+      className={`relative overflow-hidden rounded-2xl flex shadow-soft transform-gpu ${sizeConfig.container} ${tailwindBgClass} ${className}`}
     >
       <div className="absolute inset-0 z-0" style={computedBgStyle} />
 
@@ -137,7 +137,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
               e.stopPropagation();
               onAction?.(banner);
             }}
-            className={`flex-shrink-0 self-start font-bold rounded-lg active:scale-95 transition-transform ${sizeConfig.cta}`}
+            className={`flex-shrink-0 self-start font-bold rounded-lg tap-highlight active:scale-95 transition-transform ${sizeConfig.cta}`}
             style={{
               backgroundColor: ctaBg,
               color: ctaColor,
@@ -178,12 +178,105 @@ export const PromoCarousel = React.memo(function PromoCarousel({
   size?: BannerSize;
   onAction?: (banner: PromoBanner) => void;
 }) {
-  if (!banners || banners.length === 0) return null;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const safeBanners = useMemo(() => (Array.isArray(banners) ? banners : []), [banners]);
+  const isLoopable = safeBanners.length > 1;
+  const isResetting = useRef(false);
+
+  // Triple the array to create a seamless infinite loop in both scroll directions
+  const displayBanners = useMemo(() => {
+    return isLoopable ? [...safeBanners, ...safeBanners, ...safeBanners] : safeBanners;
+  }, [safeBanners, isLoopable]);
+
+  const centerCardByIndex = useCallback((index: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const target = el.children[index] as HTMLElement;
+    if (!target) return;
+
+    const targetLeft = target.offsetLeft - (el.clientWidth - target.clientWidth) / 2;
+    el.scrollLeft = targetLeft;
+  }, []);
+
+  // Position at the middle set on initial render
+  useEffect(() => {
+    if (!isLoopable || safeBanners.length === 0) return;
+    const timer = setTimeout(() => {
+      centerCardByIndex(safeBanners.length);
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [isLoopable, safeBanners.length, centerCardByIndex]);
+
+  // Seamless jump between sets after scrolling finishes to prevent stutter during motion
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !isLoopable || safeBanners.length === 0) return;
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const checkAndResetLoop = () => {
+      if (isResetting.current) return;
+
+      const children = Array.from(el.children) as HTMLElement[];
+      if (children.length !== safeBanners.length * 3) return;
+
+      const containerCenter = el.scrollLeft + el.clientWidth / 2;
+
+      let closestIndex = 0;
+      let minDiff = Infinity;
+
+      children.forEach((child, idx) => {
+        const childCenter = child.offsetLeft + child.clientWidth / 2;
+        const diff = Math.abs(containerCenter - childCenter);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestIndex = idx;
+        }
+      });
+
+      if (closestIndex < safeBanners.length) {
+        isResetting.current = true;
+        centerCardByIndex(closestIndex + safeBanners.length);
+        setTimeout(() => {
+          isResetting.current = false;
+        }, 30);
+      } else if (closestIndex >= safeBanners.length * 2) {
+        isResetting.current = true;
+        centerCardByIndex(closestIndex - safeBanners.length);
+        setTimeout(() => {
+          isResetting.current = false;
+        }, 30);
+      }
+    };
+
+    const handleScrollEvent = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(checkAndResetLoop, 150);
+    };
+
+    el.addEventListener('scroll', handleScrollEvent, { passive: true });
+    el.addEventListener('scrollend', checkAndResetLoop);
+
+    return () => {
+      clearTimeout(timeoutId);
+      el.removeEventListener('scroll', handleScrollEvent);
+      el.removeEventListener('scrollend', checkAndResetLoop);
+    };
+  }, [isLoopable, safeBanners.length, centerCardByIndex]);
+
+  if (safeBanners.length === 0) return null;
 
   return (
-    <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">
-      {banners.map((banner) => (
-        <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
+    <div
+      ref={scrollRef}
+      className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 snap-x snap-mandatory transform-gpu"
+    >
+      {displayBanners.map((banner, index) => (
+        <div
+          key={`${banner.id}-${index}`}
+          className="shrink-0 w-[calc(85%+25px)] max-w-[365px] snap-center snap-always"
+        >
           <PromoBannerCard banner={banner} size={size} onAction={onAction} />
         </div>
       ))}

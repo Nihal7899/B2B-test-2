@@ -11,6 +11,8 @@ CREATE TABLE public.profiles (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   personal_name text,
   registration_status text NOT NULL DEFAULT 'unregistered'::text CHECK (registration_status = ANY (ARRAY['unregistered'::text, 'registered'::text])),
+  staff_registration_status text NOT NULL DEFAULT 'unregistered'::text CHECK (staff_registration_status = ANY (ARRAY['unregistered'::text, 'registered'::text])),
+  current_cod_balance numeric NOT NULL DEFAULT 0 CHECK (current_cod_balance >= 0::numeric),
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
@@ -585,4 +587,16 @@ CREATE TABLE public.wallet_transactions (
   CONSTRAINT wallet_transactions_pkey PRIMARY KEY (id),
   CONSTRAINT wallet_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id),
   CONSTRAINT wallet_transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.delivery_partner_cod_settlements (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  delivery_partner_id uuid NOT NULL,
+  amount numeric NOT NULL CHECK (amount > 0::numeric),
+  cleared_by uuid NOT NULL,
+  payment_mode text NOT NULL DEFAULT 'cash'::text CHECK (payment_mode = ANY (ARRAY['cash'::text, 'bank_transfer'::text, 'upi'::text])),
+  notes text DEFAULT ''::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT delivery_partner_cod_settlements_pkey PRIMARY KEY (id),
+  CONSTRAINT delivery_partner_cod_settlements_delivery_partner_id_fkey FOREIGN KEY (delivery_partner_id) REFERENCES auth.users(id),
+  CONSTRAINT delivery_partner_cod_settlements_cleared_by_fkey FOREIGN KEY (cleared_by) REFERENCES auth.users(id)
 );

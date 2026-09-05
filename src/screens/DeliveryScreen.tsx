@@ -33,6 +33,7 @@ import { StaffRegistrationModal } from '@/components/StaffRegistrationModal';
 interface DeliveryScreenProps {
   onBack?: () => void;
   isDedicatedRole?: boolean;
+  initialTab?: 'dashboard' | 'pending' | 'picked_up' | 'delivered' | 'account';
 }
 
 export interface DeliveryPaymentSummary {
@@ -59,9 +60,13 @@ interface ToastNotification {
   type: 'success' | 'error' | 'info' | 'warning';
 }
 
-export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScreenProps) {
+export function DeliveryScreen({
+  onBack,
+  isDedicatedRole = false,
+  initialTab = 'dashboard',
+}: DeliveryScreenProps) {
   const { user, profile, refreshProfile, signOut } = useAuth();
-  const [navTab, setNavTab] = useState<'dashboard' | 'pending' | 'picked_up' | 'delivered' | 'account'>('dashboard');
+  const [navTab, setNavTab] = useState<'dashboard' | 'pending' | 'picked_up' | 'delivered' | 'account'>(initialTab);
   const [assignments, setAssignments] = useState<
     {
       assignment: { id: string; order_id: string; status: string; picked_up_at: string | null; delivered_at: string | null };
@@ -76,6 +81,13 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [toastNotification, setToastNotification] = useState<ToastNotification | null>(null);
+
+  // Sync tab state whenever initialTab changes (such as from push notification deep links)
+  useEffect(() => {
+    if (initialTab && initialTab !== navTab) {
+      setNavTab(initialTab);
+    }
+  }, [initialTab]);
 
   const isStaffUnregistered = !profile?.staff_registration_status || profile.staff_registration_status === 'unregistered';
 
@@ -124,7 +136,7 @@ export function DeliveryScreen({ onBack, isDedicatedRole = false }: DeliveryScre
       }
 
       const orderIds = assignData.map((a) => a.order_id);
-      
+
       // Only fetch heavy line items for active orders to save mobile bandwidth
       const activeOrderIds = assignData
         .filter((a) => a.status === 'ready_for_pickup' || a.status === 'out_for_delivery')

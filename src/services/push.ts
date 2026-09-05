@@ -3,6 +3,15 @@ import { Capacitor } from '@capacitor/core';
 
 const ONESIGNAL_APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID;
 
+// Cache for cold-starts (when the app is opened from a closed state by clicking the CTA)
+let pendingPushData: any = null;
+
+export function getPendingPushData(): any {
+  const data = pendingPushData;
+  pendingPushData = null;
+  return data;
+}
+
 function isNative(): boolean {
   try {
     return Capacitor.isNativePlatform();
@@ -26,23 +35,23 @@ async function saveSubscription(userId: string, playerId: string): Promise<void>
   }
 }
 
-/**
- * Polls for the OneSignal push subscription ID for up to ~30s.
- * The ID is generated asynchronously after the device registers with
- * OneSignal's servers, so it is NOT available immediately after
- * initialize() or requestPermission().
- *
- * getIdAsync() returns a string (or null), not an object.
- * getOnesignalId() also returns a string (or null).
- */
+function dispatchPushClick(payload: any) {
+  if (!payload) return;
+  pendingPushData = payload;
+
+  window.dispatchEvent(
+    new CustomEvent('push_notification_click', {
+      detail: payload,
+    })
+  );
+}
+
 async function waitForPlayerId(
   OneSignal: any,
   maxAttempts = 15,
   intervalMs = 2000
 ): Promise<string | null> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    // Try push subscription ID first — this is the "player id" used for
-    // include_player_ids when sending notifications.
     try {
       const subId = await OneSignal.User.pushSubscription.getIdAsync();
       if (subId && typeof subId === 'string' && subId.length > 0) {
@@ -52,7 +61,6 @@ async function waitForPlayerId(
       // ignore
     }
 
-    // Fallback: try the OneSignal user id.
     try {
       const osId = await OneSignal.User.getOnesignalId();
       if (osId && typeof osId === 'string' && osId.length > 0) {
@@ -81,24 +89,39 @@ export async function initializePushNotifications(userId: string) {
 
   try {
     const module = await import('@onesignal/capacitor-plugin');
-
     const OneSignal = module.default || module.OneSignal || module;
 
     if (!OneSignal || typeof OneSignal.initialize !== 'function') {
       return;
     }
 
-    // ── 1. Initialize ───────────────────────────────────────────────
+    // ── 1. Initialize OneSignal ─────────────────────────────────────
     await OneSignal.initialize(ONESIGNAL_APP_ID);
 
-    // ── 2. Login the user so OneSignal associates this device ───────
+    // ── 2. Click & CTA Action Listener ──────────────────────────────
+    // Captures both notification body taps and CTA button clicks
+    try {
+      OneSignal.Notifications.addEventListener('click', (event: any) => {
+        const actionId = event?.result?.actionId;
+        const additionalData = event?.notification?.additionalData || {};
+
+        dispatchPushClick({
+          actionId,
+          ...additionalData,
+        });
+      });
+    } catch (e) {
+      console.warn('[push] Could not register click listener:', e);
+    }
+
+    // ── 3. Associate User ID with OneSignal ─────────────────────────
     try {
       await OneSignal.login(userId);
     } catch {
       // non-fatal
     }
 
-    // ── 3. Request notification permission ──────────────────────────
+    // ── 4. Request Permission ───────────────────────────────────────
     let permission = false;
     try {
       const permResult = await OneSignal.Notifications.requestPermission(true);
@@ -119,7 +142,7 @@ export async function initializePushNotifications(userId: string) {
       return;
     }
 
-    // ── 4. Register listeners for the subscription ID ──────────────
+    // ── 5. Subscription Listeners ───────────────────────────────────
     let saved = false;
     const cleanupListeners = () => {
       try {
@@ -175,7 +198,7 @@ export async function initializePushNotifications(userId: string) {
       // ignore
     }
 
-    // ── 5. Poll as a fallback in case events don't fire ────────────
+    // ── 6. Fallback Polling ──────────────────────────────────────────
     const polledId = await waitForPlayerId(OneSignal);
     if (polledId && !saved) {
       saved = true;

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
+import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -55,24 +55,6 @@ const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchC
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
   const [keywordIndex, setKeywordIndex] = useState(0);
   const [isFading, setIsFading] = useState(false);
-  const isScrollingRef = useRef(false);
-
-  useEffect(() => {
-    let scrollTimer: ReturnType<typeof setTimeout>;
-    const handleScroll = () => {
-      isScrollingRef.current = true;
-      clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(() => {
-        isScrollingRef.current = false;
-      }, 300);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      clearTimeout(scrollTimer);
-    };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -91,7 +73,7 @@ const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchC
   useEffect(() => {
     if (!displayKeywords || displayKeywords.length === 0) return;
     const interval = setInterval(() => {
-      if (isScrollingRef.current || document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible') return;
 
       setIsFading(true);
       setTimeout(() => {
@@ -123,7 +105,7 @@ const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchC
   );
 });
 
-export function HomeScreen({
+export const HomeScreen = memo(function HomeScreen({
   onCategory: _onCategory,
   onProduct,
   onViewAll,
@@ -271,7 +253,6 @@ export function HomeScreen({
   const topSliderBanners = useMemo(() => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'top_slider') : []), [banners]);
   const carouselBanners = useMemo(() => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'carousel') : []), [banners]);
 
-  // Live cart bindings
   const handleAddToCart = useCallback((p: Product) => cart.addToCart(p), [cart]);
   const handleIncrement = useCallback((p: Product) => cart.addToCart(p), [cart]);
   const handleDecrement = useCallback(
@@ -349,15 +330,9 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* Layer isolation stops GPU overdraw and clipping jitter on scroll */}
+      {/* Clean native sticky header: no transforms to prevent compositor jitter */}
       <div 
-        className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
-        style={{
-          top: 'env(safe-area-inset-top, 0px)',
-          transform: 'translateZ(0)',
-          willChange: 'transform',
-          isolation: 'isolate',
-        }} 
+        className="sticky top-0 z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
           <HomeSearchBar onSearchClick={handleSearchClick} />
@@ -685,4 +660,4 @@ export function HomeScreen({
       </div>
     </div>
   );
-}
+});

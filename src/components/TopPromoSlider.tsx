@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { PromoBanner, BannerSize } from '@/types';
 
 interface TopPromoSliderProps {
@@ -19,32 +19,12 @@ export const TopPromoSlider = React.memo(
   }: TopPromoSliderProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const bannersCount = banners?.length ?? 0;
-    const isScrollingRef = useRef(false);
 
-    // Pause slider transitions while the user is scrolling
-    useEffect(() => {
-      let scrollTimer: ReturnType<typeof setTimeout>;
-      const handleScroll = () => {
-        isScrollingRef.current = true;
-        clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(() => {
-          isScrollingRef.current = false;
-        }, 300);
-      };
-
-      window.addEventListener('scroll', handleScroll, { passive: true });
-      return () => {
-        window.removeEventListener('scroll', handleScroll);
-        clearTimeout(scrollTimer);
-      };
-    }, []);
-
-    // Auto-scroll interval timer that respects active scrolls and tab visibility
     useEffect(() => {
       if (bannersCount <= 1) return;
 
       const timer = setInterval(() => {
-        if (!isScrollingRef.current && document.visibilityState === 'visible') {
+        if (document.visibilityState === 'visible') {
           setCurrentIndex((prev) => (prev + 1) % bannersCount);
         }
       }, intervalMs);

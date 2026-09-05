@@ -51,7 +51,6 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
-// Completely isolated search bar: changing keywords does not trigger HomeScreen re-renders
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
   const [keywordIndex, setKeywordIndex] = useState(0);
@@ -245,7 +244,6 @@ export function HomeScreen({
   const topSliderBanners = useMemo(() => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'top_slider') : []), [banners]);
   const carouselBanners = useMemo(() => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'carousel') : []), [banners]);
 
-  // Live cart bindings
   const handleAddToCart = useCallback((p: Product) => cart.addToCart(p), [cart]);
   const handleIncrement = useCallback((p: Product) => cart.addToCart(p), [cart]);
   const handleDecrement = useCallback(
@@ -305,9 +303,9 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* Flat border on sticky element to eliminate GPU overdraw on scroll */}
+      {/* Sticky search bar with safe-top applied */}
       <div 
-        className="sticky top-0 z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-sm"
+        className="sticky top-0 z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-sm safe-top"
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
           <HomeSearchBar onSearchClick={() => navigate('/search')} />
@@ -330,7 +328,6 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* Primary feed container matching the hardware-accelerated structure of the old app */}
       <div className="space-y-6 pt-4 pb-16 transform-gpu">
         {topBanner && (
           <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
@@ -375,6 +372,7 @@ export function HomeScreen({
                           <img
                             src={category.image}
                             alt={category.name}
+                            loading="eager"
                             decoding="async"
                             className="h-full w-full rounded-[14px] object-cover"
                           />

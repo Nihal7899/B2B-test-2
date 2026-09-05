@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -35,7 +35,6 @@ interface HomeScreenProps {
   onProduct: (product: Product) => void;
   onViewAll: () => void;
   onStoreClick: (store: Store) => void;
-  cart?: ReturnType<typeof useCart>;
   onBannerAction?: (banner: PromoBanner) => void;
 }
 
@@ -52,11 +51,10 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
-// Isolated search component: rotating interval text never re-renders parent HomeScreen
+// Completely isolated search bar: changing keywords does not trigger HomeScreen re-renders
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
   const [keywordIndex, setKeywordIndex] = useState(0);
-  const [isFading, setIsFading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -75,11 +73,9 @@ const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchC
   useEffect(() => {
     if (!displayKeywords || displayKeywords.length === 0) return;
     const interval = setInterval(() => {
-      setIsFading(true);
-      setTimeout(() => {
+      if (document.visibilityState === 'visible') {
         setKeywordIndex((prev) => (prev + 1) % displayKeywords.length);
-        setIsFading(false);
-      }, 150);
+      }
     }, 3200);
 
     return () => clearInterval(interval);
@@ -93,11 +89,7 @@ const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchC
       <Search size={18} className="text-slate-400 shrink-0" />
       <div className="text-sm text-slate-400 flex items-center truncate">
         <span>Search for&nbsp;</span>
-        <span
-          className={`font-semibold text-slate-700 transition-opacity duration-150 ${
-            isFading ? 'opacity-0' : 'opacity-100'
-          }`}
-        >
+        <span className="font-semibold text-slate-700">
           '{displayKeywords[keywordIndex] || 'Groceries'}'
         </span>
       </div>
@@ -154,7 +146,6 @@ export function HomeScreen({
   const [brands] = useState<TrustedBrand[]>(initialCache.brands);
   const [address] = useState<DbAddress | null>(initialCache.address);
 
-  // Background updates for reorder and recently viewed without rebuilding static feeds
   const refreshDynamicSections = useCallback(async () => {
     try {
       const [recent, reorder] = await Promise.all([
@@ -254,6 +245,7 @@ export function HomeScreen({
   const topSliderBanners = useMemo(() => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'top_slider') : []), [banners]);
   const carouselBanners = useMemo(() => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'carousel') : []), [banners]);
 
+  // Live cart bindings
   const handleAddToCart = useCallback((p: Product) => cart.addToCart(p), [cart]);
   const handleIncrement = useCallback((p: Product) => cart.addToCart(p), [cart]);
   const handleDecrement = useCallback(
@@ -268,15 +260,18 @@ export function HomeScreen({
     return address.city || address.line1;
   }, [address]);
 
-  const getSlotBanners = useCallback((slotPosition?: string) => {
-    if (!Array.isArray(banners)) return [];
-    const target = slotPosition || 'middle_1';
-    return banners.filter((b) => {
-      if (b?.position === target) return true;
-      if (target === 'middle_1' && (b?.position === 'middle' || !b?.position)) return true;
-      return false;
-    });
-  }, [banners]);
+  const getSlotBanners = useCallback(
+    (slotPosition?: string) => {
+      if (!Array.isArray(banners)) return [];
+      const target = slotPosition || 'middle_1';
+      return banners.filter((b) => {
+        if (b?.position === target) return true;
+        if (target === 'middle_1' && (b?.position === 'middle' || !b?.position)) return true;
+        return false;
+      });
+    },
+    [banners]
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 pb-36 safe-bottom">
@@ -310,9 +305,9 @@ export function HomeScreen({
         </div>
       </div>
 
+      {/* Flat border on sticky element to eliminate GPU overdraw on scroll */}
       <div 
-        className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
-        style={{ top: 'env(safe-area-inset-top, 0px)' }} 
+        className="sticky top-0 z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-sm"
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
           <HomeSearchBar onSearchClick={() => navigate('/search')} />
@@ -335,7 +330,8 @@ export function HomeScreen({
         </div>
       </div>
 
-      <div className="space-y-6 pt-4 pb-16">
+      {/* Primary feed container matching the hardware-accelerated structure of the old app */}
+      <div className="space-y-6 pt-4 pb-16 transform-gpu">
         {topBanner && (
           <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
         )}
@@ -379,7 +375,6 @@ export function HomeScreen({
                           <img
                             src={category.image}
                             alt={category.name}
-                            loading="eager"
                             decoding="async"
                             className="h-full w-full rounded-[14px] object-cover"
                           />

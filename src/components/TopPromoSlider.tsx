@@ -17,36 +17,25 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
   className = 'mx-4',
 }: TopPromoSliderProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const bannersCount = banners?.length ?? 0;
 
-  // 1. Preload all slider images into browser cache on mount
   useEffect(() => {
-    if (!banners || banners.length === 0) return;
-
-    banners.forEach((b) => {
-      if (b.image && b.image.trim() !== '') {
-        const img = new Image();
-        img.src = b.image;
-      }
-    });
-  }, [banners]);
-
-  // 2. Auto-scroll interval timer
-  useEffect(() => {
-    if (!banners || banners.length <= 1) return;
+    if (bannersCount <= 1) return;
 
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % banners.length);
+      if (document.visibilityState === 'visible') {
+        setCurrentIndex((prev) => (prev + 1) % bannersCount);
+      }
     }, intervalMs);
 
     return () => clearInterval(timer);
-  }, [banners, intervalMs]);
+  }, [bannersCount, intervalMs]);
 
   if (!banners || banners.length === 0) return null;
 
   const activeBanner = banners[currentIndex] || banners[0];
   const size = sizeOverride || activeBanner.size || 'medium';
 
-  // Exact 1:1 Dimensions matching PromoBannerCard
   const sizeConfig = useMemo(() => {
     switch (size) {
       case 'small':
@@ -85,9 +74,8 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl shadow-soft transform-gpu select-none ${sizeConfig.container} ${className}`}
+      className={`relative overflow-hidden rounded-2xl shadow-sm select-none transform-gpu ${sizeConfig.container} ${className}`}
     >
-      {/* Stack all slides simultaneously in DOM for smooth zero-lag crossfading */}
       {banners.map((banner, index) => {
         const isActive = index === currentIndex;
         const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
@@ -134,23 +122,21 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
           <div
             key={banner.id || index}
             onClick={() => isActive && onAction?.(banner)}
-            className={`absolute inset-0 flex transition-opacity duration-700 ease-in-out transform-gpu will-change-[opacity] cursor-pointer ${
+            className={`absolute inset-0 flex transition-opacity duration-300 ease-in-out cursor-pointer ${
               isActive
                 ? 'opacity-100 z-20 pointer-events-auto'
                 : 'opacity-0 z-10 pointer-events-none'
             } ${tailwindBgClass}`}
           >
-            {/* Background layer */}
             <div className="absolute inset-0 z-0" style={computedBgStyle} />
 
-            {/* Text & Content */}
             <div className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}>
               <div className="flex-1 overflow-hidden">
                 {banner.badge && (
                   <span
-                    className={`inline-block font-bold tracking-wider uppercase rounded-full backdrop-blur-xs ${sizeConfig.badge}`}
+                    className={`inline-block font-bold tracking-wider uppercase rounded-full ${sizeConfig.badge}`}
                     style={{
-                      backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)',
+                      backgroundColor: badgeBg || 'rgba(0, 0, 0, 0.35)',
                       color: badgeColor,
                     }}
                   >
@@ -174,7 +160,7 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
                     e.stopPropagation();
                     if (isActive) onAction?.(banner);
                   }}
-                  className={`flex-shrink-0 self-start font-bold rounded-xl tap-highlight active:scale-95 transition-transform ${sizeConfig.cta}`}
+                  className={`flex-shrink-0 self-start font-bold rounded-xl active:scale-95 transition-transform ${sizeConfig.cta}`}
                   style={{
                     backgroundColor: ctaBg,
                     color: ctaColor,
@@ -185,13 +171,11 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
               )}
             </div>
 
-            {/* Side Image */}
             {showImage && (
               <div className={`relative z-10 shrink-0 h-full ${sizeConfig.imageWidth}`}>
                 <img
                   src={banner.image}
                   alt={banner.headline}
-                  loading="eager"
                   decoding="async"
                   className="h-full w-full object-cover"
                   onError={(e) => {
@@ -201,7 +185,6 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
               </div>
             )}
 
-            {/* Tint Overlay */}
             {banner.overlayEnabled && (
               <div className="absolute inset-0 z-20 pointer-events-none" style={overlayStyle} />
             )}
@@ -209,9 +192,8 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
         );
       })}
 
-      {/* Pagination indicators for multi-ad sliders */}
       {banners.length > 1 && (
-        <div className="absolute bottom-2.5 right-3 z-40 flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded-full backdrop-blur-xs pointer-events-none">
+        <div className="absolute bottom-2.5 right-3 z-40 flex items-center gap-1.5 bg-black/50 px-2 py-1 rounded-full pointer-events-none">
           {banners.map((_, idx) => (
             <span
               key={idx}

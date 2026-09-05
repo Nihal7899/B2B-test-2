@@ -7,7 +7,6 @@ interface SplashScreenProps {
 
 export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
   const [exiting, setExiting] = useState(false);
-  const [minTimerDone, setMinTimerDone] = useState(false);
   const onFinishRef = useRef(onFinish);
 
   useEffect(() => {
@@ -15,35 +14,27 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
   }, [onFinish]);
 
   useEffect(() => {
-    const minTimer = window.setTimeout(() => {
-      setMinTimerDone(true);
-    }, 1000);
-
-    const maxSafetyTimer = window.setTimeout(() => {
+    const fallbackTimer = setTimeout(() => {
       setExiting(true);
-      window.setTimeout(() => onFinishRef.current(), 300);
+      setTimeout(() => onFinishRef.current(), 300);
     }, 8000);
-
-    return () => {
-      window.clearTimeout(minTimer);
-      window.clearTimeout(maxSafetyTimer);
-    };
+    return () => clearTimeout(fallbackTimer);
   }, []);
 
   useEffect(() => {
-    if (!minTimerDone || !isReady || exiting) return;
+    if (!isReady || exiting) return;
 
     setExiting(true);
-    const doneTimer = window.setTimeout(() => {
+    const doneTimer = setTimeout(() => {
       onFinishRef.current();
-    }, 300);
+    }, 250);
 
-    return () => window.clearTimeout(doneTimer);
-  }, [minTimerDone, isReady, exiting]);
+    return () => clearTimeout(doneTimer);
+  }, [isReady, exiting]);
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden bg-[#011f1a] transition-opacity duration-300 ease-out ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden bg-[#011f1a] transition-opacity duration-250 ease-out ${
         exiting ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
@@ -63,7 +54,6 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
                 <stop offset="100%" stopColor="#58D5A5" />
               </linearGradient>
             </defs>
-
             <path
               d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
               fill="#FFFFFF"

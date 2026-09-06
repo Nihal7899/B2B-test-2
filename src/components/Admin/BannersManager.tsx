@@ -57,6 +57,38 @@ const ACTION_TYPES: ActionType[] = [
 
 type PositionTab = 'all' | 'top' | 'top_slider' | 'carousel' | 'middle' | 'bottom' | 'bottom_popup';
 
+function BottomPopupPreviewWrapper({ banner }: { banner: PromoBanner }) {
+  return (
+    <div className="relative w-full h-[480px] bg-ink-50 overflow-hidden flex flex-col justify-end rounded-2xl border border-ink-200 shadow-inner">
+      {/* Fake app background content to show contrast against the overlay */}
+      <div className="absolute inset-0 p-4 space-y-4 opacity-40">
+        <div className="w-full h-12 bg-ink-200 rounded-xl" />
+        <div className="w-3/4 h-8 bg-ink-200 rounded-lg" />
+        <div className="w-full h-32 bg-ink-200 rounded-xl" />
+        <div className="w-full h-32 bg-ink-200 rounded-xl" />
+      </div>
+      
+      {/* Dark Backdrop Overlay */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      
+      {/* Bottom Sheet Modal */}
+      <div className="relative w-full h-[45%] min-h-[240px] max-h-[300px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden">
+        <div className="flex justify-end p-3 absolute top-0 right-0 z-50">
+          <div className="h-8 w-8 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+            <X size={16} strokeWidth={3} />
+          </div>
+        </div>
+
+        <PromoBannerCard 
+          banner={banner} 
+          size="large"
+          className="w-full h-full rounded-none" 
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function BannersManager() {
   const [banners, setBanners] = useState<HomeBanner[]>([]);
   const [activeTab, setActiveTab] = useState<PositionTab>('all');
@@ -481,6 +513,8 @@ export default function BannersManager() {
               <TopPromoSlider banners={[toPromoBanner(previewBanner)]} className="mx-0 w-full" />
             ) : previewBanner.position === 'top' ? (
               <PromoAdBanner banner={toPromoBanner(previewBanner)} className="mx-0 w-full" />
+            ) : previewBanner.position === 'bottom_popup' ? (
+              <BottomPopupPreviewWrapper banner={toPromoBanner(previewBanner)} />
             ) : (
               <PromoBannerCard banner={toPromoBanner(previewBanner)} className="w-full" />
             )}
@@ -1566,6 +1600,8 @@ function BannerForm({
                 <TopPromoSlider banners={[previewBannerObject]} className="mx-0 w-full" />
               ) : form.position === 'top' ? (
                 <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
+              ) : form.position === 'bottom_popup' ? (
+                <BottomPopupPreviewWrapper banner={previewBannerObject} />
               ) : (
                 <PromoBannerCard banner={previewBannerObject} className="w-full" />
               )}
@@ -1623,6 +1659,8 @@ function BannerForm({
               <TopPromoSlider banners={[previewBannerObject]} className="mx-0 w-full" />
             ) : form.position === 'top' ? (
               <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
+            ) : form.position === 'bottom_popup' ? (
+              <BottomPopupPreviewWrapper banner={previewBannerObject} />
             ) : (
               <PromoBannerCard banner={previewBannerObject} className="w-full" />
             )}

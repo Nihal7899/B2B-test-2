@@ -10,6 +10,7 @@ import {
   Tag,
   RotateCcw,
   ChevronRight,
+  X
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Category, Product, PromoBanner, Store, TrustedBrand, HomeSection, DbAddress } from '@/types';
@@ -144,6 +145,17 @@ export function HomeScreen({
   const [stores] = useState<Store[]>(initialCache.stores);
   const [brands] = useState<TrustedBrand[]>(initialCache.brands);
   const [address] = useState<DbAddress | null>(initialCache.address);
+
+  const [showPopup, setShowPopup] = useState(() => !sessionStorage.getItem('hasSeenBottomPopup'));
+
+  const bottomPopupBanner = useMemo(() => {
+    return Array.isArray(banners) ? banners.find((b) => b?.position === 'bottom_popup') : null;
+  }, [banners]);
+
+  const dismissPopup = useCallback(() => {
+    setShowPopup(false);
+    sessionStorage.setItem('hasSeenBottomPopup', 'true');
+  }, []);
 
   const refreshDynamicSections = useCallback(async () => {
     try {
@@ -632,6 +644,41 @@ export function HomeScreen({
           }
         })}
       </div>
+
+      {bottomPopupBanner && showPopup && (
+        <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">
+          {/* Dark Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity duration-300" 
+            onClick={dismissPopup}
+          />
+          
+          {/* Bottom Sheet Container (Covers ~35-40% of height) */}
+          <div className="relative w-full h-[40vh] max-h-[400px] min-h-[300px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] pointer-events-auto flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300">
+            
+            {/* Close Button Header */}
+            <div className="flex justify-end p-3 absolute top-0 right-0 z-50">
+              <button 
+                onClick={dismissPopup}
+                className="h-8 w-8 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/40 transition-colors"
+              >
+                <X size={16} strokeWidth={3} />
+              </button>
+            </div>
+
+            {/* Reused PromoBannerCard rendering the CMS data */}
+            <PromoBannerCard 
+              banner={bottomPopupBanner} 
+              size="large"
+              className="w-full h-full rounded-none"
+              onAction={(banner) => {
+                dismissPopup();
+                onBannerAction?.(banner);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

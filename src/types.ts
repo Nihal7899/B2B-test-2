@@ -351,15 +351,8 @@ export interface DeliveryRange {
 }
 
 export type BannerSize = 'small' | 'medium' | 'large';
-export type BannerPosition =
-  | 'top'
-  | 'top_slider'
-  | 'carousel'
-  | 'middle'
-  | 'middle_1'
-  | 'middle_2'
-  | 'middle_3'
-  | 'bottom';
+export type BannerPosition = 'top' | 'top_slider' | 'carousel' | 'middle_1' | 'middle_2' | 'middle_3' | 'bottom' | 'bottom_popup';
+
 
 export type BannerBgType = 'color' | 'gradient' | 'image';
 

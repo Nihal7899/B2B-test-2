@@ -55,7 +55,7 @@ const ACTION_TYPES: ActionType[] = [
   'OPEN_EXTERNAL_URL',
 ];
 
-type PositionTab = 'all' | 'top' | 'top_slider' | 'carousel' | 'middle' | 'bottom';
+type PositionTab = 'all' | 'top' | 'top_slider' | 'carousel' | 'middle' | 'bottom' | 'bottom_popup';
 
 export default function BannersManager() {
   const [banners, setBanners] = useState<HomeBanner[]>([]);
@@ -108,6 +108,7 @@ export default function BannersManager() {
       carousel: banners.filter((b) => b.position === 'carousel').length,
       middle: banners.filter((b) => ['middle', 'middle_1', 'middle_2', 'middle_3'].includes(b.position || '')).length,
       bottom: banners.filter((b) => b.position === 'bottom').length,
+      bottom_popup: banners.filter((b) => b.position === 'bottom_popup').length,
     };
   }, [banners]);
 
@@ -118,6 +119,7 @@ export default function BannersManager() {
     else if (activeTab === 'carousel') list = list.filter((b) => b.position === 'carousel');
     else if (activeTab === 'middle') list = list.filter((b) => ['middle', 'middle_1', 'middle_2', 'middle_3'].includes(b.position || ''));
     else if (activeTab === 'bottom') list = list.filter((b) => b.position === 'bottom');
+    else if (activeTab === 'bottom_popup') list = list.filter((b) => b.position === 'bottom_popup');
 
     return list.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
   }, [banners, activeTab]);
@@ -279,7 +281,7 @@ export default function BannersManager() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-black text-ink-900">Banners Management</h2>
-          <p className="text-xs text-ink-500">Configure promotional banners across Top Ad, Top Slider, Carousel, Middle slots, and Bottom</p>
+          <p className="text-xs text-ink-500">Configure promotional banners across Top Ad, Top Slider, Carousel, Middle slots, Bottom, and Popup</p>
         </div>
         <button
           onClick={() => handleAddNew()}
@@ -298,6 +300,7 @@ export default function BannersManager() {
           { id: 'carousel', label: 'Top Carousel', count: tabCounts.carousel },
           { id: 'middle', label: 'Middle Slots (1, 2, 3)', count: tabCounts.middle },
           { id: 'bottom', label: 'Bottom Banner', count: tabCounts.bottom },
+          { id: 'bottom_popup', label: 'Bottom Popup', count: tabCounts.bottom_popup },
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -465,6 +468,8 @@ export default function BannersManager() {
                   ? `Top Slider (${previewBanner.size?.toUpperCase() || 'MEDIUM'})`
                   : previewBanner.position === 'top'
                   ? 'Top Promo Ad'
+                  : previewBanner.position === 'bottom_popup'
+                  ? 'Bottom Popup'
                   : previewBanner.size?.toUpperCase() || 'MEDIUM'}
                 )
               </h3>
@@ -570,7 +575,6 @@ function BannerForm({
       setProducts((prods as DbProduct[]) ?? []);
       setSmartCollections((sc as { id: string; name: string }[]) ?? []);
       
-      // Fallback for brands if trusted_brands table is empty
       if (brandData && brandData.length > 0) {
         setBrands(brandData as { id: string; name: string }[]);
       } else {
@@ -781,6 +785,7 @@ function BannerForm({
               <option value="middle_2">Middle 2</option>
               <option value="middle_3">Middle 3</option>
               <option value="bottom">Bottom</option>
+              <option value="bottom_popup">Bottom Popup (30-40% Screen)</option>
             </select>
           </div>
 
@@ -1546,6 +1551,8 @@ function BannerForm({
                   ? `Top Slider (${previewBannerObject.size?.toUpperCase() || 'MEDIUM'})`
                   : form.position === 'top'
                   ? 'Top Promo Ad'
+                  : form.position === 'bottom_popup'
+                  ? 'Bottom Popup'
                   : previewBannerObject.size?.toUpperCase() || 'MEDIUM'}
                 )
               </h3>
@@ -1603,6 +1610,8 @@ function BannerForm({
                   ? `Top Slider (${previewBannerObject.size?.toUpperCase() || 'MEDIUM'})`
                   : form.position === 'top'
                   ? 'Top Promo Ad'
+                  : form.position === 'bottom_popup'
+                  ? 'Bottom Popup'
                   : previewBannerObject.size?.toUpperCase() || 'MEDIUM'}
                 )
               </h3>

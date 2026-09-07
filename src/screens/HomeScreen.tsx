@@ -654,8 +654,8 @@ export function HomeScreen({
             onClick={dismissPopup}
           />
           
-          {/* Bottom Sheet Container (Covers ~35-40% of height) */}
-          <div className="relative w-full h-[45%] max-h-[400px] min-h-[350px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] pointer-events-auto flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300">
+          {/* INCREASED HEIGHT CLASSES BELOW */}
+          <div className="relative w-full h-[55%] min-h-[380px] max-h-[480px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] pointer-events-auto flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300">
             
             {/* Close Button Header */}
             <div className="flex justify-end p-3 absolute top-0 right-0 z-50">

@@ -22,19 +22,16 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
   const ctaBg = (banner.actionConfig?.ctaBg as string) || '#ffffff';
   const ctaColor = (banner.actionConfig?.ctaColor as string) || '#0f172a';
 
-  // Feature toggles stored in actionConfig
   const isTimerEnabled = Boolean(banner.actionConfig?.enableTimer);
   const isAnimationEnabled = banner.actionConfig?.enableAnimation !== false;
 
   const showHeroImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
 
-  // Countdown timer logic
   const [timeLeft, setTimeLeft] = useState<{ hours: string; minutes: string; seconds: string } | null>(null);
 
   useEffect(() => {
     if (!isTimerEnabled) return;
 
-    // Checks scheduled end_at or timerEndDate
     const endTarget =
       (banner.actionConfig?.timerEndDate as string) ||
       (banner as any).end_at ||
@@ -95,7 +92,6 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
       className={`relative w-full h-full flex flex-col overflow-hidden ${tailwindBgClass} ${className}`}
       style={computedBgStyle}
     >
-      {/* GPU-optimized animations with smooth, non-clipping skew */}
       <style>{`
         @keyframes floatSlow {
           0%, 100% { transform: translate3d(0, 0, 0); }
@@ -115,7 +111,6 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
         }
       `}</style>
 
-      {/* Tint Overlay */}
       {banner.overlayEnabled && (
         <div
           className="absolute inset-0 z-0 pointer-events-none"
@@ -126,34 +121,29 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
         />
       )}
 
-      {/* Content Layout */}
-      <div className="relative z-10 flex-1 flex flex-col px-5 pb-4 pt-3 items-center text-center h-full">
-        {/* Spacer for the Close (X) button */}
-        <div className="h-7 w-full shrink-0" />
+      {/* Reduced padding to push content UP */}
+      <div className="relative z-10 flex-1 flex flex-col px-5 pb-3 pt-2 items-center text-center h-full">
+        {/* Shorter top spacer */}
+        <div className="h-6 w-full shrink-0" />
 
-        {/* 1. Header block: Badge, Title, Description & Countdown */}
+        {/* 1. Header block */}
         <div className={`flex flex-col shrink-0 w-full min-w-0 px-1 ${isTimerEnabled && timeLeft ? 'items-start text-left' : 'items-center text-center'}`}>
           
-          {/* Top Row: Badge & Timer (Side by Side) */}
           {isTimerEnabled && timeLeft ? (
-            <div className="flex items-center justify-between w-full mb-2.5 gap-2">
+            <div className="flex items-center justify-between w-full mb-1.5 gap-2">
               {banner.badge ? (
                 <span
                   className={`inline-block text-[11px] font-black tracking-widest uppercase px-3 py-1 rounded-full shadow-sm shrink-0 truncate max-w-[50%] ${
                     isAnimationEnabled ? 'animate-pulse' : ''
                   }`}
-                  style={{
-                    backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)',
-                    color: badgeColor,
-                  }}
+                  style={{ backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)', color: badgeColor }}
                 >
                   {banner.badge}
                 </span>
               ) : (
-                <div /> // Pushes timer to the right if no badge is present
+                <div />
               )}
 
-              {/* Timer Pill - Tightened spacing, padding, and font size */}
               <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/25 backdrop-blur-xs text-white border border-white/15 shadow-xs shrink-0">
                 <Clock size={10} className="text-amber-300 shrink-0" />
                 <span className="text-[10px] font-mono font-bold tracking-tighter whitespace-nowrap">
@@ -164,13 +154,10 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
           ) : (
             banner.badge && (
               <span
-                className={`inline-block text-[11px] font-black tracking-widest uppercase px-3 py-1 rounded-full mb-1.5 shadow-sm shrink-0 ${
+                className={`inline-block text-[11px] font-black tracking-widest uppercase px-3 py-1 rounded-full mb-1 shadow-sm shrink-0 ${
                   isAnimationEnabled ? 'animate-pulse' : ''
                 }`}
-                style={{
-                  backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)',
-                  color: badgeColor,
-                }}
+                style={{ backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)', color: badgeColor }}
               >
                 {banner.badge}
               </span>
@@ -179,7 +166,7 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
 
           <h3
             className={`text-2xl sm:text-3xl font-black leading-tight tracking-tight w-full shrink-0 ${
-              showHeroImage ? 'truncate mb-1' : 'whitespace-pre-line mb-1.5'
+              showHeroImage ? 'truncate mb-0.5' : 'whitespace-pre-line mb-1'
             }`}
             style={{ color: titleColor }}
           >
@@ -198,26 +185,24 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
           )}
         </div>
 
-        {/* 2. Middle Section: Image (Full width fit, gentle float) */}
+        {/* 2. Middle Section: Fixed Rectangular Image Container */}
         {showHeroImage ? (
-          <div className="flex-1 w-full flex items-center justify-center min-h-0 my-2 overflow-hidden">
+          <div className="flex-1 w-full flex items-center justify-center min-h-[160px] max-h-[300px] mt-3 mb-2 overflow-hidden shrink border border-transparent">
             <div className={`w-full h-full flex items-center justify-center bg-transparent ${isAnimationEnabled ? 'anim-float' : ''}`}>
               <img
                 src={banner.image}
                 alt={banner.headline}
                 className="w-full h-full object-contain drop-shadow-xl"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
             </div>
           </div>
         ) : (
-          <div className="flex-1 min-h-[14px]" />
+          <div className="flex-1 min-h-[10px]" />
         )}
 
-        {/* 3. Bottom Section: Action CTA with Shimmer & Dismiss link */}
-        <div className="w-full shrink-0 space-y-1.5 mt-2">
+        {/* 3. Bottom Section: Action CTA with Shimmer & Dismiss link (Tightened up) */}
+        <div className="w-full shrink-0 space-y-1">
           {banner.showCta !== false && banner.cta && (
             <button
               type="button"
@@ -226,12 +211,8 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
                 onAction?.(banner);
               }}
               className="relative overflow-hidden w-full py-3.5 rounded-2xl font-black text-[15px] shadow-xl active:scale-[0.98] transition-transform tap-highlight"
-              style={{
-                backgroundColor: ctaBg,
-                color: ctaColor,
-              }}
+              style={{ backgroundColor: ctaBg, color: ctaColor }}
             >
-              {/* Perfectly aligned shimmer sweep */}
               {isAnimationEnabled && (
                 <div className="absolute -inset-y-3 w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none anim-shimmer" />
               )}
@@ -239,7 +220,6 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
             </button>
           )}
 
-          {/* Secondary thumb-friendly close */}
           <button
             type="button"
             onClick={(e) => {

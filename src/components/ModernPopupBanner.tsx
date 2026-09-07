@@ -64,74 +64,77 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
         />
       )}
 
-      {/* Content Wrapper */}
-      <div className="relative z-10 flex-1 flex flex-col px-6 pb-6 pt-4 items-center text-center overflow-y-auto no-scrollbar">
+      {/* Content Wrapper - Using full height and preventing scrolling */}
+      <div className="relative z-10 flex-1 flex flex-col px-6 pb-6 pt-10 items-center text-center h-full">
         
-        {/* Spacer for the Close (X) button sitting in the wrapper */}
-        <div className="h-6 w-full shrink-0" />
+        {/* 1. Top Section: Text Content (Will not shrink) */}
+        <div className="flex flex-col items-center shrink-0 w-full">
+          {banner.badge && (
+            <span
+              className="inline-block text-[11px] font-black tracking-widest uppercase px-4 py-1.5 rounded-full mb-3 shadow-sm"
+              style={{
+                backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)',
+                color: badgeColor,
+              }}
+            >
+              {banner.badge}
+            </span>
+          )}
 
-        {/* Hero Image */}
-        {showHeroImage && (
-          <img
-            src={banner.image}
-            alt={banner.headline}
-            className="w-28 h-28 sm:w-32 sm:h-32 object-cover rounded-2xl shadow-2xl mb-5 ring-4 ring-white/10"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-        )}
-
-        {/* Badge */}
-        {banner.badge && (
-          <span
-            className="inline-block text-[11px] font-black tracking-widest uppercase px-4 py-1.5 rounded-full mb-3 shadow-sm"
-            style={{
-              backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)',
-              color: badgeColor,
-            }}
+          <h3
+            className="text-2xl sm:text-3xl font-black leading-tight mb-2.5 whitespace-pre-line tracking-tight w-full"
+            style={{ color: titleColor }}
           >
-            {banner.badge}
-          </span>
+            {banner.headline}
+          </h3>
+
+          {banner.subtext && (
+            <p
+              className="text-sm sm:text-base leading-relaxed opacity-90 whitespace-pre-line max-w-[95%]"
+              style={{ color: descColor }}
+            >
+              {banner.subtext}
+            </p>
+          )}
+        </div>
+
+        {/* 2. Middle Section: Flexible Square Image Container (No Background, No Border) */}
+        {showHeroImage ? (
+          <div className="flex-1 w-full flex items-center justify-center min-h-0 my-5 overflow-hidden">
+            <div className="h-full max-h-[140px] sm:max-h-[180px] aspect-square flex items-center justify-center bg-transparent">
+              <img
+                src={banner.image}
+                alt={banner.headline}
+                className="w-full h-full object-contain drop-shadow-md"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
+          </div>
+        ) : (
+          /* Empty flexible spacer if no image exists */
+          <div className="flex-1 min-h-[20px]" />
         )}
 
-        {/* Headline */}
-        <h3
-          className="text-2xl sm:text-3xl font-black leading-tight mb-2.5 whitespace-pre-line tracking-tight"
-          style={{ color: titleColor }}
-        >
-          {banner.headline}
-        </h3>
-
-        {/* Subtext */}
-        {banner.subtext && (
-          <p
-            className="text-sm sm:text-base leading-relaxed opacity-90 whitespace-pre-line max-w-[95%]"
-            style={{ color: descColor }}
-          >
-            {banner.subtext}
-          </p>
-        )}
-
-        {/* Spacer pushes CTA to the absolute bottom */}
-        <div className="flex-1 min-h-[20px]" />
-
-        {/* Full Width CTA Button */}
+        {/* 3. Bottom Section: CTA Button (Will not shrink) */}
         {banner.showCta !== false && banner.cta && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAction?.(banner);
-            }}
-            className="w-full sm:w-[90%] py-3.5 mt-4 rounded-2xl font-black text-[15px] shadow-xl active:scale-[0.98] transition-transform tap-highlight"
-            style={{
-              backgroundColor: ctaBg,
-              color: ctaColor,
-            }}
-          >
-            {banner.cta}
-          </button>
+          <div className="w-full shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAction?.(banner);
+              }}
+              className="w-full py-3.5 rounded-2xl font-black text-[15px] shadow-xl active:scale-[0.98] transition-transform tap-highlight"
+              style={{
+                backgroundColor: ctaBg,
+                color: ctaColor,
+              }}
+            >
+              {banner.cta}
+            </button>
+          </div>
         )}
       </div>
     </div>

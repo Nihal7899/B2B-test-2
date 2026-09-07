@@ -64,14 +64,17 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
         />
       )}
 
-      {/* Content Wrapper - Using full height and preventing scrolling */}
-      <div className="relative z-10 flex-1 flex flex-col px-6 pb-6 pt-10 items-center text-center h-full">
+      {/* Content Wrapper - Reduced padding (px-5, pb-5, pt-6) to maximize image space */}
+      <div className="relative z-10 flex-1 flex flex-col px-5 pb-5 pt-5 items-center text-center h-full">
         
-        {/* 1. Top Section: Text Content (Will not shrink) */}
-        <div className="flex flex-col items-center shrink-0 w-full">
+        {/* Shorter Spacer for the Close (X) button */}
+        <div className="h-4 w-full shrink-0" />
+
+        {/* 1. Top Section: Text Content (min-w-0 is required for truncate to work properly) */}
+        <div className="flex flex-col items-center shrink-0 w-full min-w-0 px-1">
           {banner.badge && (
             <span
-              className="inline-block text-[11px] font-black tracking-widest uppercase px-4 py-1.5 rounded-full mb-3 shadow-sm"
+              className="inline-block text-[11px] font-black tracking-widest uppercase px-3 py-1 rounded-full mb-1.5 shadow-sm shrink-0"
               style={{
                 backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)',
                 color: badgeColor,
@@ -81,16 +84,22 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
             </span>
           )}
 
+          {/* Headline - Truncates to 1 line if image is present */}
           <h3
-            className="text-2xl sm:text-3xl font-black leading-tight mb-2.5 whitespace-pre-line tracking-tight w-full"
+            className={`text-2xl sm:text-3xl font-black leading-tight tracking-tight w-full shrink-0 ${
+              showHeroImage ? 'truncate mb-1' : 'whitespace-pre-line mb-2.5'
+            }`}
             style={{ color: titleColor }}
           >
             {banner.headline}
           </h3>
 
+          {/* Subtext - Truncates to 1 line if image is present */}
           {banner.subtext && (
             <p
-              className="text-sm sm:text-base leading-relaxed opacity-90 whitespace-pre-line max-w-[95%]"
+              className={`text-sm sm:text-base leading-relaxed opacity-90 w-full shrink-0 ${
+                showHeroImage ? 'truncate' : 'whitespace-pre-line max-w-[95%]'
+              }`}
               style={{ color: descColor }}
             >
               {banner.subtext}
@@ -98,10 +107,11 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
           )}
         </div>
 
-        {/* 2. Middle Section: Flexible Square Image Container (No Background, No Border) */}
+        {/* 2. Middle Section: Increased Flexible Square Image Container */}
         {showHeroImage ? (
-          <div className="flex-1 w-full flex items-center justify-center min-h-0 my-5 overflow-hidden">
-            <div className="h-full max-h-[140px] sm:max-h-[180px] aspect-square flex items-center justify-center bg-transparent">
+          <div className="flex-1 w-full flex items-center justify-center min-h-0 my-3 overflow-hidden">
+            {/* Increased max-h from 140px up to 240px/280px to make it huge but contained */}
+            <div className="h-full max-h-[240px] sm:max-h-[280px] aspect-square flex items-center justify-center bg-transparent">
               <img
                 src={banner.image}
                 alt={banner.headline}
@@ -113,11 +123,10 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
             </div>
           </div>
         ) : (
-          /* Empty flexible spacer if no image exists */
-          <div className="flex-1 min-h-[20px]" />
+          <div className="flex-1 min-h-[16px]" />
         )}
 
-        {/* 3. Bottom Section: CTA Button (Will not shrink) */}
+        {/* 3. Bottom Section: CTA Button */}
         {banner.showCta !== false && banner.cta && (
           <div className="w-full shrink-0">
             <button

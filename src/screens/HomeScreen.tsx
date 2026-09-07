@@ -22,6 +22,7 @@ import { ProductCarousel } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { StoreCarousel } from '@/components/StoreCard';
 import { BrandCarousel } from '@/components/BrandCard';
+import { ModernPopupBanner } from '@/components/ModernPopupBanner';
 import {
   fetchHomeSections,
   fetchHomeBanners,
@@ -654,7 +655,7 @@ export function HomeScreen({
           />
           
           {/* Bottom Sheet Container (Covers ~35-40% of height) */}
-          <div className="relative w-full h-[40vh] max-h-[400px] min-h-[300px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] pointer-events-auto flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300">
+          <div className="relative w-full h-[45%] max-h-[400px] min-h-[350px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] pointer-events-auto flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300">
             
             {/* Close Button Header */}
             <div className="flex justify-end p-3 absolute top-0 right-0 z-50">
@@ -666,10 +667,8 @@ export function HomeScreen({
               </button>
             </div>
 
-            {/* Reused PromoBannerCard rendering the CMS data */}
-            <PromoBannerCard 
+            <ModernPopupBanner 
               banner={bottomPopupBanner} 
-              size="large"
               className="w-full h-full rounded-none"
               onAction={(banner) => {
                 dismissPopup();

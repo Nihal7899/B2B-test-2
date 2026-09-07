@@ -33,6 +33,7 @@ import {
 import { PromoBannerCard } from '@/components/PromoBanner';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
 import { TopPromoSlider } from '@/components/TopPromoSlider';
+import { ModernPopupBanner } from '@/components/ModernPopupBanner';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
@@ -72,16 +73,15 @@ function BottomPopupPreviewWrapper({ banner }: { banner: PromoBanner }) {
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       
       {/* Bottom Sheet Modal */}
-      <div className="relative w-full h-[45%] min-h-[240px] max-h-[300px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden">
+      <div className="relative w-full h-[45%] min-h-[240px] max-h-[350px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden">
         <div className="flex justify-end p-3 absolute top-0 right-0 z-50">
           <div className="h-8 w-8 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
             <X size={16} strokeWidth={3} />
           </div>
         </div>
 
-        <PromoBannerCard 
+        <ModernPopupBanner 
           banner={banner} 
-          size="large"
           className="w-full h-full rounded-none" 
         />
       </div>

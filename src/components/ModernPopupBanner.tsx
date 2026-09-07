@@ -22,19 +22,24 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
   const ctaBg = (banner.actionConfig?.ctaBg as string) || '#ffffff';
   const ctaColor = (banner.actionConfig?.ctaColor as string) || '#0f172a';
 
-  // CMS Toggles stored in actionConfig
+  // Feature toggles stored in actionConfig
   const isTimerEnabled = Boolean(banner.actionConfig?.enableTimer);
   const isAnimationEnabled = banner.actionConfig?.enableAnimation !== false;
 
   const showHeroImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
 
-  // Countdown timer calculation
+  // Countdown timer logic
   const [timeLeft, setTimeLeft] = useState<{ hours: string; minutes: string; seconds: string } | null>(null);
 
   useEffect(() => {
     if (!isTimerEnabled) return;
 
-    const endTarget = (banner.actionConfig?.timerEndDate as string) || (banner as any).end_at;
+    // Checks scheduled end_at or timerEndDate
+    const endTarget =
+      (banner.actionConfig?.timerEndDate as string) ||
+      (banner as any).end_at ||
+      (banner as any).endAt;
+
     if (!endTarget) return;
 
     const calculateTime = () => {
@@ -90,15 +95,15 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
       className={`relative w-full h-full flex flex-col overflow-hidden ${tailwindBgClass} ${className}`}
       style={computedBgStyle}
     >
-      {/* Hardware-accelerated CSS keyframe styles */}
+      {/* GPU-optimized animations with smooth, non-clipping skew */}
       <style>{`
         @keyframes floatSlow {
           0%, 100% { transform: translate3d(0, 0, 0); }
-          50% { transform: translate3d(0, -7px, 0); }
+          50% { transform: translate3d(0, -6px, 0); }
         }
         @keyframes shimmerGlow {
-          0% { transform: translate3d(-150%, 0, 0) rotate(25deg); }
-          30%, 100% { transform: translate3d(200%, 0, 0) rotate(25deg); }
+          0% { transform: translateX(-150%) skewX(-14deg); }
+          30%, 100% { transform: translateX(250%) skewX(-14deg); }
         }
         .anim-float {
           animation: floatSlow 3.2s ease-in-out infinite;
@@ -110,7 +115,7 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
         }
       `}</style>
 
-      {/* Dark/Tint Overlay */}
+      {/* Tint Overlay */}
       {banner.overlayEnabled && (
         <div
           className="absolute inset-0 z-0 pointer-events-none"
@@ -123,10 +128,10 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
 
       {/* Content Layout */}
       <div className="relative z-10 flex-1 flex flex-col px-5 pb-4 pt-3 items-center text-center h-full">
-        {/* Top spacer for the close (X) button */}
+        {/* Spacer for the Close (X) button */}
         <div className="h-5 w-full shrink-0" />
 
-        {/* 1. Header block: Badge, Title, Description & Countdown */}
+        {/* 1. Top Section: Badge, Title & Subtext */}
         <div className="flex flex-col items-center shrink-0 w-full min-w-0 px-2">
           {banner.badge && (
             <span
@@ -144,36 +149,38 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
 
           <h3
             className={`text-2xl sm:text-3xl font-black leading-tight tracking-tight w-full shrink-0 ${
-              showHeroImage ? 'truncate mb-1' : 'whitespace-pre-line mb-2'
+              showHeroImage ? 'truncate mb-1' : 'whitespace-pre-line mb-1.5'
             }`}
             style={{ color: titleColor }}
           >
             {banner.headline}
           </h3>
 
-          {/* Subtext and Live Countdown */}
-          <div className="flex flex-wrap items-center justify-center gap-2 max-w-full">
-            {banner.subtext && (
-              <p
-                className={`text-xs sm:text-sm opacity-90 truncate max-w-[260px]`}
-                style={{ color: descColor }}
-              >
-                {banner.subtext}
-              </p>
-            )}
+          {banner.subtext && (
+            <p
+              className={`text-xs sm:text-sm opacity-90 w-full shrink-0 ${
+                showHeroImage ? 'truncate' : 'whitespace-pre-line max-w-[95%]'
+              }`}
+              style={{ color: descColor }}
+            >
+              {banner.subtext}
+            </p>
+          )}
 
-            {isTimerEnabled && timeLeft && (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/30 backdrop-blur-xs text-white border border-white/10 shadow-xs shrink-0">
-                <Clock size={11} className="text-amber-300 animate-spin" style={{ animationDuration: '8s' }} />
-                <span className="text-[10px] font-mono font-bold tracking-tight">
-                  {timeLeft.hours}h : {timeLeft.minutes}m : {timeLeft.seconds}s
+          {/* Dedicated Countdown Timer row (below description, centered) */}
+          {isTimerEnabled && timeLeft && (
+            <div className="w-full flex justify-center mt-2 shrink-0">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/25 backdrop-blur-xs text-white border border-white/15 shadow-xs">
+                <Clock size={12} className="text-amber-300" />
+                <span className="text-[11px] font-mono font-bold tracking-tight">
+                  Ends in {timeLeft.hours}h : {timeLeft.minutes}m : {timeLeft.seconds}s
                 </span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* 2. Center Image: Fits container width, subtle bobbing animation */}
+        {/* 2. Middle Section: Image (Full width fit, gentle float) */}
         {showHeroImage ? (
           <div className="flex-1 w-full flex items-center justify-center min-h-0 my-2 overflow-hidden">
             <div className={`w-full h-full flex items-center justify-center bg-transparent ${isAnimationEnabled ? 'anim-float' : ''}`}>
@@ -191,7 +198,7 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
           <div className="flex-1 min-h-[14px]" />
         )}
 
-        {/* 3. Bottom Section: Action CTA with Shimmer & Dismiss link */}
+        {/* 3. Bottom Section: CTA Button & Dismiss Link */}
         <div className="w-full shrink-0 space-y-1.5">
           {banner.showCta !== false && banner.cta && (
             <button
@@ -206,24 +213,21 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
                 color: ctaColor,
               }}
             >
-              {/* Shimmer overlay highlight */}
+              {/* Perfectly aligned shimmer sweep */}
               {isAnimationEnabled && (
-                <div
-                  className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none anim-shimmer"
-                />
+                <div className="absolute -inset-y-3 w-1/2 bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none anim-shimmer" />
               )}
               <span className="relative z-10">{banner.cta}</span>
             </button>
           )}
 
-          {/* Secondary thumb-friendly close */}
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onDismiss?.();
             }}
-            className="text-[11px] font-semibold opacity-60 hover:opacity-100 transition-opacity tracking-tight block mx-auto py-1"
+            className="text-[11px] font-semibold opacity-60 hover:opacity-100 transition-opacity tracking-tight block mx-auto py-0.5"
             style={{ color: descColor }}
           >
             No thanks, maybe later

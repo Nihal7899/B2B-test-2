@@ -18,6 +18,7 @@ import {
   Maximize2,
   Clock,
   Sparkles,
+  Calendar,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ActionType, PromoBanner, BannerPosition, BannerSize, BannerBgType, HomeBanner } from '@/types';
@@ -63,18 +64,15 @@ type PositionTab = 'all' | 'top' | 'top_slider' | 'carousel' | 'middle' | 'botto
 function BottomPopupPreviewWrapper({ banner }: { banner: PromoBanner }) {
   return (
     <div className="relative w-full h-[600px] bg-ink-50 overflow-hidden flex flex-col justify-end rounded-2xl border border-ink-200 shadow-inner">
-      {/* Fake app background content to show contrast against the overlay */}
       <div className="absolute inset-0 p-4 space-y-4 opacity-40">
         <div className="w-full h-12 bg-ink-200 rounded-xl" />
         <div className="w-3/4 h-8 bg-ink-200 rounded-lg" />
         <div className="w-full h-32 bg-ink-200 rounded-xl" />
         <div className="w-full h-32 bg-ink-200 rounded-xl" />
       </div>
-      
-      {/* Dark Backdrop Overlay */}
+
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      
-      {/* Bottom Sheet Modal Container */}
+
       <div className="relative w-full h-[45%] min-h-[350px] max-h-[420px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden">
         <div className="flex justify-end p-3 absolute top-0 right-0 z-50">
           <div className="h-8 w-8 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
@@ -82,10 +80,7 @@ function BottomPopupPreviewWrapper({ banner }: { banner: PromoBanner }) {
           </div>
         </div>
 
-        <ModernPopupBanner 
-          banner={banner} 
-          className="w-full h-full rounded-none" 
-        />
+        <ModernPopupBanner banner={banner} className="w-full h-full rounded-none" />
       </div>
     </div>
   );
@@ -100,7 +95,7 @@ export default function BannersManager() {
   const [defaultPositionForNew, setDefaultPositionForNew] = useState<BannerPosition>('middle_1');
   const [previewBanner, setPreviewBanner] = useState<HomeBanner | null>(null);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
-  
+
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     bannerId?: string;
@@ -269,7 +264,10 @@ export default function BannersManager() {
       image: b.image_url || '',
       badge: b.badge ?? undefined,
       actionType: b.action_type,
-      actionConfig: b.action_config,
+      actionConfig: {
+        ...(b.action_config || {}),
+        timerEndDate: (b.action_config as any)?.timerEndDate || b.end_at,
+      },
       position: b.position || 'middle_1',
       size: b.size || 'medium',
       bgType: b.bg_type || 'gradient',
@@ -284,6 +282,7 @@ export default function BannersManager() {
       showCta: b.show_cta !== false,
       displayOrder: b.display_order,
       isActive: b.is_active,
+      ...({ end_at: b.end_at } as any),
     };
   };
 
@@ -422,14 +421,19 @@ export default function BannersManager() {
                         Tint: {banner.overlay_opacity ?? 40}%
                       </span>
                     )}
-                    {banner.position === 'bottom_popup' && banner.action_config?.enableTimer && (
+                    {Boolean(banner.action_config?.enableTimer) && (
                       <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
                         <Clock size={10} /> Timer On
                       </span>
                     )}
-                    {banner.position === 'bottom_popup' && banner.action_config?.enableAnimation !== false && (
+                    {banner.action_config?.enableAnimation !== false && (
                       <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 flex items-center gap-1">
                         <Sparkles size={10} /> Animated
+                      </span>
+                    )}
+                    {banner.end_at && (
+                      <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200 flex items-center gap-1">
+                        <Calendar size={10} /> Ends: {new Date(banner.end_at).toLocaleDateString()}
                       </span>
                     )}
                     <span className="text-[9px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
@@ -621,7 +625,6 @@ function BannerForm({
       setProducts((prods as DbProduct[]) ?? []);
       setSmartCollections((sc as { id: string; name: string }[]) ?? []);
       
-      // Fallback for brands if trusted_brands table is empty
       if (brandData && brandData.length > 0) {
         setBrands(brandData as { id: string; name: string }[]);
       } else {
@@ -678,7 +681,10 @@ function BannerForm({
       image: previewUrl,
       badge: form.badge || undefined,
       actionType: form.action_type,
-      actionConfig: form.action_config,
+      actionConfig: {
+        ...form.action_config,
+        timerEndDate: form.end_at || form.action_config.timerEndDate,
+      },
       position: form.position,
       size: form.size,
       bgType: form.bg_type,
@@ -687,12 +693,13 @@ function BannerForm({
       gradientFrom: form.gradient_from,
       gradientTo: form.gradient_to,
       gradientDirection: form.gradient_direction,
-      overlayEnabled: form.overlay_enabled,
+      overlayEnabled: Boolean(form.overlay_enabled),
       overlayColor: form.overlay_color,
       overlayOpacity: form.overlay_opacity,
       showCta: form.show_cta,
       displayOrder: form.display_order,
       isActive: form.is_active,
+      ...({ end_at: form.end_at } as any),
     };
   }, [form, previewUrl, initial]);
 
@@ -746,13 +753,16 @@ function BannerForm({
         background_color: form.background_color,
         button_text: isTopPromo ? null : form.button_text,
         action_type: form.action_type,
-        action_config: form.action_config,
+        action_config: {
+          ...form.action_config,
+          ...(form.action_config.enableTimer ? { timerEndDate: form.end_at || null } : {}),
+        },
         display_order: form.display_order,
         is_active: form.is_active,
         position: form.position,
         size: isTopPromo ? 'small' : form.size,
-        start_at: form.start_at || null,
-        end_at: form.end_at || null,
+        start_at: form.start_at ? new Date(form.start_at).toISOString() : null,
+        end_at: form.end_at ? new Date(form.end_at).toISOString() : null,
         bg_type: form.bg_type,
         bg_color: form.bg_color,
         bg_gradient: form.bg_gradient,
@@ -837,7 +847,57 @@ function BannerForm({
             </select>
           </div>
 
-          {/* Conditional Popup Features: Timer & Animation Toggles */}
+          {/* Schedule Banner Timing (Available for ALL Banners) */}
+          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
+                <Calendar size={13} className="text-brand-600" /> Schedule Banner Timing (Optional)
+              </label>
+              {(form.start_at || form.end_at) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm((f) => ({ ...f, start_at: '', end_at: '' }));
+                    setActionConfig('timerEndDate', '');
+                  }}
+                  className="text-[10px] font-bold text-red-500 hover:text-red-700"
+                >
+                  Clear Schedule
+                </button>
+              )}
+            </div>
+            <p className="text-[10px] text-ink-500">
+              Set when this banner should start and finish showing. If the countdown timer is turned on for the popup, it will countdown directly to the End Date.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-600 mb-1">Start Date & Time (From)</label>
+                <input
+                  type="datetime-local"
+                  value={form.start_at ? form.start_at.slice(0, 16) : ''}
+                  onChange={(e) => setForm({ ...form, start_at: e.target.value })}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white outline-none focus:border-brand-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-600 mb-1">End Date & Time (To)</label>
+                <input
+                  type="datetime-local"
+                  value={form.end_at ? form.end_at.slice(0, 16) : ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm({ ...form, end_at: val });
+                    if (form.action_config.enableTimer) {
+                      setActionConfig('timerEndDate', val);
+                    }
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white outline-none focus:border-brand-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Popup-specific Feature Toggles (Timer and Animation) */}
           {isBottomPopup && (
             <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-2xl space-y-3">
               <p className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
@@ -849,21 +909,29 @@ function BannerForm({
                   <input
                     type="checkbox"
                     checked={Boolean(form.action_config.enableTimer)}
-                    onChange={(e) => setActionConfig('enableTimer', e.target.checked)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setActionConfig('enableTimer', checked);
+                      if (checked && form.end_at) {
+                        setActionConfig('timerEndDate', form.end_at);
+                      }
+                    }}
                     className="accent-brand-600 rounded h-4 w-4"
                   />
                   Enable Live Countdown Timer
                 </label>
 
                 {Boolean(form.action_config.enableTimer) && (
-                  <div className="pl-6 pt-1 space-y-1">
-                    <label className="block text-[11px] font-semibold text-ink-600">Countdown Target Date & Time</label>
-                    <input
-                      type="datetime-local"
-                      value={(form.action_config.timerEndDate as string) || ''}
-                      onChange={(e) => setActionConfig('timerEndDate', e.target.value)}
-                      className="w-full h-9 rounded-xl border border-ink-200 px-3 text-xs bg-white outline-none focus:border-brand-500"
-                    />
+                  <div className="pl-6 pt-0.5">
+                    {form.end_at ? (
+                      <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                        ✓ Countdown will tick down to the scheduled <b>End Date & Time (To)</b> set above.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-red-600 font-bold flex items-center gap-1">
+                        ⚠️ Please select an <b>End Date & Time (To)</b> in the Schedule section above so the countdown knows when to finish.
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -956,7 +1024,7 @@ function BannerForm({
               <input
                 value={form.badge}
                 onChange={(e) => setForm({ ...form, badge: e.target.value })}
-                placeholder="e.g. WHOLESALE"
+                placeholder="e.g. 20% OFF"
                 className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
               />
             </div>
@@ -979,7 +1047,6 @@ function BannerForm({
               <Palette size={13} className="text-brand-600" /> Typography & Element Colors
             </p>
 
-            {/* Headline & Description Colors */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-semibold text-ink-700 mb-1">Headline Color</label>
@@ -1391,7 +1458,7 @@ function BannerForm({
               </select>
             </div>
 
-            {/* 1. Category Selection for VIEW_CATEGORY */}
+            {/* 1. Category Selection */}
             {needsCategory && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Select Category</label>
@@ -1414,7 +1481,7 @@ function BannerForm({
               </div>
             )}
 
-            {/* 2. Brand Selection for VIEW_BRAND */}
+            {/* 2. Brand Selection */}
             {needsBrand && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Select Brand</label>
@@ -1437,7 +1504,7 @@ function BannerForm({
               </div>
             )}
 
-            {/* 3. Store Selection for OPEN_STORE */}
+            {/* 3. Store Selection */}
             {needsStore && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Select Store</label>
@@ -1452,7 +1519,7 @@ function BannerForm({
                 >
                   <option value="">Select store to open</option>
                   {stores.map((s) => (
-                    <option key={s.id} value={s.name ? s.name : s.id}>
+                    <option key={s.id} value={s.id}>
                       {s.name}
                     </option>
                   ))}
@@ -1460,7 +1527,7 @@ function BannerForm({
               </div>
             )}
 
-            {/* 4. Product Selection for VIEW_PRODUCT */}
+            {/* 4. Product Selection */}
             {needsProduct && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Select Product</label>
@@ -1483,7 +1550,7 @@ function BannerForm({
               </div>
             )}
 
-            {/* 5. Screen Selection for OPEN_SCREEN */}
+            {/* 5. Screen Selection */}
             {needsScreen && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Select Screen</label>
@@ -1505,7 +1572,7 @@ function BannerForm({
               </div>
             )}
 
-            {/* 6. External URL for OPEN_EXTERNAL_URL */}
+            {/* 6. External URL */}
             {needsUrl && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">External URL</label>
@@ -1518,7 +1585,7 @@ function BannerForm({
               </div>
             )}
 
-            {/* 7. Search Query for SEARCH / VIEW_OFFER */}
+            {/* 7. Search Query */}
             {needsSearch && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Search Query</label>
@@ -1635,23 +1702,6 @@ function BannerForm({
           </div>
 
           <div className="max-w-md w-full mx-auto space-y-3">
-            <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft border border-ink-100">
-              <h3 className="text-xs font-bold text-ink-900">
-                Live Preview (
-                {form.position === 'top_slider'
-                  ? `Top Slider (${previewBannerObject.size?.toUpperCase() || 'MEDIUM'})`
-                  : form.position === 'top'
-                  ? 'Top Promo Ad'
-                  : form.position === 'bottom_popup'
-                  ? 'Bottom Popup'
-                  : previewBannerObject.size?.toUpperCase() || 'MEDIUM'}
-                )
-              </h3>
-              <span className="text-[10px] font-mono font-bold bg-ink-100 text-ink-600 px-2 py-0.5 rounded-full">
-                {form.position}
-              </span>
-            </div>
-
             <div className="w-full">
               {form.position === 'top_slider' ? (
                 <TopPromoSlider banners={[previewBannerObject]} className="mx-0 w-full" />
@@ -1664,10 +1714,6 @@ function BannerForm({
               )}
             </div>
           </div>
-
-          <p className="text-[10px] text-ink-500 text-center leading-relaxed">
-            Displays banner precisely as rendered on mobile devices with full edge-to-edge stretch.
-          </p>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-ink-200/80">
             <button
@@ -1697,30 +1743,12 @@ function BannerForm({
         >
           <div className="max-w-md w-full space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft">
-              <h3 className="text-sm font-bold text-ink-900">
-                Live Preview (
-                {form.position === 'top_slider'
-                  ? `Top Slider (${previewBannerObject.size?.toUpperCase() || 'MEDIUM'})`
-                  : form.position === 'top'
-                  ? 'Top Promo Ad'
-                  : form.position === 'bottom_popup'
-                  ? 'Bottom Popup'
-                  : previewBannerObject.size?.toUpperCase() || 'MEDIUM'}
-                )
-              </h3>
+              <h3 className="text-sm font-bold text-ink-900">Live Preview (Bottom Popup)</h3>
               <button onClick={() => setIsModalPreviewOpen(false)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
               </button>
             </div>
-            {form.position === 'top_slider' ? (
-              <TopPromoSlider banners={[previewBannerObject]} className="mx-0 w-full" />
-            ) : form.position === 'top' ? (
-              <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
-            ) : form.position === 'bottom_popup' ? (
-              <BottomPopupPreviewWrapper banner={previewBannerObject} />
-            ) : (
-              <PromoBannerCard banner={previewBannerObject} className="w-full" />
-            )}
+            <BottomPopupPreviewWrapper banner={previewBannerObject} />
           </div>
         </div>
       )}

@@ -16,6 +16,8 @@ import {
   LayoutTemplate,
   Palette,
   Maximize2,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ActionType, PromoBanner, BannerPosition, BannerSize, BannerBgType, HomeBanner } from '@/types';
@@ -72,7 +74,7 @@ function BottomPopupPreviewWrapper({ banner }: { banner: PromoBanner }) {
       {/* Dark Backdrop Overlay */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       
-      {/* Bottom Sheet Modal - Increased height and min-height to match reality */}
+      {/* Bottom Sheet Modal Container */}
       <div className="relative w-full h-[45%] min-h-[350px] max-h-[420px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden">
         <div className="flex justify-end p-3 absolute top-0 right-0 z-50">
           <div className="h-8 w-8 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
@@ -420,6 +422,16 @@ export default function BannersManager() {
                         Tint: {banner.overlay_opacity ?? 40}%
                       </span>
                     )}
+                    {banner.position === 'bottom_popup' && banner.action_config?.enableTimer && (
+                      <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                        <Clock size={10} /> Timer On
+                      </span>
+                    )}
+                    {banner.position === 'bottom_popup' && banner.action_config?.enableAnimation !== false && (
+                      <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 flex items-center gap-1">
+                        <Sparkles size={10} /> Animated
+                      </span>
+                    )}
                     <span className="text-[9px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
                       Order: {banner.display_order}
                     </span>
@@ -609,6 +621,7 @@ function BannerForm({
       setProducts((prods as DbProduct[]) ?? []);
       setSmartCollections((sc as { id: string; name: string }[]) ?? []);
       
+      // Fallback for brands if trusted_brands table is empty
       if (brandData && brandData.length > 0) {
         setBrands(brandData as { id: string; name: string }[]);
       } else {
@@ -643,6 +656,7 @@ function BannerForm({
   };
 
   const isTopPromo = form.position === 'top';
+  const isBottomPopup = form.position === 'bottom_popup';
   const showCtaControls = !isTopPromo && form.show_cta;
 
   const needsCategory = form.action_type === 'VIEW_CATEGORY';
@@ -822,6 +836,49 @@ function BannerForm({
               <option value="bottom_popup">Bottom Popup (30-40% Screen)</option>
             </select>
           </div>
+
+          {/* Conditional Popup Features: Timer & Animation Toggles */}
+          {isBottomPopup && (
+            <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-2xl space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                <Sparkles size={13} className="text-amber-600" /> Popup Enhancements
+              </p>
+
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-xs font-bold text-ink-800 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.action_config.enableTimer)}
+                    onChange={(e) => setActionConfig('enableTimer', e.target.checked)}
+                    className="accent-brand-600 rounded h-4 w-4"
+                  />
+                  Enable Live Countdown Timer
+                </label>
+
+                {Boolean(form.action_config.enableTimer) && (
+                  <div className="pl-6 pt-1 space-y-1">
+                    <label className="block text-[11px] font-semibold text-ink-600">Countdown Target Date & Time</label>
+                    <input
+                      type="datetime-local"
+                      value={(form.action_config.timerEndDate as string) || ''}
+                      onChange={(e) => setActionConfig('timerEndDate', e.target.value)}
+                      className="w-full h-9 rounded-xl border border-ink-200 px-3 text-xs bg-white outline-none focus:border-brand-500"
+                    />
+                  </div>
+                )}
+
+                <label className="flex items-center gap-2 text-xs font-bold text-ink-800 cursor-pointer select-none border-t border-amber-200/50 pt-2.5">
+                  <input
+                    type="checkbox"
+                    checked={form.action_config.enableAnimation !== false}
+                    onChange={(e) => setActionConfig('enableAnimation', e.target.checked)}
+                    className="accent-brand-600 rounded h-4 w-4"
+                  />
+                  Enable Micro-Animations (Floating Image & Button Shimmer)
+                </label>
+              </div>
+            </div>
+          )}
 
           {/* Headline Title */}
           <div>
@@ -1213,7 +1270,7 @@ function BannerForm({
             <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-ink-700">
-                  {form.bg_type === 'image' ? 'Background Image *' : 'Side Image'}
+                  {form.bg_type === 'image' ? 'Background Image *' : 'Center / Side Image'}
                 </label>
                 {previewUrl && (
                   <button
@@ -1395,7 +1452,7 @@ function BannerForm({
                 >
                   <option value="">Select store to open</option>
                   {stores.map((s) => (
-                    <option key={s.id} value={s.id}>
+                    <option key={s.id} value={s.name ? s.name : s.id}>
                       {s.name}
                     </option>
                   ))}

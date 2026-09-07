@@ -674,6 +674,7 @@ export function HomeScreen({
                 dismissPopup();
                 onBannerAction?.(banner);
               }}
+              onDismiss={dismissPopup}
             />
           </div>
         </div>

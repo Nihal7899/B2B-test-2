@@ -128,18 +128,18 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
 
       {/* Content Layout */}
       <div className="relative z-10 flex-1 flex flex-col px-5 pb-4 pt-3 items-center text-center h-full">
-        {/* Spacer for the Close (X) button (increased slightly to prevent timer overlap) */}
+        {/* Spacer for the Close (X) button */}
         <div className="h-7 w-full shrink-0" />
 
         {/* 1. Header block: Badge, Title, Description & Countdown */}
         <div className={`flex flex-col shrink-0 w-full min-w-0 px-1 ${isTimerEnabled && timeLeft ? 'items-start text-left' : 'items-center text-center'}`}>
           
-          {/* Top Row: Badge & Timer (Side by Side) or just Centered Badge */}
+          {/* Top Row: Badge & Timer (Side by Side) */}
           {isTimerEnabled && timeLeft ? (
-            <div className="flex items-center justify-between w-full mb-2.5">
+            <div className="flex items-center justify-between w-full mb-2.5 gap-2">
               {banner.badge ? (
                 <span
-                  className={`inline-block text-[11px] font-black tracking-widest uppercase px-3 py-1 rounded-full shadow-sm shrink-0 ${
+                  className={`inline-block text-[11px] font-black tracking-widest uppercase px-3 py-1 rounded-full shadow-sm shrink-0 truncate max-w-[50%] ${
                     isAnimationEnabled ? 'animate-pulse' : ''
                   }`}
                   style={{
@@ -153,11 +153,11 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
                 <div /> // Pushes timer to the right if no badge is present
               )}
 
-              {/* Timer on the Top Right */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/25 backdrop-blur-xs text-white border border-white/15 shadow-xs shrink-0">
-                <Clock size={12} className="text-amber-300" />
-                <span className="text-[11px] font-mono font-bold tracking-tight">
-                  Ends in {timeLeft.hours}h : {timeLeft.minutes}m : {timeLeft.seconds}s
+              {/* Timer Pill - Tightened spacing, padding, and font size */}
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/25 backdrop-blur-xs text-white border border-white/15 shadow-xs shrink-0">
+                <Clock size={10} className="text-amber-300 shrink-0" />
+                <span className="text-[10px] font-mono font-bold tracking-tighter whitespace-nowrap">
+                  Ends in {timeLeft.hours}h:{timeLeft.minutes}m:{timeLeft.seconds}s
                 </span>
               </div>
             </div>

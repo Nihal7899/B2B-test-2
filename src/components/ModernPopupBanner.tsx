@@ -107,11 +107,11 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
           )}
         </div>
 
-        {/* 2. Middle Section: Increased Flexible Square Image Container */}
+        {/* 2. Middle Section: Full-Width Flexible Image Container */}
         {showHeroImage ? (
           <div className="flex-1 w-full flex items-center justify-center min-h-0 my-3 overflow-hidden">
-            {/* Increased max-h from 140px up to 240px/280px to make it huge but contained */}
-            <div className="h-full max-h-[240px] sm:max-h-[280px] aspect-square flex items-center justify-center bg-transparent">
+            {/* Removed aspect-square and fixed heights. Let it expand completely to w-full */}
+            <div className="w-full h-full flex items-center justify-center bg-transparent">
               <img
                 src={banner.image}
                 alt={banner.headline}

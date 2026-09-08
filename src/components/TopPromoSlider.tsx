@@ -1,5 +1,134 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { PromoBanner, BannerSize } from '@/types';
+import { CachedImage } from '@/components/CachedImage';
+import { useCachedImage } from '@/lib/imageCache';
+
+// Sub-component to safely utilize the hook inside a map loop
+const TopPromoSlide = React.memo(function TopPromoSlide({
+  banner,
+  isActive,
+  sizeConfig,
+  onAction,
+}: {
+  banner: PromoBanner;
+  isActive: boolean;
+  sizeConfig: any;
+  onAction?: (banner: PromoBanner) => void;
+}) {
+  const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
+  const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
+  const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
+  const badgeBg = (banner.actionConfig?.badgeBg as string) || '';
+  const badgeColor = (banner.actionConfig?.badgeColor as string) || '#ffffff';
+  const ctaBg = (banner.actionConfig?.ctaBg as string) || '#ffffff';
+  const ctaColor = (banner.actionConfig?.ctaColor as string) || '#0f172a';
+
+  const cachedBgUrl = useCachedImage(banner?.bgType === 'image' ? banner?.image : undefined);
+
+  const { computedBgStyle, tailwindBgClass } = useMemo(() => {
+    let computedBgStyle: React.CSSProperties = {};
+    let tailwindBgClass = '';
+
+    if (banner.bgType === 'image') {
+      computedBgStyle = {
+        backgroundImage: cachedBgUrl ? `url(${cachedBgUrl})` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      };
+    } else if (banner.bgType === 'color') {
+      computedBgStyle = { backgroundColor: banner.bgColor || '#16a34a' };
+    } else if (banner.bgType === 'gradient') {
+      if (banner.gradientFrom && banner.gradientTo) {
+        const direction = banner.gradientDirection || 'to right';
+        computedBgStyle = {
+          background: `linear-gradient(${direction}, ${banner.gradientFrom}, ${banner.gradientTo})`,
+        };
+      } else if (banner.bgGradient?.includes('linear-gradient') || banner.bgGradient?.includes('#')) {
+        computedBgStyle = { background: banner.bgGradient };
+      } else {
+        tailwindBgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
+      }
+    } else {
+      tailwindBgClass = banner.bgClass || 'bg-gradient-to-r from-brand-600 to-brand-800';
+    }
+
+    return { computedBgStyle, tailwindBgClass };
+  }, [banner, cachedBgUrl]);
+
+  const overlayStyle: React.CSSProperties = {
+    backgroundColor: banner.overlayColor || '#000000',
+    opacity: (banner.overlayOpacity ?? 40) / 100,
+  };
+
+  return (
+    <div
+      onClick={() => isActive && onAction?.(banner)}
+      className={`absolute inset-0 flex transition-opacity duration-300 ease-in-out cursor-pointer ${
+        isActive
+          ? 'opacity-100 z-20 pointer-events-auto'
+          : 'opacity-0 z-10 pointer-events-none'
+      } ${tailwindBgClass}`}
+    >
+      <div className="absolute inset-0 z-0 transition-opacity duration-300" style={computedBgStyle} />
+
+      <div className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}>
+        <div className="flex-1 overflow-hidden">
+          {banner.badge && (
+            <span
+              className={`inline-block font-bold tracking-wider uppercase rounded-full ${sizeConfig.badge}`}
+              style={{
+                backgroundColor: badgeBg || 'rgba(0, 0, 0, 0.35)',
+                color: badgeColor,
+              }}
+            >
+              {banner.badge}
+            </span>
+          )}
+          <h3 className={`whitespace-pre-line ${sizeConfig.headline}`} style={{ color: titleColor }}>
+            {banner.headline}
+          </h3>
+          {banner.subtext && (
+            <p className={`whitespace-pre-line ${sizeConfig.subtext}`} style={{ color: descColor }}>
+              {banner.subtext}
+            </p>
+          )}
+        </div>
+
+        {banner.showCta !== false && banner.cta && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isActive) onAction?.(banner);
+            }}
+            className={`flex-shrink-0 self-start font-bold rounded-xl active:scale-95 transition-transform ${sizeConfig.cta}`}
+            style={{
+              backgroundColor: ctaBg,
+              color: ctaColor,
+            }}
+          >
+            {banner.cta}
+          </button>
+        )}
+      </div>
+
+      {showImage && (
+        <div className={`relative z-10 shrink-0 h-full ${sizeConfig.imageWidth}`}>
+          <CachedImage
+            src={banner.image}
+            alt={banner.headline}
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
+        </div>
+      )}
+
+      {banner.overlayEnabled && (
+        <div className="absolute inset-0 z-20 pointer-events-none" style={overlayStyle} />
+      )}
+    </div>
+  );
+});
 
 interface TopPromoSliderProps {
   banners: PromoBanner[];
@@ -76,121 +205,15 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
     <div
       className={`relative overflow-hidden rounded-2xl shadow-sm select-none transform-gpu ${sizeConfig.container} ${className}`}
     >
-      {banners.map((banner, index) => {
-        const isActive = index === currentIndex;
-        const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
-
-        const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
-        const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
-        const badgeBg = (banner.actionConfig?.badgeBg as string) || '';
-        const badgeColor = (banner.actionConfig?.badgeColor as string) || '#ffffff';
-        const ctaBg = (banner.actionConfig?.ctaBg as string) || '#ffffff';
-        const ctaColor = (banner.actionConfig?.ctaColor as string) || '#0f172a';
-
-        let computedBgStyle: React.CSSProperties = {};
-        let tailwindBgClass = '';
-
-        if (banner.bgType === 'image') {
-          computedBgStyle = {
-            backgroundImage: `url(${banner.image})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          };
-        } else if (banner.bgType === 'color') {
-          computedBgStyle = { backgroundColor: banner.bgColor || '#16a34a' };
-        } else if (banner.bgType === 'gradient') {
-          if (banner.gradientFrom && banner.gradientTo) {
-            const direction = banner.gradientDirection || 'to right';
-            computedBgStyle = {
-              background: `linear-gradient(${direction}, ${banner.gradientFrom}, ${banner.gradientTo})`,
-            };
-          } else if (banner.bgGradient?.includes('linear-gradient') || banner.bgGradient?.includes('#')) {
-            computedBgStyle = { background: banner.bgGradient };
-          } else {
-            tailwindBgClass = `bg-gradient-to-r ${banner.bgGradient || 'from-brand-600 to-brand-800'}`;
-          }
-        } else {
-          tailwindBgClass = banner.bgClass || 'bg-gradient-to-r from-brand-600 to-brand-800';
-        }
-
-        const overlayStyle: React.CSSProperties = {
-          backgroundColor: banner.overlayColor || '#000000',
-          opacity: (banner.overlayOpacity ?? 40) / 100,
-        };
-
-        return (
-          <div
-            key={banner.id || index}
-            onClick={() => isActive && onAction?.(banner)}
-            className={`absolute inset-0 flex transition-opacity duration-300 ease-in-out cursor-pointer ${
-              isActive
-                ? 'opacity-100 z-20 pointer-events-auto'
-                : 'opacity-0 z-10 pointer-events-none'
-            } ${tailwindBgClass}`}
-          >
-            <div className="absolute inset-0 z-0" style={computedBgStyle} />
-
-            <div className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}>
-              <div className="flex-1 overflow-hidden">
-                {banner.badge && (
-                  <span
-                    className={`inline-block font-bold tracking-wider uppercase rounded-full ${sizeConfig.badge}`}
-                    style={{
-                      backgroundColor: badgeBg || 'rgba(0, 0, 0, 0.35)',
-                      color: badgeColor,
-                    }}
-                  >
-                    {banner.badge}
-                  </span>
-                )}
-                <h3 className={`whitespace-pre-line ${sizeConfig.headline}`} style={{ color: titleColor }}>
-                  {banner.headline}
-                </h3>
-                {banner.subtext && (
-                  <p className={`whitespace-pre-line ${sizeConfig.subtext}`} style={{ color: descColor }}>
-                    {banner.subtext}
-                  </p>
-                )}
-              </div>
-
-              {banner.showCta !== false && banner.cta && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (isActive) onAction?.(banner);
-                  }}
-                  className={`flex-shrink-0 self-start font-bold rounded-xl active:scale-95 transition-transform ${sizeConfig.cta}`}
-                  style={{
-                    backgroundColor: ctaBg,
-                    color: ctaColor,
-                  }}
-                >
-                  {banner.cta}
-                </button>
-              )}
-            </div>
-
-            {showImage && (
-              <div className={`relative z-10 shrink-0 h-full ${sizeConfig.imageWidth}`}>
-                <img
-                  src={banner.image}
-                  alt={banner.headline}
-                  decoding="async"
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
-
-            {banner.overlayEnabled && (
-              <div className="absolute inset-0 z-20 pointer-events-none" style={overlayStyle} />
-            )}
-          </div>
-        );
-      })}
+      {banners.map((banner, index) => (
+        <TopPromoSlide
+          key={banner.id || index}
+          banner={banner}
+          isActive={index === currentIndex}
+          sizeConfig={sizeConfig}
+          onAction={onAction}
+        />
+      ))}
 
       {banners.length > 1 && (
         <div className="absolute bottom-2.5 right-3 z-40 flex items-center gap-1.5 bg-black/50 px-2 py-1 rounded-full pointer-events-none">

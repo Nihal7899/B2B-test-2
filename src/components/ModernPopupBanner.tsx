@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
 import type { PromoBanner } from '@/types';
 import { CachedImage } from '@/components/CachedImage';
+import { useCachedImage } from '@/lib/imageCache';
 
 interface ModernPopupBannerProps {
   banner: PromoBanner;
@@ -27,6 +28,8 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
   const isAnimationEnabled = banner.actionConfig?.enableAnimation !== false;
 
   const showHeroImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
+
+  const cachedBgUrl = useCachedImage(banner?.bgType === 'image' ? banner?.image : undefined);
 
   const [timeLeft, setTimeLeft] = useState<{ hours: string; minutes: string; seconds: string } | null>(null);
 
@@ -68,7 +71,7 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
 
     if (banner.bgType === 'image') {
       style = {
-        backgroundImage: `url(${banner.image})`,
+        backgroundImage: cachedBgUrl ? `url(${cachedBgUrl})` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       };
@@ -84,13 +87,13 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
       }
     }
     return { computedBgStyle: style, tailwindBgClass: classes };
-  }, [banner]);
+  }, [banner, cachedBgUrl]);
 
   if (!banner) return null;
 
   return (
     <div
-      className={`relative w-full h-full flex flex-col overflow-hidden ${tailwindBgClass} ${className}`}
+      className={`relative w-full h-full flex flex-col overflow-hidden transition-all duration-300 ${tailwindBgClass} ${className}`}
       style={computedBgStyle}
     >
       <style>{`
@@ -122,12 +125,9 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
         />
       )}
 
-      {/* Reduced padding to push content UP */}
       <div className="relative z-10 flex-1 flex flex-col px-5 pb-3 pt-2 items-center text-center h-full">
-        {/* Shorter top spacer */}
         <div className="h-6 w-full shrink-0" />
 
-        {/* 1. Header block */}
         <div className={`flex flex-col shrink-0 w-full min-w-0 px-1 ${isTimerEnabled && timeLeft ? 'items-start text-left' : 'items-center text-center'}`}>
           
           {isTimerEnabled && timeLeft ? (
@@ -186,7 +186,6 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
           )}
         </div>
 
-        {/* 2. Middle Section: Fixed Rectangular Image Container */}
         {showHeroImage ? (
           <div className="flex-1 w-full flex items-center justify-center min-h-[160px] max-h-[300px] mt-3 mb-2 overflow-hidden shrink border border-transparent">
             <div className={`w-full h-full flex items-center justify-center bg-transparent ${isAnimationEnabled ? 'anim-float' : ''}`}>
@@ -194,7 +193,6 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
                 src={banner.image}
                 alt={banner.headline}
                 className="w-full h-full object-contain drop-shadow-xl"
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
             </div>
           </div>
@@ -202,7 +200,6 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
           <div className="flex-1 min-h-[10px]" />
         )}
 
-        {/* 3. Bottom Section: Action CTA with Shimmer & Dismiss link (Tightened up) */}
         <div className="w-full shrink-0 space-y-1">
           {banner.showCta !== false && banner.cta && (
             <button

@@ -213,7 +213,6 @@ function App() {
       return;
     }
 
-    // Explicit Cache Warm-up & Boot Sequence
     const bootAndWarmUpCache = async () => {
       try {
         await getOrFetchHomeData(false);

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 
@@ -102,7 +103,6 @@ export const getCachedImage = async (url: string): Promise<string> => {
         return webUrl;
       }
     } catch (e) {
-      // Fallback to network URL if fetch/CORS fails
       return url;
     }
   })();
@@ -114,3 +114,33 @@ export const getCachedImage = async (url: string): Promise<string> => {
     pendingRequests.delete(url);
   }
 };
+
+// Safely resolves the cached URL without leaking the raw network URL on initial mount
+export function useCachedImage(url: string | undefined | null): string | undefined {
+  const [cached, setCached] = useState<string | undefined>(() => {
+    if (!url) return undefined;
+    return memoryImageCache.get(url);
+  });
+
+  useEffect(() => {
+    if (!url) {
+      setCached(undefined);
+      return;
+    }
+
+    let isMounted = true;
+    
+    if (memoryImageCache.has(url)) {
+      setCached(memoryImageCache.get(url));
+      return;
+    }
+
+    getCachedImage(url).then((resolvedUrl) => {
+      if (isMounted) setCached(resolvedUrl);
+    });
+
+    return () => { isMounted = false; };
+  }, [url]);
+
+  return cached;
+}

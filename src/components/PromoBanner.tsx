@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useEffect, useCallback } from 'react';
 import type { PromoBanner, BannerSize } from '@/types';
 import { CachedImage } from '@/components/CachedImage';
+import { useCachedImage } from '@/lib/imageCache';
 
 interface PromoBannerCardProps {
   banner: PromoBanner;
@@ -25,6 +26,8 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
   const ctaBg = (banner?.actionConfig?.ctaBg as string) || '#ffffff';
   const ctaColor = (banner?.actionConfig?.ctaColor as string) || '#0f172a';
 
+  const cachedBgUrl = useCachedImage(banner?.bgType === 'image' ? banner?.image : undefined);
+
   const { computedBgStyle, tailwindBgClass } = useMemo(() => {
     let computedBgStyle: React.CSSProperties = {};
     let tailwindBgClass = '';
@@ -33,7 +36,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
 
     if (banner.bgType === 'image') {
       computedBgStyle = {
-        backgroundImage: `url(${banner.image})`,
+        backgroundImage: cachedBgUrl ? `url(${cachedBgUrl})` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       };
@@ -55,7 +58,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
     }
 
     return { computedBgStyle, tailwindBgClass };
-  }, [banner]);
+  }, [banner, cachedBgUrl]);
 
   const overlayStyle: React.CSSProperties = {
     backgroundColor: banner?.overlayColor || '#000000',
@@ -104,7 +107,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
     <div
       className={`relative overflow-hidden rounded-2xl flex shadow-soft transform-gpu ${sizeConfig.container} ${tailwindBgClass} ${className}`}
     >
-      <div className="absolute inset-0 z-0" style={computedBgStyle} />
+      <div className="absolute inset-0 z-0 transition-opacity duration-300" style={computedBgStyle} />
 
       <div
         className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}
@@ -156,9 +159,6 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
             alt={banner.headline}
             decoding="async"
             className="h-full w-full object-cover"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
           />
         </div>
       )}
@@ -184,7 +184,6 @@ export const PromoCarousel = React.memo(function PromoCarousel({
   const isLoopable = safeBanners.length > 1;
   const isResetting = useRef(false);
 
-  // Triple the array to create a seamless infinite loop in both scroll directions
   const displayBanners = useMemo(() => {
     return isLoopable ? [...safeBanners, ...safeBanners, ...safeBanners] : safeBanners;
   }, [safeBanners, isLoopable]);
@@ -199,7 +198,6 @@ export const PromoCarousel = React.memo(function PromoCarousel({
     el.scrollLeft = targetLeft;
   }, []);
 
-  // Position at the middle set on initial render
   useEffect(() => {
     if (!isLoopable || safeBanners.length === 0) return;
     const timer = setTimeout(() => {
@@ -209,7 +207,6 @@ export const PromoCarousel = React.memo(function PromoCarousel({
     return () => clearTimeout(timer);
   }, [isLoopable, safeBanners.length, centerCardByIndex]);
 
-  // Seamless jump between sets after scrolling finishes to prevent stutter during motion
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !isLoopable || safeBanners.length === 0) return;

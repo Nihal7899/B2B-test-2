@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { Product } from '@/types';
+import { CachedImage } from '@/components/CachedImage';
 
 export interface ThemeProps {
   primaryColor?: string;
@@ -116,7 +117,7 @@ export const ProductCard = React.memo(function ProductCard({
     >
       <div className="relative flex h-[135px] w-full items-center justify-center overflow-hidden bg-slate-50">
         {product.image ? (
-          <img
+          <CachedImage
             src={product.image}
             alt={product.name}
             decoding="async"

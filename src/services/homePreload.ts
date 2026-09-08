@@ -18,6 +18,7 @@ import {
 } from '@/services/catalog';
 import { supabase } from '@/lib/supabase';
 import type { Category, Product, PromoBanner, Store, TrustedBrand, HomeSection } from '@/types';
+import { getCachedImage } from '@/lib/imageCache';
 
 export interface PreloadedHomeData {
   address: DbAddress | null;
@@ -63,30 +64,6 @@ export function getHomeDataSync(): PreloadedHomeData | null {
   return null;
 }
 
-export function preloadImage(url: string): Promise<void> {
-  if (!url || typeof url !== 'string' || !url.trim()) return Promise.resolve();
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = url;
-    if (img.complete) {
-      if ('decode' in img) {
-        img.decode().then(resolve).catch(resolve);
-      } else {
-        resolve();
-      }
-    } else {
-      img.onload = () => {
-        if ('decode' in img) {
-          img.decode().then(resolve).catch(resolve);
-        } else {
-          resolve();
-        }
-      };
-      img.onerror = () => resolve();
-    }
-  });
-}
-
 export async function preloadImages(urls: string[], timeoutMs = 4000): Promise<void> {
   if (!Array.isArray(urls)) return;
   const validUrls = Array.from(
@@ -95,7 +72,7 @@ export async function preloadImages(urls: string[], timeoutMs = 4000): Promise<v
   if (validUrls.length === 0) return;
 
   await Promise.race([
-    Promise.allSettled(validUrls.map((url) => preloadImage(url))),
+    Promise.allSettled(validUrls.map((url) => getCachedImage(url))),
     new Promise((resolve) => setTimeout(resolve, timeoutMs)),
   ]);
 }

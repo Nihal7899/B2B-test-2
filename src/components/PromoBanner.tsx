@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useEffect, useCallback } from 'react';
 import type { PromoBanner, BannerSize } from '@/types';
+import { CachedImage } from '@/components/CachedImage';
 
 interface PromoBannerCardProps {
   banner: PromoBanner;
@@ -150,7 +151,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
 
       {showImage && (
         <div className={`relative z-10 shrink-0 h-full ${sizeConfig.imageWidth}`}>
-          <img
+          <CachedImage
             src={banner.image}
             alt={banner.headline}
             decoding="async"

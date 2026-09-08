@@ -213,13 +213,20 @@ function App() {
       return;
     }
 
-    getOrFetchHomeData(false)
-      .then(() => {
-        if (active) setIsHomeReady(true);
-      })
-      .catch(() => {
-        if (active) setIsHomeReady(true);
-      });
+    // Explicit Cache Warm-up & Boot Sequence
+    const bootAndWarmUpCache = async () => {
+      try {
+        await getOrFetchHomeData(false);
+      } catch (error) {
+        console.warn('Cache warmup interrupted:', error);
+      } finally {
+        if (active) {
+          setIsHomeReady(true);
+        }
+      }
+    };
+
+    bootAndWarmUpCache();
 
     return () => {
       active = false;
@@ -235,7 +242,6 @@ function App() {
   const isWarehouseManager = role === 'warehouse_manager';
   const isDedicatedStaff = isDeliveryPartner || isWarehouseManager;
 
-  // Extract ?tab parameter for delivery fleet screen
   const deliveryTab = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
     const tab = searchParams.get('tab');
@@ -245,7 +251,6 @@ function App() {
     return 'dashboard';
   }, [location.search]);
 
-  // Unified Notification & Deep Link Navigation Handler
   const handlePushNavigation = useCallback(
     (data: any) => {
       if (!data) return;
@@ -255,13 +260,11 @@ function App() {
       const targetOrderId = data.order_id || data.orderId;
       const actionId = data.actionId;
 
-      // 1. Delivery fleet CTA routing
       if (targetTab === 'pending' || targetScreen === 'delivery' || actionId === 'view_pending') {
         navigate('/delivery?tab=pending');
         return;
       }
 
-      // 2. Customer Order CTA routing
       if (targetScreen === 'orderDetail' || actionId === 'view_order') {
         if (targetOrderId) {
           navigate(`/order?id=${targetOrderId}`);
@@ -271,7 +274,6 @@ function App() {
         return;
       }
 
-      // 3. Fallback explicit URL path
       if (data.url) {
         navigate(data.url);
       }
@@ -279,9 +281,7 @@ function App() {
     [navigate]
   );
 
-  // Setup Cold-Start and Runtime Push Click Listeners
   useEffect(() => {
-    // Check if the app was launched cold from a notification click
     const coldData = getPendingPushData();
     if (coldData) {
       setTimeout(() => {
@@ -289,7 +289,6 @@ function App() {
       }, 350);
     }
 
-    // Native Capacitor App Links / URL schemes
     let urlListener: Promise<{ remove: () => void }> | null = null;
     if (Capacitor.isNativePlatform()) {
       urlListener = CapApp.addListener('appUrlOpen', ({ url }) => {
@@ -311,7 +310,6 @@ function App() {
       });
     }
 
-    // Runtime custom event listener dispatched from push.ts
     const onPushClick = (event: CustomEvent) => {
       handlePushNavigation(event.detail);
     };

@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
 import type { PromoBanner } from '@/types';
+import { CachedImage } from '@/components/CachedImage';
 
 interface ModernPopupBannerProps {
   banner: PromoBanner;
@@ -189,7 +190,7 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
         {showHeroImage ? (
           <div className="flex-1 w-full flex items-center justify-center min-h-[160px] max-h-[300px] mt-3 mb-2 overflow-hidden shrink border border-transparent">
             <div className={`w-full h-full flex items-center justify-center bg-transparent ${isAnimationEnabled ? 'anim-float' : ''}`}>
-              <img
+              <CachedImage
                 src={banner.image}
                 alt={banner.headline}
                 className="w-full h-full object-contain drop-shadow-xl"

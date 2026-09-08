@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { TrustedBrand } from '@/types';
+import { CachedImage } from '@/components/CachedImage';
 
 interface BrandCardProps {
   brandName: string;
@@ -195,7 +196,7 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
           transition-transform duration-300 group-hover:scale-[1.04]
         "
       >
-        <img
+        <CachedImage
           src={logoUrl}
           alt={`${brandName} logo`}
           decoding="async"
@@ -261,7 +262,7 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
 
       {/* Product Image */}
       <div className="absolute bottom-[30px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-transform duration-300 group-hover:-translate-y-1 pointer-events-auto">
-        <img
+        <CachedImage
           src={image}
           alt={`${brandName} product`}
           decoding="async"

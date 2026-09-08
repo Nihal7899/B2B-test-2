@@ -73,7 +73,8 @@ function BottomPopupPreviewWrapper({ banner }: { banner: PromoBanner }) {
 
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
-      <div className="relative w-full h-[45%] min-h-[350px] max-h-[420px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden">
+      {/* INCREASED HEIGHT CLASSES BELOW */}
+      <div className="relative w-full h-[55%] min-h-[380px] max-h-[480px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden">
         <div className="flex justify-end p-3 absolute top-0 right-0 z-50">
           <div className="h-8 w-8 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
             <X size={16} strokeWidth={3} />
@@ -85,6 +86,7 @@ function BottomPopupPreviewWrapper({ banner }: { banner: PromoBanner }) {
     </div>
   );
 }
+
 
 export default function BannersManager() {
   const [banners, setBanners] = useState<HomeBanner[]>([]);

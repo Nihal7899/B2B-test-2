@@ -2,6 +2,7 @@ import React from 'react';
 import { Store, FeatureItem, PremiumBadge } from '@/types';
 import { getStoreIcon } from '@/data/storeIcons';
 import { ChevronRight, Star } from 'lucide-react';
+import { CachedImage } from '@/components/CachedImage';
 
 interface StoreCardProps {
   store: Store;
@@ -44,7 +45,7 @@ export const StoreCard = React.memo(function StoreCard({
     >
       {/* Image Section */}
       <div className="absolute inset-x-0 top-0 h-[162px] overflow-hidden bg-slate-100">
-        <img
+        <CachedImage
           src={store.banner_image_url || store.image_url}
           alt={store.name}
           decoding="async"

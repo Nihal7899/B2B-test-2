@@ -1,4 +1,3 @@
-// src/components/admin/ProductsManager.tsx
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -9,6 +8,7 @@ import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
 import { uploadProductImage } from '@/services/catalog';
+import { CachedImage } from '@/components/CachedImage';
 
 export default function ProductsManager() {
   const [products, setProducts] = useState<DbProduct[]>([]);
@@ -141,7 +141,7 @@ export default function ProductsManager() {
 
       {filteredProducts.map((prod) => (
         <div key={prod.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card flex items-center gap-3">
-          {prod.image_urls?.[0] && <img src={prod.image_urls[0]} alt="" className="h-12 w-12 rounded-xl object-cover" />}
+          {prod.image_urls?.[0] && <CachedImage src={prod.image_urls[0]} alt="" className="h-12 w-12 rounded-xl object-cover" />}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-ink-800 truncate">{prod.brand} {prod.name}</p>
             <p className="text-xs text-ink-500">{prod.pack_size} · ₹{prod.wholesale_price} · Stock: {prod.stock_quantity}</p>
@@ -175,7 +175,6 @@ export default function ProductsManager() {
   );
 }
 
-// ---- ProductForm ----
 function ProductForm({
   initial,
   categories,
@@ -224,7 +223,7 @@ function ProductForm({
     wholesale_price: initial?.wholesale_price ?? 0,
     moq: initial?.moq ?? 1,
     stock_quantity: initial?.stock_quantity ?? 0,
-    stock_threshold: initial?.stock_threshold ?? 0,  // <-- NEW
+    stock_threshold: initial?.stock_threshold ?? 0,
     description: initial?.description ?? '',
     rating: initial?.rating ?? 0,
     is_active: initial?.is_active ?? true,
@@ -358,7 +357,7 @@ function ProductForm({
         ...form,
         image_url: mainImage,
         image_urls: finalImageUrls,
-        stock_threshold: form.stock_threshold, // <-- ensure included
+        stock_threshold: form.stock_threshold,
       };
 
       if (initial) {
@@ -389,7 +388,6 @@ function ProductForm({
         <button onClick={onClose}><X size={16} className="text-ink-400" /></button>
       </div>
 
-      {/* Category */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Category *</label>
         <select
@@ -403,7 +401,6 @@ function ProductForm({
         </select>
       </div>
 
-      {/* Subcategory */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Subcategory</label>
         <select
@@ -418,7 +415,6 @@ function ProductForm({
         </select>
       </div>
 
-      {/* Brand + Name */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="relative">
           <label className="block text-xs font-bold text-ink-600 mb-1">Brand *</label>
@@ -459,7 +455,6 @@ function ProductForm({
         </div>
       </div>
 
-      {/* Slug + Pack Size */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Slug *</label>
@@ -481,7 +476,6 @@ function ProductForm({
         </div>
       </div>
 
-      {/* Pricing */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">MRP</label>
@@ -512,7 +506,6 @@ function ProductForm({
         </div>
       </div>
 
-      {/* Stock + Threshold + Rating */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Stock quantity</label>
@@ -546,7 +539,6 @@ function ProductForm({
         </div>
       </div>
 
-      {/* HSN + GST */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">HSN Code</label>
@@ -573,13 +565,12 @@ function ProductForm({
         </div>
       </div>
 
-      {/* Images */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Images (max 5)</label>
         <div className="flex flex-wrap gap-2 mt-1">
           {previewUrls.map((url, idx) => (
             <div key={idx} className="relative w-16 h-16 rounded-xl border border-ink-200 overflow-hidden group">
-              <img src={url} alt={`Product ${idx+1}`} className="w-full h-full object-cover" />
+              <CachedImage src={url} alt={`Product ${idx+1}`} className="w-full h-full object-cover" />
               <button
                 onClick={() => removeImage(idx)}
                 className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-80 hover:opacity-100 text-xs"
@@ -607,7 +598,6 @@ function ProductForm({
         <p className="text-[10px] text-ink-400 mt-1">Upload up to 5 images. The first image is the main product image.</p>
       </div>
 
-      {/* Description */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Description</label>
         <textarea
@@ -619,7 +609,6 @@ function ProductForm({
         />
       </div>
 
-      {/* Active */}
       <label className="flex items-center gap-2 text-sm text-ink-700">
         <input
           type="checkbox"

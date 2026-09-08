@@ -41,6 +41,7 @@ import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
+import { CachedImage } from '@/components/CachedImage';
 
 const ACTION_TYPES: ActionType[] = [
   'VIEW_CATEGORY',
@@ -73,7 +74,6 @@ function BottomPopupPreviewWrapper({ banner }: { banner: PromoBanner }) {
 
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
-      {/* INCREASED HEIGHT CLASSES BELOW */}
       <div className="relative w-full h-[55%] min-h-[380px] max-h-[480px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden">
         <div className="flex justify-end p-3 absolute top-0 right-0 z-50">
           <div className="h-8 w-8 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
@@ -86,7 +86,6 @@ function BottomPopupPreviewWrapper({ banner }: { banner: PromoBanner }) {
     </div>
   );
 }
-
 
 export default function BannersManager() {
   const [banners, setBanners] = useState<HomeBanner[]>([]);
@@ -312,7 +311,6 @@ export default function BannersManager() {
         ))}
       </ToastContainer>
 
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-black text-ink-900">Banners Management</h2>
@@ -326,7 +324,6 @@ export default function BannersManager() {
         </button>
       </div>
 
-      {/* Position Tabs */}
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 bg-ink-50/80 p-1.5 rounded-2xl border border-ink-100">
         {[
           { id: 'all', label: 'All Banners', count: tabCounts.all },
@@ -361,7 +358,6 @@ export default function BannersManager() {
         })}
       </div>
 
-      {/* Banner Cards List */}
       {filteredBanners.length === 0 ? (
         <div className="bg-white border border-dashed border-ink-200 rounded-2xl p-8 text-center space-y-3">
           <LayoutTemplate className="mx-auto text-ink-300" size={36} />
@@ -381,7 +377,7 @@ export default function BannersManager() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">
                     {banner.image_url ? (
-                      <img src={banner.image_url} alt="" className="h-12 w-12 rounded-xl object-cover border border-ink-100" />
+                      <CachedImage src={banner.image_url} alt="" className="h-12 w-12 rounded-xl object-cover border border-ink-100" />
                     ) : (
                       <div
                         className="h-12 w-12 rounded-xl border border-ink-100 flex items-center justify-center text-[9px] font-black text-white shadow-inner text-center px-1"
@@ -504,7 +500,6 @@ export default function BannersManager() {
         </div>
       )}
 
-      {/* Preview Modal */}
       {previewBanner && (
         <div
           className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
@@ -540,7 +535,6 @@ export default function BannersManager() {
         </div>
       )}
 
-      {/* Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}
         title={confirmDialog.title}
@@ -807,7 +801,6 @@ function BannerForm({
 
   return (
     <div className="bg-white border border-brand-200 rounded-2xl p-4 sm:p-5 space-y-5 shadow-card">
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-ink-100 pb-3">
         <h3 className="text-sm font-black text-ink-900 flex items-center gap-1.5">
           <Sliders size={16} className="text-brand-600" />
@@ -828,9 +821,7 @@ function BannerForm({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Form Inputs */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Placement Slot */}
           <div className="p-3 bg-brand-50/50 border border-brand-100 rounded-2xl">
             <label className="block text-xs font-bold text-brand-900 mb-1">Placement Slot</label>
             <select
@@ -849,7 +840,6 @@ function BannerForm({
             </select>
           </div>
 
-          {/* Schedule Banner Timing (Available for ALL Banners) */}
           <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
@@ -899,7 +889,6 @@ function BannerForm({
             </div>
           </div>
 
-          {/* Popup-specific Feature Toggles (Timer and Animation) */}
           {isBottomPopup && (
             <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-2xl space-y-3">
               <p className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
@@ -950,7 +939,6 @@ function BannerForm({
             </div>
           )}
 
-          {/* Headline Title */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-bold text-ink-700">Headline Title *</label>
@@ -971,7 +959,6 @@ function BannerForm({
             />
           </div>
 
-          {/* Subtext / Description */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-bold text-ink-700">Subtext / Description</label>
@@ -992,7 +979,6 @@ function BannerForm({
             />
           </div>
 
-          {/* Conditional Top Promo Ad Details */}
           {isTopPromo && (
             <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2.5">
               <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Promo Ad Details</p>
@@ -1019,7 +1005,6 @@ function BannerForm({
             </div>
           )}
 
-          {/* Badge & Conditional CTA Button Input */}
           <div className={`grid ${!isTopPromo ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
             <div>
               <label className="block text-xs font-bold text-ink-700 mb-1">Badge</label>
@@ -1043,7 +1028,6 @@ function BannerForm({
             )}
           </div>
 
-          {/* Typography & Element Colors */}
           <div className="p-3.5 bg-ink-50/70 border border-ink-100 rounded-2xl space-y-3.5">
             <p className="text-[10px] font-black uppercase tracking-wider text-ink-700 flex items-center gap-1.5">
               <Palette size={13} className="text-brand-600" /> Typography & Element Colors
@@ -1089,7 +1073,6 @@ function BannerForm({
               </div>
             </div>
 
-            {/* Badge Colors */}
             <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-semibold text-ink-700 mb-1">Badge Background</label>
@@ -1130,7 +1113,6 @@ function BannerForm({
               </div>
             </div>
 
-            {/* Conditional CTA Colors */}
             {showCtaControls && (
               <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1173,7 +1155,6 @@ function BannerForm({
               </div>
             )}
 
-            {/* Conditional Promo Code & Discount Colors */}
             {isTopPromo && (
               <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1217,7 +1198,6 @@ function BannerForm({
             )}
           </div>
 
-          {/* Conditional Size Preset & Background Type */}
           <div className={`grid ${!isTopPromo ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
             {!isTopPromo && (
               <div>
@@ -1248,7 +1228,6 @@ function BannerForm({
             </div>
           </div>
 
-          {/* Conditional Gradient Configuration */}
           {form.bg_type === 'gradient' && (
             <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
               <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Gradient Stop Configuration</p>
@@ -1313,7 +1292,6 @@ function BannerForm({
             </div>
           )}
 
-          {/* Conditional Solid Color */}
           {form.bg_type === 'color' && (
             <div className="p-3 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
               <label className="block text-xs font-bold text-ink-700">Solid Colour</label>
@@ -1334,7 +1312,6 @@ function BannerForm({
             </div>
           )}
 
-          {/* Conditional Side Image / Background Image */}
           {(!isTopPromo || form.bg_type === 'image') && (
             <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
               <div className="flex items-center justify-between">
@@ -1378,7 +1355,6 @@ function BannerForm({
             </div>
           )}
 
-          {/* Tint / Dark Overlay */}
           <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer select-none">
@@ -1438,7 +1414,6 @@ function BannerForm({
             )}
           </div>
 
-          {/* Action Types & Conditional Params */}
           <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
             <div>
               <label className="block text-xs font-bold text-ink-700 mb-1">Click Action Type</label>
@@ -1460,7 +1435,6 @@ function BannerForm({
               </select>
             </div>
 
-            {/* 1. Category Selection */}
             {needsCategory && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Select Category</label>
@@ -1483,7 +1457,6 @@ function BannerForm({
               </div>
             )}
 
-            {/* 2. Brand Selection */}
             {needsBrand && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Select Brand</label>
@@ -1506,7 +1479,6 @@ function BannerForm({
               </div>
             )}
 
-            {/* 3. Store Selection */}
             {needsStore && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Select Store</label>
@@ -1529,7 +1501,6 @@ function BannerForm({
               </div>
             )}
 
-            {/* 4. Product Selection */}
             {needsProduct && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Select Product</label>
@@ -1552,7 +1523,6 @@ function BannerForm({
               </div>
             )}
 
-            {/* 5. Screen Selection */}
             {needsScreen && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Select Screen</label>
@@ -1574,7 +1544,6 @@ function BannerForm({
               </div>
             )}
 
-            {/* 6. External URL */}
             {needsUrl && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">External URL</label>
@@ -1587,7 +1556,6 @@ function BannerForm({
               </div>
             )}
 
-            {/* 7. Search Query */}
             {needsSearch && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Search Query</label>
@@ -1600,7 +1568,6 @@ function BannerForm({
               </div>
             )}
 
-            {/* 8. Smart Collection */}
             {needsSmartCollection && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Smart Collection</label>
@@ -1623,7 +1590,6 @@ function BannerForm({
               </div>
             )}
 
-            {/* 9. Multi-filters */}
             {needsFilter && (
               <div className="space-y-2 pt-1">
                 <div>
@@ -1663,7 +1629,6 @@ function BannerForm({
             )}
           </div>
 
-          {/* Visibility Controls */}
           <div className="flex flex-wrap items-center gap-4 pt-1">
             {!isTopPromo && (
               <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
@@ -1688,7 +1653,6 @@ function BannerForm({
           </div>
         </div>
 
-        {/* Live Mobile Canvas Preview */}
         <div className="lg:col-span-5 lg:sticky lg:top-4 bg-ink-100/60 p-4 rounded-3xl border border-ink-200 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-black uppercase tracking-wider text-ink-600 flex items-center gap-1.5">
@@ -1737,7 +1701,6 @@ function BannerForm({
         </div>
       </div>
 
-      {/* Popout Fullscreen Modal */}
       {isModalPreviewOpen && (
         <div
           className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"

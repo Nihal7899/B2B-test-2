@@ -23,6 +23,7 @@ import { OfferBadge } from '@/components/OfferBadge';
 import { ProductCard } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { AppLoader } from '@/components/AppLoader';
+import { CachedImage } from '@/components/CachedImage';
 import {
   fetchProductById,
   fetchWishlist,
@@ -77,11 +78,9 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
 
-  // Touch Swipe Tracking
   const touchStartX = useRef<number | null>(null);
   const touchDeltaX = useRef<number>(0);
 
-  // Smooth scroll opacity state (0 to 1)
   const [headerOpacity, setHeaderOpacity] = useState(0);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
@@ -219,7 +218,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
-        {/* Navigation header preserved */}
         <div className="p-4 safe-top">
           <button
             onClick={onBack}
@@ -229,15 +227,12 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
             <ArrowLeft size={18} />
           </button>
         </div>
-
-        {/* Clean, textless creative loader */}
         <div className="flex-1 flex items-center justify-center -mt-16">
           <AppLoader fullScreen={false} size="md" />
         </div>
       </div>
     );
   }
-
 
   if (!product) {
     return (
@@ -292,7 +287,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
 
   return (
     <div className="pb-10 relative">
-      {/* Dynamic Header */}
       <header
         className="fixed top-0 left-0 right-0 z-30 mx-auto max-w-[720px] px-4 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-3 flex items-center justify-between pointer-events-auto"
         style={{
@@ -303,7 +297,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           boxShadow: headerOpacity > 0.9 ? '0 1px 3px 0 rgba(0, 0, 0, 0.05)' : 'none',
         }}
       >
-        {/* Back Button */}
         <button
           onClick={onBack}
           className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
@@ -316,7 +309,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           <ArrowLeft size={18} />
         </button>
 
-        {/* Product Title in Header */}
         <div
           className="flex-1 mx-3 truncate transition-opacity duration-150"
           style={{ opacity: headerOpacity }}
@@ -327,7 +319,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           </p>
         </div>
 
-        {/* Top Right: Wishlist & Cart */}
         <div className="flex items-center gap-2">
           <button
             onClick={handleWishlist}
@@ -364,7 +355,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
         </div>
       </header>
 
-      {/* Swipeable Image Carousel Container */}
       <div
         ref={imageContainerRef}
         onTouchStart={handleTouchStart}
@@ -385,7 +375,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
                   className="flex h-full w-full shrink-0 items-center justify-center overflow-hidden"
                 >
                   {!isInvalid ? (
-                    <img
+                    <CachedImage
                       src={imgUrl}
                       alt={`${product.name} - ${idx + 1}`}
                       onError={() => setImageErrors((prev) => ({ ...prev, [idx]: true }))}
@@ -426,7 +416,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
               <ArrowRight size={18} />
             </button>
 
-            {/* Pagination Dots */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
               {images.map((_, idx) => (
                 <button
@@ -444,9 +433,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
         )}
       </div>
 
-      {/* Main Content Area */}
       <div className="px-4 mt-4 space-y-4">
-        {/* Brand, Name, Specs */}
         <div>
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wider" style={{ color: primaryColor }}>
@@ -482,7 +469,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           )}
         </div>
 
-        {/* Pricing Card */}
         <div
           className="rounded-2xl p-4 transition-all"
           style={{ backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}30` }}
@@ -519,7 +505,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           )}
         </div>
 
-        {/* Volume Pricing Tiers */}
         {volumeTiers.length > 0 && (
           <div className="space-y-2.5">
             <div className="flex items-center gap-1.5">
@@ -602,7 +587,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           </div>
         )}
 
-        {/* Delivery Info */}
         <div className="flex items-center gap-2 pt-1">
           <Truck size={17} style={{ color: primaryColor }} />
           <div>
@@ -611,13 +595,11 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           </div>
         </div>
 
-        {/* Product Description */}
         <div>
           <h2 className="text-sm font-bold text-ink-900">About this product</h2>
           <p className="text-xs text-ink-600 leading-relaxed mt-2">{product.description}</p>
         </div>
 
-        {/* Trust Badges */}
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: `${primaryColor}10` }}>
             <ShieldCheck size={17} style={{ color: primaryColor }} />
@@ -635,7 +617,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           </div>
         </div>
 
-        {/* Cart Controls */}
         <div className="flex gap-2 pt-2">
           <div className="flex-1">
             {quantity > 0 ? (
@@ -683,7 +664,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
         </div>
       </div>
 
-      {/* Related Products */}
       {related.length > 0 && (
         <div className="mt-6">
           <SectionHeader title="You may also like" onViewAll={() => undefined} />

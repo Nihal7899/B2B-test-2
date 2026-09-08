@@ -1,4 +1,3 @@
-// src/components/admin/CategoriesManager.tsx
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2, Save, ChevronDown, ChevronRight, ImageIcon, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -8,6 +7,7 @@ import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
+import { CachedImage } from '@/components/CachedImage';
 
 export default function CategoriesManager() {
   const [categories, setCategories] = useState<DbCategory[]>([]);
@@ -27,7 +27,6 @@ export default function CategoriesManager() {
     title: '',
     message: '',
   });
-  // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
   const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
@@ -103,7 +102,6 @@ export default function CategoriesManager() {
     addToast('Category saved successfully', 'success');
   };
 
-  // Filter categories based on search query
   const filteredCategories = categories.filter(cat =>
     cat.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -129,7 +127,6 @@ export default function CategoriesManager() {
         ))}
       </ToastContainer>
 
-      {/* Search Bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
         <input
@@ -151,7 +148,7 @@ export default function CategoriesManager() {
       {filteredCategories.map((cat) => (
         <div key={cat.id} className="bg-white border border-ink-100 rounded-2xl overflow-hidden shadow-card">
           <div className="flex flex-wrap items-center gap-3 p-4">
-            {cat.image_url && <img src={cat.image_url} alt="" className="h-12 w-12 rounded-xl object-cover flex-shrink-0" />}
+            {cat.image_url && <CachedImage src={cat.image_url} alt="" className="h-12 w-12 rounded-xl object-cover flex-shrink-0" />}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-ink-800 truncate">{cat.name}</p>
               <p className="text-xs text-ink-500">/{cat.slug} · Order {cat.sort_order}</p>
@@ -224,7 +221,6 @@ export default function CategoriesManager() {
   );
 }
 
-// ---- CategoryForm with pending upload ----
 function CategoryForm({
   initial,
   onClose,
@@ -369,7 +365,6 @@ function CategoryForm({
         />
       </div>
 
-      {/* Image upload */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Image URL</label>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -397,7 +392,7 @@ function CategoryForm({
         </div>
         {previewUrl && (
           <div className="relative mt-2">
-            <img src={previewUrl} alt="Preview" className="h-20 w-full rounded-xl object-cover" />
+            <CachedImage src={previewUrl} alt="Preview" className="h-20 w-full rounded-xl object-cover" />
             {selectedFile && (
               <span className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
                 New
@@ -407,7 +402,6 @@ function CategoryForm({
         )}
       </div>
 
-      {/* Background color section */}
       <div className="space-y-3 bg-ink-50 p-3 rounded-xl border border-ink-100">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-ink-600">Background</span>

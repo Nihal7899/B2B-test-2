@@ -1,4 +1,3 @@
-// src/components/admin/BrandsManager.tsx
 import React, { useEffect, useState } from 'react';
 import { Plus, Trash2, Save, Loader2, Upload, Copy, X, Search } from 'lucide-react';
 import { BrandCard } from '@/components/BrandCard';
@@ -16,8 +15,8 @@ import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
+import { CachedImage } from '@/components/CachedImage';
 
-// ---- Types ----
 interface BrandWithColors extends TrustedBrand {
   primary_color: string;
   secondary_color: string;
@@ -29,9 +28,6 @@ interface BrandWithColors extends TrustedBrand {
   description?: string;
 }
 
-// ============================================================
-// EDIT FORM (separate component) - unchanged
-// ============================================================
 function BrandEditForm({
   brand,
   onSave,
@@ -43,7 +39,6 @@ function BrandEditForm({
   onCancel: () => void;
   productBrands: string[];
 }) {
-  // State for the brand being edited
   const [editBrand, setEditBrand] = useState(brand);
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
   const [pendingProductFile, setPendingProductFile] = useState<File | null>(null);
@@ -52,7 +47,6 @@ function BrandEditForm({
     brand.product_images?.[0] || null
   );
 
-  // File selection handlers (preview only, no upload)
   const handleLogoSelect = (file: File) => {
     setPendingLogoFile(file);
     setLogoPreview(URL.createObjectURL(file));
@@ -63,7 +57,6 @@ function BrandEditForm({
     setProductPreview(URL.createObjectURL(file));
   };
 
-  // Helper: render editable fields (tagline, categories, etc.)
   const renderEditableFields = (
     brand: Partial<BrandWithColors>,
     setBrand: (b: any) => void
@@ -127,7 +120,6 @@ function BrandEditForm({
     </>
   );
 
-  // Handle save (call parent with the updated brand and pending files)
   const handleSave = () => {
     onSave(editBrand, pendingLogoFile, pendingProductFile);
   };
@@ -135,7 +127,6 @@ function BrandEditForm({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="space-y-3">
-        {/* Name with Copy helper */}
         <div>
           <label className="block text-sm font-medium">Name *</label>
           <div className="flex gap-2">
@@ -247,7 +238,7 @@ function BrandEditForm({
           </div>
           {logoPreview && (
             <div className="mt-2">
-              <img
+              <CachedImage
                 src={logoPreview}
                 alt="Logo preview"
                 className="h-16 w-16 rounded object-cover"
@@ -286,7 +277,7 @@ function BrandEditForm({
           </div>
           {productPreview && (
             <div className="mt-2">
-              <img
+              <CachedImage
                 src={productPreview}
                 alt="Product preview"
                 className="h-16 w-16 rounded object-cover"
@@ -329,7 +320,6 @@ function BrandEditForm({
         </div>
       </div>
 
-      {/* Preview in edit mode */}
       <div className="flex justify-center items-center bg-gray-50 rounded-xl p-4">
         <BrandCard
           brandName={editBrand.name}
@@ -351,9 +341,6 @@ function BrandEditForm({
   );
 }
 
-// ============================================================
-// MAIN COMPONENT
-// ============================================================
 export default function BrandsManager() {
   const [brands, setBrands] = useState<BrandWithColors[]>([]);
   const [loading, setLoading] = useState(true);
@@ -371,7 +358,6 @@ export default function BrandsManager() {
     title: '',
     message: '',
   });
-  // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
   const [uploading, setUploading] = useState(false);
@@ -395,7 +381,6 @@ export default function BrandsManager() {
     fetchDistinctBrands().then(setProductBrands);
   }, []);
 
-  // ----- Delete -----
   const handleDeleteClick = (id: string) => {
     setConfirmDialog({
       isOpen: true,
@@ -431,7 +416,6 @@ export default function BrandsManager() {
     }
   };
 
-  // ----- Save edit (called from BrandEditForm) -----
   const handleSaveEdit = async (
     updatedBrand: BrandWithColors,
     logoFile: File | null,
@@ -445,11 +429,9 @@ export default function BrandsManager() {
       let newLogoUrl = updatedBrand.logo_url;
       let newProductImage = updatedBrand.product_images?.[0] || '';
 
-      // 1. Upload pending logo if exists
       if (logoFile) {
         const oldLogo = updatedBrand.logo_url;
         setUploadStatus('Compressing logo...');
-        // Simulate compression progress (0-30%)
         for (let i = 0; i <= 6; i++) {
           const progress = Math.min(30, (i / 6) * 30);
           setUploadProgress(progress);
@@ -470,7 +452,6 @@ export default function BrandsManager() {
         }
       }
 
-      // 2. Upload pending product image if exists
       if (productFile) {
         const oldProduct = updatedBrand.product_images?.[0] || '';
         setUploadStatus('Compressing product image...');
@@ -494,7 +475,6 @@ export default function BrandsManager() {
         }
       }
 
-      // 3. Update the brand with new URLs
       const finalBrand = {
         ...updatedBrand,
         logo_url: newLogoUrl,
@@ -527,7 +507,6 @@ export default function BrandsManager() {
     }
   };
 
-  // ----- Create brand (with pending uploads) -----
   const [newBrand, setNewBrand] = useState<Partial<BrandWithColors>>({
     name: '',
     logo_url: '',
@@ -572,7 +551,6 @@ export default function BrandsManager() {
       let newLogoUrl = newBrand.logo_url || '';
       let newProductImage = newBrand.product_images?.[0] || '';
 
-      // 1. Upload pending logo
       if (pendingLogoFile) {
         setUploadStatus('Compressing logo...');
         for (let i = 0; i <= 6; i++) {
@@ -594,7 +572,6 @@ export default function BrandsManager() {
         setLogoPreview(null);
       }
 
-      // 2. Upload pending product image
       if (pendingProductFile) {
         setUploadStatus('Compressing product image...');
         for (let i = 0; i <= 6; i++) {
@@ -616,7 +593,6 @@ export default function BrandsManager() {
         setProductPreview(null);
       }
 
-      // 3. Create the brand
       await createTrustedBrand({
         name: newBrand.name,
         logo_url: newLogoUrl,
@@ -658,7 +634,6 @@ export default function BrandsManager() {
     }
   };
 
-  // Helper: render editable fields (shared between add form and edit form)
   const renderEditableFields = (
     brand: Partial<BrandWithColors>,
     setBrand: (b: any) => void
@@ -722,7 +697,6 @@ export default function BrandsManager() {
     </>
   );
 
-  // Filter brands by name
   const filteredBrands = brands.filter(b =>
     b.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -741,7 +715,6 @@ export default function BrandsManager() {
         ))}
       </ToastContainer>
 
-      {/* Search Bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
         <input
@@ -753,7 +726,6 @@ export default function BrandsManager() {
         />
       </div>
 
-      {/* Add Brand Button */}
       <button
         onClick={() => setShowAddForm(true)}
         className="w-full h-12 rounded-xl bg-brand-600 text-white font-bold flex items-center justify-center gap-2"
@@ -761,7 +733,6 @@ export default function BrandsManager() {
         <Plus size={16} /> Add Brand
       </button>
 
-      {/* ---- Add Form ---- */}
       {showAddForm && (
         <div className="bg-white border rounded-2xl p-4 shadow-card">
           <div className="flex items-center justify-between mb-3">
@@ -771,7 +742,6 @@ export default function BrandsManager() {
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Quick import */}
             <div className="col-span-2">
               <label className="block font-medium text-sm text-ink-700 mb-1">
                 Quick import from product brands
@@ -807,7 +777,6 @@ export default function BrandsManager() {
               </p>
             </div>
 
-            {/* Name */}
             <div>
               <label>Name *</label>
               <input
@@ -900,7 +869,7 @@ export default function BrandsManager() {
               </div>
               {logoPreview && (
                 <div className="mt-2">
-                  <img src={logoPreview} alt="Logo preview" className="h-16 w-16 rounded object-cover" />
+                  <CachedImage src={logoPreview} alt="Logo preview" className="h-16 w-16 rounded object-cover" />
                   {pendingLogoFile && <span className="text-xs text-green-600 ml-2">Pending upload</span>}
                 </div>
               )}
@@ -934,7 +903,7 @@ export default function BrandsManager() {
               </div>
               {productPreview && (
                 <div className="mt-2">
-                  <img src={productPreview} alt="Product preview" className="h-16 w-16 rounded object-cover" />
+                  <CachedImage src={productPreview} alt="Product preview" className="h-16 w-16 rounded object-cover" />
                   {pendingProductFile && <span className="text-xs text-green-600 ml-2">Pending upload</span>}
                 </div>
               )}
@@ -971,7 +940,6 @@ export default function BrandsManager() {
             </div>
           </div>
 
-          {/* Preview */}
           <div className="mt-4 flex justify-center">
             <BrandCard
               brandName={newBrand.name || 'Preview'}
@@ -988,7 +956,6 @@ export default function BrandsManager() {
         </div>
       )}
 
-      {/* ---- List of existing brands (filtered) ---- */}
       <div className="space-y-4">
         {filteredBrands.map((brand) => {
           const isEditing = editingId === brand.id;
@@ -1051,7 +1018,6 @@ export default function BrandsManager() {
         })}
       </div>
 
-      {/* Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}
         title={confirmDialog.title}

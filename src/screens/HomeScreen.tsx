@@ -23,6 +23,7 @@ import { SectionHeader } from '@/components/SectionHeader';
 import { StoreCarousel } from '@/components/StoreCard';
 import { BrandCarousel } from '@/components/BrandCard';
 import { ModernPopupBanner } from '@/components/ModernPopupBanner';
+import { CachedImage } from '@/components/CachedImage'; // <-- Added CachedImage import
 import {
   fetchHomeSections,
   fetchHomeBanners,
@@ -286,13 +287,11 @@ export function HomeScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-36 safe-bottom">
-      {/* 1. Status Bar Solid Protector */}
       <div 
         className="fixed top-0 left-0 right-0 z-50 bg-[#02402c] pointer-events-none" 
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      {/* 2. Top Location Bar */}
       <div className="bg-[#02402c] text-white safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-2">
           <button
@@ -318,7 +317,6 @@ export function HomeScreen({
         </div>
       </div>
 
-      {/* 3. Original Sticky Search Bar: No extra top padding, sticks right under safe-area-inset-top */}
       <div 
         className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
         style={{ top: 'env(safe-area-inset-top, 0px)' }} 
@@ -375,7 +373,8 @@ export function HomeScreen({
                     </button>
                   </div>
                   <div className="grid grid-cols-4 gap-3">
-                    {categories.slice(0, 12).map((category) => (
+                    {/* Increased slice to 16 to show 4 perfect rows */}
+                    {categories.slice(0, 16).map((category) => (
                       <button
                         key={category.id}
                         onClick={() => navigate(`/category?id=${category.id}`)}
@@ -385,11 +384,12 @@ export function HomeScreen({
                           className="relative h-16 w-16 overflow-hidden rounded-2xl p-0.5 shadow-sm ring-1 ring-slate-100"
                           style={{ background: category.gradient || '#10b981' }}
                         >
-                          <img
+                          {/* Replaced raw <img> with <CachedImage> and enforced eager decoding */}
+                          <CachedImage
                             src={category.image}
                             alt={category.name}
                             loading="eager"
-                            decoding="async"
+                            decoding="sync"
                             className="h-full w-full rounded-[14px] object-cover"
                           />
                         </div>
@@ -648,16 +648,13 @@ export function HomeScreen({
 
       {bottomPopupBanner && showPopup && (
         <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">
-          {/* Dark Backdrop */}
           <div 
             className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity duration-300" 
             onClick={dismissPopup}
           />
           
-          {/* INCREASED HEIGHT CLASSES BELOW */}
           <div className="relative w-full h-[55%] min-h-[380px] max-h-[480px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] pointer-events-auto flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300">
             
-            {/* Close Button Header */}
             <div className="flex justify-end p-3 absolute top-0 right-0 z-50">
               <button 
                 onClick={dismissPopup}

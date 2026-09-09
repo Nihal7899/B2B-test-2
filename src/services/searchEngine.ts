@@ -380,8 +380,13 @@ export async function executeFullSearch(
 ): Promise<SearchExecutionResult> {
   const cleanQuery = (query || '').trim();
   const dict = await getOrBuildSearchDictionary();
+  
+  // 1. Analyze the query to see if it's a typo
   const analysis = await getLiveSearchSuggestions(cleanQuery);
-  const effectiveQuery = cleanQuery || analysis.didYouMean || '';
+  
+  // FIXED: If the engine found a typo correction (which only happens if the raw query had 0 matches), 
+  // automatically swap the search term to the corrected word (e.g., "oniox" -> "onion").
+  const effectiveQuery = analysis.didYouMean ? analysis.didYouMean : cleanQuery;
 
   try {
     const rawTokens = effectiveQuery.toLowerCase().split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
@@ -423,20 +428,19 @@ export async function executeFullSearch(
     if (filter?.brand) dbQuery = dbQuery.eq('brand', filter.brand);
     if (filter?.hasDealsOnly) dbQuery = dbQuery.gt('discount_percentage', 5);
 
-    // FIXED: Build intelligent OR conditions without sacrificing normal text searches
     const orConditions: string[] = [];
 
     if (tokens.length > 0) {
       tokens.forEach((t) => {
-        if (PACK_SIZE_REGEX.test(t)) {
+        if (SKU_REGEX.test(t)) {
+          orConditions.push(`product_code.ilike.%${t}%`);
+        } else if (PACK_SIZE_REGEX.test(t)) {
           orConditions.push(`pack_size.ilike.%${t}%`);
         } else {
-          // If it's a normal word, search the title, brand, description AND product code
           orConditions.push(
             `name.ilike.%${t}%`,
             `brand.ilike.%${t}%`,
-            `description.ilike.%${t}%`,
-            `product_code.ilike.%${t}%`
+            `description.ilike.%${t}%`
           );
         }
       });
@@ -461,7 +465,6 @@ export async function executeFullSearch(
     const { data: rawProducts, error } = await dbQuery.limit(120);
     if (error) throw error;
 
-    // MODERN B2B SCORING ALGORITHM
     const scoredProducts = (rawProducts || []).map((p: any) => {
       let score = 0;
       const pName = (p.name || '').toLowerCase();
@@ -478,19 +481,15 @@ export async function executeFullSearch(
       const moq = p.moq || p.min_order_quantity || 1;
       const isEffectivelyInStock = stock >= moq;
 
-      // Tier 1: Exact Phrase / SKU Match
       if (pName === qLower || pName.includes(` ${qLower} `)) score += 1000;
       if (p.product_code?.toLowerCase() === qLower) score += 2000;
 
-      // Tier 2: All Tokens Match in Title/Brand
       const allTokensMatch = tokens.every(t => pName.includes(t) || pBrand.includes(t));
       if (allTokensMatch) score += 500;
 
-      // Tier 3: Prefix matches
       if (pName.startsWith(qLower)) score += 300;
       if (pBrand.startsWith(qLower)) score += 250;
 
-      // Tier 4: Partial Token Points
       tokens.forEach((t) => {
         const words = pName.split(/[\s,]+/);
         if (words.includes(t)) score += 60; 
@@ -501,11 +500,9 @@ export async function executeFullSearch(
         if (pDesc.includes(t)) score += 10;
       });
 
-      // Context Multipliers
       if (p.category_id && matchingCategoryIds.has(p.category_id)) score += 100;
       if (p.subcategory_id && matchingSubcategoryIds.has(p.subcategory_id)) score += 150;
 
-      // B2B Commercial Bias
       if (isEffectivelyInStock) {
         score += 150; 
       } else {
@@ -536,10 +533,8 @@ export async function executeFullSearch(
       };
     });
 
-    // Sort by final relevance score
     scoredProducts.sort((a, b) => b.score - a.score);
     
-    // Apply strict in-stock filter *after* scoring if requested
     let matchedProducts = scoredProducts.map((sp) => sp.product);
     if (filter?.inStockOnly) {
       matchedProducts = matchedProducts.filter(p => p.inStock);
@@ -553,7 +548,6 @@ export async function executeFullSearch(
       new Set(matchedProducts.map((p) => p.category).filter(Boolean))
     );
 
-    // Alternative Products from Other Brands
     let alternativeProducts: Product[] = [];
     if (primaryCatIds.length > 0) {
       const { data: rawAlt } = await supabase
@@ -585,7 +579,6 @@ export async function executeFullSearch(
         }));
     }
 
-    // Related Slugs
     const relatedSlugs: RelatedSlugItem[] = [];
     const seenSlugs = new Set<string>();
 
@@ -607,7 +600,6 @@ export async function executeFullSearch(
       }
     }
 
-    // Direct fetch of real Home Banners and Trending Items
     const [bannerRes, trendingRes] = await Promise.all([
       supabase
         .from('home_banners')
@@ -661,7 +653,7 @@ export async function executeFullSearch(
     return {
       products: matchedProducts,
       totalCount: matchedProducts.length,
-      didYouMean: matchedProducts.length === 0 ? analysis.didYouMean : null,
+      didYouMean: analysis.didYouMean, // FIXED: Pass the auto-corrected term back to the UI so it knows a correction happened
       alternativeBrandProducts: alternativeProducts.slice(0, 10),
       relatedSlugs: relatedSlugs.slice(0, 8),
       matchedCategory: primaryCategory,

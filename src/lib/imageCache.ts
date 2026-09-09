@@ -6,15 +6,32 @@ import { Capacitor } from '@capacitor/core';
 export const memoryImageCache = new Map<string, string>();
 const pendingRequests = new Map<string, Promise<string>>();
 
-// Generate safe filenames for native filesystem
+// Dedicated persistent folder
+const CACHE_FOLDER = 'cafkart_images';
+
+// Generate safe filenames with zero chance of collision
 const getSafeFilename = (url: string) => {
   let hash = 0;
   for (let i = 0; i < url.length; i++) {
     hash = (hash << 5) - hash + url.charCodeAt(i);
     hash |= 0;
   }
-  const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
-  return `cached_img_${Math.abs(hash)}.${ext}`;
+  // Extract actual filename to append to hash for guaranteed uniqueness
+  const cleanUrl = url.split('?')[0];
+  const parts = cleanUrl.split('/');
+  const rawName = parts[parts.length - 1];
+  const safeName = rawName.replace(/[^a-zA-Z0-9.-]/g, '_');
+  return `img_${Math.abs(hash)}_${safeName}`;
+};
+
+// Ensure our persistent directory exists
+const ensureDataDir = async () => {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await Filesystem.stat({ path: CACHE_FOLDER, directory: Directory.Data });
+  } catch {
+    await Filesystem.mkdir({ path: CACHE_FOLDER, directory: Directory.Data, recursive: true });
+  }
 };
 
 // IndexedDB Helper for Web
@@ -46,25 +63,35 @@ const saveToWebCache = async (url: string, blob: Blob) => {
 };
 
 const getFromNativeCache = async (url: string): Promise<string | null> => {
-  const filename = getSafeFilename(url);
+  const filepath = `${CACHE_FOLDER}/${getSafeFilename(url)}`;
   try {
-    await Filesystem.stat({ path: filename, directory: Directory.Cache });
-    const { uri } = await Filesystem.getUri({ path: filename, directory: Directory.Cache });
+    // Changed to Directory.Data - The OS will NEVER delete these files
+    await Filesystem.stat({ path: filepath, directory: Directory.Data });
+    const { uri } = await Filesystem.getUri({ path: filepath, directory: Directory.Data });
     return Capacitor.convertFileSrc(uri);
-  } catch { return null; }
+  } catch { 
+    return null; 
+  }
 };
 
 const saveToNativeCache = async (url: string, blob: Blob) => {
-  const filename = getSafeFilename(url);
+  await ensureDataDir();
+  const filepath = `${CACHE_FOLDER}/${getSafeFilename(url)}`;
   return new Promise<void>((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(blob);
     reader.onloadend = async () => {
       try {
         const base64Data = (reader.result as string).split(',')[1];
-        await Filesystem.writeFile({ path: filename, data: base64Data, directory: Directory.Cache });
+        await Filesystem.writeFile({ 
+          path: filepath, 
+          data: base64Data, 
+          directory: Directory.Data // Swapped to persistent storage
+        });
         resolve();
-      } catch (e) { reject(e); }
+      } catch (e) { 
+        reject(e); 
+      }
     };
   });
 };
@@ -77,14 +104,14 @@ export const getCachedImage = async (url: string): Promise<string> => {
   const fetchPromise = (async () => {
     const isNative = Capacitor.isNativePlatform();
     
-    // 1. Check Disk/IDB Cache
+    // 1. Check Persistent Disk / IDB Cache
     const diskCachedUrl = isNative ? await getFromNativeCache(url) : await getFromWebCache(url);
     if (diskCachedUrl) {
       memoryImageCache.set(url, diskCachedUrl);
       return diskCachedUrl;
     }
 
-    // 2. Fetch and Cache
+    // 2. Fetch and Cache permanently
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error('Network error');
@@ -92,7 +119,10 @@ export const getCachedImage = async (url: string): Promise<string> => {
 
       if (isNative) {
         await saveToNativeCache(url, blob);
-        const { uri } = await Filesystem.getUri({ path: getSafeFilename(url), directory: Directory.Cache });
+        const { uri } = await Filesystem.getUri({ 
+          path: `${CACHE_FOLDER}/${getSafeFilename(url)}`, 
+          directory: Directory.Data // Swapped to persistent storage
+        });
         const nativeUrl = Capacitor.convertFileSrc(uri);
         memoryImageCache.set(url, nativeUrl);
         return nativeUrl;

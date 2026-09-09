@@ -54,6 +54,7 @@ interface SearchDictionary {
   categories: Category[];
   subcategories: { id: string; name: string; slug: string; categoryId: string }[];
   synonyms: Record<string, string[]>;
+  vocabulary: string[];
   lastFetched: number;
 }
 
@@ -147,12 +148,26 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
       categoryId: s.category_id,
     }));
 
+    // Make synonyms bidirectional (tamatar <-> tomato)
     const synonymsMap: Record<string, string[]> = {};
     if (synonymsRes.data) {
       synonymsRes.data.forEach((row) => {
-        synonymsMap[row.keyword.toLowerCase()] = row.synonyms;
+        const kw = row.keyword.toLowerCase();
+        const syns = row.synonyms.map((s: string) => s.toLowerCase());
+        
+        synonymsMap[kw] = Array.from(new Set([...(synonymsMap[kw] || []), ...syns]));
+        syns.forEach((syn: string) => {
+          synonymsMap[syn] = Array.from(new Set([...(synonymsMap[syn] || []), kw, ...syns]));
+        });
       });
     }
+
+    // Build a global vocabulary of every word in your catalog for the spell checker
+    const vocabSet = new Set<string>();
+    categories.forEach(c => c.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w)));
+    brands.forEach(b => b.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w)));
+    products.forEach(p => p.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w)));
+    const vocabulary = Array.from(vocabSet).filter(w => w.length >= 3);
 
     dictionaryCache = {
       products,
@@ -160,13 +175,14 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
       categories,
       subcategories,
       synonyms: synonymsMap,
+      vocabulary,
       lastFetched: now,
     };
 
     return dictionaryCache;
   } catch (err) {
     console.error('Failed to build search dictionary:', err);
-    return { products: [], brands: [], categories: [], subcategories: [], synonyms: {}, lastFetched: 0 };
+    return { products: [], brands: [], categories: [], subcategories: [], synonyms: {}, vocabulary: [], lastFetched: 0 };
   }
 }
 
@@ -318,20 +334,17 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
   let didYouMean: string | null = null;
   if (suggestionList.length === 0) {
     const correctedTokens = queryTokens.map(token => {
-      if (token.length < 4) return token; // Skip tiny words or pack sizes like "1kg"
+      if (token.length < 3) return token; // Changed to 3 to catch short words like 'gea' -> 'tea'
       
       let bestMatch = token;
       let lowestDist = 3; 
 
-      const vocab = [...dict.categories.map(c => c.name), ...dict.brands];
-      for (const word of vocab) {
-        const subWords = word.toLowerCase().split(/[\s,]+/);
-        for (const sw of subWords) {
-          const dist = getLevenshteinDistance(token, sw);
-          if (dist > 0 && dist < lowestDist) {
-            lowestDist = dist;
-            bestMatch = sw;
-          }
+      // Check against the global vocabulary
+      for (const word of dict.vocabulary) {
+        const dist = getLevenshteinDistance(token, word);
+        if (dist > 0 && dist < lowestDist) {
+          lowestDist = dist;
+          bestMatch = word;
         }
       }
       return bestMatch;

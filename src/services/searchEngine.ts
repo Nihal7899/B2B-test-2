@@ -58,8 +58,8 @@ interface SearchDictionary {
   lastFetched: number;
 }
 
-// Regex for detecting SKU intent (e.g., "5BCC73") and Pack Size intent (e.g., "10kg")
-const SKU_REGEX = /^[A-Z0-9]{4,10}$/i;
+// FIXED: SKU Regex now strictly requires at least one letter AND one number to prevent it from hijacking normal words like "onion"
+const SKU_REGEX = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9]{4,12}$/i;
 const PACK_SIZE_REGEX = /^\d+(\.\d+)?(kg|g|ml|l|ltr|pc|pcs|tin|jar|box|pkt|dz)$/i;
 
 let dictionaryCache: SearchDictionary | null = null;
@@ -164,9 +164,9 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
 
     // Build a global vocabulary of every word in your catalog for the spell checker
     const vocabSet = new Set<string>();
-    categories.forEach(c => c.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w)));
-    brands.forEach(b => b.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w)));
-    products.forEach(p => p.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w)));
+    categories.forEach(c => c.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
+    brands.forEach(b => b.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
+    products.forEach(p => p.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
     const vocabulary = Array.from(vocabSet).filter(w => w.length >= 3);
 
     dictionaryCache = {
@@ -240,7 +240,7 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     };
   }
 
-  // Strip non-alphanumeric chars to prevent "&" matching false positives
+  // Strip non-alphanumeric chars to prevent false positives
   const queryTokens = q.split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
   const expandedTokens = expandQueryTokens(queryTokens, dict.synonyms);
   
@@ -258,7 +258,7 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
   };
 
   // 1. SKU Intent Detection (Instant B2B Match)
-  const skuToken = queryTokens.find(t => SKU_REGEX.test(t) && t.length >= 5);
+  const skuToken = queryTokens.find(t => SKU_REGEX.test(t));
   if (skuToken) {
     const skuMatches = dict.products.filter(p => p.productCode?.toLowerCase() === skuToken);
     for (const p of skuMatches) {
@@ -334,12 +334,16 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
   let didYouMean: string | null = null;
   if (suggestionList.length === 0) {
     const correctedTokens = queryTokens.map(token => {
-      if (token.length < 3) return token; // Changed to 3 to catch short words like 'gea' -> 'tea'
+      if (token.length < 3) return token;
+      
+      // FIXED: If the word is already perfectly spelled and exists in the catalog, DO NOT alter it!
+      if (dict.vocabulary.includes(token)) {
+        return token;
+      }
       
       let bestMatch = token;
       let lowestDist = 3; 
 
-      // Check against the global vocabulary
       for (const word of dict.vocabulary) {
         const dist = getLevenshteinDistance(token, word);
         if (dist > 0 && dist < lowestDist) {
@@ -419,20 +423,20 @@ export async function executeFullSearch(
     if (filter?.brand) dbQuery = dbQuery.eq('brand', filter.brand);
     if (filter?.hasDealsOnly) dbQuery = dbQuery.gt('discount_percentage', 5);
 
-    // Build intelligent OR conditions based on Intent
+    // FIXED: Build intelligent OR conditions without sacrificing normal text searches
     const orConditions: string[] = [];
 
     if (tokens.length > 0) {
       tokens.forEach((t) => {
-        if (SKU_REGEX.test(t)) {
-          orConditions.push(`product_code.ilike.%${t}%`);
-        } else if (PACK_SIZE_REGEX.test(t)) {
+        if (PACK_SIZE_REGEX.test(t)) {
           orConditions.push(`pack_size.ilike.%${t}%`);
         } else {
+          // If it's a normal word, search the title, brand, description AND product code
           orConditions.push(
             `name.ilike.%${t}%`,
             `brand.ilike.%${t}%`,
-            `description.ilike.%${t}%`
+            `description.ilike.%${t}%`,
+            `product_code.ilike.%${t}%`
           );
         }
       });

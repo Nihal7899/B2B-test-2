@@ -232,7 +232,8 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     };
   }
 
-  const queryTokens = q.split(/\s+/).filter(Boolean);
+  // Strip special characters like '&' from individual tokens so they don't trigger false-positive matches
+  const queryTokens = q.split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
   const expandedTokens = expandQueryTokens(queryTokens);
   const suggestionList: SearchSuggestionItem[] = [];
   const matchedCategories: Category[] = [];
@@ -380,7 +381,8 @@ export async function executeFullSearch(
   const effectiveQuery = cleanQuery || analysis.didYouMean || '';
 
   try {
-    const rawTokens = effectiveQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    // Strip special characters like '&' from individual tokens
+    const rawTokens = effectiveQuery.toLowerCase().split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
     const tokens = expandQueryTokens(rawTokens);
 
     const matchingCategoryIds = new Set<string>();

@@ -17,7 +17,7 @@ import {
   RotateCcw,
   Filter,
 } from 'lucide-react';
-import { ProductCard } from '@/components/ProductCard';
+import { CategoryProductCard } from '@/components/CategoryProductCard';
 import { fetchCategories, fetchProductsBySubcategory, fetchWishlist, toggleWishlist } from '@/services/catalog';
 import type { Category, Subcategory, Product } from '@/types';
 
@@ -494,9 +494,9 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-8">
+            <div className="flex flex-col gap-2 pb-8">
               {filteredAndSortedProducts.map((p) => (
-                <ProductCard
+                <CategoryProductCard
                   key={p.id}
                   product={p}
                   quantity={cart?.getQuantity?.(p.id) || 0}
@@ -509,7 +509,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
                     )
                   }
                   onClick={() => handleProductSelect(p)}
-                  horizontal={false}
                   theme={categoryTheme}
                   isWishlisted={wishlist.includes(p.id)}
                   onWishlistToggle={handleWishlistToggle}

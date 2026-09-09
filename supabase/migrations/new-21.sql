@@ -151,3 +151,11 @@ CREATE TRIGGER trg_order_status_push_notification
 AFTER UPDATE OF status ON public.orders
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_order_status_push_notification();
+
+
+-- 1. Drop the existing constraint
+ALTER TABLE public.home_banners DROP CONSTRAINT IF EXISTS home_banners_position_check;
+
+-- 2. Add the new constraint with 'bottom_popup' included
+ALTER TABLE public.home_banners ADD CONSTRAINT home_banners_position_check 
+CHECK (position IN ('top', 'top_slider', 'carousel', 'middle', 'middle_1', 'middle_2', 'middle_3', 'bottom', 'bottom_popup'));

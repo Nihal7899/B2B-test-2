@@ -83,13 +83,13 @@ export const CategoryProductCard = React.memo(function CategoryProductCard({
           <div className="h-4 mb-1" />
         )}
         
-        {/* Fixed Image Container */}
-        <div className="relative w-[72px] h-[72px] rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden self-end shrink-0">
+        {/* Transparent Image Container */}
+        <div className="relative w-[72px] h-[72px] flex items-center justify-center overflow-hidden self-end shrink-0">
           {product.image ? (
             <CachedImage
               src={product.image}
               alt={product.name}
-              className="absolute inset-0 w-full h-full object-contain p-1.5 mix-blend-multiply"
+              className="absolute inset-0 w-full h-full object-contain mix-blend-multiply"
             />
           ) : (
             <Package size={24} className="text-slate-300" />
@@ -98,7 +98,7 @@ export const CategoryProductCard = React.memo(function CategoryProductCard({
           <button
             type="button"
             onClick={handleWishlistClick}
-            className="absolute top-1 right-1 bg-white/90 rounded-full p-1 shadow-sm z-10"
+            className="absolute top-0 right-0 bg-white/90 rounded-full p-1 shadow-sm z-10"
           >
             <Heart
               size={12}

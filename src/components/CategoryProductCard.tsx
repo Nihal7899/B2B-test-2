@@ -33,7 +33,6 @@ export const CategoryProductCard = React.memo(function CategoryProductCard({
   isWishlisted = false,
   onWishlistToggle,
 }: CategoryProductCardProps) {
-  // Use the dynamically generated category theme or fallback to a default color
   const { primaryColor = '#e11d48' } = theme;
 
   const discount = product.mrp > 0 ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0;
@@ -84,20 +83,22 @@ export const CategoryProductCard = React.memo(function CategoryProductCard({
           <div className="h-4 mb-1" />
         )}
         
-        <div className="relative w-[72px] h-[72px] rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden self-end">
+        {/* Fixed Image Container */}
+        <div className="relative w-[72px] h-[72px] rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden self-end shrink-0">
           {product.image ? (
             <CachedImage
               src={product.image}
               alt={product.name}
-              className="w-full h-full object-contain mix-blend-multiply p-1"
+              className="absolute inset-0 w-full h-full object-contain p-1.5 mix-blend-multiply"
             />
           ) : (
             <Package size={24} className="text-slate-300" />
           )}
+          
           <button
             type="button"
             onClick={handleWishlistClick}
-            className="absolute top-1 right-1 bg-white/90 rounded-full p-1 shadow-sm"
+            className="absolute top-1 right-1 bg-white/90 rounded-full p-1 shadow-sm z-10"
           >
             <Heart
               size={12}

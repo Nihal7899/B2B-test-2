@@ -15,8 +15,8 @@ import {
   LogOut,
   LineChart as LineChartIcon,
   BarChart as BarChartIcon,
-  CheckCircle2,
-  MoreHorizontal
+  LayoutGrid,
+  Menu
 } from 'lucide-react';
 import {
   AreaChart,
@@ -38,30 +38,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
 
-// ─── Helpers (UTC ↔ IST) ─────────────────────────────────────────────
-const IST_OFFSET = 5.5 * 60 * 60 * 1000;
-
-function toIST(utcDate: Date): Date {
-  return new Date(utcDate.getTime() + IST_OFFSET);
-}
-
-function getDayRangeUTC(offsetDays = 0): { startUTC: Date; endUTC: Date } {
-  const nowUTC = new Date();
-  const nowIST = toIST(nowUTC);
-  const y = nowIST.getUTCFullYear();
-  const m = nowIST.getUTCMonth();
-  const d = nowIST.getUTCDate();
-  const istMidnightAsUTCValue = Date.UTC(y, m, d + offsetDays, 0, 0, 0, 0);
-  const startUTC = new Date(istMidnightAsUTCValue - IST_OFFSET);
-  const endUTC = new Date(startUTC);
-  endUTC.setUTCDate(endUTC.getUTCDate() + 1);
-  return { startUTC, endUTC };
-}
-
-function getISTDateStr(utcDate: Date): string {
-  const ist = toIST(utcDate);
-  return ist.toISOString().split('T')[0];
-}
+// ─── Helpers ─────────────────────────────────────────────────────────
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
@@ -76,6 +53,11 @@ function calculateGrowth(current: number, previous: number): string {
   if (previous === 0) return current > 0 ? '+100%' : '0%';
   const growth = ((current - previous) / previous) * 100;
   return `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`;
+}
+
+function parseDateStr(dateStr: string, format: 'short' | 'long' = 'short') {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-IN', format === 'short' ? { day: 'numeric', month: 'short' } : { weekday: 'short' });
 }
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -112,221 +94,92 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<InvestorMetrics | null>(null);
   
-  // Dashboard / Sales Charts
-  const [todaySalesData, setTodaySalesData] = useState<any[]>([]);
+  // Charts State
+  const [revenueChartData, setRevenueChartData] = useState<any[]>([]);
   const [weeklySalesData, setWeeklySalesData] = useState<any[]>([]);
-  const [monthlySalesData, setMonthlySalesData] = useState<any[]>([]);
-  
-  // Chart Type State
-  const [chartType, setChartType] = useState<'area' | 'line' | 'bar' | 'pie'>('area');
-
-  // Analytics Charts
   const [orderStatusData, setOrderStatusData] = useState<any[]>([]);
   const [paymentMethodData, setPaymentMethodData] = useState<any[]>([]);
+  const [chartType, setChartType] = useState<'area' | 'line' | 'bar'>('area');
 
   const fetchMetrics = async () => {
     setLoading(true);
     try {
-      // Setup UTC date ranges similar to Dashboard.tsx
-      const todayRange = getDayRangeUTC(0);
-      const weekStart = getDayRangeUTC(-6).startUTC;
-      const monthStart = getDayRangeUTC(-29).startUTC;
-      const twoMonthsAgoStart = getDayRangeUTC(-59).startUTC;
+      // 1. Fetch Highly Optimized Aggregations via RPC
+      const { data, error } = await supabase.rpc('get_investor_dashboard_data');
+      if (error || !data) throw error || new Error("No data returned");
 
-      const todayDateStr = getISTDateStr(todayRange.startUTC);
-      const weekStartStr = getISTDateStr(weekStart);
-      const monthStartStr = getISTDateStr(monthStart);
-
-      // Counts
-      const { count: totalOrdersCount } = await supabase.from('orders').select('*', { count: 'exact', head: true });
-      const { count: totalCustomersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-      const { count: newCustomersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', monthStart.toISOString());
-
-      // Fetch Recent Orders (last 60 days to compare last month)
-      const { data: recentOrders } = await supabase
-        .from('orders')
-        .select('id, total, created_at, status, user_id, discount, delivery_fee')
-        .gte('created_at', twoMonthsAgoStart.toISOString())
-        .order('created_at', { ascending: true });
-
-      const { data: recentPayments } = await supabase
-        .from('payments')
-        .select('provider, amount, status')
-        .gte('created_at', monthStart.toISOString())
-        .eq('status', 'paid');
-
-      let todaySales = 0, weeklySales = 0, monthlySales = 0, lastMonthSales = 0;
-      let todayOrders = 0, weeklyOrders = 0, monthlyOrders = 0;
-      let completedOrders = 0, cancelledOrders = 0;
-      let totalDiscounts = 0, totalDeliveryFees = 0;
-
-      const dailyRevenue: Record<string, number> = {};
-      const dailyOrderCount: Record<string, number> = {};
-      const statusCounts: Record<string, number> = {};
-      const activeCustomerSet = new Set<string>();
-
-      // Safe RPC Call for lifetime
-      const { data: sumData, error: sumError } = await supabase.rpc('get_lifetime_sales');
-      if (sumError) {
-        console.warn('Fallback triggered: get_lifetime_sales RPC missing', sumError.message);
-      }
+      const daily = data.dailyStats || [];
+      const totals = data.totals || {};
       
-      const hourlyBuckets = Array.from({ length: 9 }, (_, i) => {
-        const hour = 6 + i * 2;
-        return { day: `${hour}:00 ${hour < 12 ? 'AM' : 'PM'}`, sales: 0 };
+      // 2. Slice Arrays for Time Periods
+      const todayData = daily.length > 0 ? daily[daily.length - 1] : { revenue: 0, orders: 0, discounts: 0, delivery_fees: 0, date: '-' };
+      const last7Days = daily.slice(-7);
+      
+      // 3. Compute Aggregations natively from the 30 items
+      const weeklySales = last7Days.reduce((sum: number, d: any) => sum + d.revenue, 0);
+      const weeklyOrders = last7Days.reduce((sum: number, d: any) => sum + d.orders, 0);
+      
+      const monthlySales = daily.reduce((sum: number, d: any) => sum + d.revenue, 0);
+      const monthlyOrders = daily.reduce((sum: number, d: any) => sum + d.orders, 0);
+      const totalDiscounts = daily.reduce((sum: number, d: any) => sum + d.discounts, 0);
+      const totalDeliveryFees = daily.reduce((sum: number, d: any) => sum + d.delivery_fees, 0);
+
+      // 4. Calculate Best Records by looping 30 items (O(N) where N=30, instantaneous)
+      let bestRev = { date: '-', amount: 0 };
+      let bestOrd = { date: '-', count: 0 };
+      let bestAOV = { date: '-', amount: 0 };
+
+      daily.forEach((d: any) => {
+        if (d.revenue > bestRev.amount) bestRev = { date: d.date, amount: d.revenue };
+        if (d.orders > bestOrd.count) bestOrd = { date: d.date, count: d.orders };
+        const aov = d.orders > 0 ? d.revenue / d.orders : 0;
+        if (aov > bestAOV.amount) bestAOV = { date: d.date, amount: aov };
       });
 
-      const todayStartIST = toIST(todayRange.startUTC);
-      const todayEndIST = toIST(todayRange.endUTC);
+      // 5. Populate Chart Arrays
+      setRevenueChartData(daily.slice(-14).map((d: any) => ({
+        day: parseDateStr(d.date, 'short'),
+        Revenue: d.revenue
+      })));
 
-      recentOrders?.forEach((order) => {
-        const orderDate = new Date(order.created_at);
-        const istDate = toIST(orderDate);
-        const dateStr = getISTDateStr(orderDate);
-        const total = Number(order.total) || 0;
-        
-        if (istDate >= toIST(monthStart)) {
-          statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
-        }
+      setWeeklySalesData(last7Days.map((d: any) => ({
+        day: parseDateStr(d.date, 'long'),
+        Revenue: d.revenue
+      })));
 
-        if (order.status === 'delivered') completedOrders++;
-        if (order.status === 'cancelled') cancelledOrders++;
-
-        // Delivered logic
-        if (order.status === 'delivered') {
-          if (dateStr === todayDateStr) todaySales += total;
-          if (dateStr >= weekStartStr) weeklySales += total;
-          
-          if (dateStr >= monthStartStr) {
-            monthlySales += total;
-            dailyRevenue[dateStr] = (dailyRevenue[dateStr] || 0) + total;
-            activeCustomerSet.add(order.user_id);
-            totalDiscounts += Number(order.discount) || 0;
-            totalDeliveryFees += Number(order.delivery_fee) || 0;
-          } else if (istDate >= toIST(twoMonthsAgoStart) && istDate < toIST(monthStart)) {
-            lastMonthSales += total;
-          }
-
-          // Hourly buckets (Today)
-          if (istDate >= todayStartIST && istDate < todayEndIST) {
-            let h = istDate.getHours();
-            if (h < 6) h = 6;
-            if (h > 22) h = 22;
-            const bucket = h - (h % 2);
-            const label = `${bucket}:00 ${bucket < 12 ? 'AM' : 'PM'}`;
-            const found = hourlyBuckets.find((item) => item.day === label);
-            if (found) found.sales += total;
-          }
-        }
-
-        // All Orders Volume
-        if (dateStr >= monthStartStr) {
-          dailyOrderCount[dateStr] = (dailyOrderCount[dateStr] || 0) + 1;
-        }
-        if (dateStr === todayDateStr) todayOrders++;
-        if (dateStr >= weekStartStr) weeklyOrders++;
-        if (dateStr >= monthStartStr) monthlyOrders++;
-      });
-
-      setTodaySalesData(hourlyBuckets);
-
-      // Weekly Sales Data
-      const weeklyMap: Record<string, number> = {};
-      let current = new Date(weekStart);
-      while (current < todayRange.endUTC) {
-        weeklyMap[getISTDateStr(current)] = 0;
-        current.setDate(current.getDate() + 1);
-      }
-      Object.keys(dailyRevenue).forEach(date => {
-        if (weeklyMap[date] !== undefined) weeklyMap[date] += dailyRevenue[date];
-      });
-      const weeklyArray = Object.entries(weeklyMap).map(([date, sales]) => ({
-        day: new Date(date).toLocaleDateString('en-IN', { weekday: 'short' }),
-        sales,
-      }));
-      setWeeklySalesData(weeklyArray);
-
-      // Monthly Sales Data
-      const monthlyMap: Record<string, number> = {};
-      current = new Date(monthStart);
-      while (current < todayRange.endUTC) {
-        monthlyMap[getISTDateStr(current)] = 0;
-        current.setDate(current.getDate() + 1);
-      }
-      Object.keys(dailyRevenue).forEach(date => {
-        if (monthlyMap[date] !== undefined) monthlyMap[date] += dailyRevenue[date];
-      });
-      const monthlyArray = Object.entries(monthlyMap).map(([date, sales]) => ({
-        day: new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-        sales,
-      }));
-      setMonthlySalesData(monthlyArray);
-
-      // Calculate Best Records dynamically
-      let bestRevDay = { date: '-', amount: 0 };
-      let bestOrdDay = { date: '-', count: 0 };
-      let highestAovDay = { date: '-', amount: 0 };
-
-      Object.keys(dailyRevenue).forEach(date => {
-        if (dailyRevenue[date] > bestRevDay.amount) {
-          bestRevDay = { date, amount: dailyRevenue[date] };
-        }
-      });
-
-      Object.keys(dailyOrderCount).forEach(date => {
-        if (dailyOrderCount[date] > bestOrdDay.count) {
-          bestOrdDay = { date, count: dailyOrderCount[date] };
-        }
-        
-        const dayRevenue = dailyRevenue[date] || 0;
-        const dayOrders = dailyOrderCount[date];
-        if (dayOrders > 0) {
-          const aov = dayRevenue / dayOrders;
-          if (aov > highestAovDay.amount) {
-            highestAovDay = { date, amount: aov };
-          }
-        }
-      });
-
-      // Build Bar Chart (Status)
-      const barArr = Object.entries(statusCounts).map(([status, count]) => ({
+      const statusObj = data.statusCounts || {};
+      setOrderStatusData(Object.entries(statusObj).map(([status, count]) => ({
         day: status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        sales: count // using 'sales' key generically for the dynamic chart 
-      }));
-      setOrderStatusData(barArr);
+        Revenue: count 
+      })));
 
-      // Build Pie Chart (Payments)
-      const providerMap: Record<string, number> = {};
-      recentPayments?.forEach(p => {
-        const prov = (p.provider || 'Other').toUpperCase();
-        providerMap[prov] = (providerMap[prov] || 0) + Number(p.amount);
-      });
-      const pieArr = Object.entries(providerMap).map(([name, value]) => ({ name, value }));
-      setPaymentMethodData(pieArr);
+      const payObj = data.paymentTotals || {};
+      setPaymentMethodData(Object.entries(payObj).map(([name, value]) => ({ name, value })));
 
+      // 6. Set Final Metrics Model
       setMetrics({
-        todaySales,
+        todaySales: todayData.revenue,
         weeklySales,
         monthlySales,
-        totalSales: sumData || (monthlySales * 4.5), 
-        revenueGrowth: calculateGrowth(monthlySales, lastMonthSales),
-        todayOrders,
+        totalSales: totals.lifetimeSales || 0,
+        revenueGrowth: calculateGrowth(monthlySales, data.prev30DaysRevenue || 0),
+        todayOrders: todayData.orders,
         weeklyOrders,
         monthlyOrders,
-        totalOrders: totalOrdersCount || 0,
-        completedOrders,
-        cancelledOrders,
-        totalCustomers: totalCustomersCount || 0,
-        activeCustomers: activeCustomerSet.size,
-        newCustomers: newCustomersCount || 0,
-        customerGrowth: calculateGrowth(newCustomersCount || 0, (totalCustomersCount || 0) - (newCustomersCount || 0)),
-        todayAOV: todayOrders ? todaySales / todayOrders : 0,
+        totalOrders: totals.lifetimeOrders || 0,
+        completedOrders: totals.completedOrders || 0,
+        cancelledOrders: totals.cancelledOrders || 0,
+        totalCustomers: data.totalCustomers || 0,
+        activeCustomers: data.activeCustomers30d || 0,
+        newCustomers: data.newCustomers30d || 0,
+        customerGrowth: calculateGrowth(data.newCustomers30d || 0, (data.totalCustomers || 0) - (data.newCustomers30d || 0)),
+        todayAOV: todayData.orders ? todayData.revenue / todayData.orders : 0,
         monthlyAOV: monthlyOrders ? monthlySales / monthlyOrders : 0,
         totalDiscounts,
         totalDeliveryFees,
-        bestRevenueDay: bestRevDay,
-        bestOrderDay: bestOrdDay,
-        highestAOVDay: highestAovDay
+        bestRevenueDay: bestRev,
+        bestOrderDay: bestOrd,
+        highestAOVDay: bestAOV
       });
 
     } catch (err) {
@@ -349,7 +202,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         <div className="pointer-events-none absolute -left-20 bottom-[-110px] h-56 w-56 rounded-full bg-[#0b6b55]/40" />
 
         <div className="relative mx-auto max-w-7xl px-4 pb-4 pt-[max(0.65rem,env(safe-area-inset-top))] sm:px-6 sm:pb-5">
-          {/* Top row: logo + brand on the left, investor badge on the right */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5 select-none">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1535" className="h-11 w-11 sm:h-12 sm:w-12 shrink-0 drop-shadow-sm" fill="none">
@@ -374,7 +226,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             </span>
           </div>
 
-          {/* Bottom row: page title + actions */}
           <div className="mt-2.5 flex items-center justify-between gap-3">
             <div className="min-w-0 flex items-center gap-2.5">
               {onBack && (
@@ -401,7 +252,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       </header>
 
       {/* ─── MAIN CONTENT ─── */}
-      <main className="flex-1 px-4 pt-36 lg:px-8 lg:pt-32 pb-6 max-w-7xl mx-auto w-full space-y-6">
+      <main className="flex-1 px-4 pt-40 lg:px-8 lg:pt-36 pb-6 max-w-7xl mx-auto w-full space-y-6">
         
         {/* Desktop Navigation Tabs */}
         <div className="hidden md:flex bg-white shadow-sm p-1.5 rounded-2xl w-fit border border-slate-200">
@@ -411,7 +262,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         </div>
 
         {loading || !metrics ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <div className="flex flex-col items-center justify-center h-64 gap-4 mt-10">
             <Loader2 size={36} className="animate-spin text-[#0a382c]" />
             <p className="text-sm font-bold text-slate-500">Compiling financial reports...</p>
           </div>
@@ -453,16 +304,13 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                   />
                 </div>
 
-                {/* Dashboard Time-Series Charts */}
                 <div className="space-y-6">
-                  {/* Chart Type Toggle Component */}
                   <div className="flex items-center justify-between bg-white border border-slate-100 rounded-2xl p-2 shadow-sm">
                     <span className="text-xs font-bold text-slate-500 px-2 uppercase tracking-widest hidden sm:inline-block">Chart Style</span>
                     <div className="flex items-center gap-1 w-full sm:w-auto">
                       <ChartToggleButton label="Area" icon={<Activity/>} active={chartType === 'area'} onClick={() => setChartType('area')} />
                       <ChartToggleButton label="Bar" icon={<BarChartIcon/>} active={chartType === 'bar'} onClick={() => setChartType('bar')} />
                       <ChartToggleButton label="Line" icon={<LineChartIcon/>} active={chartType === 'line'} onClick={() => setChartType('line')} />
-                      <ChartToggleButton label="Pie" icon={<PieChartIcon/>} active={chartType === 'pie'} onClick={() => setChartType('pie')} />
                     </div>
                   </div>
 
@@ -477,7 +325,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                   </div>
 
                   <ChartCard title="Monthly Sales (Last 30 Days)" icon={<TrendingUp size={16} />} color="#059669" gradient="linear-gradient(135deg, #047857, #34d399)">
-                    <DynamicChart data={monthlySalesData} chartType={chartType} color="#059669" />
+                    <DynamicChart data={revenueChartData} chartType={chartType} color="#059669" />
                   </ChartCard>
                 </div>
               </div>
@@ -557,14 +405,14 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                     <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2 mb-6">
                       <Package size={16} className="text-indigo-500" /> Orders by Status (30 Days)
                     </h2>
-                    <div className="h-64 w-full [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none">
-                      <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-64 w-full select-none [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none [&_*]:focus:!outline-none">
+                      <ResponsiveContainer width="100%" height="100%" className="!outline-none focus:outline-none">
                         <BarChart data={orderStatusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                           <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                           <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                           <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }} />
-                          <Bar dataKey="sales" name="Orders" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} />
+                          <Bar dataKey="Revenue" name="Orders" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} className="!outline-none" />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -575,17 +423,17 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                     <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2 mb-6">
                       <PieChartIcon size={16} className="text-blue-500" /> Payment Methods (30 Days)
                     </h2>
-                    <div className="h-64 w-full [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
+                    <div className="h-64 w-full select-none [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none [&_*]:focus:!outline-none">
+                      <ResponsiveContainer width="100%" height="100%" className="!outline-none focus:outline-none">
+                        <PieChart className="!outline-none">
                           <Pie
-                            data={paymentMethodData}
+                            data={paymentMethodData.filter(d => d.value > 0)}
                             cx="50%" cy="50%"
                             innerRadius={60} outerRadius={80}
                             paddingAngle={5} dataKey="value"
                             style={{ outline: 'none' }}
                           >
-                            {paymentMethodData.map((_, index) => (
+                            {paymentMethodData.filter(d => d.value > 0).map((_, index) => (
                               <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} style={{ outline: 'none' }} />
                             ))}
                           </Pie>
@@ -617,9 +465,9 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                     <ul className="space-y-2">
                       <RecordRow label="Total Historical Orders" value={metrics.totalOrders.toLocaleString()} />
                       <RecordRow label="Total Registered Users" value={metrics.totalCustomers.toLocaleString()} />
-                      <RecordRow label="Best Revenue Day" value={formatCurrency(metrics.bestRevenueDay.amount)} subtext={metrics.bestRevenueDay.date} highlight />
-                      <RecordRow label="Best Order Volume Day" value={`${metrics.bestOrderDay.count} Orders`} subtext={metrics.bestOrderDay.date} highlight />
-                      <RecordRow label="Highest AOV Recorded" value={formatCurrency(metrics.highestAOVDay.amount)} subtext={metrics.highestAOVDay.date} highlight />
+                      <RecordRow label="Best Revenue Day" value={formatCurrency(metrics.bestRevenueDay.amount)} subtext={parseDateStr(metrics.bestRevenueDay.date, 'long')} highlight />
+                      <RecordRow label="Best Order Volume Day" value={`${metrics.bestOrderDay.count} Orders`} subtext={parseDateStr(metrics.bestOrderDay.date, 'long')} highlight />
+                      <RecordRow label="Highest AOV Recorded" value={formatCurrency(metrics.highestAOVDay.amount)} subtext={parseDateStr(metrics.highestAOVDay.date, 'long')} highlight />
                     </ul>
                   </div>
                 </div>
@@ -640,11 +488,11 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         )}
       </main>
 
-      {/* ─── MOBILE BOTTOM NAVIGATION WITH CUSTOM SVGS ─── */}
+      {/* ─── MOBILE BOTTOM NAVIGATION ─── */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-100 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] safe-bottom md:hidden rounded-t-[1.5rem]">
         <div className="max-w-xl mx-auto flex items-center justify-around h-[4.5rem] px-2 pb-1">
           <NavButton 
-            icon={<DashboardSVG />} 
+            icon={<LayoutGrid />} 
             label="Dashboard" 
             isActive={activeTab === 'dashboard'} 
             onClick={() => setActiveTab('dashboard')} 
@@ -656,13 +504,13 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             onClick={() => setActiveTab('sales')} 
           />
           <NavButton 
-            icon={<AnalyticsSVG />} 
+            icon={<BarChart3 />} 
             label="Analytics" 
             isActive={activeTab === 'analytics'} 
             onClick={() => setActiveTab('analytics')} 
           />
           <NavButton 
-            icon={<MoreHorizontal />} 
+            icon={<Menu />} 
             label="More" 
             isActive={activeTab === 'more'} 
             onClick={() => setActiveTab('more')} 
@@ -676,10 +524,9 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
 // ─── Sub-components ──────────────────────────────────────────────────
 
 function DynamicChart({ data, chartType, color }: { data: any[], chartType: string, color: string }) {
-  // Re-usable strictly un-focusable wrapper for charts to prevent black box
   const ChartWrapper = ({ children }: { children: React.ReactNode }) => (
-    <div className="h-64 w-full [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none [&_.recharts-cartesian-grid]:!outline-none outline-none">
-      <ResponsiveContainer width="100%" height="100%" className="!outline-none">
+    <div className="h-64 w-full select-none [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none [&_.recharts-cartesian-grid]:!outline-none outline-none">
+      <ResponsiveContainer width="100%" height="100%" className="!outline-none focus:outline-none">
         {children as React.ReactElement}
       </ResponsiveContainer>
     </div>
@@ -701,7 +548,7 @@ function DynamicChart({ data, chartType, color }: { data: any[], chartType: stri
       <ChartWrapper>
         <BarChart {...commonProps}>
           {commonGrid} {commonXAxis} {commonYAxis} {commonTooltip}
-          <Bar dataKey="sales" fill={color} radius={[6, 6, 0, 0]} barSize={20} className="!outline-none" />
+          <Bar dataKey="sales" name="Revenue" fill={color} radius={[6, 6, 0, 0]} barSize={20} className="!outline-none" />
         </BarChart>
       </ChartWrapper>
     );
@@ -712,35 +559,12 @@ function DynamicChart({ data, chartType, color }: { data: any[], chartType: stri
       <ChartWrapper>
         <LineChart {...commonProps}>
           {commonGrid} {commonXAxis} {commonYAxis} {commonTooltip}
-          <Line type="monotone" dataKey="sales" stroke={color} strokeWidth={3} dot={{ r: 3, fill: color, strokeWidth: 0, outline: 'none' }} activeDot={{ r: 6, fill: color, stroke: 'none', outline: 'none' }} className="!outline-none" />
+          <Line type="monotone" name="Revenue" dataKey="sales" stroke={color} strokeWidth={3} dot={{ r: 3, fill: color, strokeWidth: 0, outline: 'none' }} activeDot={{ r: 6, fill: color, stroke: 'none', outline: 'none' }} className="!outline-none" />
         </LineChart>
       </ChartWrapper>
     );
   }
 
-  if (chartType === 'pie') {
-    return (
-      <ChartWrapper>
-        <PieChart className="!outline-none">
-          <Pie
-            data={data.filter(d => d.sales > 0)} // hide zeros
-            cx="50%" cy="50%"
-            innerRadius={60} outerRadius={80}
-            paddingAngle={2} dataKey="sales" nameKey="day"
-            className="!outline-none"
-            style={{ outline: 'none' }}
-          >
-            {data.map((_, index) => (
-              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} style={{ outline: 'none' }} />
-            ))}
-          </Pie>
-          {commonTooltip}
-        </PieChart>
-      </ChartWrapper>
-    );
-  }
-
-  // Default: Area
   return (
     <ChartWrapper>
       <AreaChart {...commonProps}>
@@ -751,7 +575,7 @@ function DynamicChart({ data, chartType, color }: { data: any[], chartType: stri
           </linearGradient>
         </defs>
         {commonGrid} {commonXAxis} {commonYAxis} {commonTooltip}
-        <Area type="monotone" dataKey="sales" stroke={color} strokeWidth={3} fillOpacity={1} fill={`url(#colorArea-${color})`} activeDot={{ stroke: 'none', fill: color, r: 6, outline: 'none' }} className="!outline-none" />
+        <Area type="monotone" name="Revenue" dataKey="sales" stroke={color} strokeWidth={3} fillOpacity={1} fill={`url(#colorArea-${color})`} activeDot={{ stroke: 'none', fill: color, r: 6, outline: 'none' }} className="!outline-none" />
       </AreaChart>
     </ChartWrapper>
   );
@@ -869,25 +693,6 @@ function NavButton({ icon, label, isActive, onClick }: { icon: React.ReactNode, 
     </button>
   );
 }
-
-// ─── Custom Bottom Navigation SVGs ─────────────────────────────
-
-const DashboardSVG = ({ size, strokeWidth, className }: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <rect x="3" y="3" width="7" height="9" rx="2"></rect>
-    <rect x="14" y="3" width="7" height="5" rx="2"></rect>
-    <rect x="14" y="12" width="7" height="9" rx="2"></rect>
-    <rect x="3" y="16" width="7" height="5" rx="2"></rect>
-  </svg>
-);
-
-const AnalyticsSVG = ({ size, strokeWidth, className }: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M3 3v18h18" />
-    <rect x="7" y="13" width="3" height="4" rx="1" />
-    <rect x="13" y="7" width="3" height="10" rx="1" />
-  </svg>
-);
 
 function Loader2({ className, size }: { className?: string, size: number }) {
   return (

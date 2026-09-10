@@ -180,3 +180,104 @@ to authenticated
 using (
   auth_helpers.is_investor()
 );
+
+
+CREATE OR REPLACE FUNCTION get_investor_dashboard_data()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_ist_now timestamptz := (now() AT TIME ZONE 'UTC') + interval '5 hours 30 minutes';
+  v_today_date date := v_ist_now::date;
+  v_month_start timestamptz := (v_today_date - interval '29 days')::timestamptz;
+  v_prev_month_start timestamptz := (v_today_date - interval '59 days')::timestamptz;
+  
+  v_totals jsonb;
+  v_daily_stats jsonb;
+  v_prev_revenue numeric;
+  v_status_counts jsonb;
+  v_payment_totals jsonb;
+  v_new_customers int;
+  v_active_customers int;
+  v_total_customers int;
+BEGIN
+  -- 1. Lifetime & Overall Order Totals
+  SELECT jsonb_build_object(
+    'lifetimeSales', COALESCE(SUM(total) FILTER (WHERE status = 'delivered'), 0),
+    'lifetimeOrders', COUNT(*),
+    'completedOrders', COUNT(*) FILTER (WHERE status = 'delivered'),
+    'cancelledOrders', COUNT(*) FILTER (WHERE status = 'cancelled')
+  ) INTO v_totals FROM orders;
+
+  -- 2. Daily Stats (Last 30 Days) - Generates exact 30 day series, joining with aggregated order data
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'date', d.day,
+      'revenue', COALESCE(o.revenue, 0),
+      'orders', COALESCE(o.orders, 0),
+      'discounts', COALESCE(o.discounts, 0),
+      'delivery_fees', COALESCE(o.delivery_fees, 0)
+    ) ORDER BY d.day ASC
+  ) INTO v_daily_stats
+  FROM (
+    SELECT to_char(generate_series(v_month_start, v_ist_now, '1 day'::interval), 'YYYY-MM-DD') AS day
+  ) d
+  LEFT JOIN (
+    SELECT 
+      to_char((created_at AT TIME ZONE 'UTC') + interval '5 hours 30 minutes', 'YYYY-MM-DD') AS order_day,
+      SUM(total) FILTER (WHERE status = 'delivered') AS revenue,
+      COUNT(*) AS orders,
+      SUM(discount) AS discounts,
+      SUM(delivery_fee) AS delivery_fees
+    FROM orders
+    WHERE created_at >= v_month_start
+    GROUP BY 1
+  ) o ON d.day = o.order_day;
+
+  -- 3. Previous 30 Days Revenue (For growth calculation)
+  SELECT COALESCE(SUM(total), 0) INTO v_prev_revenue
+  FROM orders
+  WHERE status = 'delivered' 
+    AND created_at >= v_prev_month_start 
+    AND created_at < v_month_start;
+
+  -- 4. Status Counts (Last 30 days)
+  SELECT jsonb_object_agg(status, count) INTO v_status_counts
+  FROM (
+    SELECT status, COUNT(*) as count 
+    FROM orders 
+    WHERE created_at >= v_month_start 
+    GROUP BY status
+  ) s;
+
+  -- 5. Payment Methods (Last 30 days)
+  SELECT jsonb_object_agg(provider, amount) INTO v_payment_totals
+  FROM (
+    SELECT UPPER(provider) as provider, SUM(amount) as amount 
+    FROM payments 
+    WHERE status = 'paid' AND created_at >= v_month_start 
+    GROUP BY UPPER(provider)
+  ) p;
+
+  -- 6. Customer Demographics
+  SELECT COUNT(*) INTO v_total_customers FROM profiles;
+  SELECT COUNT(*) INTO v_new_customers FROM profiles WHERE created_at >= v_month_start;
+  SELECT COUNT(DISTINCT user_id) INTO v_active_customers FROM orders WHERE created_at >= v_month_start;
+
+  -- 7. Compile and Return Fast JSON Payload
+  RETURN jsonb_build_object(
+    'totals', COALESCE(v_totals, '{}'::jsonb),
+    'dailyStats', COALESCE(v_daily_stats, '[]'::jsonb),
+    'prev30DaysRevenue', v_prev_revenue,
+    'statusCounts', COALESCE(v_status_counts, '{}'::jsonb),
+    'paymentTotals', COALESCE(v_payment_totals, '{}'::jsonb),
+    'newCustomers30d', COALESCE(v_new_customers, 0),
+    'activeCustomers30d', COALESCE(v_active_customers, 0),
+    'totalCustomers', COALESCE(v_total_customers, 0)
+  );
+END;
+$$;
+
+-- Grant execution permissions
+GRANT EXECUTE ON FUNCTION get_investor_dashboard_data() TO authenticated;

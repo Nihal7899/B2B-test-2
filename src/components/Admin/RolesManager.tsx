@@ -1,5 +1,5 @@
 // src/components/admin/RolesManager.tsx
-import { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Loader2, Search, X, Shield, User, Building2, Truck, LineChart } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 

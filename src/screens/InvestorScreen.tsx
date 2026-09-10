@@ -56,6 +56,7 @@ function calculateGrowth(current: number, previous: number): string {
 }
 
 function parseDateStr(dateStr: string, format: 'short' | 'long' = 'short') {
+  if (dateStr === '-') return '-';
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-IN', format === 'short' ? { day: 'numeric', month: 'short' } : { weekday: 'short' });
 }
@@ -95,8 +96,9 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
   const [metrics, setMetrics] = useState<InvestorMetrics | null>(null);
   
   // Charts State
-  const [revenueChartData, setRevenueChartData] = useState<any[]>([]);
+  const [todaySalesData, setTodaySalesData] = useState<any[]>([]);
   const [weeklySalesData, setWeeklySalesData] = useState<any[]>([]);
+  const [monthlySalesData, setMonthlySalesData] = useState<any[]>([]);
   const [orderStatusData, setOrderStatusData] = useState<any[]>([]);
   const [paymentMethodData, setPaymentMethodData] = useState<any[]>([]);
   const [chartType, setChartType] = useState<'area' | 'line' | 'bar'>('area');
@@ -124,7 +126,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       const totalDiscounts = daily.reduce((sum: number, d: any) => sum + d.discounts, 0);
       const totalDeliveryFees = daily.reduce((sum: number, d: any) => sum + d.delivery_fees, 0);
 
-      // 4. Calculate Best Records by looping 30 items (O(N) where N=30, instantaneous)
+      // 4. Calculate Best Records by looping 30 items (Instantaneous)
       let bestRev = { date: '-', amount: 0 };
       let bestOrd = { date: '-', count: 0 };
       let bestAOV = { date: '-', amount: 0 };
@@ -136,27 +138,54 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         if (aov > bestAOV.amount) bestAOV = { date: d.date, amount: aov };
       });
 
-      // 5. Populate Chart Arrays
-      setRevenueChartData(daily.slice(-14).map((d: any) => ({
+      // 5. Populate Time-Series Chart Arrays
+      setMonthlySalesData(daily.map((d: any) => ({
         day: parseDateStr(d.date, 'short'),
-        Revenue: d.revenue
+        sales: d.revenue
       })));
 
       setWeeklySalesData(last7Days.map((d: any) => ({
         day: parseDateStr(d.date, 'long'),
-        Revenue: d.revenue
+        sales: d.revenue
       })));
 
+      // Fetch just today's delivered orders for the hourly trend (Lightweight & Safe)
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const { data: todayOrdersData } = await supabase
+        .from('orders')
+        .select('created_at, total')
+        .eq('status', 'delivered')
+        .gte('created_at', todayStart.toISOString());
+
+      const hourlyBuckets = Array.from({ length: 9 }, (_, i) => {
+        const hour = 6 + i * 2;
+        return { day: `${hour}:00 ${hour < 12 ? 'AM' : 'PM'}`, sales: 0 };
+      });
+
+      todayOrdersData?.forEach(o => {
+        const d = new Date(o.created_at);
+        let h = d.getHours();
+        if (h < 6) h = 6;
+        if (h > 22) h = 22;
+        const bucket = h - (h % 2);
+        const label = `${bucket}:00 ${bucket < 12 ? 'AM' : 'PM'}`;
+        const found = hourlyBuckets.find(x => x.day === label);
+        if (found) found.sales += Number(o.total) || 0;
+      });
+      setTodaySalesData(hourlyBuckets);
+
+      // 6. Populate Analytic Chart Arrays
       const statusObj = data.statusCounts || {};
       setOrderStatusData(Object.entries(statusObj).map(([status, count]) => ({
         day: status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        Revenue: count 
+        sales: count 
       })));
 
       const payObj = data.paymentTotals || {};
       setPaymentMethodData(Object.entries(payObj).map(([name, value]) => ({ name, value })));
 
-      // 6. Set Final Metrics Model
+      // 7. Set Final Metrics Model
       setMetrics({
         todaySales: todayData.revenue,
         weeklySales,
@@ -325,7 +354,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                   </div>
 
                   <ChartCard title="Monthly Sales (Last 30 Days)" icon={<TrendingUp size={16} />} color="#059669" gradient="linear-gradient(135deg, #047857, #34d399)">
-                    <DynamicChart data={revenueChartData} chartType={chartType} color="#059669" />
+                    <DynamicChart data={monthlySalesData} chartType={chartType} color="#059669" />
                   </ChartCard>
                 </div>
               </div>
@@ -412,7 +441,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                           <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                           <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                           <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }} />
-                          <Bar dataKey="Revenue" name="Orders" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} className="!outline-none" />
+                          <Bar dataKey="sales" name="Orders" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} className="!outline-none" />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -488,7 +517,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         )}
       </main>
 
-      {/* ─── MOBILE BOTTOM NAVIGATION ─── */}
+      {/* ─── MOBILE BOTTOM NAVIGATION (LUCIDE ICONS) ─── */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-100 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] safe-bottom md:hidden rounded-t-[1.5rem]">
         <div className="max-w-xl mx-auto flex items-center justify-around h-[4.5rem] px-2 pb-1">
           <NavButton 

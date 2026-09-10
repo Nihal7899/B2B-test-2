@@ -13,7 +13,7 @@ export interface ThemeProps {
 interface CategoryProductCardProps {
   product: Product;
   quantity: number;
-  onAdd: (product: Product) => void;
+  onAdd: (product: Product, quantity?: number) => void;
   onIncrement: (product: Product) => void;
   onDecrement: (product: Product) => void;
   onClick: (product: Product) => void;
@@ -136,7 +136,7 @@ export const CategoryProductCard = React.memo(function CategoryProductCard({
           ) : (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onAdd(product); }}
+              onClick={(e) => { e.stopPropagation(); onAdd(product, product.moq); }}
               className="flex items-center justify-center w-[80px] h-[28px] rounded border bg-white shadow-sm font-bold text-xs active:scale-95 transition-transform"
               style={{ color: primaryColor, borderColor: `${primaryColor}30` }}
             >

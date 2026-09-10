@@ -26,7 +26,7 @@ const DEFAULT_THEME: ThemeProps = {};
 interface ProductCardProps {
   product: Product;
   quantity: number;
-  onAdd: (product: Product) => void;
+  onAdd: (product: Product, quantity?: number) => void;
   onIncrement: (product: Product) => void;
   onDecrement: (product: Product) => void;
   onClick: (product: Product) => void;
@@ -72,7 +72,7 @@ export const ProductCard = React.memo(function ProductCard({
   const handleAdd = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onAdd(product);
+      onAdd(product, product.moq);
       setAdded(true);
       setTimeout(() => {
         setAdded(false);
@@ -367,7 +367,7 @@ interface ProductCarouselProps {
   subtitle?: string;
   products: Product[];
   getQuantity: (id: string) => number;
-  onAdd: (product: Product) => void;
+  onAdd: (product: Product, quantity?: number) => void;
   onIncrement: (product: Product) => void;
   onDecrement: (product: Product) => void;
   onProductClick: (product: Product) => void;

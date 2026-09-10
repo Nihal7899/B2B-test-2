@@ -165,6 +165,9 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
     );
   }
 
+  const moqErrors = cart.items.filter((item) => item.quantity < item.product.moq);
+  const hasMoqErrors = moqErrors.length > 0;
+
   return (
     <div className="safe-top px-4 pb-8 space-y-4">
       <div className="flex items-center gap-3">
@@ -346,9 +349,25 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
           </div>
         </div>
 
+        {hasMoqErrors && (
+          <div className="rounded-xl bg-red-50 border border-red-100 p-3 mt-3 space-y-1.5">
+            {moqErrors.map((item) => (
+              <p key={item.product.id} className="text-xs font-medium text-red-600 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
+                <span>{item.product.name} should have {item.product.moq} qty</span>
+              </p>
+            ))}
+          </div>
+        )}
+
         <button
-          onClick={onCheckout}
-          className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft tap-highlight active:scale-[.98] transition-transform"
+          onClick={hasMoqErrors ? undefined : onCheckout}
+          disabled={hasMoqErrors}
+          className={`w-full h-12 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft transition-transform mt-3 ${
+            hasMoqErrors 
+              ? 'bg-ink-300 cursor-not-allowed opacity-80' 
+              : 'bg-brand-600 tap-highlight active:scale-[.98]'
+          }`}
         >
           Proceed to Checkout <ArrowRight size={17} />
         </button>

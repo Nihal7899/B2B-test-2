@@ -34,7 +34,7 @@ import { WishlistScreen } from '@/screens/WishlistScreen';
 import { AdminScreen } from '@/screens/AdminScreen';
 import { WarehouseScreen } from '@/screens/WarehouseScreen';
 import { DeliveryScreen } from '@/screens/DeliveryScreen';
-import { InvestorScreen } from '@/screens/InvestorScreen'; // <-- IMPORTED INVESTOR SCREEN
+import { InvestorScreen } from '@/screens/InvestorScreen'; 
 import { FilteredProductsScreen } from '@/screens/FilteredProductsScreen';
 import { BusinessRegistrationScreen } from '@/screens/BusinessRegistrationScreen';
 import { AuthScreen } from '@/screens/AuthScreen';
@@ -85,7 +85,7 @@ const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   admin: '/admin',
   warehouse: '/warehouse',
   delivery: '/delivery',
-  investor: '/investor', // <-- ADDED ROUTE PATH
+  investor: '/investor', 
   addresses: '/addresses',
   wishlist: '/wishlist',
   checkout: '/checkout',
@@ -241,7 +241,8 @@ function App() {
 
   const isDeliveryPartner = role === 'delivery_partner';
   const isWarehouseManager = role === 'warehouse_manager';
-  const isDedicatedStaff = isDeliveryPartner || isWarehouseManager;
+  const isInvestor = role === 'investor';
+  const isDedicatedStaff = isDeliveryPartner || isWarehouseManager || isInvestor;
 
   const deliveryTab = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -328,6 +329,7 @@ function App() {
   const key = useMemo(() => {
     if (isDeliveryPartner) return `delivery_dedicated_${deliveryTab}`;
     if (isWarehouseManager) return 'warehouse_dedicated';
+    if (isInvestor) return 'investor_dedicated'; 
     if (screen === 'store') {
       const searchParams = new URLSearchParams(location.search);
       const storeId = searchParams.get('storeId') || 'default';
@@ -348,7 +350,7 @@ function App() {
       return `category|${categoryId}`;
     }
     return location.pathname;
-  }, [screen, location.pathname, location.search, isDeliveryPartner, isWarehouseManager, deliveryTab]);
+  }, [screen, location.pathname, location.search, isDeliveryPartner, isWarehouseManager, isInvestor, deliveryTab]);
 
   const isFullBleed =
     isDedicatedStaff ||
@@ -475,7 +477,7 @@ function App() {
           ? role === 'admin' || role === 'warehouse_manager'
           : next === 'delivery'
           ? role === 'admin' || role === 'delivery_partner'
-          : next === 'investor' // <-- ADDED INVESTOR ACCESS
+          : next === 'investor' 
           ? role === 'admin' || role === 'investor'
           : true;
 
@@ -503,6 +505,10 @@ function App() {
 
     if (isWarehouseManager) {
       return <WarehouseScreen isDedicatedRole={true} />;
+    }
+
+    if (isInvestor) {
+      return <InvestorScreen />; 
     }
 
     switch (screen) {
@@ -593,7 +599,7 @@ function App() {
           />
         );
 
-      case 'investor': // <-- ADDED INVESTOR SCREEN RENDER
+      case 'investor': 
         return role === 'admin' || role === 'investor' ? (
           <InvestorScreen onBack={() => goTo('account')} />
         ) : (
@@ -693,7 +699,7 @@ function App() {
   };
 
   const isWarehouseView = isWarehouseManager || screen === 'warehouse';
-  const isLargeScreenView = isWarehouseView || screen === 'investor' || screen === 'admin';
+  const isLargeScreenView = isWarehouseView || isInvestor || screen === 'investor' || screen === 'admin';
 
   return (
     <div className="min-h-screen bg-ink-100 flex flex-col justify-between">

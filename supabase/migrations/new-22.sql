@@ -116,3 +116,5 @@ CREATE TRIGGER trg_delivery_partner_assigned
 AFTER INSERT OR UPDATE OF delivery_partner_id ON public.delivery_assignments
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_delivery_partner_assignment();
+
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'investor';

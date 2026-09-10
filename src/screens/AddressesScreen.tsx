@@ -79,9 +79,23 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
     setShowForm(true);
   };
 
-  const handleSave = async () => {
-    console.log('🔧 handleSave called with form:', form);
+  const handleSetDefault = async (addr: DbAddress) => {
+    try {
+      // Find current default and unset it
+      const currentDefault = addresses.find((a) => a.is_default);
+      if (currentDefault && currentDefault.id !== addr.id) {
+        await supabase.from('addresses').update({ is_default: false }).eq('id', currentDefault.id);
+      }
+      
+      // Set new default
+      await supabase.from('addresses').update({ is_default: true }).eq('id', addr.id);
+      await load();
+    } catch (err) {
+      console.error('Failed to set default address', err);
+    }
+  };
 
+  const handleSave = async () => {
     if (!form.recipient_name || !form.phone || !form.line1 || !form.city || !form.state || !form.postal_code) {
       setError('Please fill all required fields.');
       return;
@@ -96,20 +110,17 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
 
       // If no lat/lng, geocode the address
       if (lat === null || lng === null) {
-        console.log('📍 Geocoding address...');
         const fullAddress = `${form.line1}, ${form.city}, ${form.state} ${form.postal_code}`;
         const { data, error } = await supabase.functions.invoke('maps', {
           body: { action: 'search', query: fullAddress },
         });
         if (error || !data?.address?.latitude) {
-          console.error('❌ Geocoding error:', error || 'No lat/lng returned');
           setError('Could not determine location from address. Please use the map picker to set location.');
           setSaving(false);
           return;
         }
         lat = data.address.latitude;
         lng = data.address.longitude;
-        // Optionally fill missing address parts from geocoded result
         setForm(f => ({
           ...f,
           latitude: lat,
@@ -119,40 +130,56 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
           state: data.address.state || f.state,
           postal_code: data.address.postal_code || f.postal_code,
         }));
-        console.log('✅ Geocoded lat/lng:', { lat, lng });
       }
 
       // Check delivery range
-      console.log('📍 Checking delivery range for:', { lat, lng });
       const inRange = await checkPointInDeliveryRange(lat!, lng!);
-      console.log('📍 In range?', inRange);
       if (!inRange) {
         setError('This address is outside our delivery area. Please choose another location.');
         setSaving(false);
         return;
       }
 
-      // Prepare data for saveAddress
       const addressData = {
-        ...form,
+        label: form.label,
+        recipient_name: form.recipient_name,
+        phone: form.phone,
+        line1: form.line1,
+        line2: form.line2,
+        city: form.city,
+        state: form.state,
+        postal_code: form.postal_code,
         latitude: lat,
         longitude: lng,
-        ...(form.id ? { id: form.id } : {}) // pass ID for update
+        place_id: form.place_id,
+        is_default: form.is_default,
       };
-      console.log('📦 Saving address with data:', addressData);
 
-      // Proceed to save address
-      const result = await saveAddress(addressData);
-      console.log('✅ Address saved successfully:', result);
+      // Unset previous default if this new/updated address is being set as default
+      if (form.is_default) {
+        const currentDefault = addresses.find((a) => a.is_default);
+        if (currentDefault && currentDefault.id !== form.id) {
+          await supabase.from('addresses').update({ is_default: false }).eq('id', currentDefault.id);
+        }
+      }
+
+      // Explicitly UPDATE if we have an ID to prevent duplicates, otherwise INSERT
+      if (form.id) {
+        const { error: updateError } = await supabase
+          .from('addresses')
+          .update(addressData)
+          .eq('id', form.id);
+        if (updateError) throw updateError;
+      } else {
+        await saveAddress(addressData);
+      }
 
       setShowForm(false);
       setForm({ ...EMPTY_FORM });
       await load();
       onSaved?.();
     } catch (err: any) {
-      // Log the full error object
       console.error('❌ Save address error:', err);
-      // Supabase errors usually have a 'message' and 'code'
       const message = err?.message || err?.error_description || 'Could not save address. Please try again.';
       setError(`Save failed: ${message}`);
     } finally {
@@ -254,6 +281,14 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    {!addr.is_default && (
+                      <button 
+                        onClick={() => handleSetDefault(addr)} 
+                        className="px-2 py-1 text-[10px] font-bold text-brand-600 bg-brand-50 rounded-lg hover:bg-brand-100 transition-colors mr-1"
+                      >
+                        Set Default
+                      </button>
+                    )}
                     <button onClick={() => handleEdit(addr)} className="p-2 text-ink-400 hover:text-brand-600 transition-colors"><Pencil size={15} /></button>
                     <button onClick={() => void handleDelete(addr.id)} className="p-2 text-ink-400 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
                   </div>

@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
-export type AppRole = 'admin' | 'warehouse_manager' | 'delivery_partner' | 'customer';
+// Added 'investor' to AppRole
+export type AppRole = 'admin' | 'warehouse_manager' | 'delivery_partner' | 'investor' | 'customer';
 
 export interface ProfileData {
   id: string;

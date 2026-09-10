@@ -3,7 +3,7 @@ import type { Product, PromoBanner, Category } from '@/types';
 
 export interface SearchSuggestionItem {
   text: string;
-  type: 'brand' | 'product' | 'category' | 'subcategory' | 'compound' | 'sku';
+  type: 'brand' | 'product' | 'category' | 'subcategory' | 'compound';
   subText?: string;
   brand?: string;
   packSize?: string;
@@ -53,14 +53,27 @@ interface SearchDictionary {
   brands: string[];
   categories: Category[];
   subcategories: { id: string; name: string; slug: string; categoryId: string }[];
-  synonyms: Record<string, string[]>;
-  vocabulary: string[];
   lastFetched: number;
 }
 
-// FIXED: SKU Regex now strictly requires at least one letter AND one number to prevent it from hijacking normal words like "onion"
-const SKU_REGEX = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9]{4,12}$/i;
-const PACK_SIZE_REGEX = /^\d+(\.\d+)?(kg|g|ml|l|ltr|pc|pcs|tin|jar|box|pkt|dz)$/i;
+const SYNONYM_MAP: Record<string, string[]> = {
+  beverage: ['beverages', 'drink', 'drinks', 'cold drink', 'soft drink', 'juice', 'soda', 'syrup', 'tea', 'coffee', 'water'],
+  beverages: ['beverage', 'drinks', 'cold drink', 'soft drinks', 'juice', 'soda', 'syrups', 'tea', 'coffee'],
+  drink: ['beverages', 'cold drink', 'juice', 'soft drinks'],
+  drinks: ['beverages', 'cold drinks', 'juices', 'soft drinks'],
+  oil: ['edible oil', 'refined oil', 'mustard oil', 'sunflower oil', 'ghee', 'cooking oil'],
+  oils: ['oil', 'refined oil', 'mustard oil', 'sunflower oil', 'ghee'],
+  atta: ['flour', 'wheat', 'chakki atta', 'maida', 'sooji', 'grains'],
+  flour: ['atta', 'wheat', 'maida', 'besan', 'sooji', 'grains'],
+  rice: ['basmati', 'kolam', 'sona masoori', 'poha', 'grains'],
+  dal: ['pulses', 'toor dal', 'moong dal', 'chana dal', 'urad dal', 'legumes'],
+  pulses: ['dal', 'lentils', 'legumes', 'chana', 'rajma', 'toor'],
+  sugar: ['sweetener', 'jaggery', 'gur'],
+  spices: ['masala', 'mirchi', 'turmeric', 'chilli', 'haldi', 'dhaniya'],
+  cleaning: ['detergent', 'soap', 'floor cleaner', 'dishwash', 'cleaner'],
+  dairy: ['milk', 'paneer', 'cheese', 'butter', 'curd', 'ghee'],
+  snacks: ['biscuits', 'namkeen', 'chips', 'cookies', 'noodles'],
+};
 
 let dictionaryCache: SearchDictionary | null = null;
 const CACHE_TTL = 10 * 60 * 1000;
@@ -88,7 +101,7 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
   }
 
   try {
-    const [productsRes, categoriesRes, subcategoriesRes, brandsRes, synonymsRes] = await Promise.all([
+    const [productsRes, categoriesRes, subcategoriesRes, brandsRes] = await Promise.all([
       supabase
         .from('products')
         .select('id, name, brand, pack_size, category_id, subcategory_id, product_code, description')
@@ -106,10 +119,6 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
       supabase
         .from('trusted_brands')
         .select('name')
-        .eq('is_active', true),
-      supabase
-        .from('search_synonyms')
-        .select('keyword, synonyms')
         .eq('is_active', true),
     ]);
 
@@ -148,41 +157,24 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
       categoryId: s.category_id,
     }));
 
-    // Make synonyms bidirectional (tamatar <-> tomato)
-    const synonymsMap: Record<string, string[]> = {};
-    if (synonymsRes.data) {
-      synonymsRes.data.forEach((row) => {
-        const kw = row.keyword.toLowerCase();
-        const syns = row.synonyms.map((s: string) => s.toLowerCase());
-        
-        synonymsMap[kw] = Array.from(new Set([...(synonymsMap[kw] || []), ...syns]));
-        syns.forEach((syn: string) => {
-          synonymsMap[syn] = Array.from(new Set([...(synonymsMap[syn] || []), kw, ...syns]));
-        });
-      });
-    }
-
-    // Build a global vocabulary of every word in your catalog for the spell checker
-    const vocabSet = new Set<string>();
-    categories.forEach(c => c.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
-    brands.forEach(b => b.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
-    products.forEach(p => p.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
-    const vocabulary = Array.from(vocabSet).filter(w => w.length >= 3);
-
     dictionaryCache = {
       products,
       brands,
       categories,
       subcategories,
-      synonyms: synonymsMap,
-      vocabulary,
       lastFetched: now,
     };
 
     return dictionaryCache;
   } catch (err) {
     console.error('Failed to build search dictionary:', err);
-    return { products: [], brands: [], categories: [], subcategories: [], synonyms: {}, vocabulary: [], lastFetched: 0 };
+    return {
+      products: [],
+      brands: [],
+      categories: [],
+      subcategories: [],
+      lastFetched: 0,
+    };
   }
 }
 
@@ -212,10 +204,10 @@ function getLevenshteinDistance(a = '', b = ''): number {
   return matrix[bn][an];
 }
 
-function expandQueryTokens(tokens: string[], map: Record<string, string[]>): string[] {
+function expandQueryTokens(tokens: string[]): string[] {
   const expanded = new Set<string>(tokens);
   for (const t of tokens) {
-    const synonyms = map[t.toLowerCase()];
+    const synonyms = SYNONYM_MAP[t.toLowerCase()];
     if (synonyms) {
       synonyms.forEach((syn) => expanded.add(syn.toLowerCase()));
     }
@@ -240,10 +232,8 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     };
   }
 
-  // Strip non-alphanumeric chars to prevent false positives
-  const queryTokens = q.split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
-  const expandedTokens = expandQueryTokens(queryTokens, dict.synonyms);
-  
+  const queryTokens = q.split(/\s+/).filter(Boolean);
+  const expandedTokens = expandQueryTokens(queryTokens);
   const suggestionList: SearchSuggestionItem[] = [];
   const matchedCategories: Category[] = [];
   const matchedBrands: string[] = [];
@@ -257,68 +247,69 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     }
   };
 
-  // 1. SKU Intent Detection (Instant B2B Match)
-  const skuToken = queryTokens.find(t => SKU_REGEX.test(t));
-  if (skuToken) {
-    const skuMatches = dict.products.filter(p => p.productCode?.toLowerCase() === skuToken);
-    for (const p of skuMatches) {
-      addUnique({
-        text: formatCompoundPhrase(p.brand, p.name, p.packSize),
-        type: 'sku',
-        subText: `SKU: ${p.productCode}`,
-      });
-    }
-  }
-
-  // 2. Exact StartsWith Priorities (Categories & Brands)
+  // 1. Category matches
   for (const c of dict.categories) {
-    if (c.name.toLowerCase().startsWith(q)) {
+    const cLower = c.name.toLowerCase();
+    const cSlug = c.slug.toLowerCase();
+    if (
+      cLower.includes(q) ||
+      cSlug.includes(q) ||
+      expandedTokens.some((t) => cLower.includes(t) || cSlug.includes(t))
+    ) {
       matchedCategories.push(c);
       addUnique({ text: c.name, type: 'category', id: c.id, subText: 'Category' });
     }
   }
 
+  // 2. Subcategory matches
+  for (const sc of dict.subcategories) {
+    const scLower = sc.name.toLowerCase();
+    if (scLower.includes(q) || expandedTokens.some((t) => scLower.includes(t))) {
+      addUnique({ text: sc.name, type: 'subcategory', id: sc.id, subText: 'Subcategory' });
+    }
+  }
+
+  // 3. Brand matches
+  let matchedBrandName: string | null = null;
   for (const b of dict.brands) {
-    if (b.toLowerCase().startsWith(q)) {
+    const bLower = b.toLowerCase();
+    if (bLower === q || bLower.startsWith(q) || queryTokens.some((t) => bLower.includes(t))) {
+      matchedBrandName = b;
       matchedBrands.push(b);
       addUnique({ text: b, type: 'brand', subText: 'Brand' });
     }
   }
 
-  // 3. Fallback to Partial/Token Matches for Categories
-  for (const c of dict.categories) {
-    const cLower = c.name.toLowerCase();
-    const cSlug = c.slug.toLowerCase();
-    if (!matchedCategories.some(mc => mc.id === c.id)) {
-      if (expandedTokens.some(t => cLower.includes(t) || cSlug.includes(t))) {
-        matchedCategories.push(c);
-        addUnique({ text: c.name, type: 'category', id: c.id, subText: 'Category' });
+  // 4. Compound SKU matches
+  if (matchedBrandName) {
+    const brandProducts = dict.products.filter(
+      (p) => p.brand.toLowerCase() === matchedBrandName!.toLowerCase()
+    );
+
+    for (const p of brandProducts) {
+      addUnique({
+        text: formatCompoundPhrase(p.brand, p.name),
+        type: 'compound',
+        brand: p.brand,
+      });
+
+      if (p.packSize) {
+        addUnique({
+          text: formatCompoundPhrase(p.brand, p.name, p.packSize),
+          type: 'product',
+          brand: p.brand,
+          packSize: p.packSize,
+          subText: p.packSize,
+        });
       }
+      if (suggestionList.length >= 8) break;
     }
   }
 
-  // 4. Subcategory Matches
-  for (const sc of dict.subcategories) {
-    const scLower = sc.name.toLowerCase();
-    if (scLower.startsWith(q) || expandedTokens.some((t) => scLower.includes(t))) {
-      addUnique({ text: sc.name, type: 'subcategory', id: sc.id, subText: 'Subcategory' });
-    }
-  }
-
-  // 5. Product Title Matches
+  // 5. Product Title matches
   for (const p of dict.products) {
-    const searchable = `${p.brand} ${p.name} ${p.packSize} ${p.description}`.toLowerCase();
-    const pName = p.name.toLowerCase();
-    
-    if (pName.startsWith(q)) {
-      addUnique({
-        text: formatCompoundPhrase(p.brand, p.name, p.packSize),
-        type: 'product',
-        brand: p.brand,
-        packSize: p.packSize,
-        subText: p.packSize || p.brand,
-      });
-    } else if (queryTokens.every((t) => searchable.includes(t))) {
+    const searchable = `${p.brand} ${p.name} ${p.packSize} ${p.productCode} ${p.description}`.toLowerCase();
+    if (queryTokens.every((t) => searchable.includes(t))) {
       addUnique({
         text: formatCompoundPhrase(p.brand, p.name, p.packSize),
         type: 'product',
@@ -327,43 +318,48 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
         subText: p.packSize || p.brand,
       });
     }
-    if (suggestionList.length >= 12) break;
+    if (suggestionList.length >= 10) break;
   }
 
-  // 6. Token-Level Spell Correction ("Did you mean?")
+  // 6. Fuzzy Spell Correction
   let didYouMean: string | null = null;
   if (suggestionList.length === 0) {
-    const correctedTokens = queryTokens.map(token => {
-      if (token.length < 3) return token;
-      
-      // FIXED: If the word is already perfectly spelled and exists in the catalog, DO NOT alter it!
-      if (dict.vocabulary.includes(token)) {
-        return token;
-      }
-      
-      let bestMatch = token;
-      let lowestDist = 3; 
+    let closest: { text: string; dist: number } | null = null;
 
-      for (const word of dict.vocabulary) {
-        const dist = getLevenshteinDistance(token, word);
-        if (dist > 0 && dist < lowestDist) {
-          lowestDist = dist;
-          bestMatch = word;
+    for (const c of dict.categories) {
+      const dist = getLevenshteinDistance(q, c.name.toLowerCase());
+      if (dist > 0 && dist <= 2) {
+        closest = { text: c.name, dist };
+        break;
+      }
+    }
+
+    if (!closest) {
+      for (const p of dict.products) {
+        const full = formatCompoundPhrase(p.brand, p.name, p.packSize);
+        for (const token of full.toLowerCase().split(/\s+/)) {
+          for (const qToken of queryTokens) {
+            const dist = getLevenshteinDistance(qToken, token);
+            const maxAllowed = qToken.length >= 6 ? 2 : qToken.length >= 3 ? 1 : 0;
+            if (dist > 0 && dist <= maxAllowed) {
+              if (!closest || dist < closest.dist) {
+                closest = { text: full, dist };
+              }
+            }
+          }
         }
       }
-      return bestMatch;
-    });
+    }
 
-    const correctedQuery = correctedTokens.join(' ');
-    if (correctedQuery !== queryTokens.join(' ')) {
-      didYouMean = correctedQuery;
-      addUnique({ text: correctedQuery, type: 'compound', subText: 'Did you mean this?' });
+    if (closest) {
+      didYouMean = closest.text;
+      addUnique({ text: closest.text, type: 'compound', subText: 'Did you mean this?' });
     }
   }
 
   return {
     didYouMean,
-    suggestions: suggestionList.slice(0, 10),
+    suggestions: suggestionList.slice(0, 8),
     matchedCategories: matchedCategories.slice(0, 6),
     matchedBrands: matchedBrands.slice(0, 4),
   };
@@ -380,28 +376,22 @@ export async function executeFullSearch(
 ): Promise<SearchExecutionResult> {
   const cleanQuery = (query || '').trim();
   const dict = await getOrBuildSearchDictionary();
-  
-  // 1. Analyze the query to see if it's a typo
   const analysis = await getLiveSearchSuggestions(cleanQuery);
-  
-  // FIXED: If the engine found a typo correction (which only happens if the raw query had 0 matches), 
-  // automatically swap the search term to the corrected word (e.g., "oniox" -> "onion").
-  const effectiveQuery = analysis.didYouMean ? analysis.didYouMean : cleanQuery;
+  const effectiveQuery = cleanQuery || analysis.didYouMean || '';
 
   try {
-    const rawTokens = effectiveQuery.toLowerCase().split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
-    const tokens = expandQueryTokens(rawTokens, dict.synonyms);
+    const rawTokens = effectiveQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    const tokens = expandQueryTokens(rawTokens);
 
     const matchingCategoryIds = new Set<string>();
     const matchingSubcategoryIds = new Set<string>();
     let primaryCategory: Category | null = null;
 
-    // Detect Categories
     for (const cat of dict.categories) {
       const cName = cat.name.toLowerCase();
       const cSlug = cat.slug.toLowerCase();
       if (
-        cName === effectiveQuery.toLowerCase() ||
+        cName.includes(effectiveQuery.toLowerCase()) ||
         cSlug.includes(effectiveQuery.toLowerCase()) ||
         tokens.some((t) => cName.includes(t) || cSlug.includes(t))
       ) {
@@ -410,7 +400,6 @@ export async function executeFullSearch(
       }
     }
 
-    // Detect Subcategories
     for (const sc of dict.subcategories) {
       const scName = sc.name.toLowerCase();
       if (tokens.some((t) => scName.includes(t))) {
@@ -426,23 +415,20 @@ export async function executeFullSearch(
 
     if (filter?.categoryId) dbQuery = dbQuery.eq('category_id', filter.categoryId);
     if (filter?.brand) dbQuery = dbQuery.eq('brand', filter.brand);
+    if (filter?.inStockOnly) dbQuery = dbQuery.gt('stock_quantity', 0);
     if (filter?.hasDealsOnly) dbQuery = dbQuery.gt('discount_percentage', 5);
 
     const orConditions: string[] = [];
 
     if (tokens.length > 0) {
       tokens.forEach((t) => {
-        if (SKU_REGEX.test(t)) {
-          orConditions.push(`product_code.ilike.%${t}%`);
-        } else if (PACK_SIZE_REGEX.test(t)) {
-          orConditions.push(`pack_size.ilike.%${t}%`);
-        } else {
-          orConditions.push(
-            `name.ilike.%${t}%`,
-            `brand.ilike.%${t}%`,
-            `description.ilike.%${t}%`
-          );
-        }
+        orConditions.push(
+          `name.ilike.%${t}%`,
+          `brand.ilike.%${t}%`,
+          `pack_size.ilike.%${t}%`,
+          `description.ilike.%${t}%`,
+          `product_code.ilike.%${t}%`
+        );
       });
     }
 
@@ -462,7 +448,7 @@ export async function executeFullSearch(
       dbQuery = dbQuery.or(orConditions.join(','));
     }
 
-    const { data: rawProducts, error } = await dbQuery.limit(120);
+    const { data: rawProducts, error } = await dbQuery.limit(100);
     if (error) throw error;
 
     const scoredProducts = (rawProducts || []).map((p: any) => {
@@ -470,47 +456,22 @@ export async function executeFullSearch(
       const pName = (p.name || '').toLowerCase();
       const pBrand = (p.brand || '').toLowerCase();
       const pDesc = (p.description || '').toLowerCase();
-      const pPack = (p.pack_size || '').toLowerCase();
       const qLower = effectiveQuery.toLowerCase();
 
-      const mrp = Number(p.mrp || 0);
-      const price = Number(p.wholesale_price || 0);
-      const marginPercent = mrp > price ? ((mrp - price) / mrp) * 100 : 0;
-      
-      const stock = p.stock_quantity || 0;
-      const moq = p.moq || p.min_order_quantity || 1;
-      const isEffectivelyInStock = stock >= moq;
-
-      if (pName === qLower || pName.includes(` ${qLower} `)) score += 1000;
-      if (p.product_code?.toLowerCase() === qLower) score += 2000;
-
-      const allTokensMatch = tokens.every(t => pName.includes(t) || pBrand.includes(t));
-      if (allTokensMatch) score += 500;
-
-      if (pName.startsWith(qLower)) score += 300;
-      if (pBrand.startsWith(qLower)) score += 250;
+      if (pName.includes(qLower)) score += 100;
+      if (pBrand.includes(qLower)) score += 80;
 
       tokens.forEach((t) => {
-        const words = pName.split(/[\s,]+/);
-        if (words.includes(t)) score += 60; 
-        else if (pName.includes(t)) score += 20; 
-        
-        if (pBrand.includes(t)) score += 40;
-        if (pPack === t) score += 50; 
+        if (pName.includes(t)) score += 30;
+        if (pBrand.includes(t)) score += 25;
         if (pDesc.includes(t)) score += 10;
       });
 
-      if (p.category_id && matchingCategoryIds.has(p.category_id)) score += 100;
-      if (p.subcategory_id && matchingSubcategoryIds.has(p.subcategory_id)) score += 150;
+      if (p.category_id && matchingCategoryIds.has(p.category_id)) score += 50;
+      if (p.subcategory_id && matchingSubcategoryIds.has(p.subcategory_id)) score += 40;
 
-      if (isEffectivelyInStock) {
-        score += 150; 
-      } else {
-        score -= 500; 
-      }
-      
-      score += marginPercent; 
-      score += Number(p.rating || 0) * 15;
+      if ((p.stock_quantity || 0) > 0) score += 15;
+      score += Number(p.rating || 0) * 2;
 
       return {
         product: {
@@ -518,13 +479,13 @@ export async function executeFullSearch(
           name: p.name,
           brand: p.brand,
           category: p.category_id,
-          mrp,
-          price,
+          mrp: Number(p.mrp || 0),
+          price: Number(p.wholesale_price || 0),
           packSize: p.pack_size || '',
-          moq,
+          moq: p.moq || p.min_order_quantity || 1,
           image: p.image_url || (p.image_urls && p.image_urls[0]) || '',
           rating: Number(p.rating || 4.5),
-          inStock: isEffectivelyInStock,
+          inStock: (p.stock_quantity || 0) > 0,
           description: p.description || '',
           hsn_code: p.hsn_code,
           gst_percentage: p.gst_percentage,
@@ -534,11 +495,7 @@ export async function executeFullSearch(
     });
 
     scoredProducts.sort((a, b) => b.score - a.score);
-    
-    let matchedProducts = scoredProducts.map((sp) => sp.product);
-    if (filter?.inStockOnly) {
-      matchedProducts = matchedProducts.filter(p => p.inStock);
-    }
+    const matchedProducts = scoredProducts.map((sp) => sp.product);
 
     const matchedIds = new Set(matchedProducts.map((p) => p.id));
     const matchedBrandNames = new Set(
@@ -548,6 +505,7 @@ export async function executeFullSearch(
       new Set(matchedProducts.map((p) => p.category).filter(Boolean))
     );
 
+    // Alternative Products from Other Brands
     let alternativeProducts: Product[] = [];
     if (primaryCatIds.length > 0) {
       const { data: rawAlt } = await supabase
@@ -555,14 +513,10 @@ export async function executeFullSearch(
         .select('*')
         .eq('is_active', true)
         .in('category_id', primaryCatIds.slice(0, 3))
-        .limit(20);
+        .limit(16);
 
       alternativeProducts = (rawAlt || [])
-        .filter((p: any) => {
-           const stock = p.stock_quantity || 0;
-           const moq = p.moq || p.min_order_quantity || 1;
-           return !matchedIds.has(p.id) && !matchedBrandNames.has((p.brand || '').toLowerCase()) && (stock >= moq);
-        })
+        .filter((p: any) => !matchedIds.has(p.id) && !matchedBrandNames.has((p.brand || '').toLowerCase()))
         .map((p: any) => ({
           id: p.id,
           name: p.name,
@@ -574,11 +528,12 @@ export async function executeFullSearch(
           moq: p.moq || p.min_order_quantity || 1,
           image: p.image_url || (p.image_urls && p.image_urls[0]) || '',
           rating: Number(p.rating || 4.5),
-          inStock: true,
+          inStock: (p.stock_quantity || 0) > 0,
           description: p.description || '',
         }));
     }
 
+    // Related Slugs
     const relatedSlugs: RelatedSlugItem[] = [];
     const seenSlugs = new Set<string>();
 
@@ -600,6 +555,7 @@ export async function executeFullSearch(
       }
     }
 
+    // Direct fetch of real Home Banners from home_banners table
     const [bannerRes, trendingRes] = await Promise.all([
       supabase
         .from('home_banners')
@@ -631,29 +587,25 @@ export async function executeFullSearch(
     const topBanner = promoBanners.find((b) => b.position === 'top') || promoBanners[0] || null;
     const middleBanners = promoBanners.filter((b) => b.position === 'carousel' || b.position === 'middle');
 
-    const trendingProducts: Product[] = (trendingRes.data || []).map((p: any) => {
-      const stock = p.stock_quantity || 0;
-      const moq = p.moq || p.min_order_quantity || 1;
-      return {
-        id: p.id,
-        name: p.name,
-        brand: p.brand,
-        category: p.category_id,
-        mrp: Number(p.mrp || 0),
-        price: Number(p.wholesale_price || 0),
-        packSize: p.pack_size || '',
-        moq,
-        image: p.image_url || (p.image_urls && p.image_urls[0]) || '',
-        rating: Number(p.rating || 4.5),
-        inStock: stock >= moq,
-        description: p.description || '',
-      };
-    });
+    const trendingProducts: Product[] = (trendingRes.data || []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      brand: p.brand,
+      category: p.category_id,
+      mrp: Number(p.mrp || 0),
+      price: Number(p.wholesale_price || 0),
+      packSize: p.pack_size || '',
+      moq: p.moq || p.min_order_quantity || 1,
+      image: p.image_url || (p.image_urls && p.image_urls[0]) || '',
+      rating: Number(p.rating || 4.5),
+      inStock: (p.stock_quantity || 0) > 0,
+      description: p.description || '',
+    }));
 
     return {
       products: matchedProducts,
       totalCount: matchedProducts.length,
-      didYouMean: analysis.didYouMean, // FIXED: Pass the auto-corrected term back to the UI so it knows a correction happened
+      didYouMean: matchedProducts.length === 0 ? analysis.didYouMean : null,
       alternativeBrandProducts: alternativeProducts.slice(0, 10),
       relatedSlugs: relatedSlugs.slice(0, 8),
       matchedCategory: primaryCategory,

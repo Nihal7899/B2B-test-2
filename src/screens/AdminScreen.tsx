@@ -19,7 +19,6 @@ import {
   PenTool,
   MessageSquare,
   Banknote,
-  BookOpen,
 } from 'lucide-react';
 import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import InvoiceSettings from '@/components/InvoiceSettings';
@@ -45,7 +44,6 @@ import SubcategoriesManager from '@/components/Admin/SubcategoriesManager';
 import CompressionSettings from '@/components/Admin/CompressionSettings';
 import SectionsManager from '@/components/Admin/SectionsManager';
 import CodSettlementManager from '@/components/Admin/CodSettlementManager';
-import SynonymsManager from '@/components/Admin/SynonymsManager';
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -74,13 +72,12 @@ type Tab =
   | 'push'
   | 'whatsapp'
   | 'reports'
-  | 'compression'
-  | 'synonyms';
+  | 'compression';
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
 
-  const tabs: { id: Tab; label: string; icon: any }[] = [
+  const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'homeSections', label: 'Home Sections', icon: LayoutGrid },
     { id: 'banners', label: 'Banners', icon: Tag },
@@ -104,7 +101,6 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
     { id: 'reports', label: 'Reports', icon: BarChart2 },
     { id: 'compression', label: 'Compression', icon: Settings },
-    { id: 'synonyms', label: 'Search Synonyms', icon: BookOpen },
   ];
 
   return (
@@ -165,7 +161,6 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'whatsapp' && <WhatsAppCampaignManager />}       
         {tab === 'compression' && <CompressionSettings />}
         {tab === 'reports' && <Reports />}
-        {tab === 'synonyms' && <SynonymsManager />}
       </div>
     </div>
   );

@@ -34,6 +34,7 @@ import { WishlistScreen } from '@/screens/WishlistScreen';
 import { AdminScreen } from '@/screens/AdminScreen';
 import { WarehouseScreen } from '@/screens/WarehouseScreen';
 import { DeliveryScreen } from '@/screens/DeliveryScreen';
+import { InvestorScreen } from '@/screens/InvestorScreen'; // <-- IMPORTED INVESTOR SCREEN
 import { FilteredProductsScreen } from '@/screens/FilteredProductsScreen';
 import { BusinessRegistrationScreen } from '@/screens/BusinessRegistrationScreen';
 import { AuthScreen } from '@/screens/AuthScreen';
@@ -73,7 +74,7 @@ import {
 
 import { getOrFetchHomeData, getHomeDataSync } from '@/services/homePreload';
 
-const SCREEN_TO_PATH: Record<ScreenName, string> = {
+const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   home: '/',
   search: '/search',
   categories: '/categories',
@@ -84,6 +85,7 @@ const SCREEN_TO_PATH: Record<ScreenName, string> = {
   admin: '/admin',
   warehouse: '/warehouse',
   delivery: '/delivery',
+  investor: '/investor', // <-- ADDED ROUTE PATH
   addresses: '/addresses',
   wishlist: '/wishlist',
   checkout: '/checkout',
@@ -99,14 +101,14 @@ const SCREEN_TO_PATH: Record<ScreenName, string> = {
   wallet: '/wallet',
 };
 
-const PATH_TO_SCREEN: Record<string, ScreenName> =
+const PATH_TO_SCREEN: Record<string, ScreenName | 'investor'> =
   Object.fromEntries(
     Object.entries(SCREEN_TO_PATH).map(
-      ([k, v]) => [v, k as ScreenName]
+      ([k, v]) => [v, k as ScreenName | 'investor']
     )
   );
 
-function pathFor(screen: ScreenName, params?: Record<string, string>): string {
+function pathFor(screen: ScreenName | 'investor', params?: Record<string, string>): string {
   const base = SCREEN_TO_PATH[screen] ?? '/';
   if (!params) return base;
   const qs = new URLSearchParams(params);
@@ -114,7 +116,7 @@ function pathFor(screen: ScreenName, params?: Record<string, string>): string {
   return str ? `${base}?${str}` : base;
 }
 
-function parseRoute(pathname: string): { screen: ScreenName; key: string } {
+function parseRoute(pathname: string): { screen: ScreenName | 'investor'; key: string } {
   const screen = PATH_TO_SCREEN[pathname] ?? 'home';
   return { screen, key: pathname };
 }
@@ -378,7 +380,7 @@ function App() {
   }, [user, authLoading]);
 
   const goTo = useCallback(
-    (next: ScreenName) => {
+    (next: ScreenName | 'investor') => {
       if (isDedicatedStaff) return;
       navigate(pathFor(next));
     },
@@ -424,7 +426,7 @@ function App() {
 
   const actionCtx: ActionContext = useMemo(
     () => ({
-      setScreen: goTo,
+      setScreen: goTo as any,
       setSearch: (query: string) => {
         navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
       },
@@ -465,7 +467,7 @@ function App() {
   );
 
   const openProtected = useCallback(
-    (next: ScreenName) => {
+    (next: ScreenName | 'investor') => {
       const allowed =
         next === 'admin'
           ? role === 'admin'
@@ -473,6 +475,8 @@ function App() {
           ? role === 'admin' || role === 'warehouse_manager'
           : next === 'delivery'
           ? role === 'admin' || role === 'delivery_partner'
+          : next === 'investor' // <-- ADDED INVESTOR ACCESS
+          ? role === 'admin' || role === 'investor'
           : true;
 
       goTo(allowed ? next : 'home');
@@ -571,7 +575,7 @@ function App() {
         return <WishlistScreen cart={cart} onProduct={openProduct} onShop={() => goTo('home')} />;
 
       case 'account':
-        return <AccountScreen onNavigate={openProtected} />;
+        return <AccountScreen onNavigate={openProtected as any} />;
 
       case 'wallet':
         return <WalletScreen onBack={() => goTo('account')} />;
@@ -579,6 +583,19 @@ function App() {
       case 'admin':
         return role === 'admin' ? (
           <AdminScreen onBack={() => goTo('account')} />
+        ) : (
+          <HomeScreen
+            onCategory={openCategory}
+            onProduct={openProduct}
+            onViewAll={goToCategories}
+            onStoreClick={openStore}
+            onBannerAction={handleBannerAction}
+          />
+        );
+
+      case 'investor': // <-- ADDED INVESTOR SCREEN RENDER
+        return role === 'admin' || role === 'investor' ? (
+          <InvestorScreen onBack={() => goTo('account')} />
         ) : (
           <HomeScreen
             onCategory={openCategory}
@@ -643,7 +660,7 @@ function App() {
       }
 
       case 'store':
-        return <StoreScreen goTo={goTo} />;
+        return <StoreScreen goTo={goTo as any} />;
 
       case 'brand':
         return <BrandScreen />;
@@ -676,12 +693,13 @@ function App() {
   };
 
   const isWarehouseView = isWarehouseManager || screen === 'warehouse';
+  const isLargeScreenView = isWarehouseView || screen === 'investor' || screen === 'admin';
 
   return (
     <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
       <div
         className={`mx-auto flex-1 w-full bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col transition-all ${
-          isWarehouseView ? 'max-w-7xl' : 'max-w-[720px]'
+          isLargeScreenView ? 'max-w-7xl' : 'max-w-[720px]'
         }`}
       >
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
@@ -690,7 +708,7 @@ function App() {
             <KeepAliveRenderer
               currentKey={key}
               render={renderScreen}
-              excludeKeys={['/wallet', '/account', '/order']}
+              excludeKeys={['/wallet', '/account', '/order', '/investor']}
             />
           ) : (
             <HomeLoadingScreen />
@@ -703,11 +721,12 @@ function App() {
           screen !== 'product' &&
           screen !== 'cart' &&
           screen !== 'warehouse' &&
+          screen !== 'investor' &&
           screen !== 'delivery' && (
             <div className="safe-bottom bg-white border-t border-gray-100">
               <BottomNavigation
-                active={screen}
-                onNavigate={goTo}
+                active={screen as any}
+                onNavigate={goTo as any}
               />
             </div>
           )}

@@ -106,18 +106,15 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
   const fetchMetrics = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Highly Optimized Aggregations via RPC
       const { data, error } = await supabase.rpc('get_investor_dashboard_data');
       if (error || !data) throw error || new Error("No data returned");
 
       const daily = data.dailyStats || [];
       const totals = data.totals || {};
       
-      // 2. Slice Arrays for Time Periods
       const todayData = daily.length > 0 ? daily[daily.length - 1] : { revenue: 0, orders: 0, discounts: 0, delivery_fees: 0, date: '-' };
       const last7Days = daily.slice(-7);
       
-      // 3. Compute Aggregations natively from the 30 items
       const weeklySales = last7Days.reduce((sum: number, d: any) => sum + d.revenue, 0);
       const weeklyOrders = last7Days.reduce((sum: number, d: any) => sum + d.orders, 0);
       
@@ -126,7 +123,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       const totalDiscounts = daily.reduce((sum: number, d: any) => sum + d.discounts, 0);
       const totalDeliveryFees = daily.reduce((sum: number, d: any) => sum + d.delivery_fees, 0);
 
-      // 4. Calculate Best Records by looping 30 items (Instantaneous)
       let bestRev = { date: '-', amount: 0 };
       let bestOrd = { date: '-', count: 0 };
       let bestAOV = { date: '-', amount: 0 };
@@ -138,7 +134,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         if (aov > bestAOV.amount) bestAOV = { date: d.date, amount: aov };
       });
 
-      // 5. Populate Time-Series Chart Arrays
       setMonthlySalesData(daily.map((d: any) => ({
         day: parseDateStr(d.date, 'short'),
         sales: d.revenue
@@ -149,7 +144,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         sales: d.revenue
       })));
 
-      // Fetch just today's delivered orders for the hourly trend (Lightweight & Safe)
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const { data: todayOrdersData } = await supabase
@@ -175,7 +169,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       });
       setTodaySalesData(hourlyBuckets);
 
-      // 6. Populate Analytic Chart Arrays
       const statusObj = data.statusCounts || {};
       setOrderStatusData(Object.entries(statusObj).map(([status, count]) => ({
         day: status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
@@ -185,7 +178,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       const payObj = data.paymentTotals || {};
       setPaymentMethodData(Object.entries(payObj).map(([name, value]) => ({ name, value })));
 
-      // 7. Set Final Metrics Model
       setMetrics({
         todaySales: todayData.revenue,
         weeklySales,
@@ -223,17 +215,18 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] flex flex-col text-slate-900 pb-20 [&_svg]:outline-none">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col text-slate-900 pb-24 [-webkit-tap-highlight-color:transparent] [&_*]:outline-none">
       
-      {/* ─── STICKY MODERN HEADER ─── */}
-      <header className="fixed inset-x-0 top-0 z-50 bg-[#063b2f] text-white shadow-[0_10px_30px_rgba(6,59,47,0.20)] rounded-b-[1.75rem] overflow-hidden">
-        <div className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-[#1aa77e]/20" />
-        <div className="pointer-events-none absolute -left-20 bottom-[-110px] h-56 w-56 rounded-full bg-[#0b6b55]/40" />
+      {/* ─── STICKY PREMIUM HEADER ─── */}
+      <header className="sticky top-0 z-50 bg-gradient-to-b from-[#063b2f] to-[#094d3e] text-white shadow-[0_12px_30px_rgba(6,59,47,0.15)] rounded-b-[2rem] overflow-hidden">
+        {/* Glow Effects */}
+        <div className="pointer-events-none absolute -right-10 -top-20 h-48 w-48 rounded-full bg-[#1aa77e]/20 blur-3xl" />
+        <div className="pointer-events-none absolute -left-10 bottom-[-80px] h-48 w-48 rounded-full bg-[#0b6b55]/30 blur-3xl" />
 
-        <div className="relative mx-auto max-w-7xl px-4 pb-4 pt-[max(0.65rem,env(safe-area-inset-top))] sm:px-6 sm:pb-5">
+        <div className="relative mx-auto max-w-7xl px-5 pb-5 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2.5 select-none">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1535" className="h-11 w-11 sm:h-12 sm:w-12 shrink-0 drop-shadow-sm" fill="none">
+            <div className="flex min-w-0 items-center gap-3 select-none">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1535" className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 drop-shadow-md" fill="none">
                 <defs>
                   <linearGradient id="warehouseGreenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#59D9B6" />
@@ -244,36 +237,36 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                 <path d="M 169 1186 L 169 1199 170 1200 170 1203 171 1204 171 1205 173 1208 173 1210 176 1213 176 1214 177 1215 178 1215 179 1216 179 1217 180 1218 181 1218 184 1221 185 1221 187 1223 188 1223 191 1225 194 1225 195 1226 206 1226 207 1227 372 1227 373 1226 392 1226 393 1225 395 1225 396 1224 398 1224 399 1223 400 1223 402 1221 403 1221 405 1219 406 1219 411 1214 411 1213 412 1212 412 1211 414 1209 414 1208 416 1205 416 1203 417 1202 417 1200 418 1199 418 1186 417 1185 417 1183 416 1182 416 1180 415 1179 415 1178 414 1177 414 1176 413 1175 413 1174 411 1172 411 1171 407 1167 407 1166 406 1166 405 1165 404 1165 402 1163 401 1163 398 1161 396 1161 393 1159 194 1159 191 1161 189 1161 188 1162 187 1162 186 1163 185 1163 183 1165 182 1165 176 1171 176 1172 173 1175 173 1177 172 1178 172 1179 170 1182 170 1185 Z M 987 1142 L 986 1143 981 1143 980 1144 977 1144 976 1145 974 1145 973 1146 970 1146 969 1147 968 1147 967 1148 966 1148 965 1149 964 1149 963 1150 962 1150 961 1151 960 1151 959 1152 958 1152 956 1154 955 1154 953 1156 952 1156 949 1159 948 1159 935 1172 935 1173 933 1175 933 1176 931 1178 931 1179 930 1180 930 1181 929 1182 929 1183 928 1184 928 1185 927 1186 927 1188 925 1190 925 1192 924 1193 924 1196 923 1197 923 1199 922 1200 922 1203 921 1204 921 1231 922 1232 922 1235 923 1236 923 1238 924 1239 924 1242 925 1243 925 1245 927 1247 927 1249 928 1250 928 1251 930 1253 930 1254 931 1255 931 1256 934 1259 934 1260 939 1265 939 1266 949 1276 950 1276 953 1279 954 1279 955 1280 956 1280 958 1282 959 1282 960 1283 962 1283 964 1285 966 1285 967 1286 969 1286 970 1287 971 1287 972 1288 973 1288 974 1289 979 1289 980 1290 983 1290 984 1291 990 1291 991 1292 1002 1292 1003 1291 1007 1291 1008 1290 1012 1290 1013 1289 1017 1289 1018 1288 1020 1288 1021 1287 1023 1287 1024 1286 1026 1286 1027 1285 1028 1285 1029 1284 1030 1284 1031 1283 1033 1283 1034 1282 1035 1282 1037 1280 1038 1280 1041 1277 1042 1277 1046 1273 1047 1273 1055 1265 1055 1264 1056 1263 1057 1263 1057 1262 1060 1259 1060 1258 1062 1256 1062 1255 1064 1253 1064 1252 1065 1251 1065 1250 1066 1249 1066 1248 1067 1247 1067 1246 1068 1245 1068 1243 1069 1242 1069 1240 1070 1239 1070 1237 1071 1236 1071 1232 1072 1231 1072 1204 1071 1203 1071 1199 1070 1198 1070 1196 1069 1195 1069 1193 1068 1192 1068 1190 1067 1189 1067 1188 1066 1187 1066 1185 1065 1184 1065 1183 1064 1182 1064 1181 1063 1180 1063 1179 1061 1177 1061 1176 1058 1174 1058 1173 1055 1170 1055 1169 1044 1158 1043 1158 1040 1155 1039 1155 1038 1154 1037 1154 1035 1152 1034 1152 1033 1151 1032 1151 1031 1150 1030 1150 1029 1149 1028 1149 1027 1148 1025 1148 1024 1147 1023 1147 1022 1146 1018 1146 1017 1145 1015 1145 1014 1144 1011 1144 1010 1143 1006 1143 1005 1142 Z M 634 1142 L 633 1143 629 1143 628 1144 626 1144 625 1145 622 1145 621 1146 618 1146 617 1147 616 1147 615 1148 613 1148 612 1149 610 1149 609 1150 608 1150 606 1152 604 1152 601 1155 600 1155 597 1158 596 1158 582 1172 582 1173 580 1175 580 1176 578 1178 578 1179 577 1180 577 1181 576 1182 576 1183 575 1184 575 1185 574 1186 574 1188 573 1189 573 1190 572 1191 572 1193 571 1194 571 1197 570 1198 570 1200 569 1201 569 1204 568 1205 568 1231 569 1232 569 1234 570 1235 570 1238 571 1239 571 1241 572 1242 572 1244 573 1245 573 1246 574 1247 574 1248 575 1249 575 1250 576 1251 576 1252 578 1254 578 1255 580 1257 580 1258 583 1261 583 1262 587 1266 587 1267 593 1273 594 1273 598 1277 599 1277 602 1280 603 1280 605 1282 606 1282 607 1283 608 1283 609 1284 610 1284 611 1285 612 1285 613 1286 616 1286 617 1287 618 1287 619 1288 621 1288 622 1289 626 1289 627 1290 631 1290 632 1291 639 1291 640 1292 647 1292 648 1291 654 1291 655 1290 659 1290 660 1289 664 1289 665 1288 667 1288 668 1287 670 1287 671 1286 673 1286 674 1285 675 1285 676 1284 677 1284 678 1283 680 1283 681 1282 682 1282 684 1280 685 1280 686 1279 687 1279 693 1273 694 1273 695 1272 695 1271 697 1269 698 1269 698 1268 703 1263 703 1262 706 1259 706 1258 708 1256 708 1255 711 1252 711 1251 712 1250 712 1248 714 1246 714 1244 715 1243 715 1240 716 1239 716 1236 717 1235 717 1233 718 1232 718 1226 719 1225 719 1207 718 1206 718 1201 717 1200 717 1198 716 1197 716 1195 715 1194 715 1191 714 1190 714 1189 713 1188 713 1187 712 1186 712 1184 711 1183 711 1182 709 1180 709 1179 707 1177 707 1176 704 1173 704 1172 699 1167 699 1166 694 1161 693 1161 689 1157 688 1157 686 1155 685 1155 682 1152 680 1152 678 1150 677 1150 676 1149 674 1149 673 1148 672 1148 671 1147 670 1147 669 1146 666 1146 665 1145 663 1145 662 1144 660 1144 659 1143 655 1143 654 1142 Z M 48 1054 L 48 1068 49 1069 49 1072 50 1073 50 1074 52 1077 52 1079 54 1081 54 1082 55 1083 55 1084 61 1090 62 1090 63 1091 64 1091 66 1093 68 1093 69 1094 71 1094 72 1095 75 1095 76 1096 267 1096 268 1095 271 1095 272 1094 274 1094 275 1093 276 1093 277 1092 278 1092 280 1090 281 1090 286 1085 287 1085 287 1084 290 1081 290 1080 291 1079 291 1078 293 1076 293 1075 294 1074 294 1071 295 1070 295 1068 296 1067 296 1055 295 1054 295 1052 294 1051 294 1049 293 1048 293 1047 291 1045 291 1044 290 1043 290 1042 287 1039 287 1038 286 1038 282 1034 281 1034 279 1032 278 1032 275 1030 273 1030 270 1028 74 1028 73 1029 71 1029 68 1031 66 1031 65 1032 64 1032 61 1035 60 1035 54 1041 54 1042 52 1044 52 1045 51 1046 51 1048 50 1049 50 1050 49 1051 49 1053 Z M 1315 281 L 1292 287 1277 294 1248 318 856 713 846 730 843 745 849 768 855 776 1287 1207 1311 1220 1340 1227 1460 1227 1474 1224 1483 1219 1492 1210 1496 1202 1497 1185 1487 1165 1069 746 1072 739 1447 364 1453 355 1459 336 1459 324 1456 313 1450 303 1430 287 1402 280 Z" fill="url(#warehouseGreenGrad)" fillRule="evenodd" />
               </svg>
               <div className="flex items-center gap-1 leading-none whitespace-nowrap">
-                <span className="text-[1.65rem] sm:text-[1.9rem] font-black tracking-[-0.04em] text-white">Caf</span>
-                <span className="text-[1.65rem] sm:text-[1.9rem] font-black tracking-[-0.04em] text-[#59D9B6]">Kart</span>
+                <span className="text-[1.5rem] sm:text-[1.8rem] font-black tracking-tight text-white">Caf</span>
+                <span className="text-[1.5rem] sm:text-[1.8rem] font-black tracking-tight text-[#59D9B6]">Kart</span>
               </div>
             </div>
 
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#59D9B6]/25 bg-[#59D9B6]/10 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#72e0c0] backdrop-blur-md">
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/20 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[0.15em] text-[#72e0c0] shadow-sm backdrop-blur-md">
               <span className="h-1.5 w-1.5 rounded-full bg-[#59D9B6] shadow-[0_0_8px_#59D9B6]" />
               Investor
             </span>
           </div>
 
-          <div className="mt-2.5 flex items-center justify-between gap-3">
+          <div className="mt-3 flex items-center justify-between gap-3">
             <div className="min-w-0 flex items-center gap-2.5">
               {onBack && (
-                <button onClick={onBack} aria-label="Go back" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-white transition hover:bg-white/15 active:scale-95">
-                  <ArrowLeft size={17} />
+                <button onClick={onBack} aria-label="Go back" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white transition-all hover:bg-white/20 active:scale-95">
+                  <ArrowLeft size={16} />
                 </button>
               )}
-              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.25em] text-emerald-100/70">
-                Performance & Analytics
+              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-100/80">
+                Performance Deck
               </span>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <button onClick={fetchMetrics} aria-label="Refresh analytics" className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-[#8de4ca] backdrop-blur-md transition hover:bg-white/15 active:scale-95">
-                <RefreshCw size={16} className={loading ? 'animate-spin text-white' : ''} />
+              <button onClick={fetchMetrics} aria-label="Refresh analytics" className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-[#8de4ca] transition-all hover:bg-white/20 active:scale-95 shadow-sm backdrop-blur-md">
+                <RefreshCw size={15} className={loading ? 'animate-spin text-white' : ''} />
               </button>
-              <button onClick={() => void signOut()} aria-label="Exit investor mode" className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-300/20 bg-red-400/10 text-red-100 backdrop-blur-md transition hover:bg-red-400/15 active:scale-95 sm:w-auto sm:px-3">
-                <LogOut size={16} />
-                <span className="ml-1.5 hidden text-[10px] font-bold sm:inline">Exit</span>
+              <button onClick={() => void signOut()} aria-label="Exit investor mode" className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-400/30 bg-red-500/20 text-red-100 transition-all hover:bg-red-500/30 active:scale-95 shadow-sm backdrop-blur-md sm:w-auto sm:px-3.5">
+                <LogOut size={15} />
+                <span className="ml-1.5 hidden text-[10px] font-extrabold sm:inline">Exit</span>
               </button>
             </div>
           </div>
@@ -281,7 +274,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       </header>
 
       {/* ─── MAIN CONTENT ─── */}
-      <main className="flex-1 px-4 pt-40 lg:px-8 lg:pt-36 pb-6 max-w-7xl mx-auto w-full space-y-6">
+      <main className="flex-1 px-4 lg:px-8 py-6 max-w-7xl mx-auto w-full space-y-6 relative z-10">
         
         {/* Desktop Navigation Tabs */}
         <div className="hidden md:flex bg-white shadow-sm p-1.5 rounded-2xl w-fit border border-slate-200">
@@ -291,9 +284,9 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         </div>
 
         {loading || !metrics ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-4 mt-10">
-            <Loader2 size={36} className="animate-spin text-[#0a382c]" />
-            <p className="text-sm font-bold text-slate-500">Compiling financial reports...</p>
+          <div className="flex flex-col items-center justify-center h-64 gap-4 mt-8">
+            <div className="h-10 w-10 rounded-full border-[3px] border-emerald-500/20 border-t-emerald-600 animate-spin" />
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Compiling Reports...</p>
           </div>
         ) : (
           <>
@@ -305,7 +298,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                     label="Monthly Revenue"
                     value={formatCurrency(metrics.monthlySales)}
                     icon={<IndianRupee size={20} />}
-                    gradient="linear-gradient(135deg, #047857, #10b981)"
+                    gradient="linear-gradient(135deg, #059669, #10b981)"
                     subtitle={metrics.revenueGrowth + " vs last month"}
                     trend={metrics.revenueGrowth.startsWith('+') ? 'up' : 'down'}
                   />
@@ -313,14 +306,14 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                     label="Today's Orders"
                     value={metrics.todayOrders.toString()}
                     icon={<Package size={20} />}
-                    gradient="linear-gradient(135deg, #1a56db, #3b82f6)"
-                    subtitle="All processing"
+                    gradient="linear-gradient(135deg, #2563eb, #3b82f6)"
+                    subtitle="Currently processing"
                   />
                   <GradientStatCard
                     label="Total Customers"
                     value={metrics.totalCustomers.toString()}
                     icon={<Users size={20} />}
-                    gradient="linear-gradient(135deg, #6d28d9, #8b5cf6)"
+                    gradient="linear-gradient(135deg, #7c3aed, #8b5cf6)"
                     subtitle={metrics.customerGrowth + " vs last month"}
                     trend={metrics.customerGrowth.startsWith('+') ? 'up' : 'down'}
                   />
@@ -328,14 +321,14 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                     label="Monthly AOV"
                     value={formatCurrency(metrics.monthlyAOV)}
                     icon={<ShoppingCart size={20} />}
-                    gradient="linear-gradient(135deg, #0e7490, #22d3ee)"
+                    gradient="linear-gradient(135deg, #0891b2, #06b6d4)"
                     subtitle="Average basket size"
                   />
                 </div>
 
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between bg-white border border-slate-100 rounded-2xl p-2 shadow-sm">
-                    <span className="text-xs font-bold text-slate-500 px-2 uppercase tracking-widest hidden sm:inline-block">Chart Style</span>
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between bg-white border border-slate-200 rounded-[1.25rem] p-1.5 shadow-sm">
+                    <span className="text-[10px] font-extrabold text-slate-400 px-3 uppercase tracking-widest hidden sm:inline-block">Chart Style</span>
                     <div className="flex items-center gap-1 w-full sm:w-auto">
                       <ChartToggleButton label="Area" icon={<Activity/>} active={chartType === 'area'} onClick={() => setChartType('area')} />
                       <ChartToggleButton label="Bar" icon={<BarChartIcon/>} active={chartType === 'bar'} onClick={() => setChartType('bar')} />
@@ -344,16 +337,16 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    <ChartCard title="Today's Sales Trend" icon={<Activity size={16} />} color="#3b82f6" gradient="linear-gradient(135deg, #1a56db, #60a5fa)">
+                    <ChartCard title="Today's Sales Trend" icon={<Activity size={16} />} color="#3b82f6" gradient="linear-gradient(135deg, #2563eb, #60a5fa)">
                       <DynamicChart data={todaySalesData} chartType={chartType} color="#3b82f6" />
                     </ChartCard>
 
-                    <ChartCard title="Weekly Sales (Last 7 Days)" icon={<Calendar size={16} />} color="#8b5cf6" gradient="linear-gradient(135deg, #6d28d9, #a78bfa)">
+                    <ChartCard title="Weekly Sales (Last 7 Days)" icon={<Calendar size={16} />} color="#8b5cf6" gradient="linear-gradient(135deg, #7c3aed, #a78bfa)">
                       <DynamicChart data={weeklySalesData} chartType={chartType} color="#8b5cf6" />
                     </ChartCard>
                   </div>
 
-                  <ChartCard title="Monthly Sales (Last 30 Days)" icon={<TrendingUp size={16} />} color="#059669" gradient="linear-gradient(135deg, #047857, #34d399)">
+                  <ChartCard title="Monthly Sales (Last 30 Days)" icon={<TrendingUp size={16} />} color="#059669" gradient="linear-gradient(135deg, #059669, #34d399)">
                     <DynamicChart data={monthlySalesData} chartType={chartType} color="#059669" />
                   </ChartCard>
                 </div>
@@ -430,17 +423,17 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
               <div className="space-y-6 animate-in fade-in duration-300">
                 <div className="flex flex-col md:grid md:grid-cols-2 gap-6">
                   {/* Status Bar Chart */}
-                  <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                  <div className="bg-white border border-slate-200 rounded-[1.5rem] p-6 shadow-sm">
                     <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2 mb-6">
                       <Package size={16} className="text-indigo-500" /> Orders by Status (30 Days)
                     </h2>
-                    <div className="h-64 w-full select-none [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none [&_*]:focus:!outline-none">
-                      <ResponsiveContainer width="100%" height="100%" className="!outline-none focus:outline-none">
+                    <div className="h-64 w-full [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none">
+                      <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={orderStatusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                           <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                           <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                          <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }} />
+                          <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                           <Bar dataKey="sales" name="Orders" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} className="!outline-none" />
                         </BarChart>
                       </ResponsiveContainer>
@@ -448,13 +441,13 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                   </div>
 
                   {/* Payment Pie Chart */}
-                  <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                  <div className="bg-white border border-slate-200 rounded-[1.5rem] p-6 shadow-sm">
                     <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2 mb-6">
                       <PieChartIcon size={16} className="text-blue-500" /> Payment Methods (30 Days)
                     </h2>
-                    <div className="h-64 w-full select-none [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none [&_*]:focus:!outline-none">
-                      <ResponsiveContainer width="100%" height="100%" className="!outline-none focus:outline-none">
-                        <PieChart className="!outline-none">
+                    <div className="h-64 w-full [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
                           <Pie
                             data={paymentMethodData.filter(d => d.value > 0)}
                             cx="50%" cy="50%"
@@ -466,15 +459,15 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                               <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} style={{ outline: 'none' }} />
                             ))}
                           </Pie>
-                          <Tooltip cursor={{ fill: 'transparent', stroke: 'transparent' }} formatter={(value: number) => formatCurrency(value)} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }}/>
-                          <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', outline: 'none' }}/>
+                          <Tooltip cursor={{ fill: 'transparent' }} formatter={(value: number) => formatCurrency(value)} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}/>
+                          <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }}/>
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
                   {/* Audience Retention */}
-                  <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                  <div className="bg-white border border-slate-200 rounded-[1.5rem] p-6 shadow-sm">
                     <h3 className="text-sm font-extrabold text-slate-800 mb-6 flex items-center gap-2">
                       <Users size={16} className="text-[#0a382c]"/> Audience Retention (30d)
                     </h3>
@@ -487,7 +480,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                   </div>
 
                   {/* Business Records */}
-                  <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                  <div className="bg-white border border-slate-200 rounded-[1.5rem] p-6 shadow-sm">
                     <h3 className="text-sm font-extrabold text-slate-800 mb-5 flex items-center gap-2">
                       <Award size={16} className="text-amber-500"/> Business Records
                     </h3>
@@ -505,21 +498,21 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             
             {/* ─── MORE TAB ─── */}
             {activeTab === 'more' && (
-              <div className="flex flex-col items-center justify-center h-64 text-center space-y-3 bg-white border border-slate-100 rounded-3xl shadow-sm">
-                <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-400">
-                  <PieChartIcon size={32} />
+              <div className="flex flex-col items-center justify-center h-[22rem] text-center space-y-4 bg-white border border-slate-200 rounded-[1.5rem] shadow-sm px-6">
+                <div className="h-20 w-20 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center text-slate-400 shadow-inner">
+                  <PieChartIcon size={36} />
                 </div>
-                <h2 className="text-lg font-black text-slate-800">Advanced Reporting</h2>
-                <p className="text-xs text-slate-500 max-w-sm font-medium">Detailed PDF prospectus, cohort analysis, and tax summaries will be available in the upcoming update.</p>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Advanced Reporting</h2>
+                <p className="text-xs text-slate-500 max-w-xs font-medium leading-relaxed">Detailed PDF prospectus, cohort analysis, and comprehensive tax summaries will be available in the upcoming update.</p>
               </div>
             )}
           </>
         )}
       </main>
 
-      {/* ─── MOBILE BOTTOM NAVIGATION (LUCIDE ICONS) ─── */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-100 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] safe-bottom md:hidden rounded-t-[1.5rem]">
-        <div className="max-w-xl mx-auto flex items-center justify-around h-[4.5rem] px-2 pb-1">
+      {/* ─── MOBILE BOTTOM NAVIGATION (FROSTED GLASS) ─── */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/80 backdrop-blur-2xl border-t border-slate-200/60 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] pb-[env(safe-area-inset-bottom)] md:hidden">
+        <div className="max-w-xl mx-auto flex items-center justify-around h-[4.5rem] px-2">
           <NavButton 
             icon={<LayoutGrid />} 
             label="Dashboard" 
@@ -553,9 +546,10 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
 // ─── Sub-components ──────────────────────────────────────────────────
 
 function DynamicChart({ data, chartType, color }: { data: any[], chartType: string, color: string }) {
+  // Safe un-focusable wrapper for charts to completely eliminate outline boxes
   const ChartWrapper = ({ children }: { children: React.ReactNode }) => (
-    <div className="h-64 w-full select-none [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none [&_.recharts-cartesian-grid]:!outline-none outline-none">
-      <ResponsiveContainer width="100%" height="100%" className="!outline-none focus:outline-none">
+    <div className="h-[18rem] w-full select-none [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none [&_.recharts-cartesian-grid]:!outline-none outline-none">
+      <ResponsiveContainer width="100%" height="100%" className="!outline-none">
         {children as React.ReactElement}
       </ResponsiveContainer>
     </div>
@@ -570,7 +564,7 @@ function DynamicChart({ data, chartType, color }: { data: any[], chartType: stri
   const commonXAxis = <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />;
   const commonYAxis = <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v/1000}k`} />;
   const commonGrid = <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />;
-  const commonTooltip = <Tooltip cursor={{ fill: 'transparent', stroke: 'transparent' }} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }} formatter={(value: number) => formatCurrency(value)} />;
+  const commonTooltip = <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.1)', outline: 'none' }} formatter={(value: number) => formatCurrency(value)} />;
 
   if (chartType === 'bar') {
     return (
@@ -612,15 +606,15 @@ function DynamicChart({ data, chartType, color }: { data: any[], chartType: stri
 
 function ChartCard({ title, icon, color, gradient, children }: { title: string; icon: React.ReactNode; color: string; gradient: string; children: React.ReactNode; }) {
   return (
-    <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+    <div className="bg-white border border-slate-200 rounded-[1.5rem] shadow-sm overflow-hidden flex flex-col">
+      <div className="px-5 py-4 border-b border-slate-50 bg-slate-50/40 flex items-center justify-between shrink-0">
         <span className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
           <span style={{ color }}>{icon}</span>
           {title}
         </span>
-        <span className="w-2.5 h-2.5 rounded-full" style={{ background: gradient }} />
+        <span className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ background: gradient }} />
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-5 flex-1">{children}</div>
     </div>
   );
 }
@@ -629,8 +623,8 @@ function ChartToggleButton({ label, icon, active, onClick }: { label: string, ic
   return (
     <button
       onClick={onClick}
-      className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-[11px] font-bold transition-all outline-none focus:outline-none ${
-        active ? 'bg-[#0a382c] text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+      className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[11px] font-bold transition-all ${
+        active ? 'bg-[#0a382c] text-white shadow-md shadow-[#0a382c]/20' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
       }`}
     >
       {React.cloneElement(icon as React.ReactElement, { size: 14 })}
@@ -640,22 +634,25 @@ function ChartToggleButton({ label, icon, active, onClick }: { label: string, ic
 }
 
 function GradientStatCard({ label, value, icon, gradient, subtitle, trend }: { label: string; value: string; icon: React.ReactNode; gradient: string; subtitle?: string; trend?: 'up' | 'down' | 'neutral' }) {
-  const trendColor = trend === 'up' ? '#34d399' : trend === 'down' ? '#f87171' : '#9ca3af';
+  const trendColor = trend === 'up' ? '#34d399' : trend === 'down' ? '#fca5a5' : '#9ca3af';
   const trendIcon = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '–';
 
   return (
     <div
-      className="rounded-3xl p-5 text-white transition-all hover:-translate-y-0.5 hover:shadow-md cursor-default shadow-sm"
+      className="relative overflow-hidden rounded-[1.5rem] p-5 text-white transition-all hover:-translate-y-1 hover:shadow-xl cursor-default shadow-md border border-white/10"
       style={{ background: gradient }}
     >
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-extrabold opacity-90 uppercase tracking-wider">{label}</span>
-        <div className="opacity-75">{icon}</div>
+      {/* Subtle top-right shine effect for premium feel */}
+      <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10 blur-2xl pointer-events-none" />
+      
+      <div className="relative flex items-center justify-between z-10">
+        <span className="text-[11px] font-extrabold opacity-90 uppercase tracking-widest">{label}</span>
+        <div className="opacity-80">{icon}</div>
       </div>
-      <div className="text-2xl md:text-3xl font-black mt-2 tracking-tight">{value}</div>
+      <div className="relative text-3xl font-black mt-2.5 tracking-tight z-10">{value}</div>
       {subtitle && (
-        <div className="flex items-center gap-1 mt-2 text-xs opacity-85 font-semibold">
-          {trend && <span style={{ color: trendColor }} className="font-black text-sm leading-none">{trendIcon}</span>}
+        <div className="relative flex items-center gap-1 mt-2.5 text-xs opacity-90 font-semibold z-10">
+          {trend && <span style={{ color: trendColor }} className="font-black text-sm leading-none drop-shadow-sm">{trendIcon}</span>}
           <span>{subtitle}</span>
         </div>
       )}
@@ -667,7 +664,7 @@ function TabButton({ label, icon, active, onClick }: { label: string, icon: Reac
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all outline-none focus:outline-none ${
+      className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
         active ? 'bg-[#0a382c] text-white shadow-md shadow-[#0a382c]/20' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
       }`}
     >
@@ -681,7 +678,7 @@ function ProgressBar({ label, value, max, color }: { label: string, value: numbe
   const percentage = max > 0 ? (value / max) * 100 : 0;
   return (
     <div>
-      <div className="flex justify-between text-[11px] font-extrabold uppercase tracking-wide mb-2.5">
+      <div className="flex justify-between text-[11px] font-extrabold uppercase tracking-widest mb-2.5">
         <span className="text-slate-500">{label}</span>
         <span className="text-slate-900">{value.toLocaleString()} <span className="text-slate-400 font-semibold ml-1">({percentage.toFixed(0)}%)</span></span>
       </div>
@@ -699,7 +696,7 @@ function RecordRow({ label, value, subtext, highlight }: { label: string, value:
         <p className="text-xs font-extrabold text-slate-700">{label}</p>
         {subtext && <p className="text-[10px] text-slate-400 mt-1 font-semibold">{subtext}</p>}
       </div>
-      <span className={`text-sm font-black ${highlight ? 'text-[#0a382c] px-3 py-1 bg-emerald-50 rounded-lg border border-emerald-100' : 'text-slate-900'}`}>{value}</span>
+      <span className={`text-sm font-black tracking-tight ${highlight ? 'text-[#0a382c] px-3 py-1 bg-emerald-50 rounded-lg border border-emerald-100 shadow-sm' : 'text-slate-900'}`}>{value}</span>
     </li>
   );
 }
@@ -708,25 +705,17 @@ function NavButton({ icon, label, isActive, onClick }: { icon: React.ReactNode, 
   return (
     <button
       onClick={onClick}
-      className={`relative flex flex-col items-center justify-center flex-1 h-full gap-1.5 transition-all duration-200 outline-none focus:outline-none ${
+      className={`relative flex flex-col items-center justify-center flex-1 h-full gap-1.5 transition-all duration-300 ${
         isActive ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-600'
       }`}
     >
-      <div className={`transition-transform duration-300 ${isActive ? '-translate-y-1' : ''}`}>
-        {React.cloneElement(icon as React.ReactElement, { size: 20, strokeWidth: isActive ? 2.5 : 2, className: isActive ? 'text-[#0a382c]' : '' })}
+      <div className={`transition-transform duration-300 ${isActive ? '-translate-y-1' : 'scale-95'}`}>
+        {React.cloneElement(icon as React.ReactElement, { size: 22, strokeWidth: isActive ? 2.5 : 2, className: isActive ? 'text-[#0a382c]' : '' })}
       </div>
-      <span className={`text-[10px] font-black tracking-tight transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-80'}`}>{label}</span>
+      <span className={`text-[10px] font-black tracking-tight transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 absolute translate-y-2'}`}>{label}</span>
       {isActive && (
         <span className="absolute bottom-1 w-1 h-1 rounded-full bg-[#0a382c] animate-pulse" />
       )}
     </button>
-  );
-}
-
-function Loader2({ className, size }: { className?: string, size: number }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
   );
 }

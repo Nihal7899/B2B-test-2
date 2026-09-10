@@ -1,3 +1,4 @@
+// src/screens/StoreScreen.tsx
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
@@ -17,6 +18,7 @@ import {
   ShieldCheck,
   Truck,
   Clock,
+  ShoppingBag,
 } from 'lucide-react';
 
 interface StoreScreenProps {
@@ -43,7 +45,6 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const hero = config?.hero ?? {
     enabled: true,
@@ -165,14 +166,6 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
   const clearFilter = () => {
     setSelectedCategoryId(null);
     setSearchQuery('');
-    setSearchOpen(false);
-  };
-
-  const toggleSearch = () => {
-    setSearchOpen(!searchOpen);
-    if (!searchOpen) {
-      setTimeout(() => searchInputRef.current?.focus(), 300);
-    }
   };
 
   const hasActiveFilter = !!(selectedCategoryId || searchQuery.trim());
@@ -223,9 +216,9 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
+    <div className="min-h-screen bg-gray-50 pb-10 relative">
       <div
-        className="relative overflow-hidden px-4 pb-6 pt-4 safe-top text-white shadow-xl"
+        className="relative overflow-hidden px-4 pb-6 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] text-white shadow-xl"
         style={{ background: `linear-gradient(135deg, ${themeFrom}, ${themeTo})` }}
       >
         <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
@@ -233,7 +226,7 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
         <div className="pointer-events-none absolute right-4 top-20 h-20 w-20 rounded-full border-4 border-white/10" />
 
         <div className="relative mx-auto max-w-md">
-          <div className="safe-top flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <button
               onClick={() => navigate(-1)}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur transition hover:bg-white/30"
@@ -311,9 +304,12 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
       )}
 
       <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg safe-top">
-        <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-white p-2 shadow-md ring-1 ring-black/5">
-          <div className="flex flex-1 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
-            <Search size={16} className="text-gray-400" />
+        <div className="mx-auto flex max-w-md items-center gap-2">
+          <div
+            className="flex flex-1 items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm border"
+            style={{ borderColor: themeFrom }}
+          >
+            <Search size={16} style={{ color: themeFrom }} />
             <input
               ref={searchInputRef}
               value={searchQuery}
@@ -321,20 +317,25 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
               placeholder="Search this store…"
               className="flex-1 bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
             />
-          </div>
-          <div className="flex items-center gap-1">
             {searchQuery && (
               <button onClick={clearFilter} className="text-gray-400 hover:text-gray-600">
                 <X size={16} />
               </button>
             )}
-            <button
-              onClick={toggleSearch}
-              className="rounded-xl p-2 text-gray-500 hover:bg-gray-100"
-            >
-              <Search size={18} />
-            </button>
           </div>
+          <button
+            onClick={() => navigate('/cart')}
+            className="relative flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-white shadow-sm border transition active:scale-95"
+            style={{ borderColor: themeFrom }}
+            aria-label="View Cart"
+          >
+            <ShoppingBag size={18} style={{ color: themeFrom }} />
+            {cart?.totalItems > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white animate-pulse">
+                {cart.totalItems}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -469,7 +470,7 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
 
 function StoreSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
+    <div className="min-h-screen bg-gray-50 pb-10 relative">
       <div className="h-64 bg-gray-200 animate-pulse safe-top" />
       <div className="px-4 py-4">
         <div className="h-20 bg-white rounded-2xl animate-pulse" />

@@ -1,6 +1,7 @@
+// src/screens/BrandScreen.tsx
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, ChevronRight, ShieldCheck, Truck, Star, Search, X } from 'lucide-react';
+import { ArrowLeft, TrendingUp, ChevronRight, ShieldCheck, Truck, Star, Search, X, ShoppingBag } from 'lucide-react';
 import { fetchBrandById, fetchProducts, fetchWishlist, toggleWishlist } from '@/services/catalog';
 import type { TrustedBrand, Product } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
@@ -81,7 +82,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const loadWishlist = useCallback(async () => {
     try {
@@ -160,14 +160,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   const clearFilter = () => {
     setSearchQuery('');
-    setSearchOpen(false);
-  };
-
-  const toggleSearch = () => {
-    setSearchOpen(!searchOpen);
-    if (!searchOpen) {
-      setTimeout(() => searchInputRef.current?.focus(), 300);
-    }
   };
 
   if (loading || !brand) {
@@ -225,8 +217,8 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
-      <div className="relative overflow-hidden pt-12 pb-8 px-4 isolate safe-top">
+    <div className="min-h-screen bg-gray-50 pb-10 relative">
+      <div className="relative overflow-hidden pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-6 px-4 isolate">
         <div
           className="absolute inset-0"
           style={{
@@ -275,7 +267,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         </button>
 
         <div className="relative z-20 flex flex-col items-center text-center" style={{ color: textColor }}>
-          <div className="h-24 w-24 rounded-2xl border-2 border-white/40 bg-white p-2 shadow-lg mb-4 flex items-center justify-center">
+          <div className="h-24 w-24 rounded-2xl border-2 border-white/40 bg-white p-2 shadow-lg mb-4 mt-6 flex items-center justify-center">
             <img src={logo_url} alt={name} className="max-h-full max-w-full object-contain" />
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight">{name}</h1>
@@ -325,9 +317,12 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
       )}
 
       <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg safe-top">
-        <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-white p-2 shadow-md ring-1 ring-black/5">
-          <div className="flex flex-1 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
-            <Search size={16} className="text-gray-400" />
+        <div className="mx-auto flex max-w-md items-center gap-2">
+          <div
+            className="flex flex-1 items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm border"
+            style={{ borderColor: primary_color }}
+          >
+            <Search size={16} style={{ color: primary_color }} />
             <input
               ref={searchInputRef}
               value={searchQuery}
@@ -335,20 +330,25 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
               placeholder="Search this brand…"
               className="flex-1 bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
             />
-          </div>
-          <div className="flex items-center gap-1">
             {searchQuery && (
               <button onClick={clearFilter} className="text-gray-400 hover:text-gray-600">
                 <X size={16} />
               </button>
             )}
-            <button
-              onClick={toggleSearch}
-              className="rounded-xl p-2 text-gray-500 hover:bg-gray-100"
-            >
-              <Search size={18} />
-            </button>
           </div>
+          <button
+            onClick={() => navigate('/cart')}
+            className="relative flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-white shadow-sm border transition active:scale-95"
+            style={{ borderColor: primary_color }}
+            aria-label="View Cart"
+          >
+            <ShoppingBag size={18} style={{ color: primary_color }} />
+            {cart.totalItems > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white animate-pulse">
+                {cart.totalItems}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 

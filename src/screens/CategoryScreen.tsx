@@ -1,3 +1,4 @@
+// src/screens/CategoryScreen.tsx
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
@@ -373,7 +374,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
         </div>
       </header>
 
-      <div className="mx-auto flex flex-1 min-h-0 w-full max-w-[720px] overflow-hidden safe-bottom">
+      <div className="mx-auto flex flex-1 min-h-0 w-full max-w-[720px] overflow-hidden">
         <aside className="w-20 md:w-24 shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white py-2 scrollbar-none">
           <button
             onClick={() => setActiveSubId('all')}
@@ -494,7 +495,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-16">
               {filteredAndSortedProducts.map((p) => (
                 <ProductCard
                   key={p.id}

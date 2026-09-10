@@ -715,7 +715,7 @@ function App() {
             <KeepAliveRenderer
               currentKey={key}
               render={renderScreen}
-              excludeKeys={['/wallet', '/account', '/order', '/investor']}
+              excludeKeys={['/wallet', '/account', '/order', '/investor','/cart']}
             />
           ) : (
             <HomeLoadingScreen />

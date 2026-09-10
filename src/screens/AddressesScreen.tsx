@@ -4,12 +4,13 @@ import type { DbAddress } from '@/services/catalog';
 import { fetchAddresses, deleteAddress } from '@/services/catalog';
 import { saveDeliveryAddress as saveAddress } from '@/services/business';
 import { LocationPicker } from '@/components/LocationPicker';
-import { supabase } from '@/lib/supabase'; // 👈 IMPORTANT: added
-import { checkPointInDeliveryRange } from '@/services/catalog'; // 👈 IMPORTANT: added
+import { supabase } from '@/lib/supabase';
+import { checkPointInDeliveryRange } from '@/services/catalog';
 
 interface AddressesScreenProps { onBack: () => void; onSaved?: () => void; }
 
 const EMPTY_FORM = {
+  id: null as string | null,
   label: 'Business',
   recipient_name: '',
   phone: '',
@@ -56,6 +57,25 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
       place_id: loc.place_id,
     }));
     setShowPicker(false);
+    setShowForm(true);
+  };
+
+  const handleEdit = (addr: DbAddress) => {
+    setForm({
+      id: addr.id,
+      label: addr.label,
+      recipient_name: addr.recipient_name,
+      phone: addr.phone,
+      line1: addr.line1,
+      line2: addr.line2 || '',
+      city: addr.city,
+      state: addr.state,
+      postal_code: addr.postal_code,
+      latitude: addr.latitude || null,
+      longitude: addr.longitude || null,
+      place_id: addr.place_id || null,
+      is_default: addr.is_default,
+    });
     setShowForm(true);
   };
 
@@ -117,6 +137,7 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
         ...form,
         latitude: lat,
         longitude: lng,
+        ...(form.id ? { id: form.id } : {}) // pass ID for update
       };
       console.log('📦 Saving address with data:', addressData);
 
@@ -179,8 +200,8 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
         <div className="space-y-3">
           <div className="bg-white border border-ink-100 rounded-2xl p-4 space-y-3 shadow-card">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-ink-900">New address</h2>
-              <button onClick={() => setShowForm(false)} className="text-xs font-bold text-ink-400">Cancel</button>
+              <h2 className="text-sm font-bold text-ink-900">{form.id ? 'Edit address' : 'New address'}</h2>
+              <button onClick={() => { setShowForm(false); setForm({ ...EMPTY_FORM }); }} className="text-xs font-bold text-ink-400">Cancel</button>
             </div>
 
             <button onClick={() => setShowPicker(true)} className="w-full h-11 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50 text-brand-700 text-sm font-bold flex items-center justify-center gap-2">
@@ -206,7 +227,10 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
               <input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="State *" className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
               <input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} placeholder="PIN *" className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
             </div>
-            <label className="flex items-center gap-2 text-sm text-ink-700"><input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} className="accent-brand-600" /> Set as default address</label>
+            <label className="flex items-center gap-2 text-sm text-ink-700">
+              <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} className="accent-brand-600" /> 
+              Set as default address
+            </label>
             {error && <p className="text-xs text-red-500">{error}</p>}
             <button onClick={handleSave} disabled={saving} className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2">{saving ? <Loader2 size={17} className="animate-spin" /> : <><Check size={17} /> Save address</>}</button>
           </div>
@@ -229,7 +253,10 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
                       {addr.latitude && addr.longitude && <p className="text-[10px] text-brand-600 mt-1 flex items-center gap-1"><Navigation size={11} /> GPS location set</p>}
                     </div>
                   </div>
-                  <button onClick={() => void handleDelete(addr.id)} className="p-1.5 text-ink-300 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => handleEdit(addr)} className="p-2 text-ink-400 hover:text-brand-600 transition-colors"><Pencil size={15} /></button>
+                    <button onClick={() => void handleDelete(addr.id)} className="p-2 text-ink-400 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
+                  </div>
                 </div>
               </div>
             ))}

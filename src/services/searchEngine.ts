@@ -58,8 +58,32 @@ interface SearchDictionary {
   lastFetched: number;
 }
 
+// FIXED: SKU Regex strictly requires at least one letter AND one number (so it doesn't hijack "onion")
 const SKU_REGEX = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9]{4,12}$/i;
 const PACK_SIZE_REGEX = /^\d+(\.\d+)?(kg|g|ml|l|ltr|pc|pcs|tin|jar|box|pkt|dz)$/i;
+
+// FIXED: Hardcoded fallback map so "aloo" always works even if the Supabase table is empty
+const FALLBACK_SYNONYMS: Record<string, string[]> = {
+  beverage: ['beverages', 'drink', 'drinks', 'cold drink', 'soft drink', 'juice', 'soda', 'syrup', 'tea', 'coffee', 'water'],
+  drink: ['beverages', 'cold drink', 'juice', 'soft drinks', 'drinks'],
+  oil: ['edible oil', 'refined oil', 'mustard oil', 'sunflower oil', 'ghee', 'cooking oil', 'tel', 'oils'],
+  atta: ['flour', 'wheat', 'chakki atta', 'maida', 'sooji', 'grains'],
+  flour: ['atta', 'wheat', 'maida', 'besan', 'sooji', 'grains'],
+  rice: ['basmati', 'kolam', 'sona masoori', 'poha', 'grains', 'chawal'],
+  dal: ['pulses', 'toor dal', 'moong dal', 'chana dal', 'urad dal', 'legumes', 'daal', 'lentils'],
+  pulses: ['dal', 'lentils', 'legumes', 'chana', 'rajma', 'toor', 'daal'],
+  sugar: ['sweetener', 'jaggery', 'gur', 'chini', 'cheeni'],
+  spices: ['masala', 'mirchi', 'turmeric', 'chilli', 'haldi', 'dhaniya', 'jeera'],
+  cleaning: ['detergent', 'soap', 'floor cleaner', 'dishwash', 'cleaner', 'phenyl'],
+  dairy: ['milk', 'paneer', 'cheese', 'butter', 'curd', 'ghee', 'doodh'],
+  snacks: ['biscuits', 'namkeen', 'chips', 'cookies', 'noodles', 'wafer', 'bhujia', 'sev'],
+  tomato: ['tomatoes', 'tamatar'],
+  potato: ['potatoes', 'aloo', 'alu'],
+  onion: ['onions', 'kanda', 'pyaz', 'piyaz'],
+  veg: ['vegetables', 'sabji', 'sabzi', 'greens'],
+  chicken: ['murgh', 'poultry', 'meat'],
+  mutton: ['lamb', 'meat', 'gosht'],
+};
 
 let dictionaryCache: SearchDictionary | null = null;
 const CACHE_TTL = 10 * 60 * 1000;
@@ -87,30 +111,20 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
   }
 
   try {
-    const [productsRes, categoriesRes, subcategoriesRes, brandsRes, synonymsRes] = await Promise.all([
-      supabase
-        .from('products')
-        .select('id, name, brand, pack_size, category_id, subcategory_id, product_code, description')
-        .eq('is_active', true)
-        .limit(3000),
-      supabase
-        .from('categories')
-        .select('id, name, slug, image_url, description, gradient, is_active')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true }),
-      supabase
-        .from('subcategories')
-        .select('id, name, slug, category_id')
-        .eq('is_active', true),
-      supabase
-        .from('trusted_brands')
-        .select('name')
-        .eq('is_active', true),
-      supabase
-        .from('search_synonyms')
-        .select('keyword, synonyms')
-        .eq('is_active', true),
+    // We intentionally separate the synonyms fetch so if the table doesn't exist, it doesn't crash the dictionary
+    const [productsRes, categoriesRes, subcategoriesRes, brandsRes] = await Promise.all([
+      supabase.from('products').select('id, name, brand, pack_size, category_id, subcategory_id, product_code, description').eq('is_active', true).limit(3000),
+      supabase.from('categories').select('id, name, slug, image_url, description, gradient, is_active').eq('is_active', true).order('sort_order', { ascending: true }),
+      supabase.from('subcategories').select('id, name, slug, category_id').eq('is_active', true),
+      supabase.from('trusted_brands').select('name').eq('is_active', true),
     ]);
+
+    let synonymsRes: any = { data: null };
+    try {
+      synonymsRes = await supabase.from('search_synonyms').select('keyword, synonyms').eq('is_active', true);
+    } catch (e) {
+      console.warn("Synonyms table unavailable, falling back to local map.");
+    }
 
     const products: ProductIndexItem[] = (productsRes.data || []).map((p: any) => ({
       id: p.id,
@@ -147,35 +161,28 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
       categoryId: s.category_id,
     }));
 
+    // Build Bidirectional Synonyms with Fallback
     const synonymsMap: Record<string, string[]> = {};
-    if (synonymsRes.data) {
-      synonymsRes.data.forEach((row) => {
-        const kw = row.keyword.toLowerCase();
-        const syns = row.synonyms.map((s: string) => s.toLowerCase());
-        
-        synonymsMap[kw] = Array.from(new Set([...(synonymsMap[kw] || []), ...syns]));
-        syns.forEach((syn: string) => {
-          synonymsMap[syn] = Array.from(new Set([...(synonymsMap[syn] || []), kw, ...syns]));
-        });
+    const addSynonyms = (kw: string, syns: string[]) => {
+      synonymsMap[kw] = Array.from(new Set([...(synonymsMap[kw] || []), ...syns]));
+      syns.forEach(s => {
+        synonymsMap[s] = Array.from(new Set([...(synonymsMap[s] || []), kw, ...syns]));
       });
+    };
+    
+    Object.entries(FALLBACK_SYNONYMS).forEach(([k, v]) => addSynonyms(k.toLowerCase(), v.map(s => s.toLowerCase())));
+    if (synonymsRes.data) {
+      synonymsRes.data.forEach((row: any) => addSynonyms(row.keyword.toLowerCase(), row.synonyms.map((s: string) => s.toLowerCase())));
     }
 
+    // Build strict vocabulary for spell-checker
     const vocabSet = new Set<string>();
     categories.forEach(c => c.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
     brands.forEach(b => b.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
     products.forEach(p => p.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
     const vocabulary = Array.from(vocabSet).filter(w => w.length >= 3);
 
-    dictionaryCache = {
-      products,
-      brands,
-      categories,
-      subcategories,
-      synonyms: synonymsMap,
-      vocabulary,
-      lastFetched: now,
-    };
-
+    dictionaryCache = { products, brands, categories, subcategories, synonyms: synonymsMap, vocabulary, lastFetched: now };
     return dictionaryCache;
   } catch (err) {
     console.error('Failed to build search dictionary:', err);
@@ -188,11 +195,9 @@ function getLevenshteinDistance(a = '', b = ''): number {
   const bn = b.length;
   if (an === 0) return bn;
   if (bn === 0) return an;
-
   const matrix: number[][] = [];
   for (let i = 0; i <= bn; i++) matrix[i] = [i];
   for (let j = 0; j <= an; j++) matrix[0][j] = j;
-
   for (let i = 1; i <= bn; i++) {
     for (let j = 1; j <= an; j++) {
       if (b[i - 1] === a[i - 1]) {
@@ -209,17 +214,6 @@ function getLevenshteinDistance(a = '', b = ''): number {
   return matrix[bn][an];
 }
 
-function expandQueryTokens(tokens: string[], map: Record<string, string[]>): string[] {
-  const expanded = new Set<string>(tokens);
-  for (const t of tokens) {
-    const synonyms = map[t.toLowerCase()];
-    if (synonyms) {
-      synonyms.forEach((syn) => expanded.add(syn.toLowerCase()));
-    }
-  }
-  return Array.from(expanded);
-}
-
 export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalysisResult> {
   const q = (query || '').trim().toLowerCase();
   const dict = await getOrBuildSearchDictionary();
@@ -227,18 +221,13 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
   if (!q) {
     return {
       didYouMean: null,
-      suggestions: dict.categories.slice(0, 6).map((c) => ({
-        text: c.name,
-        type: 'category',
-        id: c.id,
-      })),
+      suggestions: dict.categories.slice(0, 6).map((c) => ({ text: c.name, type: 'category', id: c.id })),
       matchedCategories: dict.categories.slice(0, 6),
       matchedBrands: dict.brands.slice(0, 4),
     };
   }
 
   const queryTokens = q.split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
-  const expandedTokens = expandQueryTokens(queryTokens, dict.synonyms);
   
   const suggestionList: SearchSuggestionItem[] = [];
   const matchedCategories: Category[] = [];
@@ -257,11 +246,7 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
   if (skuToken) {
     const skuMatches = dict.products.filter(p => p.productCode?.toLowerCase() === skuToken);
     for (const p of skuMatches) {
-      addUnique({
-        text: formatCompoundPhrase(p.brand, p.name, p.packSize),
-        type: 'sku',
-        subText: `SKU: ${p.productCode}`,
-      });
+      addUnique({ text: formatCompoundPhrase(p.brand, p.name, p.packSize), type: 'sku', subText: `SKU: ${p.productCode}` });
     }
   }
 
@@ -283,7 +268,7 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     const cLower = c.name.toLowerCase();
     const cSlug = c.slug.toLowerCase();
     if (!matchedCategories.some(mc => mc.id === c.id)) {
-      if (expandedTokens.some(t => cLower.includes(t) || cSlug.includes(t))) {
+      if (queryTokens.some(t => cLower.includes(t) || cSlug.includes(t))) {
         matchedCategories.push(c);
         addUnique({ text: c.name, type: 'category', id: c.id, subText: 'Category' });
       }
@@ -292,7 +277,7 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
 
   for (const sc of dict.subcategories) {
     const scLower = sc.name.toLowerCase();
-    if (scLower.startsWith(q) || expandedTokens.some((t) => scLower.includes(t))) {
+    if (scLower.startsWith(q) || queryTokens.some((t) => scLower.includes(t))) {
       addUnique({ text: sc.name, type: 'subcategory', id: sc.id, subText: 'Subcategory' });
     }
   }
@@ -301,22 +286,16 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     const searchable = `${p.brand} ${p.name} ${p.packSize} ${p.description}`.toLowerCase();
     const pName = p.name.toLowerCase();
     
+    // FIXED: Properly allow synonyms like "aloo" to trigger product suggestions for "potato"
+    const matchesAllTokens = queryTokens.every(t => {
+      const equivalents = [t, ...(dict.synonyms[t] || [])];
+      return equivalents.some(eq => searchable.includes(eq));
+    });
+
     if (pName.startsWith(q)) {
-      addUnique({
-        text: formatCompoundPhrase(p.brand, p.name, p.packSize),
-        type: 'product',
-        brand: p.brand,
-        packSize: p.packSize,
-        subText: p.packSize || p.brand,
-      });
-    } else if (queryTokens.every((t) => searchable.includes(t))) {
-      addUnique({
-        text: formatCompoundPhrase(p.brand, p.name, p.packSize),
-        type: 'product',
-        brand: p.brand,
-        packSize: p.packSize,
-        subText: p.packSize || p.brand,
-      });
+      addUnique({ text: formatCompoundPhrase(p.brand, p.name, p.packSize), type: 'product', brand: p.brand, packSize: p.packSize, subText: p.packSize || p.brand });
+    } else if (matchesAllTokens) {
+      addUnique({ text: formatCompoundPhrase(p.brand, p.name, p.packSize), type: 'product', brand: p.brand, packSize: p.packSize, subText: p.packSize || p.brand });
     }
     if (suggestionList.length >= 12) break;
   }
@@ -326,8 +305,8 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     const correctedTokens = queryTokens.map(token => {
       if (token.length < 3) return token;
       
-      // FIXED: If the word is in the catalog OR is a known synonym, DO NOT alter it!
-      if (dict.vocabulary.includes(token) || token in dict.synonyms) {
+      // FIXED: If the word is spelled correctly OR exists in synonyms (like "aloo"), DO NOT touch it.
+      if (dict.vocabulary.includes(token) || dict.synonyms[token]) {
         return token;
       }
       
@@ -371,11 +350,19 @@ export async function executeFullSearch(
   const cleanQuery = (query || '').trim();
   const dict = await getOrBuildSearchDictionary();
   const analysis = await getLiveSearchSuggestions(cleanQuery);
+  
+  // FIXED: If the spell checker corrected a typo (e.g., "oniox" -> "onion"), automatically search the corrected word
   const effectiveQuery = analysis.didYouMean ? analysis.didYouMean : cleanQuery;
 
   try {
     const rawTokens = effectiveQuery.toLowerCase().split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
-    const tokens = expandQueryTokens(rawTokens, dict.synonyms);
+    
+    // Expand the tokens explicitly here for the database search (e.g. "aloo" -> ["aloo", "potato"])
+    const expanded = new Set<string>(rawTokens);
+    for (const t of rawTokens) {
+      if (dict.synonyms[t]) dict.synonyms[t].forEach(s => expanded.add(s));
+    }
+    const tokens = Array.from(expanded);
 
     const matchingCategoryIds = new Set<string>();
     const matchingSubcategoryIds = new Set<string>();
@@ -384,11 +371,7 @@ export async function executeFullSearch(
     for (const cat of dict.categories) {
       const cName = cat.name.toLowerCase();
       const cSlug = cat.slug.toLowerCase();
-      if (
-        cName === effectiveQuery.toLowerCase() ||
-        cSlug.includes(effectiveQuery.toLowerCase()) ||
-        tokens.some((t) => cName.includes(t) || cSlug.includes(t))
-      ) {
+      if (cName === effectiveQuery.toLowerCase() || cSlug.includes(effectiveQuery.toLowerCase()) || tokens.some((t) => cName.includes(t) || cSlug.includes(t))) {
         matchingCategoryIds.add(cat.id);
         if (!primaryCategory) primaryCategory = cat;
       }
@@ -402,10 +385,7 @@ export async function executeFullSearch(
       }
     }
 
-    let dbQuery = supabase
-      .from('products')
-      .select('*')
-      .eq('is_active', true);
+    let dbQuery = supabase.from('products').select('*').eq('is_active', true);
 
     if (filter?.categoryId) dbQuery = dbQuery.eq('category_id', filter.categoryId);
     if (filter?.brand) dbQuery = dbQuery.eq('brand', filter.brand);
@@ -420,25 +400,16 @@ export async function executeFullSearch(
         } else if (PACK_SIZE_REGEX.test(t)) {
           orConditions.push(`pack_size.ilike.%${t}%`);
         } else {
-          orConditions.push(
-            `name.ilike.%${t}%`,
-            `brand.ilike.%${t}%`,
-            `description.ilike.%${t}%`
-          );
+          orConditions.push(`name.ilike.%${t}%`, `brand.ilike.%${t}%`, `description.ilike.%${t}%`);
         }
       });
     }
 
     if (matchingCategoryIds.size > 0) {
-      Array.from(matchingCategoryIds).forEach((cId) => {
-        orConditions.push(`category_id.eq.${cId}`);
-      });
+      Array.from(matchingCategoryIds).forEach((cId) => orConditions.push(`category_id.eq.${cId}`));
     }
-
     if (matchingSubcategoryIds.size > 0) {
-      Array.from(matchingSubcategoryIds).forEach((scId) => {
-        orConditions.push(`subcategory_id.eq.${scId}`);
-      });
+      Array.from(matchingSubcategoryIds).forEach((scId) => orConditions.push(`subcategory_id.eq.${scId}`));
     }
 
     if (orConditions.length > 0) {
@@ -467,7 +438,7 @@ export async function executeFullSearch(
       if (pName === qLower || pName.includes(` ${qLower} `)) score += 1000;
       if (p.product_code?.toLowerCase() === qLower) score += 2000;
 
-      const allTokensMatch = tokens.every(t => pName.includes(t) || pBrand.includes(t));
+      const allTokensMatch = rawTokens.every(t => pName.includes(t) || pBrand.includes(t) || (dict.synonyms[t] && dict.synonyms[t].some(s => pName.includes(s))));
       if (allTokensMatch) score += 500;
 
       if (pName.startsWith(qLower)) score += 300;
@@ -477,7 +448,6 @@ export async function executeFullSearch(
         const words = pName.split(/[\s,]+/);
         if (words.includes(t)) score += 60; 
         else if (pName.includes(t)) score += 20; 
-        
         if (pBrand.includes(t)) score += 40;
         if (pPack === t) score += 50; 
         if (pDesc.includes(t)) score += 10;
@@ -486,11 +456,8 @@ export async function executeFullSearch(
       if (p.category_id && matchingCategoryIds.has(p.category_id)) score += 100;
       if (p.subcategory_id && matchingSubcategoryIds.has(p.subcategory_id)) score += 150;
 
-      if (isEffectivelyInStock) {
-        score += 150; 
-      } else {
-        score -= 500; 
-      }
+      if (isEffectivelyInStock) score += 150; 
+      else score -= 500; 
       
       score += marginPercent; 
       score += Number(p.rating || 0) * 15;
@@ -524,21 +491,12 @@ export async function executeFullSearch(
     }
 
     const matchedIds = new Set(matchedProducts.map((p) => p.id));
-    const matchedBrandNames = new Set(
-      matchedProducts.map((p) => (p.brand || '').toLowerCase().trim()).filter(Boolean)
-    );
-    const primaryCatIds = Array.from(
-      new Set(matchedProducts.map((p) => p.category).filter(Boolean))
-    );
+    const matchedBrandNames = new Set(matchedProducts.map((p) => (p.brand || '').toLowerCase().trim()).filter(Boolean));
+    const primaryCatIds = Array.from(new Set(matchedProducts.map((p) => p.category).filter(Boolean)));
 
     let alternativeProducts: Product[] = [];
     if (primaryCatIds.length > 0) {
-      const { data: rawAlt } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .in('category_id', primaryCatIds.slice(0, 3))
-        .limit(20);
+      const { data: rawAlt } = await supabase.from('products').select('*').eq('is_active', true).in('category_id', primaryCatIds.slice(0, 3)).limit(20);
 
       alternativeProducts = (rawAlt || [])
         .filter((p: any) => {
@@ -584,31 +542,14 @@ export async function executeFullSearch(
     }
 
     const [bannerRes, trendingRes] = await Promise.all([
-      supabase
-        .from('home_banners')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true })
-        .limit(6),
-      supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .order('rating', { ascending: false })
-        .limit(10),
+      supabase.from('home_banners').select('*').eq('is_active', true).order('display_order', { ascending: true }).limit(6),
+      supabase.from('products').select('*').eq('is_active', true).order('rating', { ascending: false }).limit(10),
     ]);
 
     const promoBanners: PromoBanner[] = (bannerRes.data || []).map((b: any) => ({
-      id: b.id,
-      title: b.title,
-      description: b.description || '',
-      imageUrl: b.image_url || '',
-      backgroundColor: b.background_color || b.bg_color || '#02402c',
-      buttonText: b.button_text || 'Shop now',
-      badge: b.badge || '',
-      position: b.position || 'carousel',
-      actionType: b.action_type || 'OPEN_SCREEN',
-      actionConfig: b.action_config || {},
+      id: b.id, title: b.title, description: b.description || '', imageUrl: b.image_url || '',
+      backgroundColor: b.background_color || b.bg_color || '#02402c', buttonText: b.button_text || 'Shop now',
+      badge: b.badge || '', position: b.position || 'carousel', actionType: b.action_type || 'OPEN_SCREEN', actionConfig: b.action_config || {},
     }));
 
     const topBanner = promoBanners.find((b) => b.position === 'top') || promoBanners[0] || null;
@@ -618,18 +559,9 @@ export async function executeFullSearch(
       const stock = p.stock_quantity || 0;
       const moq = p.moq || p.min_order_quantity || 1;
       return {
-        id: p.id,
-        name: p.name,
-        brand: p.brand,
-        category: p.category_id,
-        mrp: Number(p.mrp || 0),
-        price: Number(p.wholesale_price || 0),
-        packSize: p.pack_size || '',
-        moq,
-        image: p.image_url || (p.image_urls && p.image_urls[0]) || '',
-        rating: Number(p.rating || 4.5),
-        inStock: stock >= moq,
-        description: p.description || '',
+        id: p.id, name: p.name, brand: p.brand, category: p.category_id, mrp: Number(p.mrp || 0), price: Number(p.wholesale_price || 0),
+        packSize: p.pack_size || '', moq, image: p.image_url || (p.image_urls && p.image_urls[0]) || '', rating: Number(p.rating || 4.5),
+        inStock: stock >= moq, description: p.description || '',
       };
     });
 
@@ -647,17 +579,6 @@ export async function executeFullSearch(
     };
   } catch (err) {
     console.error('Advanced search query failed:', err);
-    return {
-      products: [],
-      totalCount: 0,
-      didYouMean: null,
-      alternativeBrandProducts: [],
-      relatedSlugs: [],
-      matchedCategory: null,
-      allCategories: dict.categories || [],
-      trendingProducts: [],
-      topBanner: null,
-      middleBanners: [],
-    };
+    return { products: [], totalCount: 0, didYouMean: null, alternativeBrandProducts: [], relatedSlugs: [], matchedCategory: null, allCategories: dict.categories || [], trendingProducts: [], topBanner: null, middleBanners: [] };
   }
 }

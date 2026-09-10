@@ -26,7 +26,7 @@ interface AuthContextValue {
   sendOtp: (phone: string) => Promise<{ error: string | null }>;
   verifyOtp: (phone: string, token: string) => Promise<{ error: string | null }>;
   resendOtp: (phone: string) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
+  logout: (options?: { scope?: 'local' | 'global' | 'others' }) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -120,8 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? readableAuthError() : null };
   }, []);
 
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+  const logout = useCallback(async (options: { scope?: 'local' | 'global' | 'others' } = { scope: 'local' }) => {
+    await supabase.auth.signOut(options);
     setSession(null);
     setRole(null);
     setProfile(null);
@@ -141,10 +141,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sendOtp,
       verifyOtp,
       resendOtp,
-      signOut,
+      logout,
       refreshProfile,
     }),
-    [session, role, profile, loading, sendOtp, verifyOtp, resendOtp, signOut, refreshProfile]
+    [session, role, profile, loading, sendOtp, verifyOtp, resendOtp, logout, refreshProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

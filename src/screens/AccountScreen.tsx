@@ -23,7 +23,7 @@ interface AccountScreenProps {
 }
 
 export function AccountScreen({ onNavigate }: AccountScreenProps) {
-  const { user, profile, role, signOut } = useAuth();
+  const { user, profile, role, logout } = useAuth();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [walletLoading, setWalletLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -268,18 +268,18 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
       {/* Logout Actions */}
       <div className="space-y-2.5 pt-2">
         <button
-          onClick={() => void signOut({ scope: 'local' })}
+          onClick={() => void logout({ scope: 'local' })}
           className="w-full h-12 rounded-2xl bg-white hover:bg-red-50 text-red-600 font-bold text-xs flex items-center justify-center gap-2 border border-red-200 shadow-xs active:scale-[0.99] transition"
         >
           <LogOut size={16} />
-          Sign Out (This Device)
+          Log Out (This Device)
         </button>
         <button
-          onClick={() => void signOut({ scope: 'global' })}
+          onClick={() => void logout({ scope: 'global' })}
           className="w-full h-12 rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center gap-2 border border-red-200 shadow-xs active:scale-[0.99] transition"
         >
           <LogOut size={16} />
-          Sign Out All Devices
+          Log Out All Devices
         </button>
       </div>
     </div>

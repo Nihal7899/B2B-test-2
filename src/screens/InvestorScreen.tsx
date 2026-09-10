@@ -13,7 +13,6 @@ import {
   PieChart as PieChartIcon,
   RefreshCw,
   LogOut,
-  ChevronDown
 } from 'lucide-react';
 import {
   AreaChart,
@@ -99,12 +98,12 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
       const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
 
-      // 1. OPTIMIZED COUNTS (No massive array downloads)
+      // 1. OPTIMIZED COUNTS
       const { count: totalOrdersCount } = await supabase.from('orders').select('*', { count: 'exact', head: true });
       const { count: totalCustomersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
       const { count: newCustomersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', lastMonth.toISOString());
 
-      // 2. FETCH RECENT DATA FOR CHARTS & 30-DAY METRICS (Keeps payload light)
+      // 2. FETCH RECENT DATA
       const { data: recentOrders } = await supabase
         .from('orders')
         .select('id, total, created_at, status, user_id, discount, delivery_fee')
@@ -117,7 +116,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         .eq('status', 'paid');
 
       let todaySales = 0, weeklySales = 0, monthlySales = 0, lastMonthSales = 0;
-      let totalLifetimeSales = 0; // Simulated based on recent if we don't want to sum whole DB, but for accuracy let's aggregate DB if possible
       let todayOrders = 0, weeklyOrders = 0, monthlyOrders = 0;
       let completedOrders = 0, cancelledOrders = 0;
       let totalDiscounts = 0, totalDeliveryFees = 0;
@@ -126,15 +124,17 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       const statusCounts: Record<string, number> = {};
       const activeCustomerSet = new Set<string>();
 
-      // Summing lifetime totals natively to avoid JS memory limits
-      const { data: sumData } = await supabase.rpc('get_lifetime_sales').catch(() => ({ data: null })); // Fallback if RPC doesn't exist
+      // Safe RPC Call Fix
+      const { data: sumData, error: sumError } = await supabase.rpc('get_lifetime_sales');
+      if (sumError) {
+        console.warn('Fallback triggered: get_lifetime_sales RPC missing or failed', sumError.message);
+      }
       
       recentOrders?.forEach((order) => {
         const orderDate = new Date(order.created_at);
         const dateStr = orderDate.toISOString().split('T')[0];
         const total = Number(order.total) || 0;
         
-        // Track status
         if (orderDate >= lastMonth) {
           statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
         }
@@ -142,7 +142,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         if (order.status === 'delivered') completedOrders++;
         if (order.status === 'cancelled') cancelledOrders++;
 
-        // Track Revenue
         if (order.status === 'delivered') {
           if (orderDate >= today) todaySales += total;
           if (orderDate >= lastWeek) weeklySales += total;
@@ -158,13 +157,11 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
           }
         }
 
-        // Track Orders Volume
         if (orderDate >= today) todayOrders++;
         if (orderDate >= lastWeek) weeklyOrders++;
         if (orderDate >= lastMonth) monthlyOrders++;
       });
 
-      // Best Revenue Day
       const bestRevDayStr = Object.keys(dailyRevenue).reduce((a, b) => dailyRevenue[a] > dailyRevenue[b] ? a : b, '');
 
       // Build Area Chart (Last 14 Days)
@@ -180,14 +177,14 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       }
       setRevenueChartData(chartArr);
 
-      // Build Bar Chart (Status)
+      // Build Bar Chart
       const barArr = Object.entries(statusCounts).map(([status, count]) => ({
         status: status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         Orders: count
       }));
       setOrderStatusData(barArr);
 
-      // Build Pie Chart (Payments - Last 30 Days)
+      // Build Pie Chart
       const providerMap: Record<string, number> = {};
       recentPayments?.forEach(p => {
         const prov = (p.provider || 'Other').toUpperCase();
@@ -200,7 +197,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         todaySales,
         weeklySales,
         monthlySales,
-        totalSales: sumData || (monthlySales * 4.5), // Dummy lifetime fallback if no RPC
+        totalSales: sumData || (monthlySales * 4.5), 
         revenueGrowth: calculateGrowth(monthlySales, lastMonthSales),
         todayOrders,
         weeklyOrders,
@@ -231,24 +228,48 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f8faf9] flex flex-col text-slate-900 pb-20">
-      {/* ─── HEADER (Matches Warehouse / Admin styling) ─── */}
-      <header className="sticky top-0 z-30 bg-[#0a382c] text-white pt-[max(1rem,env(safe-area-inset-top))] pb-4 px-4 shadow-md border-b border-[#0f4d3d]">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-[#f1f5f9] flex flex-col text-slate-900 pb-20">
+      
+      {/* ─── CUSTOM HEADER WITH ROUNDED CORNERS & LOGO ─── */}
+      <header className="sticky top-0 z-30 bg-[#0a382c] text-white pt-[max(1.5rem,env(safe-area-inset-top))] pb-6 px-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-b-[2rem]">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          
           <div className="flex items-center gap-3">
             {onBack && (
               <button onClick={onBack} className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center text-white active:scale-95 transition-transform">
                 <ArrowLeft size={18} />
               </button>
             )}
-            <div>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="text-[#59D9B6]" size={22} />
-                <h1 className="text-xl font-black text-white tracking-tight">Investor Deck</h1>
+
+            <div className="flex items-center gap-3 select-none">
+              {/* CafKart Logo SVG (Copied from Warehouse) */}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1535" className="h-11 w-11 sm:h-12 sm:w-12 shrink-0 drop-shadow-sm" fill="none">
+                <defs>
+                  <linearGradient id="warehouseGreenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#59D9B6" />
+                    <stop offset="100%" stopColor="#58D5A5" />
+                  </linearGradient>
+                </defs>
+                <path d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z" fill="#FFFFFF" fillRule="evenodd" />
+                <path d="M 169 1186 L 169 1199 170 1200 170 1203 171 1204 171 1205 173 1208 173 1210 176 1213 176 1214 177 1215 178 1215 179 1216 179 1217 180 1218 181 1218 184 1221 185 1221 187 1223 188 1223 191 1225 194 1225 195 1226 206 1226 207 1227 372 1227 373 1226 392 1226 393 1225 395 1225 396 1224 398 1224 399 1223 400 1223 402 1221 403 1221 405 1219 406 1219 411 1214 411 1213 412 1212 412 1211 414 1209 414 1208 416 1205 416 1203 417 1202 417 1200 418 1199 418 1186 417 1185 417 1183 416 1182 416 1180 415 1179 415 1178 414 1177 414 1176 413 1175 413 1174 411 1172 411 1171 407 1167 407 1166 406 1166 405 1165 404 1165 402 1163 401 1163 398 1161 396 1161 393 1159 194 1159 191 1161 189 1161 188 1162 187 1162 186 1163 185 1163 183 1165 182 1165 176 1171 176 1172 173 1175 173 1177 172 1178 172 1179 170 1182 170 1185 Z M 987 1142 L 986 1143 981 1143 980 1144 977 1144 976 1145 974 1145 973 1146 970 1146 969 1147 968 1147 967 1148 966 1148 965 1149 964 1149 963 1150 962 1150 961 1151 960 1151 959 1152 958 1152 956 1154 955 1154 953 1156 952 1156 949 1159 948 1159 935 1172 935 1173 933 1175 933 1176 931 1178 931 1179 930 1180 930 1181 929 1182 929 1183 928 1184 928 1185 927 1186 927 1188 925 1190 925 1192 924 1193 924 1196 923 1197 923 1199 922 1200 922 1203 921 1204 921 1231 922 1232 922 1235 923 1236 923 1238 924 1239 924 1242 925 1243 925 1245 927 1247 927 1249 928 1250 928 1251 930 1253 930 1254 931 1255 931 1256 934 1259 934 1260 939 1265 939 1266 949 1276 950 1276 953 1279 954 1279 955 1280 956 1280 958 1282 959 1282 960 1283 962 1283 964 1285 966 1285 967 1286 969 1286 970 1287 971 1287 972 1288 973 1288 974 1289 979 1289 980 1290 983 1290 984 1291 990 1291 991 1292 1002 1292 1003 1291 1007 1291 1008 1290 1012 1290 1013 1289 1017 1289 1018 1288 1020 1288 1021 1287 1023 1287 1024 1286 1026 1286 1027 1285 1028 1285 1029 1284 1030 1284 1031 1283 1033 1283 1034 1282 1035 1282 1037 1280 1038 1280 1041 1277 1042 1277 1046 1273 1047 1273 1055 1265 1055 1264 1056 1263 1057 1263 1057 1262 1060 1259 1060 1258 1062 1256 1062 1255 1064 1253 1064 1252 1065 1251 1065 1250 1066 1249 1066 1248 1067 1247 1067 1246 1068 1245 1068 1243 1069 1242 1069 1240 1070 1239 1070 1237 1071 1236 1071 1232 1072 1231 1072 1204 1071 1203 1071 1199 1070 1198 1070 1196 1069 1195 1069 1193 1068 1192 1068 1190 1067 1189 1067 1188 1066 1187 1066 1185 1065 1184 1065 1183 1064 1182 1064 1181 1063 1180 1063 1179 1061 1177 1061 1176 1058 1174 1058 1173 1055 1170 1055 1169 1044 1158 1043 1158 1040 1155 1039 1155 1038 1154 1037 1154 1035 1152 1034 1152 1033 1151 1032 1151 1031 1150 1030 1150 1029 1149 1028 1149 1027 1148 1025 1148 1024 1147 1023 1147 1022 1146 1018 1146 1017 1145 1015 1145 1014 1144 1011 1144 1010 1143 1006 1143 1005 1142 Z M 634 1142 L 633 1143 629 1143 628 1144 626 1144 625 1145 622 1145 621 1146 618 1146 617 1147 616 1147 615 1148 613 1148 612 1149 610 1149 609 1150 608 1150 606 1152 604 1152 601 1155 600 1155 597 1158 596 1158 582 1172 582 1173 580 1175 580 1176 578 1178 578 1179 577 1180 577 1181 576 1182 576 1183 575 1184 575 1185 574 1186 574 1188 573 1189 573 1190 572 1191 572 1193 571 1194 571 1197 570 1198 570 1200 569 1201 569 1204 568 1205 568 1231 569 1232 569 1234 570 1235 570 1238 571 1239 571 1241 572 1242 572 1244 573 1245 573 1246 574 1247 574 1248 575 1249 575 1250 576 1251 576 1252 578 1254 578 1255 580 1257 580 1258 583 1261 583 1262 587 1266 587 1267 593 1273 594 1273 598 1277 599 1277 602 1280 603 1280 605 1282 606 1282 607 1283 608 1283 609 1284 610 1284 611 1285 612 1285 613 1286 616 1286 617 1287 618 1287 619 1288 621 1288 622 1289 626 1289 627 1290 631 1290 632 1291 639 1291 640 1292 647 1292 648 1291 654 1291 655 1290 659 1290 660 1289 664 1289 665 1288 667 1288 668 1287 670 1287 671 1286 673 1286 674 1285 675 1285 676 1284 677 1284 678 1283 680 1283 681 1282 682 1282 684 1280 685 1280 686 1279 687 1279 693 1273 694 1273 695 1272 695 1271 697 1269 698 1269 698 1268 703 1263 703 1262 706 1259 706 1258 708 1256 708 1255 711 1252 711 1251 712 1250 712 1248 714 1246 714 1244 715 1243 715 1240 716 1239 716 1236 717 1235 717 1233 718 1232 718 1226 719 1225 719 1207 718 1206 718 1201 717 1200 717 1198 716 1197 716 1195 715 1194 715 1191 714 1190 714 1189 713 1188 713 1187 712 1186 712 1184 711 1183 711 1182 709 1180 709 1179 707 1177 707 1176 704 1173 704 1172 699 1167 699 1166 694 1161 693 1161 689 1157 688 1157 686 1155 685 1155 682 1152 680 1152 678 1150 677 1150 676 1149 674 1149 673 1148 672 1148 671 1147 670 1147 669 1146 666 1146 665 1145 663 1145 662 1144 660 1144 659 1143 655 1143 654 1142 Z M 48 1054 L 48 1068 49 1069 49 1072 50 1073 50 1074 52 1077 52 1079 54 1081 54 1082 55 1083 55 1084 61 1090 62 1090 63 1091 64 1091 66 1093 68 1093 69 1094 71 1094 72 1095 75 1095 76 1096 267 1096 268 1095 271 1095 272 1094 274 1094 275 1093 276 1093 277 1092 278 1092 280 1090 281 1090 286 1085 287 1085 287 1084 290 1081 290 1080 291 1079 291 1078 293 1076 293 1075 294 1074 294 1071 295 1070 295 1068 296 1067 296 1055 295 1054 295 1052 294 1051 294 1049 293 1048 293 1047 291 1045 291 1044 290 1043 290 1042 287 1039 287 1038 286 1038 282 1034 281 1034 279 1032 278 1032 275 1030 273 1030 270 1028 74 1028 73 1029 71 1029 68 1031 66 1031 65 1032 64 1032 61 1035 60 1035 54 1041 54 1042 52 1044 52 1045 51 1046 51 1048 50 1049 50 1050 49 1051 49 1053 Z M 1315 281 L 1292 287 1277 294 1248 318 856 713 846 730 843 745 849 768 855 776 1287 1207 1311 1220 1340 1227 1460 1227 1474 1224 1483 1219 1492 1210 1496 1202 1497 1185 1487 1165 1069 746 1072 739 1447 364 1453 355 1459 336 1459 324 1456 313 1450 303 1430 287 1402 280 Z" fill="url(#warehouseGreenGrad)" fillRule="evenodd" />
+              </svg>
+
+              <div className="flex flex-col justify-center">
+                <div className="flex items-center gap-1.5 leading-none">
+                  <span className="text-xl font-black tracking-tight text-white font-sans">Caf</span>
+                  <span className="text-xl font-black tracking-tight text-[#59D9B6] font-sans">Kart</span>
+                  <span className="ml-1 inline-flex items-center gap-1 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-[#59D9B6] border border-emerald-400/30">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#59D9B6] animate-pulse" />
+                    INVESTOR
+                  </span>
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-emerald-200/90 mt-1">
+                  PERFORMANCE & ANALYTICS
+                </span>
               </div>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-200/90 font-bold mt-0.5">Performance & Analytics</p>
             </div>
           </div>
+
           <div className="flex items-center gap-2">
             <button onClick={fetchMetrics} className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center text-emerald-200 transition-transform active:scale-95">
               <RefreshCw size={16} className={loading ? 'animate-spin text-white' : ''} />
@@ -265,7 +286,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       <main className="flex-1 px-4 lg:px-8 py-6 max-w-7xl mx-auto w-full space-y-6">
         
         {/* Desktop Navigation Tabs */}
-        <div className="hidden md:flex bg-slate-200/70 p-1 rounded-2xl w-fit">
+        <div className="hidden md:flex bg-white shadow-sm p-1.5 rounded-2xl w-fit border border-slate-200">
            <TabButton label="Dashboard" icon={<Activity/>} active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
            <TabButton label="Sales & Ops" icon={<DollarSign/>} active={activeTab === 'sales'} onClick={() => setActiveTab('sales')} />
            <TabButton label="Analytics" icon={<BarChart3/>} active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} />
@@ -285,7 +306,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                   <MetricCard label="Monthly Revenue" value={formatCurrency(metrics.monthlySales)} trend={metrics.revenueGrowth} icon={<DollarSign size={20} />} bg="bg-white border border-slate-200" />
                   <MetricCard label="Today's Orders" value={metrics.todayOrders.toString()} icon={<Package size={20} />} bg="bg-white border border-slate-200" />
                   <MetricCard label="Total Customers" value={metrics.totalCustomers.toString()} trend={metrics.customerGrowth} icon={<Users size={20} />} bg="bg-white border border-slate-200" />
-                  <MetricCard label="Monthly AOV" value={formatCurrency(metrics.monthlyAOV)} icon={<ShoppingCart size={20} />} bg="bg-[#0a382c] text-white" lightText />
+                  <MetricCard label="Monthly AOV" value={formatCurrency(metrics.monthlyAOV)} icon={<ShoppingCart size={20} />} bg="bg-[#0a382c] text-white shadow-lg shadow-[#0a382c]/30" lightText />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -309,7 +330,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                           <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                           <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v/1000}k`} />
                           <Tooltip 
-                            contentStyle={{ backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: '12px', fontWeight: 'bold', color: '#0f172a' }} 
+                            contentStyle={{ backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: '12px', fontWeight: 'bold', color: '#0f172a', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
                             itemStyle={{ color: '#10b981' }}
                             formatter={(value: number) => formatCurrency(value)}
                           />
@@ -337,7 +358,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                               <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}/>
                           <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }}/>
                         </PieChart>
                       </ResponsiveContainer>
@@ -373,7 +394,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                         <XAxis dataKey="status" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                         <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', fontWeight: 'bold' }} />
+                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                         <Bar dataKey="Orders" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -426,13 +447,33 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         )}
       </main>
 
-      {/* Mobile Bottom Navigation (Visible on small screens) */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] safe-bottom md:hidden">
-        <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
-          <NavButton icon={<Activity />} label="Dashboard" isActive={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-          <NavButton icon={<DollarSign />} label="Sales" isActive={activeTab === 'sales'} onClick={() => setActiveTab('sales')} />
-          <NavButton icon={<BarChart3 />} label="Analytics" isActive={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} />
-          <NavButton icon={<ChevronDown />} label="More" isActive={activeTab === 'more'} onClick={() => setActiveTab('more')} />
+      {/* ─── MOBILE BOTTOM NAVIGATION WITH CUSTOM SVGS ─── */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/90 backdrop-blur-xl border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] safe-bottom md:hidden rounded-t-3xl">
+        <div className="max-w-xl mx-auto flex items-center justify-around h-[4.5rem] px-2 pb-1">
+          <NavButton 
+            icon={<DashboardSVG />} 
+            label="Dashboard" 
+            isActive={activeTab === 'dashboard'} 
+            onClick={() => setActiveTab('dashboard')} 
+          />
+          <NavButton 
+            icon={<SalesSVG />} 
+            label="Sales" 
+            isActive={activeTab === 'sales'} 
+            onClick={() => setActiveTab('sales')} 
+          />
+          <NavButton 
+            icon={<AnalyticsSVG />} 
+            label="Analytics" 
+            isActive={activeTab === 'analytics'} 
+            onClick={() => setActiveTab('analytics')} 
+          />
+          <NavButton 
+            icon={<MoreSVG />} 
+            label="More" 
+            isActive={activeTab === 'more'} 
+            onClick={() => setActiveTab('more')} 
+          />
         </div>
       </nav>
     </div>
@@ -445,8 +486,8 @@ function TabButton({ label, icon, active, onClick }: { label: string, icon: Reac
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-        active ? 'bg-white text-[#0a382c] shadow-sm' : 'text-slate-500 hover:text-slate-800'
+      className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+        active ? 'bg-[#0a382c] text-white shadow-md shadow-[#0a382c]/20' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
       }`}
     >
       {React.cloneElement(icon as React.ReactElement, { size: 16 })}
@@ -457,15 +498,15 @@ function TabButton({ label, icon, active, onClick }: { label: string, icon: Reac
 
 function MetricCard({ label, value, icon, trend, bg, lightText }: { label: string, value: string, icon: React.ReactNode, trend?: string, bg: string, lightText?: boolean }) {
   return (
-    <div className={`rounded-2xl p-4 shadow-sm ${bg}`}>
-      <div className="flex items-center justify-between mb-3">
-        <span className={`text-[10px] font-bold uppercase tracking-wider ${lightText ? 'text-emerald-100' : 'text-slate-500'}`}>{label}</span>
-        <div className={lightText ? 'text-emerald-300' : 'text-slate-400'}>{icon}</div>
+    <div className={`rounded-3xl p-5 shadow-sm transition-all hover:shadow-md ${bg}`}>
+      <div className="flex items-center justify-between mb-4">
+        <span className={`text-[10px] font-extrabold uppercase tracking-wider ${lightText ? 'text-emerald-100/90' : 'text-slate-400'}`}>{label}</span>
+        <div className={lightText ? 'text-[#59D9B6]' : 'text-slate-400'}>{icon}</div>
       </div>
-      <div className="flex items-end gap-2">
-        <div className={`text-xl md:text-2xl font-black tracking-tight ${lightText ? 'text-white' : 'text-slate-900'}`}>{value}</div>
+      <div className="flex items-end gap-2.5">
+        <div className={`text-2xl md:text-3xl font-black tracking-tight ${lightText ? 'text-white' : 'text-slate-900'}`}>{value}</div>
         {trend && (
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md mb-1 ${trend.startsWith('+') ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg mb-1.5 ${trend.startsWith('+') ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
             {trend}
           </span>
         )}
@@ -476,10 +517,10 @@ function MetricCard({ label, value, icon, trend, bg, lightText }: { label: strin
 
 function DataBlock({ label, value, subtext, highlight, isWarning }: { label: string, value: string, subtext?: string, highlight?: boolean, isWarning?: boolean }) {
   return (
-    <div className={`bg-white border rounded-2xl p-4 shadow-sm ${highlight ? 'border-emerald-300 bg-emerald-50/30' : isWarning ? 'border-amber-200 bg-amber-50/30' : 'border-slate-200'}`}>
-      <p className="text-xs font-bold text-slate-500 mb-1">{label}</p>
-      <p className={`text-lg font-black ${highlight ? 'text-emerald-700' : isWarning ? 'text-amber-700' : 'text-slate-900'}`}>{value}</p>
-      {subtext && <p className="text-[10px] font-semibold text-slate-400 mt-1">{subtext}</p>}
+    <div className={`border rounded-3xl p-5 shadow-sm transition-all hover:shadow-md ${highlight ? 'border-emerald-300 bg-emerald-50/50' : isWarning ? 'border-amber-200 bg-amber-50/50' : 'border-slate-200 bg-white'}`}>
+      <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">{label}</p>
+      <p className={`text-xl font-black ${highlight ? 'text-emerald-700' : isWarning ? 'text-amber-700' : 'text-slate-900'}`}>{value}</p>
+      {subtext && <p className="text-[11px] font-bold text-slate-400 mt-1.5">{subtext}</p>}
     </div>
   );
 }
@@ -488,11 +529,11 @@ function ProgressBar({ label, value, max, color }: { label: string, value: numbe
   const percentage = max > 0 ? (value / max) * 100 : 0;
   return (
     <div>
-      <div className="flex justify-between text-xs font-bold mb-2">
+      <div className="flex justify-between text-xs font-bold mb-2.5">
         <span className="text-slate-600">{label}</span>
         <span className="text-slate-900">{value.toLocaleString()} <span className="text-slate-400 font-semibold">({percentage.toFixed(0)}%)</span></span>
       </div>
-      <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
+      <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
         <div className={`h-full ${color} rounded-full transition-all duration-1000`} style={{ width: `${percentage}%` }} />
       </div>
     </div>
@@ -501,12 +542,12 @@ function ProgressBar({ label, value, max, color }: { label: string, value: numbe
 
 function RecordRow({ label, value, subtext, highlight }: { label: string, value: string, subtext?: string, highlight?: boolean }) {
   return (
-    <li className="flex justify-between items-center py-3 border-b border-slate-100 last:border-0">
+    <li className="flex justify-between items-center py-3.5 border-b border-slate-100 last:border-0">
       <div>
         <p className="text-xs font-bold text-slate-700">{label}</p>
         {subtext && <p className="text-[10px] text-slate-400 mt-0.5 font-semibold">{subtext}</p>}
       </div>
-      <span className={`text-sm font-black ${highlight ? 'text-[#0a382c]' : 'text-slate-900'}`}>{value}</span>
+      <span className={`text-sm font-black ${highlight ? 'text-[#0a382c] px-2.5 py-1 bg-emerald-50 rounded-lg border border-emerald-100' : 'text-slate-900'}`}>{value}</span>
     </li>
   );
 }
@@ -515,22 +556,58 @@ function NavButton({ icon, label, isActive, onClick }: { icon: React.ReactNode, 
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${
-        isActive ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
+      className={`relative flex flex-col items-center justify-center flex-1 h-full gap-1.5 transition-all duration-200 ${
+        isActive ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-600'
       }`}
     >
-      <div className={`${isActive ? 'scale-110' : 'scale-100'} transition-transform duration-200`}>
-        {React.cloneElement(icon as React.ReactElement, { size: 20, strokeWidth: isActive ? 2.5 : 2 })}
+      <div className={`transition-transform duration-300 ${isActive ? '-translate-y-1' : ''}`}>
+        {React.cloneElement(icon as React.ReactElement, { isActive })}
       </div>
-      <span className="text-[10px] font-black tracking-tight">{label}</span>
+      <span className={`text-[10px] font-black tracking-tight transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-80'}`}>{label}</span>
+      {isActive && (
+        <span className="absolute bottom-1 w-1 h-1 rounded-full bg-[#0a382c] animate-pulse" />
+      )}
     </button>
   );
 }
 
-// Need to fake Loader2 since lucide-react doesn't expose it directly in all bundles.
-function Loader2({ className, size }: { className: string, size: number }) {
+// ─── Custom Bottom Navigation SVGs ──────────────────────────────────────────
+
+const DashboardSVG = ({ isActive }: { isActive?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="9" rx="1.5" className={isActive ? 'fill-emerald-100' : ''}></rect>
+    <rect x="14" y="3" width="7" height="5" rx="1.5"></rect>
+    <rect x="14" y="12" width="7" height="9" rx="1.5" className={isActive ? 'fill-emerald-100' : ''}></rect>
+    <rect x="3" y="16" width="7" height="5" rx="1.5"></rect>
+  </svg>
+);
+
+const SalesSVG = ({ isActive }: { isActive?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M7 4h10 M7 9h10 M7 14h5.5c2.5 0 4.5-2 4.5-4.5S15 5 12.5 5H9v15l6-7.5" />
+    {isActive && <circle cx="17.5" cy="18.5" r="1.5" fill="currentColor" stroke="none"/>}
+  </svg>
+);
+
+const AnalyticsSVG = ({ isActive }: { isActive?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 3v18h18" />
+    <path d="m19 9-5 5-4-4-3 3" />
+    <path d="M19 9h-4M19 9v4" className={isActive ? 'fill-emerald-100' : ''} />
+  </svg>
+);
+
+const MoreSVG = ({ isActive }: { isActive?: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r={isActive ? "1.5" : "1"} />
+    <circle cx="19" cy="12" r={isActive ? "1.5" : "1"} />
+    <circle cx="5" cy="12" r={isActive ? "1.5" : "1"} />
+  </svg>
+);
+
+function Loader2({ className, size }: { className?: string, size: number }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M21 12a9 9 0 1 1-6.219-8.56" />
     </svg>
   );

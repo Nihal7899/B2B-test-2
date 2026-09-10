@@ -13,10 +13,16 @@ import {
   PieChart as PieChartIcon,
   RefreshCw,
   LogOut,
+  LineChart as LineChartIcon,
+  BarChart as BarChartIcon,
+  CheckCircle2,
+  MoreHorizontal
 } from 'lucide-react';
 import {
   AreaChart,
   Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -32,7 +38,31 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
 
-// ─── Helpers ─────────────────────────────────────────────────────────
+// ─── Helpers (UTC ↔ IST) ─────────────────────────────────────────────
+const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+
+function toIST(utcDate: Date): Date {
+  return new Date(utcDate.getTime() + IST_OFFSET);
+}
+
+function getDayRangeUTC(offsetDays = 0): { startUTC: Date; endUTC: Date } {
+  const nowUTC = new Date();
+  const nowIST = toIST(nowUTC);
+  const y = nowIST.getUTCFullYear();
+  const m = nowIST.getUTCMonth();
+  const d = nowIST.getUTCDate();
+  const istMidnightAsUTCValue = Date.UTC(y, m, d + offsetDays, 0, 0, 0, 0);
+  const startUTC = new Date(istMidnightAsUTCValue - IST_OFFSET);
+  const endUTC = new Date(startUTC);
+  endUTC.setUTCDate(endUTC.getUTCDate() + 1);
+  return { startUTC, endUTC };
+}
+
+function getISTDateStr(utcDate: Date): string {
+  const ist = toIST(utcDate);
+  return ist.toISOString().split('T')[0];
+}
+
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -50,34 +80,31 @@ function calculateGrowth(current: number, previous: number): string {
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface InvestorMetrics {
-  // Sales
   todaySales: number;
   weeklySales: number;
   monthlySales: number;
   totalSales: number;
   revenueGrowth: string;
-  // Orders
   todayOrders: number;
   weeklyOrders: number;
   monthlyOrders: number;
   totalOrders: number;
   completedOrders: number;
   cancelledOrders: number;
-  // Customers
   totalCustomers: number;
   activeCustomers: number;
   newCustomers: number;
   customerGrowth: string;
-  // AOV
   todayAOV: number;
   monthlyAOV: number;
-  // Others
   totalDiscounts: number;
   totalDeliveryFees: number;
   bestRevenueDay: { date: string; amount: number };
+  bestOrderDay: { date: string; count: number };
+  highestAOVDay: { date: string; amount: number };
 }
 
-const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b'];
+const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#64748b', '#ec4899', '#14b8a6', '#f43f5e', '#84cc16'];
 
 export function InvestorScreen({ onBack }: { onBack?: () => void }) {
   const { signOut } = useAuth();
@@ -85,34 +112,47 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<InvestorMetrics | null>(null);
   
-  const [revenueChartData, setRevenueChartData] = useState<any[]>([]);
+  // Dashboard / Sales Charts
+  const [todaySalesData, setTodaySalesData] = useState<any[]>([]);
+  const [weeklySalesData, setWeeklySalesData] = useState<any[]>([]);
+  const [monthlySalesData, setMonthlySalesData] = useState<any[]>([]);
+  
+  // Chart Type State
+  const [chartType, setChartType] = useState<'area' | 'line' | 'bar' | 'pie'>('area');
+
+  // Analytics Charts
   const [orderStatusData, setOrderStatusData] = useState<any[]>([]);
   const [paymentMethodData, setPaymentMethodData] = useState<any[]>([]);
 
   const fetchMetrics = async () => {
     setLoading(true);
     try {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+      // Setup UTC date ranges similar to Dashboard.tsx
+      const todayRange = getDayRangeUTC(0);
+      const weekStart = getDayRangeUTC(-6).startUTC;
+      const monthStart = getDayRangeUTC(-29).startUTC;
+      const twoMonthsAgoStart = getDayRangeUTC(-59).startUTC;
 
-      // 1. OPTIMIZED COUNTS
+      const todayDateStr = getISTDateStr(todayRange.startUTC);
+      const weekStartStr = getISTDateStr(weekStart);
+      const monthStartStr = getISTDateStr(monthStart);
+
+      // Counts
       const { count: totalOrdersCount } = await supabase.from('orders').select('*', { count: 'exact', head: true });
       const { count: totalCustomersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-      const { count: newCustomersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', lastMonth.toISOString());
+      const { count: newCustomersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', monthStart.toISOString());
 
-      // 2. FETCH RECENT DATA
+      // Fetch Recent Orders (last 60 days to compare last month)
       const { data: recentOrders } = await supabase
         .from('orders')
         .select('id, total, created_at, status, user_id, discount, delivery_fee')
-        .gte('created_at', twoMonthsAgo.toISOString());
+        .gte('created_at', twoMonthsAgoStart.toISOString())
+        .order('created_at', { ascending: true });
 
       const { data: recentPayments } = await supabase
         .from('payments')
         .select('provider, amount, status')
-        .gte('created_at', lastMonth.toISOString())
+        .gte('created_at', monthStart.toISOString())
         .eq('status', 'paid');
 
       let todaySales = 0, weeklySales = 0, monthlySales = 0, lastMonthSales = 0;
@@ -121,70 +161,141 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       let totalDiscounts = 0, totalDeliveryFees = 0;
 
       const dailyRevenue: Record<string, number> = {};
+      const dailyOrderCount: Record<string, number> = {};
       const statusCounts: Record<string, number> = {};
       const activeCustomerSet = new Set<string>();
 
-      // Safe RPC Call Fix (No .catch chain)
+      // Safe RPC Call for lifetime
       const { data: sumData, error: sumError } = await supabase.rpc('get_lifetime_sales');
       if (sumError) {
-        console.warn('Fallback triggered: get_lifetime_sales RPC missing or failed', sumError.message);
+        console.warn('Fallback triggered: get_lifetime_sales RPC missing', sumError.message);
       }
       
+      const hourlyBuckets = Array.from({ length: 9 }, (_, i) => {
+        const hour = 6 + i * 2;
+        return { day: `${hour}:00 ${hour < 12 ? 'AM' : 'PM'}`, sales: 0 };
+      });
+
+      const todayStartIST = toIST(todayRange.startUTC);
+      const todayEndIST = toIST(todayRange.endUTC);
+
       recentOrders?.forEach((order) => {
         const orderDate = new Date(order.created_at);
-        const dateStr = orderDate.toISOString().split('T')[0];
+        const istDate = toIST(orderDate);
+        const dateStr = getISTDateStr(orderDate);
         const total = Number(order.total) || 0;
         
-        if (orderDate >= lastMonth) {
+        if (istDate >= toIST(monthStart)) {
           statusCounts[order.status] = (statusCounts[order.status] || 0) + 1;
         }
 
         if (order.status === 'delivered') completedOrders++;
         if (order.status === 'cancelled') cancelledOrders++;
 
+        // Delivered logic
         if (order.status === 'delivered') {
-          if (orderDate >= today) todaySales += total;
-          if (orderDate >= lastWeek) weeklySales += total;
+          if (dateStr === todayDateStr) todaySales += total;
+          if (dateStr >= weekStartStr) weeklySales += total;
           
-          if (orderDate >= lastMonth) {
+          if (dateStr >= monthStartStr) {
             monthlySales += total;
             dailyRevenue[dateStr] = (dailyRevenue[dateStr] || 0) + total;
             activeCustomerSet.add(order.user_id);
             totalDiscounts += Number(order.discount) || 0;
             totalDeliveryFees += Number(order.delivery_fee) || 0;
-          } else if (orderDate >= twoMonthsAgo && orderDate < lastMonth) {
+          } else if (istDate >= toIST(twoMonthsAgoStart) && istDate < toIST(monthStart)) {
             lastMonthSales += total;
+          }
+
+          // Hourly buckets (Today)
+          if (istDate >= todayStartIST && istDate < todayEndIST) {
+            let h = istDate.getHours();
+            if (h < 6) h = 6;
+            if (h > 22) h = 22;
+            const bucket = h - (h % 2);
+            const label = `${bucket}:00 ${bucket < 12 ? 'AM' : 'PM'}`;
+            const found = hourlyBuckets.find((item) => item.day === label);
+            if (found) found.sales += total;
           }
         }
 
-        if (orderDate >= today) todayOrders++;
-        if (orderDate >= lastWeek) weeklyOrders++;
-        if (orderDate >= lastMonth) monthlyOrders++;
+        // All Orders Volume
+        if (dateStr >= monthStartStr) {
+          dailyOrderCount[dateStr] = (dailyOrderCount[dateStr] || 0) + 1;
+        }
+        if (dateStr === todayDateStr) todayOrders++;
+        if (dateStr >= weekStartStr) weeklyOrders++;
+        if (dateStr >= monthStartStr) monthlyOrders++;
       });
 
-      const bestRevDayStr = Object.keys(dailyRevenue).reduce((a, b) => dailyRevenue[a] > dailyRevenue[b] ? a : b, '');
+      setTodaySalesData(hourlyBuckets);
 
-      // Build Area Chart (Last 14 Days)
-      const chartArr = [];
-      for (let i = 13; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        const dStr = d.toISOString().split('T')[0];
-        chartArr.push({
-          day: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-          Revenue: dailyRevenue[dStr] || 0,
-        });
+      // Weekly Sales Data
+      const weeklyMap: Record<string, number> = {};
+      let current = new Date(weekStart);
+      while (current < todayRange.endUTC) {
+        weeklyMap[getISTDateStr(current)] = 0;
+        current.setDate(current.getDate() + 1);
       }
-      setRevenueChartData(chartArr);
+      Object.keys(dailyRevenue).forEach(date => {
+        if (weeklyMap[date] !== undefined) weeklyMap[date] += dailyRevenue[date];
+      });
+      const weeklyArray = Object.entries(weeklyMap).map(([date, sales]) => ({
+        day: new Date(date).toLocaleDateString('en-IN', { weekday: 'short' }),
+        sales,
+      }));
+      setWeeklySalesData(weeklyArray);
 
-      // Build Bar Chart
+      // Monthly Sales Data
+      const monthlyMap: Record<string, number> = {};
+      current = new Date(monthStart);
+      while (current < todayRange.endUTC) {
+        monthlyMap[getISTDateStr(current)] = 0;
+        current.setDate(current.getDate() + 1);
+      }
+      Object.keys(dailyRevenue).forEach(date => {
+        if (monthlyMap[date] !== undefined) monthlyMap[date] += dailyRevenue[date];
+      });
+      const monthlyArray = Object.entries(monthlyMap).map(([date, sales]) => ({
+        day: new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+        sales,
+      }));
+      setMonthlySalesData(monthlyArray);
+
+      // Calculate Best Records dynamically
+      let bestRevDay = { date: '-', amount: 0 };
+      let bestOrdDay = { date: '-', count: 0 };
+      let highestAovDay = { date: '-', amount: 0 };
+
+      Object.keys(dailyRevenue).forEach(date => {
+        if (dailyRevenue[date] > bestRevDay.amount) {
+          bestRevDay = { date, amount: dailyRevenue[date] };
+        }
+      });
+
+      Object.keys(dailyOrderCount).forEach(date => {
+        if (dailyOrderCount[date] > bestOrdDay.count) {
+          bestOrdDay = { date, count: dailyOrderCount[date] };
+        }
+        
+        const dayRevenue = dailyRevenue[date] || 0;
+        const dayOrders = dailyOrderCount[date];
+        if (dayOrders > 0) {
+          const aov = dayRevenue / dayOrders;
+          if (aov > highestAovDay.amount) {
+            highestAovDay = { date, amount: aov };
+          }
+        }
+      });
+
+      // Build Bar Chart (Status)
       const barArr = Object.entries(statusCounts).map(([status, count]) => ({
-        status: status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        Orders: count
+        day: status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        sales: count // using 'sales' key generically for the dynamic chart 
       }));
       setOrderStatusData(barArr);
 
-      // Build Pie Chart
+      // Build Pie Chart (Payments)
       const providerMap: Record<string, number> = {};
       recentPayments?.forEach(p => {
         const prov = (p.provider || 'Other').toUpperCase();
@@ -213,7 +324,9 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         monthlyAOV: monthlyOrders ? monthlySales / monthlyOrders : 0,
         totalDiscounts,
         totalDeliveryFees,
-        bestRevenueDay: { date: bestRevDayStr, amount: dailyRevenue[bestRevDayStr] || 0 },
+        bestRevenueDay: bestRevDay,
+        bestOrderDay: bestOrdDay,
+        highestAOVDay: highestAovDay
       });
 
     } catch (err) {
@@ -230,7 +343,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
   return (
     <div className="min-h-screen bg-[#f1f5f9] flex flex-col text-slate-900 pb-20 [&_svg]:outline-none">
       
-      {/* ─── CUSTOM HEADER WITH ROUNDED CORNERS & LOGO ─── */}
+      {/* ─── CUSTOM HEADER ─── */}
       <header className="sticky top-0 z-30 bg-[#0a382c] text-white pt-[max(1.5rem,env(safe-area-inset-top))] pb-6 px-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-b-[2rem]">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           
@@ -242,7 +355,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             )}
 
             <div className="flex items-center gap-3 select-none">
-              {/* CafKart Logo SVG */}
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1535" className="h-11 w-11 sm:h-12 sm:w-12 shrink-0 drop-shadow-sm" fill="none">
                 <defs>
                   <linearGradient id="warehouseGreenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -302,7 +414,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             {/* ─── DASHBOARD TAB ─── */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6 animate-in fade-in duration-300">
-                {/* Replaced Grid with Flex-Col for Mobile, exact same GradientStatCards from Dashboard.tsx */}
                 <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <GradientStatCard
                     label="Monthly Revenue"
@@ -336,55 +447,137 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Revenue Area Chart */}
-                  <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm lg:col-span-2">
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
-                        <Activity size={16} className="text-[#0a382c]" /> Revenue Trend (14 Days)
-                      </h2>
+                {/* Dashboard Time-Series Charts */}
+                <div className="space-y-6">
+                  {/* Chart Type Toggle Component */}
+                  <div className="flex items-center justify-between bg-white border border-slate-100 rounded-2xl p-2 shadow-sm">
+                    <span className="text-xs font-bold text-slate-500 px-2 uppercase tracking-widest hidden sm:inline-block">Chart Style</span>
+                    <div className="flex items-center gap-1 w-full sm:w-auto">
+                      <ChartToggleButton label="Area" icon={<Activity/>} active={chartType === 'area'} onClick={() => setChartType('area')} />
+                      <ChartToggleButton label="Bar" icon={<BarChartIcon/>} active={chartType === 'bar'} onClick={() => setChartType('bar')} />
+                      <ChartToggleButton label="Line" icon={<LineChartIcon/>} active={chartType === 'line'} onClick={() => setChartType('line')} />
+                      <ChartToggleButton label="Pie" icon={<PieChartIcon/>} active={chartType === 'pie'} onClick={() => setChartType('pie')} />
                     </div>
-                    {/* Added focus:outline-none class to prevent black border on click */}
-                    <div className="h-64 w-full focus:outline-none outline-none">
-                      <ResponsiveContainer width="100%" height="100%" className="focus:outline-none">
-                        <AreaChart data={revenueChartData} className="focus:outline-none outline-none">
-                          <defs>
-                            <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <ChartCard title="Today's Sales Trend" icon={<Activity size={16} />} color="#3b82f6" gradient="linear-gradient(135deg, #1a56db, #60a5fa)">
+                      <DynamicChart data={todaySalesData} chartType={chartType} color="#3b82f6" />
+                    </ChartCard>
+
+                    <ChartCard title="Weekly Sales (Last 7 Days)" icon={<Calendar size={16} />} color="#8b5cf6" gradient="linear-gradient(135deg, #6d28d9, #a78bfa)">
+                      <DynamicChart data={weeklySalesData} chartType={chartType} color="#8b5cf6" />
+                    </ChartCard>
+                  </div>
+
+                  <ChartCard title="Monthly Sales (Last 30 Days)" icon={<TrendingUp size={16} />} color="#059669" gradient="linear-gradient(135deg, #047857, #34d399)">
+                    <DynamicChart data={monthlySalesData} chartType={chartType} color="#059669" />
+                  </ChartCard>
+                </div>
+              </div>
+            )}
+
+            {/* ─── SALES TAB ─── */}
+            {activeTab === 'sales' && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <GradientStatCard
+                    label="Today's Sales"
+                    value={formatCurrency(metrics.todaySales)}
+                    icon={<IndianRupee size={20} />}
+                    gradient="linear-gradient(135deg, #2563eb, #60a5fa)"
+                    subtitle="Generated today"
+                  />
+                  <GradientStatCard
+                    label="Weekly Sales"
+                    value={formatCurrency(metrics.weeklySales)}
+                    icon={<IndianRupee size={20} />}
+                    gradient="linear-gradient(135deg, #059669, #34d399)"
+                    subtitle="Last 7 days"
+                  />
+                  <GradientStatCard
+                    label="Lifetime Sales"
+                    value={formatCurrency(metrics.totalSales)}
+                    icon={<Award size={20} />}
+                    gradient="linear-gradient(135deg, #7c3aed, #a78bfa)"
+                    subtitle="All time revenue"
+                  />
+                  <GradientStatCard
+                    label="Today's AOV"
+                    value={formatCurrency(metrics.todayAOV)}
+                    icon={<ShoppingCart size={20} />}
+                    gradient="linear-gradient(135deg, #0891b2, #22d3ee)"
+                    subtitle="Today's basket size"
+                  />
+                  
+                  <GradientStatCard
+                    label="Discounts (30d)"
+                    value={formatCurrency(metrics.totalDiscounts)}
+                    icon={<TrendingUp size={20} />}
+                    gradient="linear-gradient(135deg, #d97706, #fbbf24)"
+                    subtitle="Promotional cost"
+                  />
+                  <GradientStatCard
+                    label="Delivery Fees (30d)"
+                    value={formatCurrency(metrics.totalDeliveryFees)}
+                    icon={<Package size={20} />}
+                    gradient="linear-gradient(135deg, #4f46e5, #818cf8)"
+                    subtitle="Logistics revenue"
+                  />
+                  <GradientStatCard
+                    label="Active Carts"
+                    value="-"
+                    icon={<ShoppingCart size={20} />}
+                    gradient="linear-gradient(135deg, #475569, #94a3b8)"
+                    subtitle="Coming Soon"
+                  />
+                  <GradientStatCard
+                    label="Abandoned Carts"
+                    value="-"
+                    icon={<Activity size={20} />}
+                    gradient="linear-gradient(135deg, #475569, #94a3b8)"
+                    subtitle="Coming Soon"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ─── ANALYTICS TAB ─── */}
+            {activeTab === 'analytics' && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="flex flex-col md:grid md:grid-cols-2 gap-6">
+                  {/* Status Bar Chart */}
+                  <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                    <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2 mb-6">
+                      <Package size={16} className="text-indigo-500" /> Orders by Status (30 Days)
+                    </h2>
+                    <div className="h-64 w-full [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={orderStatusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                           <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v/1000}k`} />
-                          
-                          {/* Set cursor={{ fill: 'transparent', stroke: 'transparent' }} to remove hover outlines */}
-                          <Tooltip 
-                            cursor={{ fill: 'transparent', stroke: 'transparent' }}
-                            contentStyle={{ backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: '12px', fontWeight: 'bold', color: '#0f172a', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }} 
-                            itemStyle={{ color: '#10b981' }}
-                            formatter={(value: number) => formatCurrency(value)}
-                          />
-                          <Area type="monotone" dataKey="Revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" activeDot={{ stroke: 'none', fill: '#10b981', r: 6, outline: 'none' }} />
-                        </AreaChart>
+                          <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                          <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }} />
+                          <Bar dataKey="sales" name="Orders" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} />
+                        </BarChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
                   {/* Payment Pie Chart */}
-                  <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-                    <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2 mb-2">
-                      <PieChartIcon size={16} className="text-blue-500" /> Payment Methods (30d)
+                  <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                    <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2 mb-6">
+                      <PieChartIcon size={16} className="text-blue-500" /> Payment Methods (30 Days)
                     </h2>
-                    <div className="h-64 w-full focus:outline-none outline-none">
-                      <ResponsiveContainer width="100%" height="100%" className="focus:outline-none">
-                        <PieChart className="focus:outline-none">
+                    <div className="h-64 w-full [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
                           <Pie
                             data={paymentMethodData}
                             cx="50%" cy="50%"
                             innerRadius={60} outerRadius={80}
                             paddingAngle={5} dataKey="value"
-                            className="focus:outline-none"
+                            style={{ outline: 'none' }}
                           >
                             {paymentMethodData.map((_, index) => (
                               <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} style={{ outline: 'none' }} />
@@ -396,71 +589,33 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                       </ResponsiveContainer>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
 
-            {/* ─── SALES TAB ─── */}
-            {activeTab === 'sales' && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <DataBlock label="Today's Sales" value={formatCurrency(metrics.todaySales)} />
-                  <DataBlock label="Weekly Sales" value={formatCurrency(metrics.weeklySales)} />
-                  <DataBlock label="Lifetime Sales" value={formatCurrency(metrics.totalSales)} highlight />
-                  <DataBlock label="Today's AOV" value={formatCurrency(metrics.todayAOV)} />
-                  
-                  <DataBlock label="Discounts Given (30d)" value={formatCurrency(metrics.totalDiscounts)} isWarning />
-                  <DataBlock label="Delivery Fees (30d)" value={formatCurrency(metrics.totalDeliveryFees)} />
-                  <DataBlock label="Active Carts" value="-" subtext="Coming Soon" />
-                  <DataBlock label="Abandoned Carts" value="-" subtext="Coming Soon" />
-                </div>
-
-                {/* Orders Bar Chart */}
-                <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm mt-6">
-                  <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2 mb-6">
-                    <Package size={16} className="text-indigo-500" /> Orders by Status (30 Days)
-                  </h2>
-                  <div className="h-72 w-full focus:outline-none outline-none">
-                    <ResponsiveContainer width="100%" height="100%" className="focus:outline-none">
-                      <BarChart data={orderStatusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} className="focus:outline-none">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                        <XAxis dataKey="status" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                        <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }} />
-                        <Bar dataKey="Orders" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} className="focus:outline-none" />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  {/* Audience Retention */}
+                  <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                    <h3 className="text-sm font-extrabold text-slate-800 mb-6 flex items-center gap-2">
+                      <Users size={16} className="text-[#0a382c]"/> Audience Retention (30d)
+                    </h3>
+                    <div className="space-y-6">
+                      <ProgressBar label="Active Customers" value={metrics.activeCustomers} max={metrics.totalCustomers} color="bg-[#10b981]" />
+                      <ProgressBar label="New Signups" value={metrics.newCustomers} max={metrics.totalCustomers} color="bg-[#3b82f6]" />
+                      <ProgressBar label="Completed Orders" value={metrics.completedOrders} max={metrics.totalOrders} color="bg-[#8b5cf6]" />
+                      <ProgressBar label="Cancelled Orders" value={metrics.cancelledOrders} max={metrics.totalOrders} color="bg-red-400" />
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
 
-            {/* ─── ANALYTICS TAB ─── */}
-            {activeTab === 'analytics' && (
-              <div className="flex flex-col md:grid md:grid-cols-2 gap-6 animate-in fade-in duration-300">
-                <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
-                  <h3 className="text-sm font-extrabold text-slate-800 mb-6 flex items-center gap-2">
-                    <Users size={16} className="text-[#0a382c]"/> Audience Retention (30d)
-                  </h3>
-                  <div className="space-y-6">
-                    <ProgressBar label="Active Customers" value={metrics.activeCustomers} max={metrics.totalCustomers} color="bg-[#10b981]" />
-                    <ProgressBar label="New Signups" value={metrics.newCustomers} max={metrics.totalCustomers} color="bg-[#3b82f6]" />
-                    <ProgressBar label="Completed Orders" value={metrics.completedOrders} max={metrics.totalOrders} color="bg-[#8b5cf6]" />
-                    <ProgressBar label="Cancelled Orders" value={metrics.cancelledOrders} max={metrics.totalOrders} color="bg-red-400" />
+                  {/* Business Records */}
+                  <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                    <h3 className="text-sm font-extrabold text-slate-800 mb-5 flex items-center gap-2">
+                      <Award size={16} className="text-amber-500"/> Business Records
+                    </h3>
+                    <ul className="space-y-2">
+                      <RecordRow label="Total Historical Orders" value={metrics.totalOrders.toLocaleString()} />
+                      <RecordRow label="Total Registered Users" value={metrics.totalCustomers.toLocaleString()} />
+                      <RecordRow label="Best Revenue Day" value={formatCurrency(metrics.bestRevenueDay.amount)} subtext={metrics.bestRevenueDay.date} highlight />
+                      <RecordRow label="Best Order Volume Day" value={`${metrics.bestOrderDay.count} Orders`} subtext={metrics.bestOrderDay.date} highlight />
+                      <RecordRow label="Highest AOV Recorded" value={formatCurrency(metrics.highestAOVDay.amount)} subtext={metrics.highestAOVDay.date} highlight />
+                    </ul>
                   </div>
-                </div>
-
-                <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
-                  <h3 className="text-sm font-extrabold text-slate-800 mb-5 flex items-center gap-2">
-                    <Award size={16} className="text-amber-500"/> Business Records
-                  </h3>
-                  <ul className="space-y-2">
-                    <RecordRow label="Total Historical Orders" value={metrics.totalOrders.toLocaleString()} />
-                    <RecordRow label="Total Registered Users" value={metrics.totalCustomers.toLocaleString()} />
-                    <RecordRow label="Best Revenue Day" value={formatCurrency(metrics.bestRevenueDay.amount)} subtext={metrics.bestRevenueDay.date} highlight />
-                    <RecordRow label="Best Order Volume Day" value="-" subtext="Calculation pending" />
-                    <RecordRow label="Highest AOV Recorded" value="-" subtext="Calculation pending" />
-                  </ul>
                 </div>
               </div>
             )}
@@ -489,7 +644,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             onClick={() => setActiveTab('dashboard')} 
           />
           <NavButton 
-            icon={<SalesSVG />} 
+            icon={<IndianRupee />} 
             label="Sales" 
             isActive={activeTab === 'sales'} 
             onClick={() => setActiveTab('sales')} 
@@ -501,7 +656,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             onClick={() => setActiveTab('analytics')} 
           />
           <NavButton 
-            icon={<MoreSVG />} 
+            icon={<MoreHorizontal />} 
             label="More" 
             isActive={activeTab === 'more'} 
             onClick={() => setActiveTab('more')} 
@@ -514,13 +669,124 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
 
 // ─── Sub-components ──────────────────────────────────────────────────
 
+function DynamicChart({ data, chartType, color }: { data: any[], chartType: string, color: string }) {
+  // Re-usable strictly un-focusable wrapper for charts to prevent black box
+  const ChartWrapper = ({ children }: { children: React.ReactNode }) => (
+    <div className="h-64 w-full [&_.recharts-wrapper]:!outline-none [&_.recharts-surface]:!outline-none [&_.recharts-cartesian-grid]:!outline-none outline-none">
+      <ResponsiveContainer width="100%" height="100%" className="!outline-none">
+        {children as React.ReactElement}
+      </ResponsiveContainer>
+    </div>
+  );
+
+  const commonProps = {
+    data,
+    margin: { top: 10, right: 10, left: -20, bottom: 0 },
+    className: "!outline-none"
+  };
+
+  const commonXAxis = <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />;
+  const commonYAxis = <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v/1000}k`} />;
+  const commonGrid = <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />;
+  const commonTooltip = <Tooltip cursor={{ fill: 'transparent', stroke: 'transparent' }} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }} formatter={(value: number) => formatCurrency(value)} />;
+
+  if (chartType === 'bar') {
+    return (
+      <ChartWrapper>
+        <BarChart {...commonProps}>
+          {commonGrid} {commonXAxis} {commonYAxis} {commonTooltip}
+          <Bar dataKey="sales" fill={color} radius={[6, 6, 0, 0]} barSize={20} className="!outline-none" />
+        </BarChart>
+      </ChartWrapper>
+    );
+  }
+
+  if (chartType === 'line') {
+    return (
+      <ChartWrapper>
+        <LineChart {...commonProps}>
+          {commonGrid} {commonXAxis} {commonYAxis} {commonTooltip}
+          <Line type="monotone" dataKey="sales" stroke={color} strokeWidth={3} dot={{ r: 3, fill: color, strokeWidth: 0, outline: 'none' }} activeDot={{ r: 6, fill: color, stroke: 'none', outline: 'none' }} className="!outline-none" />
+        </LineChart>
+      </ChartWrapper>
+    );
+  }
+
+  if (chartType === 'pie') {
+    return (
+      <ChartWrapper>
+        <PieChart className="!outline-none">
+          <Pie
+            data={data.filter(d => d.sales > 0)} // hide zeros
+            cx="50%" cy="50%"
+            innerRadius={60} outerRadius={80}
+            paddingAngle={2} dataKey="sales" nameKey="day"
+            className="!outline-none"
+            style={{ outline: 'none' }}
+          >
+            {data.map((_, index) => (
+              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} style={{ outline: 'none' }} />
+            ))}
+          </Pie>
+          {commonTooltip}
+        </PieChart>
+      </ChartWrapper>
+    );
+  }
+
+  // Default: Area
+  return (
+    <ChartWrapper>
+      <AreaChart {...commonProps}>
+        <defs>
+          <linearGradient id={`colorArea-${color}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+            <stop offset="95%" stopColor={color} stopOpacity={0}/>
+          </linearGradient>
+        </defs>
+        {commonGrid} {commonXAxis} {commonYAxis} {commonTooltip}
+        <Area type="monotone" dataKey="sales" stroke={color} strokeWidth={3} fillOpacity={1} fill={`url(#colorArea-${color})`} activeDot={{ stroke: 'none', fill: color, r: 6, outline: 'none' }} className="!outline-none" />
+      </AreaChart>
+    </ChartWrapper>
+  );
+}
+
+function ChartCard({ title, icon, color, gradient, children }: { title: string; icon: React.ReactNode; color: string; gradient: string; children: React.ReactNode; }) {
+  return (
+    <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+        <span className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
+          <span style={{ color }}>{icon}</span>
+          {title}
+        </span>
+        <span className="w-2.5 h-2.5 rounded-full" style={{ background: gradient }} />
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+function ChartToggleButton({ label, icon, active, onClick }: { label: string, icon: React.ReactNode, active: boolean, onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-[11px] font-bold transition-all outline-none focus:outline-none ${
+        active ? 'bg-[#0a382c] text-white shadow-md' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+      }`}
+    >
+      {React.cloneElement(icon as React.ReactElement, { size: 14 })}
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
+
 function GradientStatCard({ label, value, icon, gradient, subtitle, trend }: { label: string; value: string; icon: React.ReactNode; gradient: string; subtitle?: string; trend?: 'up' | 'down' | 'neutral' }) {
   const trendColor = trend === 'up' ? '#34d399' : trend === 'down' ? '#f87171' : '#9ca3af';
   const trendIcon = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '–';
 
   return (
     <div
-      className="rounded-3xl p-5 text-white transition-all hover:-translate-y-0.5 hover:shadow-lg cursor-default shadow-sm"
+      className="rounded-3xl p-5 text-white transition-all hover:-translate-y-0.5 hover:shadow-md cursor-default shadow-sm"
       style={{ background: gradient }}
     >
       <div className="flex items-center justify-between">
@@ -549,16 +815,6 @@ function TabButton({ label, icon, active, onClick }: { label: string, icon: Reac
       {React.cloneElement(icon as React.ReactElement, { size: 16 })}
       {label}
     </button>
-  );
-}
-
-function DataBlock({ label, value, subtext, highlight, isWarning }: { label: string, value: string, subtext?: string, highlight?: boolean, isWarning?: boolean }) {
-  return (
-    <div className={`border rounded-3xl p-5 shadow-sm transition-all hover:shadow-md ${highlight ? 'border-emerald-300 bg-emerald-50/50' : isWarning ? 'border-amber-200 bg-amber-50/50' : 'border-slate-100 bg-white'}`}>
-      <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">{label}</p>
-      <p className={`text-xl md:text-2xl font-black ${highlight ? 'text-emerald-700' : isWarning ? 'text-amber-700' : 'text-slate-900'}`}>{value}</p>
-      {subtext && <p className="text-[11px] font-bold text-slate-400 mt-1.5">{subtext}</p>}
-    </div>
   );
 }
 
@@ -598,7 +854,7 @@ function NavButton({ icon, label, isActive, onClick }: { icon: React.ReactNode, 
       }`}
     >
       <div className={`transition-transform duration-300 ${isActive ? '-translate-y-1' : ''}`}>
-        {React.cloneElement(icon as React.ReactElement, { isActive })}
+        {React.cloneElement(icon as React.ReactElement, { size: 20, strokeWidth: isActive ? 2.5 : 2, className: isActive ? 'text-[#0a382c]' : '' })}
       </div>
       <span className={`text-[10px] font-black tracking-tight transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-80'}`}>{label}</span>
       {isActive && (
@@ -608,40 +864,22 @@ function NavButton({ icon, label, isActive, onClick }: { icon: React.ReactNode, 
   );
 }
 
-// ─── Perfect Geometric Bottom Navigation SVGs ─────────────────────────────
+// ─── Custom Bottom Navigation SVGs ─────────────────────────────
 
-const DashboardSVG = ({ isActive }: { isActive?: boolean }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="7" height="9" rx="2" className={isActive ? 'fill-emerald-100/50' : ''}></rect>
+const DashboardSVG = ({ size, strokeWidth, className }: any) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="3" y="3" width="7" height="9" rx="2"></rect>
     <rect x="14" y="3" width="7" height="5" rx="2"></rect>
-    <rect x="14" y="12" width="7" height="9" rx="2" className={isActive ? 'fill-emerald-100/50' : ''}></rect>
+    <rect x="14" y="12" width="7" height="9" rx="2"></rect>
     <rect x="3" y="16" width="7" height="5" rx="2"></rect>
   </svg>
 );
 
-const SalesSVG = ({ isActive }: { isActive?: boolean }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 3h12" />
-    <path d="M6 8h12" />
-    <path d="M6 13h8.5l-5 8" />
-    <path d="M6 13h3" />
-    <path d="M9 13c6.667 0 6.667-10 0-10" className={isActive ? 'fill-emerald-100/50' : ''} />
-  </svg>
-);
-
-const AnalyticsSVG = ({ isActive }: { isActive?: boolean }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
+const AnalyticsSVG = ({ size, strokeWidth, className }: any) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M3 3v18h18" />
-    <rect x="7" y="13" width="3" height="4" rx="1" className={isActive ? 'fill-emerald-100/50' : ''} />
-    <rect x="13" y="7" width="3" height="10" rx="1" className={isActive ? 'fill-emerald-100/50' : ''} />
-  </svg>
-);
-
-const MoreSVG = ({ isActive }: { isActive?: boolean }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r={isActive ? "2" : "1.5"} />
-    <circle cx="19" cy="12" r={isActive ? "2" : "1.5"} />
-    <circle cx="5" cy="12" r={isActive ? "2" : "1.5"} />
+    <rect x="7" y="13" width="3" height="4" rx="1" />
+    <rect x="13" y="7" width="3" height="10" rx="1" />
   </svg>
 );
 

@@ -9,7 +9,7 @@ import {
   ArrowLeft,
   Activity,
   Award,
-  DollarSign,
+  IndianRupee,
   PieChart as PieChartIcon,
   RefreshCw,
   LogOut,
@@ -124,7 +124,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       const statusCounts: Record<string, number> = {};
       const activeCustomerSet = new Set<string>();
 
-      // Safe RPC Call Fix
+      // Safe RPC Call Fix (No .catch chain)
       const { data: sumData, error: sumError } = await supabase.rpc('get_lifetime_sales');
       if (sumError) {
         console.warn('Fallback triggered: get_lifetime_sales RPC missing or failed', sumError.message);
@@ -228,7 +228,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] flex flex-col text-slate-900 pb-20">
+    <div className="min-h-screen bg-[#f1f5f9] flex flex-col text-slate-900 pb-20 [&_svg]:outline-none">
       
       {/* ─── CUSTOM HEADER WITH ROUNDED CORNERS & LOGO ─── */}
       <header className="sticky top-0 z-30 bg-[#0a382c] text-white pt-[max(1.5rem,env(safe-area-inset-top))] pb-6 px-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-b-[2rem]">
@@ -242,7 +242,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             )}
 
             <div className="flex items-center gap-3 select-none">
-              {/* CafKart Logo SVG (Copied from Warehouse) */}
+              {/* CafKart Logo SVG */}
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1535" className="h-11 w-11 sm:h-12 sm:w-12 shrink-0 drop-shadow-sm" fill="none">
                 <defs>
                   <linearGradient id="warehouseGreenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -258,12 +258,12 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                 <div className="flex items-center gap-1.5 leading-none">
                   <span className="text-xl font-black tracking-tight text-white font-sans">Caf</span>
                   <span className="text-xl font-black tracking-tight text-[#59D9B6] font-sans">Kart</span>
-                  <span className="ml-1 inline-flex items-center gap-1 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-[#59D9B6] border border-emerald-400/30">
+                  <span className="ml-1 inline-flex items-center gap-1 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-[#104d3d] text-[#59D9B6] border border-[#16604c]">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#59D9B6] animate-pulse" />
                     INVESTOR
                   </span>
                 </div>
-                <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-emerald-200/90 mt-1">
+                <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-emerald-100/80 mt-1">
                   PERFORMANCE & ANALYTICS
                 </span>
               </div>
@@ -288,7 +288,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
         {/* Desktop Navigation Tabs */}
         <div className="hidden md:flex bg-white shadow-sm p-1.5 rounded-2xl w-fit border border-slate-200">
            <TabButton label="Dashboard" icon={<Activity/>} active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-           <TabButton label="Sales & Ops" icon={<DollarSign/>} active={activeTab === 'sales'} onClick={() => setActiveTab('sales')} />
+           <TabButton label="Sales & Ops" icon={<IndianRupee/>} active={activeTab === 'sales'} onClick={() => setActiveTab('sales')} />
            <TabButton label="Analytics" icon={<BarChart3/>} active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} />
         </div>
 
@@ -302,24 +302,52 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             {/* ─── DASHBOARD TAB ─── */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                  <MetricCard label="Monthly Revenue" value={formatCurrency(metrics.monthlySales)} trend={metrics.revenueGrowth} icon={<DollarSign size={20} />} bg="bg-white border border-slate-200" />
-                  <MetricCard label="Today's Orders" value={metrics.todayOrders.toString()} icon={<Package size={20} />} bg="bg-white border border-slate-200" />
-                  <MetricCard label="Total Customers" value={metrics.totalCustomers.toString()} trend={metrics.customerGrowth} icon={<Users size={20} />} bg="bg-white border border-slate-200" />
-                  <MetricCard label="Monthly AOV" value={formatCurrency(metrics.monthlyAOV)} icon={<ShoppingCart size={20} />} bg="bg-[#0a382c] text-white shadow-lg shadow-[#0a382c]/30" lightText />
+                {/* Replaced Grid with Flex-Col for Mobile, exact same GradientStatCards from Dashboard.tsx */}
+                <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <GradientStatCard
+                    label="Monthly Revenue"
+                    value={formatCurrency(metrics.monthlySales)}
+                    icon={<IndianRupee size={20} />}
+                    gradient="linear-gradient(135deg, #047857, #10b981)"
+                    subtitle={metrics.revenueGrowth + " vs last month"}
+                    trend={metrics.revenueGrowth.startsWith('+') ? 'up' : 'down'}
+                  />
+                  <GradientStatCard
+                    label="Today's Orders"
+                    value={metrics.todayOrders.toString()}
+                    icon={<Package size={20} />}
+                    gradient="linear-gradient(135deg, #1a56db, #3b82f6)"
+                    subtitle="All processing"
+                  />
+                  <GradientStatCard
+                    label="Total Customers"
+                    value={metrics.totalCustomers.toString()}
+                    icon={<Users size={20} />}
+                    gradient="linear-gradient(135deg, #6d28d9, #8b5cf6)"
+                    subtitle={metrics.customerGrowth + " vs last month"}
+                    trend={metrics.customerGrowth.startsWith('+') ? 'up' : 'down'}
+                  />
+                  <GradientStatCard
+                    label="Monthly AOV"
+                    value={formatCurrency(metrics.monthlyAOV)}
+                    icon={<ShoppingCart size={20} />}
+                    gradient="linear-gradient(135deg, #0e7490, #22d3ee)"
+                    subtitle="Average basket size"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Revenue Area Chart */}
-                  <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm lg:col-span-2">
+                  <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm lg:col-span-2">
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
                         <Activity size={16} className="text-[#0a382c]" /> Revenue Trend (14 Days)
                       </h2>
                     </div>
-                    <div className="h-64 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={revenueChartData}>
+                    {/* Added focus:outline-none class to prevent black border on click */}
+                    <div className="h-64 w-full focus:outline-none outline-none">
+                      <ResponsiveContainer width="100%" height="100%" className="focus:outline-none">
+                        <AreaChart data={revenueChartData} className="focus:outline-none outline-none">
                           <defs>
                             <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -329,37 +357,41 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                           <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                           <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₹${v/1000}k`} />
+                          
+                          {/* Set cursor={{ fill: 'transparent', stroke: 'transparent' }} to remove hover outlines */}
                           <Tooltip 
-                            contentStyle={{ backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: '12px', fontWeight: 'bold', color: '#0f172a', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
+                            cursor={{ fill: 'transparent', stroke: 'transparent' }}
+                            contentStyle={{ backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: '12px', fontWeight: 'bold', color: '#0f172a', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }} 
                             itemStyle={{ color: '#10b981' }}
                             formatter={(value: number) => formatCurrency(value)}
                           />
-                          <Area type="monotone" dataKey="Revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
+                          <Area type="monotone" dataKey="Revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" activeDot={{ stroke: 'none', fill: '#10b981', r: 6, outline: 'none' }} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
                   {/* Payment Pie Chart */}
-                  <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+                  <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
                     <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2 mb-2">
                       <PieChartIcon size={16} className="text-blue-500" /> Payment Methods (30d)
                     </h2>
-                    <div className="h-64 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
+                    <div className="h-64 w-full focus:outline-none outline-none">
+                      <ResponsiveContainer width="100%" height="100%" className="focus:outline-none">
+                        <PieChart className="focus:outline-none">
                           <Pie
                             data={paymentMethodData}
                             cx="50%" cy="50%"
                             innerRadius={60} outerRadius={80}
                             paddingAngle={5} dataKey="value"
+                            className="focus:outline-none"
                           >
                             {paymentMethodData.map((_, index) => (
-                              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} style={{ outline: 'none' }} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}/>
-                          <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }}/>
+                          <Tooltip cursor={{ fill: 'transparent', stroke: 'transparent' }} formatter={(value: number) => formatCurrency(value)} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }}/>
+                          <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', outline: 'none' }}/>
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -371,7 +403,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             {/* ─── SALES TAB ─── */}
             {activeTab === 'sales' && (
               <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <DataBlock label="Today's Sales" value={formatCurrency(metrics.todaySales)} />
                   <DataBlock label="Weekly Sales" value={formatCurrency(metrics.weeklySales)} />
                   <DataBlock label="Lifetime Sales" value={formatCurrency(metrics.totalSales)} highlight />
@@ -384,18 +416,18 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                 </div>
 
                 {/* Orders Bar Chart */}
-                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm mt-6">
+                <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm mt-6">
                   <h2 className="text-sm font-extrabold text-slate-800 flex items-center gap-2 mb-6">
                     <Package size={16} className="text-indigo-500" /> Orders by Status (30 Days)
                   </h2>
-                  <div className="h-72 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={orderStatusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <div className="h-72 w-full focus:outline-none outline-none">
+                    <ResponsiveContainer width="100%" height="100%" className="focus:outline-none">
+                      <BarChart data={orderStatusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} className="focus:outline-none">
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                         <XAxis dataKey="status" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                         <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                        <Bar dataKey="Orders" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} />
+                        <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', outline: 'none' }} />
+                        <Bar dataKey="Orders" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} className="focus:outline-none" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -405,12 +437,12 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
 
             {/* ─── ANALYTICS TAB ─── */}
             {activeTab === 'analytics' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-300">
-                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
-                  <h3 className="text-sm font-extrabold text-slate-800 mb-5 flex items-center gap-2">
+              <div className="flex flex-col md:grid md:grid-cols-2 gap-6 animate-in fade-in duration-300">
+                <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                  <h3 className="text-sm font-extrabold text-slate-800 mb-6 flex items-center gap-2">
                     <Users size={16} className="text-[#0a382c]"/> Audience Retention (30d)
                   </h3>
-                  <div className="space-y-5">
+                  <div className="space-y-6">
                     <ProgressBar label="Active Customers" value={metrics.activeCustomers} max={metrics.totalCustomers} color="bg-[#10b981]" />
                     <ProgressBar label="New Signups" value={metrics.newCustomers} max={metrics.totalCustomers} color="bg-[#3b82f6]" />
                     <ProgressBar label="Completed Orders" value={metrics.completedOrders} max={metrics.totalOrders} color="bg-[#8b5cf6]" />
@@ -418,11 +450,11 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
                   </div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
-                  <h3 className="text-sm font-extrabold text-slate-800 mb-4 flex items-center gap-2">
+                <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                  <h3 className="text-sm font-extrabold text-slate-800 mb-5 flex items-center gap-2">
                     <Award size={16} className="text-amber-500"/> Business Records
                   </h3>
-                  <ul className="space-y-1">
+                  <ul className="space-y-2">
                     <RecordRow label="Total Historical Orders" value={metrics.totalOrders.toLocaleString()} />
                     <RecordRow label="Total Registered Users" value={metrics.totalCustomers.toLocaleString()} />
                     <RecordRow label="Best Revenue Day" value={formatCurrency(metrics.bestRevenueDay.amount)} subtext={metrics.bestRevenueDay.date} highlight />
@@ -435,8 +467,8 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             
             {/* ─── MORE TAB ─── */}
             {activeTab === 'more' && (
-              <div className="flex flex-col items-center justify-center h-64 text-center space-y-3">
-                <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+              <div className="flex flex-col items-center justify-center h-64 text-center space-y-3 bg-white border border-slate-100 rounded-3xl shadow-sm">
+                <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-400">
                   <PieChartIcon size={32} />
                 </div>
                 <h2 className="text-lg font-black text-slate-800">Advanced Reporting</h2>
@@ -448,7 +480,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       </main>
 
       {/* ─── MOBILE BOTTOM NAVIGATION WITH CUSTOM SVGS ─── */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/90 backdrop-blur-xl border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] safe-bottom md:hidden rounded-t-3xl">
+      <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-100 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] safe-bottom md:hidden rounded-t-[1.5rem]">
         <div className="max-w-xl mx-auto flex items-center justify-around h-[4.5rem] px-2 pb-1">
           <NavButton 
             icon={<DashboardSVG />} 
@@ -482,11 +514,35 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
 
 // ─── Sub-components ──────────────────────────────────────────────────
 
+function GradientStatCard({ label, value, icon, gradient, subtitle, trend }: { label: string; value: string; icon: React.ReactNode; gradient: string; subtitle?: string; trend?: 'up' | 'down' | 'neutral' }) {
+  const trendColor = trend === 'up' ? '#34d399' : trend === 'down' ? '#f87171' : '#9ca3af';
+  const trendIcon = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '–';
+
+  return (
+    <div
+      className="rounded-3xl p-5 text-white transition-all hover:-translate-y-0.5 hover:shadow-lg cursor-default shadow-sm"
+      style={{ background: gradient }}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-extrabold opacity-90 uppercase tracking-wider">{label}</span>
+        <div className="opacity-75">{icon}</div>
+      </div>
+      <div className="text-2xl md:text-3xl font-black mt-2 tracking-tight">{value}</div>
+      {subtitle && (
+        <div className="flex items-center gap-1 mt-2 text-xs opacity-85 font-semibold">
+          {trend && <span style={{ color: trendColor }} className="font-black text-sm leading-none">{trendIcon}</span>}
+          <span>{subtitle}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TabButton({ label, icon, active, onClick }: { label: string, icon: React.ReactNode, active: boolean, onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+      className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all outline-none focus:outline-none ${
         active ? 'bg-[#0a382c] text-white shadow-md shadow-[#0a382c]/20' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
       }`}
     >
@@ -496,30 +552,11 @@ function TabButton({ label, icon, active, onClick }: { label: string, icon: Reac
   );
 }
 
-function MetricCard({ label, value, icon, trend, bg, lightText }: { label: string, value: string, icon: React.ReactNode, trend?: string, bg: string, lightText?: boolean }) {
-  return (
-    <div className={`rounded-3xl p-5 shadow-sm transition-all hover:shadow-md ${bg}`}>
-      <div className="flex items-center justify-between mb-4">
-        <span className={`text-[10px] font-extrabold uppercase tracking-wider ${lightText ? 'text-emerald-100/90' : 'text-slate-400'}`}>{label}</span>
-        <div className={lightText ? 'text-[#59D9B6]' : 'text-slate-400'}>{icon}</div>
-      </div>
-      <div className="flex items-end gap-2.5">
-        <div className={`text-2xl md:text-3xl font-black tracking-tight ${lightText ? 'text-white' : 'text-slate-900'}`}>{value}</div>
-        {trend && (
-          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg mb-1.5 ${trend.startsWith('+') ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-            {trend}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function DataBlock({ label, value, subtext, highlight, isWarning }: { label: string, value: string, subtext?: string, highlight?: boolean, isWarning?: boolean }) {
   return (
-    <div className={`border rounded-3xl p-5 shadow-sm transition-all hover:shadow-md ${highlight ? 'border-emerald-300 bg-emerald-50/50' : isWarning ? 'border-amber-200 bg-amber-50/50' : 'border-slate-200 bg-white'}`}>
+    <div className={`border rounded-3xl p-5 shadow-sm transition-all hover:shadow-md ${highlight ? 'border-emerald-300 bg-emerald-50/50' : isWarning ? 'border-amber-200 bg-amber-50/50' : 'border-slate-100 bg-white'}`}>
       <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">{label}</p>
-      <p className={`text-xl font-black ${highlight ? 'text-emerald-700' : isWarning ? 'text-amber-700' : 'text-slate-900'}`}>{value}</p>
+      <p className={`text-xl md:text-2xl font-black ${highlight ? 'text-emerald-700' : isWarning ? 'text-amber-700' : 'text-slate-900'}`}>{value}</p>
       {subtext && <p className="text-[11px] font-bold text-slate-400 mt-1.5">{subtext}</p>}
     </div>
   );
@@ -529,11 +566,11 @@ function ProgressBar({ label, value, max, color }: { label: string, value: numbe
   const percentage = max > 0 ? (value / max) * 100 : 0;
   return (
     <div>
-      <div className="flex justify-between text-xs font-bold mb-2.5">
-        <span className="text-slate-600">{label}</span>
-        <span className="text-slate-900">{value.toLocaleString()} <span className="text-slate-400 font-semibold">({percentage.toFixed(0)}%)</span></span>
+      <div className="flex justify-between text-[11px] font-extrabold uppercase tracking-wide mb-2.5">
+        <span className="text-slate-500">{label}</span>
+        <span className="text-slate-900">{value.toLocaleString()} <span className="text-slate-400 font-semibold ml-1">({percentage.toFixed(0)}%)</span></span>
       </div>
-      <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+      <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
         <div className={`h-full ${color} rounded-full transition-all duration-1000`} style={{ width: `${percentage}%` }} />
       </div>
     </div>
@@ -544,10 +581,10 @@ function RecordRow({ label, value, subtext, highlight }: { label: string, value:
   return (
     <li className="flex justify-between items-center py-3.5 border-b border-slate-100 last:border-0">
       <div>
-        <p className="text-xs font-bold text-slate-700">{label}</p>
-        {subtext && <p className="text-[10px] text-slate-400 mt-0.5 font-semibold">{subtext}</p>}
+        <p className="text-xs font-extrabold text-slate-700">{label}</p>
+        {subtext && <p className="text-[10px] text-slate-400 mt-1 font-semibold">{subtext}</p>}
       </div>
-      <span className={`text-sm font-black ${highlight ? 'text-[#0a382c] px-2.5 py-1 bg-emerald-50 rounded-lg border border-emerald-100' : 'text-slate-900'}`}>{value}</span>
+      <span className={`text-sm font-black ${highlight ? 'text-[#0a382c] px-3 py-1 bg-emerald-50 rounded-lg border border-emerald-100' : 'text-slate-900'}`}>{value}</span>
     </li>
   );
 }
@@ -556,7 +593,7 @@ function NavButton({ icon, label, isActive, onClick }: { icon: React.ReactNode, 
   return (
     <button
       onClick={onClick}
-      className={`relative flex flex-col items-center justify-center flex-1 h-full gap-1.5 transition-all duration-200 ${
+      className={`relative flex flex-col items-center justify-center flex-1 h-full gap-1.5 transition-all duration-200 outline-none focus:outline-none ${
         isActive ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-600'
       }`}
     >
@@ -571,37 +608,40 @@ function NavButton({ icon, label, isActive, onClick }: { icon: React.ReactNode, 
   );
 }
 
-// ─── Custom Bottom Navigation SVGs ──────────────────────────────────────────
+// ─── Perfect Geometric Bottom Navigation SVGs ─────────────────────────────
 
 const DashboardSVG = ({ isActive }: { isActive?: boolean }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="7" height="9" rx="1.5" className={isActive ? 'fill-emerald-100' : ''}></rect>
-    <rect x="14" y="3" width="7" height="5" rx="1.5"></rect>
-    <rect x="14" y="12" width="7" height="9" rx="1.5" className={isActive ? 'fill-emerald-100' : ''}></rect>
-    <rect x="3" y="16" width="7" height="5" rx="1.5"></rect>
+    <rect x="3" y="3" width="7" height="9" rx="2" className={isActive ? 'fill-emerald-100/50' : ''}></rect>
+    <rect x="14" y="3" width="7" height="5" rx="2"></rect>
+    <rect x="14" y="12" width="7" height="9" rx="2" className={isActive ? 'fill-emerald-100/50' : ''}></rect>
+    <rect x="3" y="16" width="7" height="5" rx="2"></rect>
   </svg>
 );
 
 const SalesSVG = ({ isActive }: { isActive?: boolean }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M7 4h10 M7 9h10 M7 14h5.5c2.5 0 4.5-2 4.5-4.5S15 5 12.5 5H9v15l6-7.5" />
-    {isActive && <circle cx="17.5" cy="18.5" r="1.5" fill="currentColor" stroke="none"/>}
+    <path d="M6 3h12" />
+    <path d="M6 8h12" />
+    <path d="M6 13h8.5l-5 8" />
+    <path d="M6 13h3" />
+    <path d="M9 13c6.667 0 6.667-10 0-10" className={isActive ? 'fill-emerald-100/50' : ''} />
   </svg>
 );
 
 const AnalyticsSVG = ({ isActive }: { isActive?: boolean }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 3v18h18" />
-    <path d="m19 9-5 5-4-4-3 3" />
-    <path d="M19 9h-4M19 9v4" className={isActive ? 'fill-emerald-100' : ''} />
+    <rect x="7" y="13" width="3" height="4" rx="1" className={isActive ? 'fill-emerald-100/50' : ''} />
+    <rect x="13" y="7" width="3" height="10" rx="1" className={isActive ? 'fill-emerald-100/50' : ''} />
   </svg>
 );
 
 const MoreSVG = ({ isActive }: { isActive?: boolean }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isActive ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r={isActive ? "1.5" : "1"} />
-    <circle cx="19" cy="12" r={isActive ? "1.5" : "1"} />
-    <circle cx="5" cy="12" r={isActive ? "1.5" : "1"} />
+    <circle cx="12" cy="12" r={isActive ? "2" : "1.5"} />
+    <circle cx="19" cy="12" r={isActive ? "2" : "1.5"} />
+    <circle cx="5" cy="12" r={isActive ? "2" : "1.5"} />
   </svg>
 );
 

@@ -1,3 +1,4 @@
+// src/App.tsx
 import {
   useState,
   useMemo,
@@ -728,7 +729,9 @@ function App() {
           screen !== 'cart' &&
           screen !== 'warehouse' &&
           screen !== 'investor' &&
-          screen !== 'delivery' && (
+          screen !== 'delivery' &&
+          screen !== 'store' &&
+          screen !== 'brand' && (
             <div className="safe-bottom bg-white border-t border-gray-100">
               <BottomNavigation
                 active={screen as any}

@@ -303,7 +303,11 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
         </div>
       )}
 
-      <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg safe-top">
+      {/* Styled Sticky Search Bar */}
+      <div 
+        className="sticky top-0 z-30 bg-gray-50/95 px-4 pb-3 mt-5 backdrop-blur-lg"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+      >
         <div className="mx-auto flex max-w-md items-center gap-2">
           <div
             className="flex flex-1 items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm border"

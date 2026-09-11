@@ -17,7 +17,6 @@ import {
   X,
   FileText,
   Check,
-  CheckCircle,
   CheckCircle2,
   XCircle,
   ChevronDown,
@@ -35,13 +34,9 @@ import {
   Sparkles,
   ArrowRight,
   Store,
-  Layers,
   LayoutDashboard,
   Clock,
-  CheckSquare,
   ShieldCheck,
-  TrendingUp,
-  MapPin,
   Flame,
   Wifi,
 } from 'lucide-react';
@@ -93,20 +88,25 @@ interface PaymentSummary {
   providers: string[];
 }
 
+interface ServerWarehouseStats {
+  total_volume: number;
+  pending_count: number;
+  confirmed_count: number;
+  packed_count: number;
+  ready_count: number;
+  out_count: number;
+  delivered_count: number;
+  total_count: number;
+}
+
 type InvoiceDatePreset = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
 const ORDERS_PER_PAGE = 12;
 const INVOICES_PER_PAGE = 12;
 
-// Exact CafKart Vector Logo
 function CafKartLogo({ className = 'h-8 w-8' }: { className?: string }) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 1536 1535"
-      className={className}
-      fill="none"
-    >
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1535" className={className} fill="none">
       <defs>
         <linearGradient id="ckWarehouseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#59D9B6" />
@@ -127,15 +127,9 @@ function CafKartLogo({ className = 'h-8 w-8' }: { className?: string }) {
   );
 }
 
-// 4. Futuristic High-Tech Warehouse Facility Vector SVG
 function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 250 120"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
+    <svg viewBox="0 0 250 120" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
       <defs>
         <linearGradient id="whBuildingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#0d523f" />
@@ -145,67 +139,31 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
           <stop offset="0%" stopColor="#1a6e50" />
           <stop offset="100%" stopColor="#0b4533" />
         </linearGradient>
-        <linearGradient id="whGlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#59D9B6" stopOpacity="0" />
-          <stop offset="100%" stopColor="#59D9B6" stopOpacity="0.8" />
-        </linearGradient>
       </defs>
-
-      {/* Ground Ambience Shadow */}
       <ellipse cx="155" cy="110" rx="82" ry="7" fill="#011912" fillOpacity="0.65" />
-
-      {/* Distribution Center Building Structure */}
-      <path
-        d="M 68 44 L 140 20 L 212 44 L 212 96 L 68 96 Z"
-        fill="url(#whBuildingGrad)"
-        stroke="#1a6e50"
-        strokeWidth="1.5"
-      />
-
-      {/* Overhanging Modern Canopy Roof */}
-      <path
-        d="M 62 44 L 140 18 L 218 44 L 140 50 Z"
-        fill="url(#whRoofGrad)"
-        stroke="#59D9B6"
-        strokeWidth="1.2"
-      />
-
-      {/* Solar Panel Array Skylights */}
+      <path d="M 68 44 L 140 20 L 212 44 L 212 96 L 68 96 Z" fill="url(#whBuildingGrad)" stroke="#1a6e50" strokeWidth="1.5" />
+      <path d="M 62 44 L 140 18 L 218 44 L 140 50 Z" fill="url(#whRoofGrad)" stroke="#59D9B6" strokeWidth="1.2" />
       <polygon points="100,32 135,22 135,28 100,38" fill="#59D9B6" fillOpacity="0.3" />
       <polygon points="145,22 180,32 180,38 145,28" fill="#59D9B6" fillOpacity="0.3" />
-
-      {/* Loading Dock Bay 1 */}
       <rect x="80" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
       <line x1="80" y1="64" x2="114" y2="64" stroke="#0e4330" strokeWidth="1" />
       <line x1="80" y1="72" x2="114" y2="72" stroke="#0e4330" strokeWidth="1" />
       <line x1="80" y1="80" x2="114" y2="80" stroke="#0e4330" strokeWidth="1" />
-      <line x1="80" y1="88" x2="114" y2="88" stroke="#0e4330" strokeWidth="1" />
       <rect x="94" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
-
-      {/* Loading Dock Bay 2 (With Staging Box) */}
       <rect x="123" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
       <line x1="123" y1="64" x2="157" y2="64" stroke="#0e4330" strokeWidth="1" />
       <line x1="123" y1="72" x2="157" y2="72" stroke="#0e4330" strokeWidth="1" />
       <line x1="123" y1="80" x2="157" y2="80" stroke="#0e4330" strokeWidth="1" />
-      <line x1="123" y1="88" x2="157" y2="88" stroke="#0e4330" strokeWidth="1" />
       <rect x="137" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
-
-      {/* Loading Dock Bay 3 */}
       <rect x="166" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
       <line x1="166" y1="64" x2="200" y2="64" stroke="#0e4330" strokeWidth="1" />
       <line x1="166" y1="72" x2="200" y2="72" stroke="#0e4330" strokeWidth="1" />
       <line x1="166" y1="80" x2="200" y2="80" stroke="#0e4330" strokeWidth="1" />
-      <line x1="166" y1="88" x2="200" y2="88" stroke="#0e4330" strokeWidth="1" />
       <rect x="180" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
-
-      {/* Pallet Stacks */}
       <g transform="translate(42, 74)">
         <rect x="0" y="8" width="22" height="14" rx="2" fill="#d97706" stroke="#f59e0b" strokeWidth="1" />
-        <line x1="11" y1="8" x2="11" y2="22" stroke="#b45309" strokeWidth="1" />
         <rect x="3" y="0" width="16" height="9" rx="1.5" fill="#f59e0b" />
       </g>
-
-      {/* Autonomous Forklift & Pallet Crane */}
       <g transform="translate(15, 80)">
         <rect x="4" y="6" width="14" height="10" rx="2" fill="#FFFFFF" />
         <rect x="0" y="10" width="5" height="6" fill="#FFFFFF" />
@@ -214,12 +172,8 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
         <circle cx="6" cy="16" r="3" fill="#0f172a" />
         <circle cx="15" cy="16" r="3" fill="#0f172a" />
       </g>
-
-      {/* Hub Central Logo Mark */}
       <circle cx="140" cy="38" r="9" fill="#032117" stroke="#59D9B6" strokeWidth="1.2" />
       <path d="M 137 38 L 139 36 L 144 41" stroke="#59D9B6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-
-      {/* Live Hub Radar Signal */}
       <g transform="translate(216, 20)">
         <circle cx="8" cy="8" r="7.5" fill="#063a2c" stroke="#59D9B6" strokeWidth="1.5" />
         <circle cx="8" cy="8" r="3" fill="#59D9B6" />
@@ -231,47 +185,38 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
 
 export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseScreenProps) {
   const { logout, profile } = useAuth();
-  // 1. Added 'dashboard' as default active tab
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'invoices' | 'inventory' | 'low_stock'>('dashboard');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
 
-  // Pagination States
   const [ordersPage, setOrdersPage] = useState(1);
   const [invoicesPage, setInvoicesPage] = useState(1);
 
-  // Invoice Date Filter States
   const [invoiceDatePreset, setInvoiceDatePreset] = useState<InvoiceDatePreset>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  // Orders State
   const [orders, setOrders] = useState<DbOrder[]>([]);
   const [addressMap, setAddressMap] = useState<Record<string, DbAddress>>({});
   const [assignmentsMap, setAssignmentsMap] = useState<Record<string, { id: string; delivery_partner_id: string | null; status: string }>>({});
   const [paymentsMap, setPaymentsMap] = useState<Record<string, PaymentSummary>>({});
   const [drivers, setDrivers] = useState<DeliveryDriver[]>([]);
   const [editingDriverOrderId, setEditingDriverOrderId] = useState<string | null>(null);
-
-  // Selected driver per order in assign_partner tab
   const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
 
-  // Inventory State
   const [products, setProducts] = useState<ProductInventory[]>([]);
   const [stockEdits, setStockEdits] = useState<Record<string, number>>({});
   const [savingStockId, setSavingStockId] = useState<string | null>(null);
 
-  // Lazy Item Inspection State
   const [inspectOrderId, setInspectOrderId] = useState<string | null>(null);
   const [inspectItems, setInspectItems] = useState<DbOrderItem[]>([]);
   const [inspectLoading, setInspectLoading] = useState(false);
 
-  // General Screen State
+  const [serverStats, setServerStats] = useState<ServerWarehouseStats | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Per-order inline expandable items toggle
   const [expandedOrderItems, setExpandedOrderItems] = useState<Record<string, boolean>>({});
 
   const toggleOrderInlineItems = async (orderId: string) => {
@@ -293,7 +238,18 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       if (error) throw error;
       setDrivers(data || []);
     } catch (err) {
-      console.error('Failed to load drivers via RPC:', err);
+      console.error('Failed to load drivers:', err);
+    }
+  }, []);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_warehouse_stats');
+      if (!error && data) {
+        setServerStats(data as ServerWarehouseStats);
+      }
+    } catch {
+      // Fallback runs seamlessly if RPC not yet created in PostgreSQL
     }
   }, []);
 
@@ -302,7 +258,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       const { data: ordersData, error: ordersErr } = await supabase
         .from('orders')
         .select('*')
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(250);
 
       if (ordersErr || !ordersData) return;
@@ -378,7 +334,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
       setPaymentsMap(paySummaries);
     } catch (err) {
-      console.error('Failed to load orders in warehouse:', err);
+      console.error('Failed to load orders:', err);
     }
   }, []);
 
@@ -398,10 +354,10 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadDrivers(), loadOrders(), loadInventory()]);
+    await Promise.all([loadDrivers(), loadOrders(), loadInventory(), loadStats()]);
     setLoading(false);
     setRefreshing(false);
-  }, [loadDrivers, loadOrders, loadInventory]);
+  }, [loadDrivers, loadOrders, loadInventory, loadStats]);
 
   useEffect(() => {
     void loadAll();
@@ -410,6 +366,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       .channel('warehouse_live_channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
         void loadOrders();
+        void loadStats();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_assignments' }, () => {
         void loadOrders();
@@ -419,7 +376,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadAll, loadOrders]);
+  }, [loadAll, loadOrders, loadStats]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -445,7 +402,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       const { error } = await supabase.rpc('confirm_order', { p_order_id: orderId });
       if (error) alert('Could not confirm order: ' + error.message);
       else {
-        await Promise.all([loadOrders(), loadInventory()]);
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'confirmed' } : o)));
+        await Promise.all([loadOrders(), loadInventory(), loadStats()]);
       }
     } finally {
       setActionOrderId(null);
@@ -460,7 +418,10 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         p_status: status,
       });
       if (error) alert('Status update failed: ' + error.message);
-      else await loadOrders();
+      else {
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+        await Promise.all([loadOrders(), loadStats()]);
+      }
     } finally {
       setActionOrderId(null);
     }
@@ -475,16 +436,19 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         p_reason: 'Cancelled by warehouse manager',
       });
       if (error) alert('Cancel failed: ' + error.message);
-      else await Promise.all([loadOrders(), loadInventory()]);
+      else {
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'cancelled' } : o)));
+        await Promise.all([loadOrders(), loadInventory(), loadStats()]);
+      }
     } finally {
       setActionOrderId(null);
     }
   };
 
-  // 3. Assign Partner & automatically transition order to 'ready_for_pickup'
+  // Fixed: Uses RPC update_order_status and updates local optimistic state so order leaves Assign Partner tab
   const handleAssignDriver = async (orderId: string, driverId: string) => {
     if (!driverId) {
-      alert('Please choose a delivery partner to dispatch.');
+      alert('Please select a delivery partner to dispatch.');
       return;
     }
     setActionOrderId(orderId);
@@ -492,6 +456,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     const previousDriverId = existing?.delivery_partner_id || null;
 
     try {
+      // 1. Assign partner in delivery_assignments table
       if (existing) {
         await supabase
           .from('delivery_assignments')
@@ -509,11 +474,32 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         });
       }
 
-      // Move order status from 'packed' to 'ready_for_pickup'
-      await supabase
-        .from('orders')
-        .update({ status: 'ready_for_pickup', updated_at: new Date().toISOString() })
-        .eq('id', orderId);
+      // 2. Safely transition order to ready_for_pickup via RPC
+      const { error: rpcErr } = await supabase.rpc('update_order_status', {
+        p_order_id: orderId,
+        p_status: 'ready_for_pickup',
+      });
+
+      if (rpcErr) {
+        // Fallback update
+        await supabase
+          .from('orders')
+          .update({ status: 'ready_for_pickup', updated_at: new Date().toISOString() })
+          .eq('id', orderId);
+      }
+
+      // 3. Optimistic local state update so it instantly moves to 'ready_for_pickup' tab
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: 'ready_for_pickup' } : o))
+      );
+      setAssignmentsMap((prev) => ({
+        ...prev,
+        [orderId]: {
+          id: prev[orderId]?.id || 'assignment_' + orderId,
+          delivery_partner_id: driverId,
+          status: 'ready_for_pickup',
+        },
+      }));
 
       const syncChannel = supabase.channel('delivery_dispatch_sync');
       await syncChannel.send({
@@ -523,7 +509,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       });
 
       setEditingDriverOrderId(null);
-      await loadOrders();
+      await Promise.all([loadOrders(), loadStats()]);
     } catch (err: any) {
       alert('Failed to assign driver: ' + err.message);
     } finally {
@@ -535,7 +521,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     try {
       const html = await buildGstBillHtml(orderId);
       await printHtml(html, orderNumber);
-    } catch (err) {
+    } catch {
       alert('Failed to generate bill.');
     }
   };
@@ -583,7 +569,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   };
 
-  // 3. Updated Order Stage Navigation Pills
   const orderPills = [
     { id: 'all', label: 'All' },
     { id: 'pending', label: 'Pending' },
@@ -603,7 +588,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setInvoicesPage(1);
   }, [searchQuery, invoiceDatePreset, customStartDate, customEndDate]);
 
-  // 3. Filter orders based on the new 'assign_partner' stage
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       const recipient = o.address_id ? addressMap[o.address_id]?.recipient_name || '' : '';
@@ -695,8 +679,21 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     });
   }, [products, searchQuery]);
 
-  // Warehouse Operational Metrics
+  // Scalable Metrics: Uses serverStats if available, otherwise calculates from loaded orders
   const metrics = useMemo(() => {
+    if (serverStats) {
+      return {
+        pending: serverStats.pending_count,
+        confirmed: serverStats.confirmed_count,
+        packed: serverStats.packed_count,
+        ready: serverStats.ready_count,
+        out: serverStats.out_count,
+        delivered: serverStats.delivered_count,
+        totalRevenue: serverStats.total_volume,
+        totalOrders: serverStats.total_count,
+      };
+    }
+
     const pending = orders.filter((o) => o.status === 'pending').length;
     const confirmed = orders.filter((o) => o.status === 'confirmed').length;
     const packed = orders.filter((o) => o.status === 'packed').length;
@@ -707,8 +704,17 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       .filter((o) => o.status !== 'cancelled')
       .reduce((acc, curr) => acc + (Number(curr.total) || 0), 0);
 
-    return { pending, confirmed, packed, ready, out, delivered, totalRevenue };
-  }, [orders]);
+    return {
+      pending,
+      confirmed,
+      packed,
+      ready,
+      out,
+      delivered,
+      totalRevenue,
+      totalOrders: orders.filter((o) => o.status !== 'cancelled').length,
+    };
+  }, [orders, serverStats]);
 
   const managerDisplayName =
     profile?.full_name?.trim() ||
@@ -726,10 +732,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   return (
     <div className="min-h-screen bg-[#f4f7f5] flex flex-col justify-between pb-28 md:pb-16">
       <div>
-        {/* COMPACT STICKY HEADER WITH CAFKART LOGO & WAREHOUSE FACILITY GRAPHIC */}
         <header className="sticky top-0 z-40 bg-gradient-to-b from-[#063a2c] via-[#084534] to-[#0a4d3b] text-white pt-[max(0.4rem,env(safe-area-inset-top))] pb-2.5 px-4 sm:px-6 shadow-md rounded-b-[26px] border-b border-[#0d5944] overflow-hidden">
           <div className="max-w-7xl mx-auto flex items-start justify-between gap-2">
-            {/* Left Column: Logo + Manager Greeting */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 select-none">
                 {!isDedicatedRole && onBack && (
@@ -759,12 +763,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   {managerDisplayName}
                 </h1>
                 <p className="text-[9.5px] font-medium text-emerald-300/80 leading-tight flex items-center gap-1 mt-0.5">
-                  Fulfillment & Dispatch Command Center 📦
+                  Fulfillment & Dispatch Hub 📦
                 </p>
               </div>
             </div>
 
-            {/* Right Column: Online pill, actions & custom Warehouse SVG */}
             <div className="flex flex-col items-end shrink-0 w-[46%] max-w-[190px]">
               <div className="flex items-center gap-1.5">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-[#59D9B6] border border-emerald-400/30 text-[9.5px] font-black tracking-wide">
@@ -793,7 +796,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 )}
               </div>
 
-              {/* 4. Beautiful Warehouse SVG Graphic */}
               <div className="w-full -mr-2 -mt-1 scale-105 origin-top-right transition-transform pointer-events-none">
                 <WarehouseFacilityGraphic className="w-full h-auto drop-shadow-md" />
               </div>
@@ -801,11 +803,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           </div>
         </header>
 
-        {/* Main Content Body */}
         <main className="px-4 lg:px-8 pt-4 max-w-7xl mx-auto space-y-4">
-          {/* Top Control Bar: Desktop Switcher & 6. Themed Modern Search Bar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            {/* Desktop Switcher */}
             <div className="hidden md:flex items-center gap-1 bg-slate-200/70 p-1 rounded-2xl w-auto">
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -839,7 +838,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               })}
             </div>
 
-            {/* 6. Themed, High-Impact Search Bar */}
             {activeTab !== 'dashboard' && (
               <div className="relative w-full md:w-80 group">
                 <div className="absolute inset-0 bg-gradient-to-r from-[#59D9B6]/20 to-emerald-500/10 rounded-2xl blur-xs -z-10 group-focus-within:from-[#59D9B6]/30 group-focus-within:to-emerald-500/25 transition-all" />
@@ -871,10 +869,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             )}
           </div>
 
-          {/* 1 & 5. TAB 1: PROFESSIONAL OPTIMIZED WAREHOUSE DASHBOARD */}
           {activeTab === 'dashboard' && (
             <div className="space-y-4">
-              {/* Distribution Hub Operations Overview Card */}
               <div className="rounded-[26px] p-5 text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#064e3b] via-[#094736] to-[#042c22] border border-emerald-500/30">
                 <div className="relative z-10 flex flex-col justify-between space-y-3">
                   <div className="flex items-center justify-between">
@@ -900,7 +896,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
                     <div className="text-right">
                       <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-400/20 text-emerald-200 border border-emerald-400/30 px-3 py-1 rounded-full">
-                        {orders.length} TOTAL RUNS
+                        {metrics.totalOrders} ORDERS
                       </span>
                     </div>
                   </div>
@@ -920,9 +916,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 <div className="absolute -right-8 -bottom-8 h-44 w-44 rounded-full bg-[#59D9B6]/15 blur-2xl pointer-events-none" />
               </div>
 
-              {/* 5. Modern Fintech Pipeline Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {/* 1. New Orders */}
                 <div
                   onClick={() => {
                     setActiveTab('orders');
@@ -942,7 +936,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   </p>
                 </div>
 
-                {/* 2. Packing Queue */}
                 <div
                   onClick={() => {
                     setActiveTab('orders');
@@ -962,7 +955,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   </p>
                 </div>
 
-                {/* 3. Assign Partner (Stage between Packed and Ready) */}
                 <div
                   onClick={() => {
                     setActiveTab('orders');
@@ -986,7 +978,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   </p>
                 </div>
 
-                {/* 4. Ready for Driver Pickup */}
                 <div
                   onClick={() => {
                     setActiveTab('orders');
@@ -1007,7 +998,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               </div>
 
-              {/* Priority Action Orders Alert */}
               <div className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1079,7 +1069,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 )}
               </div>
 
-              {/* Inventory Health & Low Stock Warning */}
               <div className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1108,7 +1097,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {/* Orders Filter Status Pills (When in Orders Tab) */}
           {activeTab === 'orders' && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
               {orderPills.map((pill) => {
@@ -1143,7 +1131,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {/* Invoices Tab Period Filter */}
           {activeTab === 'invoices' && (
             <div className="bg-white border border-slate-200/80 rounded-[22px] p-3.5 space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
@@ -1212,7 +1199,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           ) : (
             <>
-              {/* TAB 2: ORDERS FULFILLMENT WITH 'ASSIGN PARTNER' LIFECYCLE STAGE */}
               {activeTab === 'orders' && (
                 <div className="space-y-4">
                   {filteredOrders.length === 0 ? (
@@ -1260,7 +1246,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                             }`}
                           >
                             <div className="space-y-3">
-                              {/* Order Card Header */}
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex items-center gap-3">
                                   <div className="h-10 w-10 rounded-2xl bg-[#0a382c] text-[#59D9B6] flex items-center justify-center shadow-xs">
@@ -1311,7 +1296,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </span>
                               </div>
 
-                              {/* Doorstep Cash Collection Card */}
                               <div className="relative overflow-hidden rounded-2xl p-3.5 bg-gradient-to-r from-[#0a4d3a] to-[#0e634b] text-white shadow-sm border border-emerald-600/30">
                                 <div className="flex items-center justify-between relative z-10">
                                   <div className="flex items-start gap-2.5">
@@ -1340,7 +1324,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               </div>
 
-                              {/* Package Items with Eye Button Toggle */}
                               <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 space-y-2.5">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
@@ -1402,7 +1385,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               </div>
 
-                              {/* Customer Location Card */}
                               {addr && (
                                 <div className="rounded-2xl bg-white border border-slate-200/90 p-3 space-y-1.5 shadow-2xs">
                                   <div className="flex items-start gap-2.5">
@@ -1421,7 +1403,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               )}
 
-                              {/* 3. ASSIGN DELIVERY PARTNER STAGE (Appears when order is packed) */}
                               {isPacked && (
                                 <div className="rounded-2xl bg-emerald-50/70 border border-emerald-300 p-3 space-y-2.5 animate-in fade-in duration-200">
                                   <div className="flex items-center justify-between">
@@ -1468,7 +1449,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                         <Loader2 size={14} className="animate-spin" />
                                       ) : (
                                         <>
-                                          <Check size={14} /> Assign & Move to Ready
+                                          <Check size={14} /> Assign & Ready
                                         </>
                                       )}
                                     </button>
@@ -1476,7 +1457,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               )}
 
-                              {/* Ready for Pickup Stage Info */}
                               {isReadyForPickup && assignedDriver && (
                                 <div className="rounded-2xl bg-slate-50 border border-slate-200 p-2.5 flex items-center justify-between">
                                   <div className="flex items-center gap-2">
@@ -1498,7 +1478,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                               )}
                             </div>
 
-                            {/* Action Buttons Toolbar */}
                             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
                               {ord.status === 'pending' && (
                                 <button
@@ -1511,7 +1490,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </button>
                               )}
 
-                              {/* 3. Confirmed button moves order to 'packed' (Assign Partner stage) */}
+                              {/* Simplified button label as requested */}
                               {ord.status === 'confirmed' && (
                                 <button
                                   disabled={isProcessing}
@@ -1519,7 +1498,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   className="flex-1 h-10 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition disabled:opacity-50"
                                 >
                                   {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
-                                  Mark as Packed (Next: Assign Driver)
+                                  Mark as Packed
                                 </button>
                               )}
 
@@ -1546,7 +1525,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     </div>
                   )}
 
-                  {/* Orders Pagination */}
                   {filteredOrders.length > ORDERS_PER_PAGE && (
                     <div className="flex items-center justify-between bg-white border border-slate-200 rounded-[22px] px-4 py-3 shadow-xs">
                       <p className="text-xs font-semibold text-slate-500">
@@ -1579,7 +1557,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 3: INVOICES TAB (With 2. Red Pill for Cancelled Invoices) */}
               {activeTab === 'invoices' && (
                 <div className="space-y-4">
                   {filteredInvoices.length === 0 ? (
@@ -1612,7 +1589,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   <div className="flex items-center gap-2">
                                     <span className="font-black text-sm text-slate-900">{ord.order_number}</span>
 
-                                    {/* 2. Highlighted Red Pill for Cancelled Invoices */}
+                                    {/* Cancelled invoice pill rendered as Red Pill */}
                                     <span
                                       className={`text-[9.5px] font-black uppercase px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 ${
                                         isCancelled
@@ -1655,7 +1632,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               </div>
 
-                              {/* Paid Source Chips */}
                               {pay && (
                                 <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold pt-1">
                                   {pay.walletPaid > 0 && (
@@ -1701,7 +1677,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     </div>
                   )}
 
-                  {/* Invoice Pagination */}
                   {filteredInvoices.length > INVOICES_PER_PAGE && (
                     <div className="flex items-center justify-between bg-white border border-slate-200 rounded-[22px] px-4 py-3 shadow-xs">
                       <p className="text-xs font-semibold text-slate-500">
@@ -1734,7 +1709,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 4 & 5: INVENTORY & LOW STOCK */}
               {(activeTab === 'inventory' || activeTab === 'low_stock') && (
                 <div>
                   {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
@@ -1792,7 +1766,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                               </span>
                             </div>
 
-                            {/* Quantity Modifier Controls */}
                             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-xs text-slate-400 font-bold mr-1">Qty:</span>
@@ -1866,10 +1839,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </main>
       </div>
 
-      {/* 1. SOLID BOTTOM NAVIGATION BAR (Includes Dashboard) */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom md:hidden">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
-          {/* Dashboard Item */}
           <button
             onClick={() => {
               setActiveTab('dashboard');
@@ -1884,7 +1855,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             {activeTab === 'dashboard' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
           </button>
 
-          {/* Orders Item */}
           <button
             onClick={() => {
               setActiveTab('orders');
@@ -1904,7 +1874,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             )}
           </button>
 
-          {/* Invoices Item */}
           <button
             onClick={() => {
               setActiveTab('invoices');
@@ -1919,7 +1888,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             {activeTab === 'invoices' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
           </button>
 
-          {/* Inventory Item */}
           <button
             onClick={() => {
               setActiveTab('inventory');
@@ -1934,7 +1902,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             {activeTab === 'inventory' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
           </button>
 
-          {/* Low Stock Item */}
           <button
             onClick={() => {
               setActiveTab('low_stock');
@@ -1956,7 +1923,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       </nav>
 
-      {/* Package Inspection Modal */}
       {inspectOrderId && !expandedOrderItems[inspectOrderId] && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-[28px] max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
@@ -2010,7 +1976,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       )}
 
-      {/* Staff Registration Modal */}
       <StaffRegistrationModal isOpen={isStaffUnregistered} />
     </div>
   );

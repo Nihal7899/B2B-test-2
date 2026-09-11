@@ -1,4 +1,3 @@
-// src/screens/SearchScreen.tsx
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -74,17 +73,14 @@ export function SearchScreen({
   onBannerAction,
 }: SearchScreenProps) {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  
-  // Capture search parameter directly from the URL or fall back to the initialQuery prop
-  const activeQuery = searchParams.get('q') || initialQuery || '';
-
-  // Direct live subscription to cart store
+  const [searchParams, setSearchParams] = useSearchParams();
   const cart = useCart();
 
-  const [query, setQuery] = useState(activeQuery);
-  const [submittedQuery, setSubmittedQuery] = useState(activeQuery);
-  const [isFocused, setIsFocused] = useState(!activeQuery);
+  const urlQuery = searchParams.get('q') || initialQuery || '';
+
+  const [query, setQuery] = useState(urlQuery);
+  const [submittedQuery, setSubmittedQuery] = useState(urlQuery);
+  const [isFocused, setIsFocused] = useState(!urlQuery);
 
   // Suggestions state
   const [suggestions, setSuggestions] = useState<SearchSuggestionItem[]>([]);
@@ -168,17 +164,6 @@ export function SearchScreen({
     [banners]
   );
 
-  const saveRecentSearch = (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    const updated = [
-      trimmed,
-      ...recentSearches.filter((s) => s.toLowerCase() !== trimmed.toLowerCase()),
-    ].slice(0, 8);
-    setRecentSearches(updated);
-    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
-  };
-
   const clearRecentSearches = () => {
     setRecentSearches([]);
     localStorage.removeItem(RECENT_SEARCHES_KEY);
@@ -201,12 +186,21 @@ export function SearchScreen({
     };
   }, [query, isFocused, submittedQuery]);
 
+  // FIXED: No dependencies to ensure it never causes an infinite loop
   const performSearch = useCallback(async (searchTerm: string) => {
     const q = (searchTerm || '').trim();
     setSubmittedQuery(q);
     setIsFocused(false);
     setLoading(true);
-    if (q) saveRecentSearch(q);
+    
+    // Save to recents using functional state update to avoid dependency issues
+    if (q) {
+      setRecentSearches((prev) => {
+        const updated = [q, ...prev.filter((s) => s.toLowerCase() !== q.toLowerCase())].slice(0, 8);
+        localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+        return updated;
+      });
+    }
 
     const result = await executeFullSearch(q);
 
@@ -217,28 +211,28 @@ export function SearchScreen({
     setTrendingProducts(result.trendingProducts);
     setDidYouMean(result.didYouMean);
     setLoading(false);
-  }, [saveRecentSearch]);
+  }, []);
 
-  // Listen to the activeQuery derived from the URL (this is the key fix)
+  // Sync execution perfectly with URL param changes (like CTA buttons routing here)
   useEffect(() => {
-    if (activeQuery) {
-      setQuery(activeQuery);
-      void performSearch(activeQuery);
+    setQuery(urlQuery);
+    if (urlQuery) {
+      void performSearch(urlQuery);
     } else {
       setTimeout(() => searchInputRef.current?.focus(), 120);
     }
-  }, [activeQuery, performSearch]);
+  }, [urlQuery, performSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      void performSearch(query);
+      setSearchParams({ q: query.trim() });
     }
   };
 
   const handleSelectKeyword = (text: string) => {
     setQuery(text);
-    void performSearch(text);
+    setSearchParams({ q: text.trim() });
   };
 
   const handleSlugClick = (slugItem: RelatedSlugItem) => {
@@ -246,7 +240,7 @@ export function SearchScreen({
       navigate(`/category?id=${slugItem.id}`);
     } else {
       setQuery(slugItem.name);
-      void performSearch(slugItem.name);
+      setSearchParams({ q: slugItem.name });
     }
   };
 
@@ -332,6 +326,7 @@ export function SearchScreen({
                   onClick={() => {
                     setQuery('');
                     setSubmittedQuery('');
+                    setSearchParams({});
                     searchInputRef.current?.focus();
                   }}
                   className="absolute right-3 p-1 rounded-full text-slate-400 hover:text-slate-600 active:scale-90"

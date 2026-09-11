@@ -1,5 +1,6 @@
+// src/screens/SearchScreen.tsx
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search,
   X,
@@ -73,12 +74,17 @@ export function SearchScreen({
   onBannerAction,
 }: SearchScreenProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // Capture search parameter directly from the URL or fall back to the initialQuery prop
+  const activeQuery = searchParams.get('q') || initialQuery || '';
+
   // Direct live subscription to cart store
   const cart = useCart();
 
-  const [query, setQuery] = useState(initialQuery);
-  const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
-  const [isFocused, setIsFocused] = useState(!initialQuery);
+  const [query, setQuery] = useState(activeQuery);
+  const [submittedQuery, setSubmittedQuery] = useState(activeQuery);
+  const [isFocused, setIsFocused] = useState(!activeQuery);
 
   // Suggestions state
   const [suggestions, setSuggestions] = useState<SearchSuggestionItem[]>([]);
@@ -211,15 +217,17 @@ export function SearchScreen({
     setTrendingProducts(result.trendingProducts);
     setDidYouMean(result.didYouMean);
     setLoading(false);
-  }, []);
+  }, [saveRecentSearch]);
 
+  // Listen to the activeQuery derived from the URL (this is the key fix)
   useEffect(() => {
-    if (initialQuery) {
-      void performSearch(initialQuery);
+    if (activeQuery) {
+      setQuery(activeQuery);
+      void performSearch(activeQuery);
     } else {
       setTimeout(() => searchInputRef.current?.focus(), 120);
     }
-  }, [initialQuery, performSearch]);
+  }, [activeQuery, performSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -637,7 +645,9 @@ export function SearchScreen({
             {/* 6. Quick Reorder Carousel */}
             {reorderProducts.length > 0 && (
               <div className="pt-2">
-                <ProductCarousel
+                
+
+<ProductCarousel
                   title="Quick Reorder / Buy Again"
                   subtitle="Frequent purchases for your business"
                   products={reorderProducts}
@@ -655,7 +665,9 @@ export function SearchScreen({
             {/* 7. Recently Viewed Carousel */}
             {recentlyViewed.length > 0 && (
               <div className="pt-2">
-                <ProductCarousel
+                
+
+<ProductCarousel
                   title="Recently Viewed Products"
                   subtitle="Pick up where you left off"
                   products={recentlyViewed}
@@ -718,7 +730,9 @@ export function SearchScreen({
             {/* 9. Trending Wholesale Deals */}
             {trendingProducts.length > 0 && (
               <div className="pt-2">
-                <ProductCarousel
+                
+
+<ProductCarousel
                   title="Trending Wholesale Commodities"
                   subtitle="Best sellers and bulk deals across the catalog"
                   products={trendingProducts}

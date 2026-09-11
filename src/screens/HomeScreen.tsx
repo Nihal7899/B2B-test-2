@@ -12,7 +12,6 @@ import {
   ChevronRight,
   X
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import type { Category, Product, PromoBanner, Store, TrustedBrand, HomeSection, DbAddress } from '@/types';
 import { useCart } from '@/store';
 import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
@@ -137,11 +136,9 @@ export function HomeScreen({
   const [sections, setSections] = useState<HomeSection[]>(initialCache.sections);
   const [banners, setBanners] = useState<PromoBanner[]>(initialCache.banners);
   
-  // Setters for catalog data
   const [categories, setCategories] = useState<Category[]>(initialCache.categories);
   const [products, setProducts] = useState<Product[]>(initialCache.products);
   
-  // Setters for dynamic sections
   const [popularProducts, setPopularProducts] = useState<Product[]>(initialCache.popularProducts);
   const [reorderProducts, setReorderProducts] = useState<Product[]>(initialCache.reorderProducts);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>(initialCache.recentlyViewed);
@@ -173,6 +170,11 @@ export function HomeScreen({
       ]);
       if (Array.isArray(recent)) setRecentlyViewed(recent);
       if (Array.isArray(reorder)) setReorderProducts(reorder);
+      
+      updateHomeDataCache({
+        recentlyViewed: Array.isArray(recent) ? recent : undefined,
+        reorderProducts: Array.isArray(reorder) ? reorder : undefined,
+      });
     } catch (e) {
       console.warn('Failed to refresh dynamic sections:', e);
     }
@@ -184,17 +186,24 @@ export function HomeScreen({
         fetchHomeSections().catch(() => []),
         fetchHomeBanners().catch(() => []),
       ]);
-      if (Array.isArray(secRes)) setSections(secRes.filter((s) => s && s.isActive));
-      if (Array.isArray(banRes)) setBanners(banRes);
+      
+      const newSections = Array.isArray(secRes) ? secRes.filter((s) => s && s.isActive) : undefined;
+      const newBanners = Array.isArray(banRes) ? banRes : undefined;
+      
+      if (newSections) setSections(newSections);
+      if (newBanners) setBanners(newBanners);
+
+      updateHomeDataCache({
+        sections: newSections,
+        banners: newBanners
+      });
     } catch (e) {
       console.warn('Failed to refresh layout:', e);
     }
   }, []);
 
-  // Simplified Catalog background fetcher (Prevents Network Choking)
   const refreshCatalogData = useCallback(async () => {
     try {
-      // ONLY fetch the master lists. We will derive the rest locally.
       const [catRes, prodRes] = await Promise.all([
         fetchCategories().catch(() => ({ categories: [] as Category[] })),
         fetchProducts().catch(() => ({ products: [] as Product[] })),
@@ -203,7 +212,6 @@ export function HomeScreen({
       if (catRes.categories?.length) setCategories(catRes.categories);
       if (prodRes.products?.length) setProducts(prodRes.products);
 
-      // Update global cache
       updateHomeDataCache({
         categories: catRes.categories?.length ? catRes.categories : undefined,
         products: prodRes.products?.length ? prodRes.products : undefined,
@@ -214,11 +222,9 @@ export function HomeScreen({
     }
   }, []);
 
-  // Auto-sync prices and stock across all carousel sections when master products list updates
   useEffect(() => {
     if (!products || products.length === 0) return;
 
-    // Create a fast lookup dictionary of the freshest product data
     const productMap = new Map(products.map(p => [p.id, p]));
 
     const syncList = (list: Product[]) => {
@@ -227,7 +233,6 @@ export function HomeScreen({
       
       const updated = list.map(p => {
         const fresh = productMap.get(p.id);
-        // If the admin changed the price, MRP, or stock, swap the old product for the fresh one
         if (fresh && (fresh.price !== p.price || fresh.mrp !== p.mrp || fresh.inStock !== p.inStock)) {
           changed = true;
           return fresh;
@@ -238,7 +243,6 @@ export function HomeScreen({
       return changed ? updated : list;
     };
 
-    // Trickle the fresh prices down to every UI section instantly
     setPopularProducts(prev => syncList(prev));
     setVolumeDeals(prev => syncList(prev));
     setNewArrivals(prev => syncList(prev));
@@ -258,20 +262,13 @@ export function HomeScreen({
   useEffect(() => {
     let active = true;
 
-    const homeChannel = supabase
-      .channel('realtime:home_updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_sections' }, () => {
-        if (active) void refreshLayoutAndBanners();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'home_banners' }, () => {
-        if (active) void refreshLayoutAndBanners();
-      })
-      .subscribe();
-
     const handleRecentlyViewedUpdate = () => {
       if (active) {
         void fetchRecentlyViewedProducts().then((res) => {
-          if (active && Array.isArray(res)) setRecentlyViewed(res);
+          if (active && Array.isArray(res)) {
+            setRecentlyViewed(res);
+            updateHomeDataCache({ recentlyViewed: res });
+          }
         });
       }
     };
@@ -282,7 +279,7 @@ export function HomeScreen({
       if (active && (customEvent.detail?.key === '/' || customEvent.detail?.key === 'home' || !customEvent.detail?.key)) {
         void refreshDynamicSections();
         void refreshLayoutAndBanners();
-        void refreshCatalogData(); // Update catalog on KeepAlive reactivation
+        void refreshCatalogData(); 
       }
     };
     window.addEventListener('keepalive:activated', handleKeepAliveFocus);
@@ -291,7 +288,7 @@ export function HomeScreen({
       if (document.visibilityState === 'visible' && active) {
         void refreshDynamicSections();
         void refreshLayoutAndBanners();
-        void refreshCatalogData(); // Update catalog on App Foregrounding
+        void refreshCatalogData(); 
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);
@@ -301,7 +298,6 @@ export function HomeScreen({
       window.removeEventListener('recently-viewed-updated', handleRecentlyViewedUpdate);
       window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
-      void supabase.removeChannel(homeChannel);
     };
   }, [refreshDynamicSections, refreshLayoutAndBanners, refreshCatalogData]);
 
@@ -445,7 +441,6 @@ export function HomeScreen({
                     </button>
                   </div>
                   <div className="grid grid-cols-4 gap-3">
-                    {/* Increased slice to 16 to show 4 perfect rows */}
                     {categories.slice(0, 16).map((category) => (
                       <button
                         key={category.id}

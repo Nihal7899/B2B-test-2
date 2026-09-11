@@ -7,10 +7,12 @@ import type { TrustedBrand, Product } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { useCart } from '@/store';
 import { getStoreIcon } from '@/data/storeIcons';
+import { CachedImage } from '@/components/CachedImage';
 
 function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {
   if (iconName?.startsWith('http') || iconName?.startsWith('data:')) {
-    return <img src={iconName} alt="icon" className={className + " object-contain"} />;
+    // Replaced raw <img> with CachedImage
+    return <CachedImage src={iconName} alt="icon" className={className + " object-contain"} />;
   }
   const Icon = getStoreIcon(iconName);
   return <Icon className={className} style={{ color }} />;
@@ -106,11 +108,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   useEffect(() => {
     void loadWishlist();
-
-    const handleWishlistChange = () => {
-      void loadWishlist();
-    };
-
+    const handleWishlistChange = () => void loadWishlist();
     window.addEventListener('wishlist-updated', handleWishlistChange);
     window.addEventListener('focus', handleWishlistChange);
     return () => {
@@ -119,24 +117,59 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
     };
   }, [loadWishlist]);
 
-  useEffect(() => {
-    if (!brandId) {
-      navigate('/');
-      return;
-    }
-    (async () => {
+  // Background Data Refresh Logic
+  const refreshBrandData = useCallback(async (silent = false) => {
+    if (!brandId) return;
+    try {
       const b = await fetchBrandById(brandId);
       if (!b) {
-        navigate('/');
+        if (!silent) navigate('/');
         return;
       }
       setBrand(b);
       const { products: allProducts } = await fetchProducts();
       const filtered = allProducts.filter(p => p.brand.toLowerCase() === b.name.toLowerCase());
       setProducts(filtered);
-      setLoading(false);
-    })();
+    } catch (err) {
+      console.warn('Failed to refresh brand data silently', err);
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, [brandId, navigate]);
+
+  // Initial Load
+  useEffect(() => {
+    void refreshBrandData(false);
+  }, [refreshBrandData]);
+
+  // Background Fetch Event Listeners (Keepalive & Visibility)
+  useEffect(() => {
+    let active = true;
+    const expectedKey = `brand|${brandId}`;
+
+    const handleKeepAliveFocus = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key?: string }>;
+      if (active && customEvent.detail?.key === expectedKey) {
+        void refreshBrandData(true);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      const isCurrentlyActive = window.location.pathname.includes('/brand') && window.location.search.includes(`id=${brandId}`);
+      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
+        void refreshBrandData(true);
+      }
+    };
+
+    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      active = false;
+      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshBrandData, brandId]);
 
   const handleWishlistToggle = async (productId: string) => {
     const isWishlisted = wishlist.includes(productId);
@@ -280,7 +313,8 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
         <div className="relative z-20 flex flex-col items-center text-center" style={{ color: textColor }}>
           <div className="h-24 w-24 rounded-2xl border-2 border-white/40 bg-white p-2 shadow-lg mb-4 mt-6 flex items-center justify-center">
-            <img src={logo_url} alt={name} className="max-h-full max-w-full object-contain" />
+            {/* Replaced raw <img> with CachedImage */}
+            <CachedImage src={logo_url} alt={name} className="max-h-full max-w-full object-contain" />
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight">{name}</h1>
           {tagline && <p className="mt-1 text-sm opacity-90">{tagline}</p>}
@@ -328,7 +362,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         </div>
       )}
 
-      {/* Styled Sticky Search Bar */}
       <div 
         className="sticky top-0 z-30 bg-gray-50/95 px-4 pb-3 mt-5 backdrop-blur-lg"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
@@ -548,7 +581,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
 export const BrandScreen = React.memo(() => {
   const [searchParams] = useSearchParams();
-  const [brandId] = useState(() => searchParams.get('id'));
+  const [brandId] = useState(() => searchParams.get('id')); // Already correctly frozen
   const navigate = useNavigate();
 
   if (!brandId) {

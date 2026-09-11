@@ -86,7 +86,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
     }
   }, [storeId]);
 
-  // Background Data Refresh Logic
   const refreshProductData = useCallback(async () => {
     try {
       const result = await fetchProductById(productId);
@@ -101,7 +100,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
     }
   }, [productId]);
 
-  // Initial Load
   useEffect(() => {
     void (async () => {
       setLoading(true);
@@ -142,15 +140,23 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
     })();
   }, [productId, brandId, categoryId, refreshProductData]);
 
-  // Background Fetch Event Listeners
+  // CORRECTED: Fixed KeepAlive Key & Visibility Routing
   useEffect(() => {
     let active = true;
+    const expectedKey = `product|${productId}`;
+
     const handleKeepAliveFocus = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
-      if (active && customEvent.detail?.key?.includes('/product')) void refreshProductData();
+      if (active && customEvent.detail?.key === expectedKey) {
+        void refreshProductData();
+      }
     };
+    
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && active) void refreshProductData();
+      const isCurrentlyActive = window.location.pathname === '/product' && window.location.search.includes(`id=${productId}`);
+      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
+        void refreshProductData();
+      }
     };
 
     window.addEventListener('keepalive:activated', handleKeepAliveFocus);
@@ -161,7 +167,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
       window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [refreshProductData]);
+  }, [refreshProductData, productId]);
 
   const rawImages = product?.image_urls?.length ? product.image_urls : product?.image ? [product.image] : [];
   const images = rawImages.filter(Boolean);

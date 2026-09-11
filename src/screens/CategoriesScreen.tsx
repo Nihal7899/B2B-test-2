@@ -25,7 +25,6 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
     }
   }, []);
 
-  // Initial Load
   useEffect(() => {
     let active = true;
     (async () => {
@@ -44,19 +43,20 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
     return () => { active = false; };
   }, []);
 
-  // Background Refresh Listeners
+  // CORRECTED: Fixed KeepAlive Key & Visibility Routing
   useEffect(() => {
     let active = true;
     
     const handleKeepAliveFocus = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
-      if (active && customEvent.detail?.key?.includes('/categories')) {
+      if (active && customEvent.detail?.key === '/categories') {
         void refreshData();
       }
     };
     
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && active) {
+      const isCurrentlyActive = window.location.pathname === '/categories';
+      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
         void refreshData();
       }
     };

@@ -79,18 +79,15 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
     }
   };
 
-  // Background Data Refresh Logic
   const refreshCategoryData = useCallback(async () => {
     if (!categoryId) return;
     try {
-      // 1. Refresh Category/Subcategories quietly
       const { categories } = await fetchCategories();
       const found = categories.find((c) => c.id === categoryId);
       if (found) {
         setCategory(found);
         setSubcategories(found.subcategories || []);
         
-        // 2. Refresh Products quietly based on active tab
         let freshProducts = [];
         if (activeSubId === 'all') {
           const subs = found.subcategories || [];
@@ -106,7 +103,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
     }
   }, [categoryId, activeSubId]);
 
-  // Initial Data Load
   useEffect(() => {
     if (!categoryId) return;
     (async () => {
@@ -117,7 +113,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
     })();
   }, [categoryId, refreshCategoryData]);
 
-  // Subcategory Change Listener
   useEffect(() => {
     if (!category || loading) return;
     (async () => {
@@ -125,19 +120,25 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
       await refreshCategoryData();
       setProductsLoading(false);
     })();
-  }, [activeSubId]); // deliberately excluding category/refreshCategoryData to only trigger on tab change
+  }, [activeSubId]); 
 
-  // Background Fetch Event Listeners
+  // CORRECTED: Fixed KeepAlive Key & Visibility Routing
   useEffect(() => {
     let active = true;
+    const expectedKey = `category|${categoryId}`;
+
     const handleKeepAliveFocus = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
-      if (active && customEvent.detail?.key?.includes('/category')) {
+      if (active && customEvent.detail?.key === expectedKey) {
         void refreshCategoryData();
       }
     };
+    
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && active) void refreshCategoryData();
+      const isCurrentlyActive = window.location.pathname === '/category' && window.location.search.includes(`id=${categoryId}`);
+      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
+        void refreshCategoryData();
+      }
     };
 
     window.addEventListener('keepalive:activated', handleKeepAliveFocus);
@@ -148,7 +149,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
       window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [refreshCategoryData]);
+  }, [refreshCategoryData, categoryId]);
 
   const filteredAndSortedProducts = useMemo(() => {
     let result = [...products];

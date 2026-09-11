@@ -3,7 +3,6 @@ import { ClipboardList, Package, RefreshCw } from 'lucide-react';
 import type { Order } from '@/types';
 import { fetchOrders } from '@/services/catalog';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/auth';
 import { OrderCard } from '@/components/OrderCard';
 
 interface OrdersScreenProps {
@@ -11,7 +10,6 @@ interface OrdersScreenProps {
 }
 
 export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
-  const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,71 +47,40 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     } catch (err) {
       console.error('Failed to load orders', err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  // 1. Initial Load & Realtime Subscription
+  // Initial Load
   useEffect(() => {
-    void loadOrders();
+    void loadOrders(false);
+  }, [loadOrders]);
 
-    if (!user?.id) return;
-
-    // Instant channel subscription using synchronous auth user ID
-    const channel = supabase
-      .channel(`user_orders_${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          void loadOrders(true);
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'payments',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          void loadOrders(true);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [user?.id, loadOrders]);
-
-  // 2. KeepAlive Re-Activation Listener (Instant refresh on screen switch)
+  // Background Data Refresh Listeners (Replaces Realtime)
   useEffect(() => {
-    const handleActivated = (e: Event) => {
+    let active = true;
+
+    const handleKeepAliveFocus = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
-      if (customEvent.detail?.key === '/orders' || customEvent.detail?.key === 'orders') {
+      if (active && (customEvent.detail?.key === '/orders' || customEvent.detail?.key === 'orders')) {
         void loadOrders(true);
       }
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      const isCurrentlyActive = window.location.pathname.includes('/orders');
+      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
         void loadOrders(true);
       }
     };
 
-    window.addEventListener('keepalive:activated', handleActivated);
+    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
     window.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('keepalive:activated', handleActivated);
+      active = false;
+      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [loadOrders]);

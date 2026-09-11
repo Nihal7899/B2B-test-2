@@ -16,7 +16,8 @@ export function WishlistScreen({ cart, onProduct, onShop }: WishlistScreenProps)
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [ids, { products: allProducts }] = await Promise.all([
         fetchWishlist(),
@@ -27,24 +28,44 @@ export function WishlistScreen({ cart, onProduct, onShop }: WishlistScreenProps)
     } catch (err) {
       console.error('Failed to load wishlist', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
+  // Initial Load
   useEffect(() => {
-    void load();
+    void load(false);
+  }, [load]);
 
-    // Re-fetch automatically whenever a wishlist event occurs or screen is focused
-    const handleWishlistChange = () => {
-      void load();
+  // Background Data Refresh Listeners
+  useEffect(() => {
+    let active = true;
+
+    const handleWishlistChange = () => void load(true);
+    
+    const handleKeepAliveFocus = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key?: string }>;
+      if (active && customEvent.detail?.key?.includes('/wishlist')) {
+        void load(true);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      const isCurrentlyActive = window.location.pathname.includes('/wishlist');
+      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
+        void load(true);
+      }
     };
 
     window.addEventListener('wishlist-updated', handleWishlistChange);
-    window.addEventListener('focus', handleWishlistChange);
+    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      active = false;
       window.removeEventListener('wishlist-updated', handleWishlistChange);
-      window.removeEventListener('focus', handleWishlistChange);
+      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [load]);
 
@@ -64,7 +85,7 @@ export function WishlistScreen({ cart, onProduct, onShop }: WishlistScreenProps)
       );
     } catch (err) {
       console.error('Error toggling wishlist', err);
-      void load(); // Rollback on error
+      void load(true); // Rollback on error silently
     }
   };
 

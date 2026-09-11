@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Search, ShoppingBag, Layers, Sparkles, ArrowUpDown, Star, X, Check,
   ChevronDown, TrendingDown, TrendingUp, SlidersHorizontal, RotateCcw, Filter,
@@ -33,9 +33,11 @@ interface CategoryScreenProps {
 }
 
 export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
-  const [searchParams] = useSearchParams();
-  const categoryId = searchParams.get('id');
+  const location = useLocation();
   const navigate = useNavigate();
+
+  // FIX: Freeze the category ID on mount so it ignores URL changes when navigating to /product
+  const [categoryId] = useState(() => new URLSearchParams(location.search).get('id'));
 
   const [category, setCategory] = useState<Category | null>(null);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
@@ -122,7 +124,6 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
     })();
   }, [activeSubId]); 
 
-  // CORRECTED: Fixed KeepAlive Key & Visibility Routing
   useEffect(() => {
     let active = true;
     const expectedKey = `category|${categoryId}`;
@@ -135,7 +136,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
     };
     
     const handleVisibilityChange = () => {
-      const isCurrentlyActive = window.location.pathname === '/category' && window.location.search.includes(`id=${categoryId}`);
+      const isCurrentlyActive = window.location.pathname.includes('/category') && window.location.search.includes(`id=${categoryId}`);
       if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
         void refreshCategoryData();
       }

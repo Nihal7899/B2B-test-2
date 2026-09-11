@@ -19,6 +19,7 @@ import {
   PenTool,
   MessageSquare,
   Banknote,
+  BookOpen,
 } from 'lucide-react';
 import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import InvoiceSettings from '@/components/InvoiceSettings';
@@ -44,6 +45,7 @@ import SubcategoriesManager from '@/components/Admin/SubcategoriesManager';
 import CompressionSettings from '@/components/Admin/CompressionSettings';
 import SectionsManager from '@/components/Admin/SectionsManager';
 import CodSettlementManager from '@/components/Admin/CodSettlementManager';
+import SynonymsManager from '@/components/Admin/SynonymsManager';
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -72,15 +74,17 @@ type Tab =
   | 'push'
   | 'whatsapp'
   | 'reports'
-  | 'compression';
+  | 'compression'
+  | 'synonyms';
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
 
-  const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
+  const tabs: { id: Tab; label: string; icon: any }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'homeSections', label: 'Home Sections', icon: LayoutGrid },
     { id: 'banners', label: 'Banners', icon: Tag },
+    { id: 'synonyms', label: 'Search Synonyms', icon: BookOpen },
     { id: 'stores', label: 'Stores', icon: Store },
     { id: 'storeContent', label: 'Store Content', icon: PenTool },
     { id: 'brands', label: 'Brands', icon: Award },
@@ -141,6 +145,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'dashboard' && <Dashboard onNavigateToTab={(tabId: Tab) => setTab(tabId)} />}
         {tab === 'homeSections' && <SectionsManager />}
         {tab === 'banners' && <BannersManager />}
+        {tab === 'synonyms' && <SynonymsManager />}
         {tab === 'stores' && <StoresManager />}
         {tab === 'storeContent' && <StoreConfigManager />}
         {tab === 'brands' && <BrandsManager />}

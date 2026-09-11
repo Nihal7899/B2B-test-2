@@ -649,8 +649,7 @@ function BulkDealEditor({ draft, setDraft }: { draft: any; setDraft: (section: s
         actionType={bulkDeal.actionType} 
         actionConfig={bulkDeal.actionConfig || {}} 
         onChange={(type, conf) => {
-          updateBulkDeal('actionType', type);
-          updateBulkDeal('actionConfig', conf);
+          setDraft('bulkDeal', { ...bulkDeal, actionType: type, actionConfig: conf });
         }} 
       />
 
@@ -742,8 +741,7 @@ function TrendingEditor({ draft, setDraft, setPendingFile, clearPendingFile, pen
         actionType={trending.actionType} 
         actionConfig={trending.actionConfig || {}} 
         onChange={(type, conf) => {
-          updateTrending('actionType', type);
-          updateTrending('actionConfig', conf);
+          setDraft('trending', { ...trending, actionType: type, actionConfig: conf });
         }} 
       />
 

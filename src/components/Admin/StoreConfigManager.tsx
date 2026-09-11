@@ -440,8 +440,7 @@ function HeroEditor({ draft, setDraft, setPendingFile, clearPendingFile, pending
         actionType={hero.actionType} 
         actionConfig={hero.actionConfig || {}} 
         onChange={(type, conf) => {
-          updateHero('actionType', type);
-          updateHero('actionConfig', conf);
+          setDraft('hero', { ...hero, actionType: type, actionConfig: conf });
         }} 
       />
 
@@ -759,8 +758,7 @@ function BulkDealEditor({ draft, setDraft }: {
         actionType={bulkDeal.actionType} 
         actionConfig={bulkDeal.actionConfig || {}} 
         onChange={(type, conf) => {
-          updateBulkDeal('actionType', type);
-          updateBulkDeal('actionConfig', conf);
+          setDraft('bulkDeal', { ...bulkDeal, actionType: type, actionConfig: conf });
         }} 
       />
 
@@ -855,8 +853,7 @@ function TrendingEditor({ draft, setDraft, setPendingFile, clearPendingFile, pen
         actionType={trending.actionType} 
         actionConfig={trending.actionConfig || {}} 
         onChange={(type, conf) => {
-          updateTrending('actionType', type);
-          updateTrending('actionConfig', conf);
+          setDraft('trending', { ...trending, actionType: type, actionConfig: conf });
         }} 
       />
 

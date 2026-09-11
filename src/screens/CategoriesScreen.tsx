@@ -1,16 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { fetchCategories } from '@/services/catalog';
 import type { Category } from '@/types';
-import { preloadImages } from '@/services/homePreload';
+import { preloadImages, updateHomeDataCache } from '@/services/homePreload';
 import { AppLoader } from '@/components/AppLoader';
+import { CachedImage } from '@/components/CachedImage';
 
 export function CategoriesScreen({ onBack }: { onBack: () => void }) {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const refreshData = useCallback(async () => {
+    try {
+      const { categories: fetchedCats } = await fetchCategories();
+      if (Array.isArray(fetchedCats)) {
+        setCategories(fetchedCats);
+        updateHomeDataCache({ categories: fetchedCats });
+        void preloadImages(fetchedCats.map((c) => c.image).filter(Boolean));
+      }
+    } catch (err) {
+      console.warn('Failed to refresh categories silently:', err);
+    }
+  }, []);
+
+  // Initial Load
   useEffect(() => {
     let active = true;
     (async () => {
@@ -26,11 +41,35 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
         if (active) setLoading(false);
       }
     })();
+    return () => { active = false; };
+  }, []);
+
+  // Background Refresh Listeners
+  useEffect(() => {
+    let active = true;
+    
+    const handleKeepAliveFocus = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key?: string }>;
+      if (active && customEvent.detail?.key?.includes('/categories')) {
+        void refreshData();
+      }
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && active) {
+        void refreshData();
+      }
+    };
+
+    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       active = false;
+      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [refreshData]);
 
   const openCategory = (categoryId: string) => navigate(`/category?id=${categoryId}`);
 
@@ -46,8 +85,6 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
             <ArrowLeft size={18} />
           </button>
         </div>
-
-        {/* Textless B2B produce loader */}
         <div className="flex-1 flex items-center justify-center -mt-16">
           <AppLoader fullScreen={false} size="md" />
         </div>
@@ -55,10 +92,8 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
     );
   }
 
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Sticky Header */}
       <div className="sticky top-0 z-40 border-b border-gray-100 bg-white px-4 py-4 shadow-sm safe-top">
         <div className="mx-auto flex max-w-md items-center gap-3">
           <button
@@ -71,7 +106,6 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {/* Category List */}
       <div className="mx-auto max-w-md w-full flex-1 space-y-2.5 px-4 pt-4">
         {categories.map((c) => (
           <button
@@ -83,11 +117,9 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
               className="h-14 w-14 shrink-0 overflow-hidden rounded-xl p-0.5"
               style={{ background: c.gradient || '#10b981' }}
             >
-              <img
+              <CachedImage
                 src={c.image}
                 alt={c.name}
-                loading="eager"
-                decoding="sync"
                 className="h-full w-full rounded-xl object-cover"
               />
             </div>
@@ -98,8 +130,6 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
             <ChevronRight size={16} className="text-gray-300" />
           </button>
         ))}
-
-        {/* Physical Spacer: Guarantees full scroll clearance above the fixed bottom bar (64px + mobile browser toolbars) */}
         <div className="h-32 w-full shrink-0" aria-hidden="true" />
       </div>
     </div>

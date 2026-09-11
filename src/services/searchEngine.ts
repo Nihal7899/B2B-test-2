@@ -58,11 +58,9 @@ interface SearchDictionary {
   lastFetched: number;
 }
 
-// FIXED: SKU Regex strictly requires at least one letter AND one number (so it doesn't hijack "onion")
 const SKU_REGEX = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9]{4,12}$/i;
 const PACK_SIZE_REGEX = /^\d+(\.\d+)?(kg|g|ml|l|ltr|pc|pcs|tin|jar|box|pkt|dz)$/i;
 
-// FIXED: Hardcoded fallback map so "aloo" always works even if the Supabase table is empty
 const FALLBACK_SYNONYMS: Record<string, string[]> = {
   beverage: ['beverages', 'drink', 'drinks', 'cold drink', 'soft drink', 'juice', 'soda', 'syrup', 'tea', 'coffee', 'water'],
   drink: ['beverages', 'cold drink', 'juice', 'soft drinks', 'drinks'],
@@ -111,7 +109,6 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
   }
 
   try {
-    // We intentionally separate the synonyms fetch so if the table doesn't exist, it doesn't crash the dictionary
     const [productsRes, categoriesRes, subcategoriesRes, brandsRes] = await Promise.all([
       supabase.from('products').select('id, name, brand, pack_size, category_id, subcategory_id, product_code, description').eq('is_active', true).limit(3000),
       supabase.from('categories').select('id, name, slug, image_url, description, gradient, is_active').eq('is_active', true).order('sort_order', { ascending: true }),
@@ -161,7 +158,6 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
       categoryId: s.category_id,
     }));
 
-    // Build Bidirectional Synonyms with Fallback
     const synonymsMap: Record<string, string[]> = {};
     const addSynonyms = (kw: string, syns: string[]) => {
       synonymsMap[kw] = Array.from(new Set([...(synonymsMap[kw] || []), ...syns]));
@@ -175,7 +171,6 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
       synonymsRes.data.forEach((row: any) => addSynonyms(row.keyword.toLowerCase(), row.synonyms.map((s: string) => s.toLowerCase())));
     }
 
-    // Build strict vocabulary for spell-checker
     const vocabSet = new Set<string>();
     categories.forEach(c => c.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
     brands.forEach(b => b.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
@@ -214,6 +209,17 @@ function getLevenshteinDistance(a = '', b = ''): number {
   return matrix[bn][an];
 }
 
+function expandQueryTokens(tokens: string[], map: Record<string, string[]>): string[] {
+  const expanded = new Set<string>(tokens);
+  for (const t of tokens) {
+    const synonyms = map[t.toLowerCase()];
+    if (synonyms) {
+      synonyms.forEach((syn) => expanded.add(syn.toLowerCase()));
+    }
+  }
+  return Array.from(expanded);
+}
+
 export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalysisResult> {
   const q = (query || '').trim().toLowerCase();
   const dict = await getOrBuildSearchDictionary();
@@ -227,7 +233,10 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     };
   }
 
+  // Split by comma to recognize multi-item lists like "tomato, potato"
+  const subQueries = q.split(',').map(s => s.trim()).filter(Boolean);
   const queryTokens = q.split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
+  const expandedTokens = expandQueryTokens(queryTokens, dict.synonyms);
   
   const suggestionList: SearchSuggestionItem[] = [];
   const matchedCategories: Category[] = [];
@@ -282,19 +291,25 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     }
   }
 
+  // Product Evaluation supporting comma-separated multi-queries
   for (const p of dict.products) {
     const searchable = `${p.brand} ${p.name} ${p.packSize} ${p.description}`.toLowerCase();
     const pName = p.name.toLowerCase();
     
-    // FIXED: Properly allow synonyms like "aloo" to trigger product suggestions for "potato"
-    const matchesAllTokens = queryTokens.every(t => {
-      const equivalents = [t, ...(dict.synonyms[t] || [])];
-      return equivalents.some(eq => searchable.includes(eq));
-    });
+    let matchedSubQuery = false;
+    for (const sq of subQueries) {
+      const sqTokens = sq.split(/[\s]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
+      const matchesAllTokens = sqTokens.length > 0 && sqTokens.every(t => {
+        const equivalents = [t, ...(dict.synonyms[t] || [])];
+        return equivalents.some(eq => searchable.includes(eq));
+      });
+      if (pName.startsWith(sq) || matchesAllTokens) {
+        matchedSubQuery = true;
+        break;
+      }
+    }
 
-    if (pName.startsWith(q)) {
-      addUnique({ text: formatCompoundPhrase(p.brand, p.name, p.packSize), type: 'product', brand: p.brand, packSize: p.packSize, subText: p.packSize || p.brand });
-    } else if (matchesAllTokens) {
+    if (matchedSubQuery) {
       addUnique({ text: formatCompoundPhrase(p.brand, p.name, p.packSize), type: 'product', brand: p.brand, packSize: p.packSize, subText: p.packSize || p.brand });
     }
     if (suggestionList.length >= 12) break;
@@ -304,11 +319,7 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
   if (suggestionList.length === 0) {
     const correctedTokens = queryTokens.map(token => {
       if (token.length < 3) return token;
-      
-      // FIXED: If the word is spelled correctly OR exists in synonyms (like "aloo"), DO NOT touch it.
-      if (dict.vocabulary.includes(token) || dict.synonyms[token]) {
-        return token;
-      }
+      if (dict.vocabulary.includes(token) || dict.synonyms[token]) return token;
       
       let bestMatch = token;
       let lowestDist = 3; 
@@ -350,14 +361,13 @@ export async function executeFullSearch(
   const cleanQuery = (query || '').trim();
   const dict = await getOrBuildSearchDictionary();
   const analysis = await getLiveSearchSuggestions(cleanQuery);
-  
-  // FIXED: If the spell checker corrected a typo (e.g., "oniox" -> "onion"), automatically search the corrected word
   const effectiveQuery = analysis.didYouMean ? analysis.didYouMean : cleanQuery;
 
   try {
+    // 1. Separate sub-queries by Comma to independently rank distinct list items
+    const subQueries = effectiveQuery.toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
     const rawTokens = effectiveQuery.toLowerCase().split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
     
-    // Expand the tokens explicitly here for the database search (e.g. "aloo" -> ["aloo", "potato"])
     const expanded = new Set<string>(rawTokens);
     for (const t of rawTokens) {
       if (dict.synonyms[t]) dict.synonyms[t].forEach(s => expanded.add(s));
@@ -420,12 +430,11 @@ export async function executeFullSearch(
     if (error) throw error;
 
     const scoredProducts = (rawProducts || []).map((p: any) => {
-      let score = 0;
+      let bestSubQueryScore = 0;
       const pName = (p.name || '').toLowerCase();
       const pBrand = (p.brand || '').toLowerCase();
       const pDesc = (p.description || '').toLowerCase();
       const pPack = (p.pack_size || '').toLowerCase();
-      const qLower = effectiveQuery.toLowerCase();
 
       const mrp = Number(p.mrp || 0);
       const price = Number(p.wholesale_price || 0);
@@ -435,24 +444,40 @@ export async function executeFullSearch(
       const moq = p.moq || p.min_order_quantity || 1;
       const isEffectivelyInStock = stock >= moq;
 
-      if (pName === qLower || pName.includes(` ${qLower} `)) score += 1000;
-      if (p.product_code?.toLowerCase() === qLower) score += 2000;
+      // Evaluate the product against EACH distinct item the user searched for
+      for (const sq of subQueries) {
+        let currentScore = 0;
+        const sqRawTokens = sq.split(/[\s]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
+        const sqTokens = expandQueryTokens(sqRawTokens, dict.synonyms);
 
-      const allTokensMatch = rawTokens.every(t => pName.includes(t) || pBrand.includes(t) || (dict.synonyms[t] && dict.synonyms[t].some(s => pName.includes(s))));
-      if (allTokensMatch) score += 500;
+        if (pName === sq || pName.includes(` ${sq} `)) currentScore += 1000;
+        if (p.product_code?.toLowerCase() === sq) currentScore += 2000;
 
-      if (pName.startsWith(qLower)) score += 300;
-      if (pBrand.startsWith(qLower)) score += 250;
+        const allTokensMatch = sqRawTokens.length > 0 && sqRawTokens.every(t => pName.includes(t) || pBrand.includes(t) || (dict.synonyms[t] && dict.synonyms[t].some(s => pName.includes(s))));
+        if (allTokensMatch) currentScore += 500;
 
-      tokens.forEach((t) => {
-        const words = pName.split(/[\s,]+/);
-        if (words.includes(t)) score += 60; 
-        else if (pName.includes(t)) score += 20; 
-        if (pBrand.includes(t)) score += 40;
-        if (pPack === t) score += 50; 
-        if (pDesc.includes(t)) score += 10;
-      });
+        if (pName.startsWith(sq)) currentScore += 300;
+        if (pBrand.startsWith(sq)) currentScore += 250;
 
+        sqTokens.forEach((t) => {
+          const words = pName.split(/[\s,]+/);
+          // Massive boost for exact word matching so explicit queries outrank category associations
+          if (words.includes(t)) currentScore += 200; 
+          else if (pName.includes(t)) currentScore += 50; 
+          
+          if (pBrand.includes(t)) currentScore += 100;
+          if (pPack === t) currentScore += 50; 
+          if (pDesc.includes(t)) currentScore += 10;
+        });
+
+        if (currentScore > bestSubQueryScore) {
+          bestSubQueryScore = currentScore;
+        }
+      }
+
+      let score = bestSubQueryScore;
+
+      // Apply Context Modifiers only once
       if (p.category_id && matchingCategoryIds.has(p.category_id)) score += 100;
       if (p.subcategory_id && matchingSubcategoryIds.has(p.subcategory_id)) score += 150;
 

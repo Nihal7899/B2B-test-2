@@ -30,15 +30,7 @@ import {
   fetchUserReorderProducts,
   fetchRecentlyViewedProducts,
   fetchCategories,
-  fetchProducts,
-  fetchPopularProducts,
-  fetchVolumeDealsProducts,
-  fetchNewArrivalsProducts,
-  fetchTopRatedProducts,
-  fetchLimitedStockProducts,
-  fetchBrandSpotlight,
-  fetchStores,
-  fetchTrustedBrands
+  fetchProducts
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
 import { getHomeDataSync, updateHomeDataCache, type PreloadedHomeData } from '@/services/homePreload';
@@ -145,9 +137,11 @@ export function HomeScreen({
   const [sections, setSections] = useState<HomeSection[]>(initialCache.sections);
   const [banners, setBanners] = useState<PromoBanner[]>(initialCache.banners);
   
-  // Setters added to allow background refresh
+  // Setters for catalog data
   const [categories, setCategories] = useState<Category[]>(initialCache.categories);
   const [products, setProducts] = useState<Product[]>(initialCache.products);
+  
+  // Setters for dynamic sections
   const [popularProducts, setPopularProducts] = useState<Product[]>(initialCache.popularProducts);
   const [reorderProducts, setReorderProducts] = useState<Product[]>(initialCache.reorderProducts);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>(initialCache.recentlyViewed);
@@ -156,11 +150,10 @@ export function HomeScreen({
   const [topRated, setTopRated] = useState<Product[]>(initialCache.topRated);
   const [limitedStock, setLimitedStock] = useState<Product[]>(initialCache.limitedStock);
   const [brandSpotlight, setBrandSpotlight] = useState(initialCache.brandSpotlight);
-  const [stores, setStores] = useState<Store[]>(initialCache.stores);
-  const [brands, setBrands] = useState<TrustedBrand[]>(initialCache.brands);
+  const [stores] = useState<Store[]>(initialCache.stores);
+  const [brands] = useState<TrustedBrand[]>(initialCache.brands);
   
   const [address] = useState<DbAddress | null>(initialCache.address);
-
   const [showPopup, setShowPopup] = useState(() => !sessionStorage.getItem('hasSeenBottomPopup'));
 
   const bottomPopupBanner = useMemo(() => {
@@ -198,62 +191,69 @@ export function HomeScreen({
     }
   }, []);
 
-  // New Catalog background fetcher
+  // Simplified Catalog background fetcher (Prevents Network Choking)
   const refreshCatalogData = useCallback(async () => {
     try {
-      const [
-        catRes,
-        prodRes,
-        popRes,
-        volRes,
-        newRes,
-        topRes,
-        limRes,
-        spotRes,
-        storeRes,
-        brandRes
-      ] = await Promise.all([
+      // ONLY fetch the master lists. We will derive the rest locally.
+      const [catRes, prodRes] = await Promise.all([
         fetchCategories().catch(() => ({ categories: [] as Category[] })),
         fetchProducts().catch(() => ({ products: [] as Product[] })),
-        fetchPopularProducts(12).catch(() => [] as Product[]),
-        fetchVolumeDealsProducts(10).catch(() => [] as Product[]),
-        fetchNewArrivalsProducts(10).catch(() => [] as Product[]),
-        fetchTopRatedProducts(10).catch(() => [] as Product[]),
-        fetchLimitedStockProducts(10).catch(() => [] as Product[]),
-        fetchBrandSpotlight().catch(() => null),
-        fetchStores().catch(() => [] as Store[]),
-        fetchTrustedBrands().catch(() => [] as TrustedBrand[])
       ]);
 
       if (catRes.categories?.length) setCategories(catRes.categories);
       if (prodRes.products?.length) setProducts(prodRes.products);
-      if (popRes?.length) setPopularProducts(popRes);
-      if (volRes?.length) setVolumeDeals(volRes);
-      if (newRes?.length) setNewArrivals(newRes);
-      if (topRes?.length) setTopRated(topRes);
-      if (limRes?.length) setLimitedStock(limRes);
-      if (spotRes) setBrandSpotlight(spotRes);
-      if (storeRes?.length) setStores(storeRes);
-      if (brandRes?.length) setBrands(brandRes);
 
       // Update global cache
       updateHomeDataCache({
         categories: catRes.categories?.length ? catRes.categories : undefined,
         products: prodRes.products?.length ? prodRes.products : undefined,
-        popularProducts: popRes?.length ? popRes : undefined,
-        volumeDeals: volRes?.length ? volRes : undefined,
-        newArrivals: newRes?.length ? newRes : undefined,
-        topRated: topRes?.length ? topRes : undefined,
-        limitedStock: limRes?.length ? limRes : undefined,
-        brandSpotlight: spotRes || undefined,
-        stores: storeRes?.length ? storeRes : undefined,
-        brands: brandRes?.length ? brandRes : undefined,
       });
       
     } catch (e) {
       console.warn('Failed to refresh core catalog data:', e);
     }
   }, []);
+
+  // Auto-sync prices and stock across all carousel sections when master products list updates
+  useEffect(() => {
+    if (!products || products.length === 0) return;
+
+    // Create a fast lookup dictionary of the freshest product data
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    const syncList = (list: Product[]) => {
+      if (!list || !Array.isArray(list)) return list;
+      let changed = false;
+      
+      const updated = list.map(p => {
+        const fresh = productMap.get(p.id);
+        // If the admin changed the price, MRP, or stock, swap the old product for the fresh one
+        if (fresh && (fresh.price !== p.price || fresh.mrp !== p.mrp || fresh.inStock !== p.inStock)) {
+          changed = true;
+          return fresh;
+        }
+        return p;
+      });
+      
+      return changed ? updated : list;
+    };
+
+    // Trickle the fresh prices down to every UI section instantly
+    setPopularProducts(prev => syncList(prev));
+    setVolumeDeals(prev => syncList(prev));
+    setNewArrivals(prev => syncList(prev));
+    setTopRated(prev => syncList(prev));
+    setLimitedStock(prev => syncList(prev));
+    setRecentlyViewed(prev => syncList(prev));
+    setReorderProducts(prev => syncList(prev));
+    
+    setBrandSpotlight(prev => {
+      if (!prev) return prev;
+      const synced = syncList(prev.products);
+      return synced !== prev.products ? { ...prev, products: synced } : prev;
+    });
+
+  }, [products]);
 
   useEffect(() => {
     let active = true;

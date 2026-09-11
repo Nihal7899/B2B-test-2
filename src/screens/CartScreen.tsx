@@ -48,12 +48,9 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
   useEffect(() => {
     let active = true;
 
-    const handleKeepAliveFocus = (e: Event) => {
-      const customEvent = e as CustomEvent<{ key?: string }>;
-      if (active && (customEvent.detail?.key === '/cart' || customEvent.detail?.key === 'cart')) {
-        void cart.refreshCart();
-      }
-    };
+    // Because /cart is excluded from KeepAlive, it mounts fresh every time.
+    // We force a refresh immediately on mount to grab the latest database prices.
+    void cart.refreshCart();
 
     const handleVisibilityChange = () => {
       const isCurrentlyActive = window.location.pathname.includes('/cart');
@@ -62,15 +59,14 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
       }
     };
 
-    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
     window.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       active = false;
-      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [cart]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array ensures it fires on mount
 
   // Monitor promo invalidation upon cart modifications
   useEffect(() => {

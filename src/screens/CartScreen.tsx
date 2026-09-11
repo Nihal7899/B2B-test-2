@@ -44,6 +44,34 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
 
   const prevPromoRef = useRef(cart.appliedPromo);
 
+  // Background Sync Mechanism for Cart Prices & Stock
+  useEffect(() => {
+    let active = true;
+
+    const handleKeepAliveFocus = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key?: string }>;
+      if (active && (customEvent.detail?.key === '/cart' || customEvent.detail?.key === 'cart')) {
+        void cart.refreshCart();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      const isCurrentlyActive = window.location.pathname.includes('/cart');
+      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
+        void cart.refreshCart();
+      }
+    };
+
+    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      active = false;
+      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [cart]);
+
   // Monitor promo invalidation upon cart modifications
   useEffect(() => {
     if (prevPromoRef.current && !cart.appliedPromo && cart.items.length > 0) {

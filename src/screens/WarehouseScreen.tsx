@@ -36,7 +36,13 @@ import {
   ArrowRight,
   Store,
   Layers,
+  LayoutDashboard,
   Clock,
+  CheckSquare,
+  ShieldCheck,
+  TrendingUp,
+  MapPin,
+  Flame,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
@@ -120,7 +126,7 @@ function CafKartLogo({ className = 'h-8 w-8' }: { className?: string }) {
   );
 }
 
-// Custom Isometric Automated Warehouse SVG Graphic
+// 4. Futuristic High-Tech Warehouse Facility Vector SVG
 function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
   return (
     <svg
@@ -144,10 +150,10 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
         </linearGradient>
       </defs>
 
-      {/* Ground Shadow */}
+      {/* Ground Ambience Shadow */}
       <ellipse cx="155" cy="110" rx="82" ry="7" fill="#011912" fillOpacity="0.65" />
 
-      {/* Main Distribution Center Building */}
+      {/* Distribution Center Building Structure */}
       <path
         d="M 68 44 L 140 20 L 212 44 L 212 96 L 68 96 Z"
         fill="url(#whBuildingGrad)"
@@ -163,12 +169,11 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
         strokeWidth="1.2"
       />
 
-      {/* Solar/Skylight Panels */}
+      {/* Solar Panel Array Skylights */}
       <polygon points="100,32 135,22 135,28 100,38" fill="#59D9B6" fillOpacity="0.3" />
       <polygon points="145,22 180,32 180,38 145,28" fill="#59D9B6" fillOpacity="0.3" />
 
-      {/* Warehouse Logistics Dock Roller Doors */}
-      {/* Bay 1 */}
+      {/* Loading Dock Bay 1 */}
       <rect x="80" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
       <line x1="80" y1="64" x2="114" y2="64" stroke="#0e4330" strokeWidth="1" />
       <line x1="80" y1="72" x2="114" y2="72" stroke="#0e4330" strokeWidth="1" />
@@ -176,7 +181,7 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
       <line x1="80" y1="88" x2="114" y2="88" stroke="#0e4330" strokeWidth="1" />
       <rect x="94" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
 
-      {/* Bay 2 (With Staged Pallet Box) */}
+      {/* Loading Dock Bay 2 (With Staging Box) */}
       <rect x="123" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
       <line x1="123" y1="64" x2="157" y2="64" stroke="#0e4330" strokeWidth="1" />
       <line x1="123" y1="72" x2="157" y2="72" stroke="#0e4330" strokeWidth="1" />
@@ -184,7 +189,7 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
       <line x1="123" y1="88" x2="157" y2="88" stroke="#0e4330" strokeWidth="1" />
       <rect x="137" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
 
-      {/* Bay 3 */}
+      {/* Loading Dock Bay 3 */}
       <rect x="166" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
       <line x1="166" y1="64" x2="200" y2="64" stroke="#0e4330" strokeWidth="1" />
       <line x1="166" y1="72" x2="200" y2="72" stroke="#0e4330" strokeWidth="1" />
@@ -192,14 +197,14 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
       <line x1="166" y1="88" x2="200" y2="88" stroke="#0e4330" strokeWidth="1" />
       <rect x="180" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
 
-      {/* Pallet Stacks Outside Bay 1 */}
+      {/* Pallet Stacks */}
       <g transform="translate(42, 74)">
         <rect x="0" y="8" width="22" height="14" rx="2" fill="#d97706" stroke="#f59e0b" strokeWidth="1" />
         <line x1="11" y1="8" x2="11" y2="22" stroke="#b45309" strokeWidth="1" />
         <rect x="3" y="0" width="16" height="9" rx="1.5" fill="#f59e0b" />
       </g>
 
-      {/* Forklift Silhouette Moving Goods */}
+      {/* Autonomous Forklift & Pallet Crane */}
       <g transform="translate(15, 80)">
         <rect x="4" y="6" width="14" height="10" rx="2" fill="#FFFFFF" />
         <rect x="0" y="10" width="5" height="6" fill="#FFFFFF" />
@@ -209,7 +214,7 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
         <circle cx="15" cy="16" r="3" fill="#0f172a" />
       </g>
 
-      {/* Warehouse Central Badge Logo Mark */}
+      {/* Hub Central Logo Mark */}
       <circle cx="140" cy="38" r="9" fill="#032117" stroke="#59D9B6" strokeWidth="1.2" />
       <path d="M 137 38 L 139 36 L 144 41" stroke="#59D9B6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 
@@ -225,7 +230,8 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
 
 export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseScreenProps) {
   const { logout, profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'orders' | 'invoices' | 'inventory' | 'low_stock'>('orders');
+  // 1. Added 'dashboard' as default active tab
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'invoices' | 'inventory' | 'low_stock'>('dashboard');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
 
   // Pagination States
@@ -244,6 +250,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [paymentsMap, setPaymentsMap] = useState<Record<string, PaymentSummary>>({});
   const [drivers, setDrivers] = useState<DeliveryDriver[]>([]);
   const [editingDriverOrderId, setEditingDriverOrderId] = useState<string | null>(null);
+
+  // Selected driver per order in assign_partner tab
+  const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
 
   // Inventory State
   const [products, setProducts] = useState<ProductInventory[]>([]);
@@ -471,7 +480,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   };
 
+  // 3. Assign Partner & automatically transition order to 'ready_for_pickup'
   const handleAssignDriver = async (orderId: string, driverId: string) => {
+    if (!driverId) {
+      alert('Please choose a delivery partner to dispatch.');
+      return;
+    }
     setActionOrderId(orderId);
     const existing = assignmentsMap[orderId];
     const previousDriverId = existing?.delivery_partner_id || null;
@@ -480,13 +494,25 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       if (existing) {
         await supabase
           .from('delivery_assignments')
-          .update({ delivery_partner_id: driverId || null, updated_at: new Date().toISOString() })
+          .update({
+            delivery_partner_id: driverId,
+            status: 'ready_for_pickup',
+            updated_at: new Date().toISOString(),
+          })
           .eq('id', existing.id);
-      } else if (driverId) {
-        await supabase
-          .from('delivery_assignments')
-          .insert({ order_id: orderId, delivery_partner_id: driverId, status: 'ready_for_pickup' });
+      } else {
+        await supabase.from('delivery_assignments').insert({
+          order_id: orderId,
+          delivery_partner_id: driverId,
+          status: 'ready_for_pickup',
+        });
       }
+
+      // Move order status from 'packed' to 'ready_for_pickup'
+      await supabase
+        .from('orders')
+        .update({ status: 'ready_for_pickup', updated_at: new Date().toISOString() })
+        .eq('id', orderId);
 
       const syncChannel = supabase.channel('delivery_dispatch_sync');
       await syncChannel.send({
@@ -556,11 +582,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   };
 
+  // 3. Updated Order Stage Navigation Pills
   const orderPills = [
     { id: 'all', label: 'All' },
     { id: 'pending', label: 'Pending' },
     { id: 'confirmed', label: 'Confirmed' },
-    { id: 'packed', label: 'Packed' },
+    { id: 'assign_partner', label: 'Assign Partner' },
     { id: 'ready_for_pickup', label: 'Ready for Pickup' },
     { id: 'out_for_delivery', label: 'Out for Delivery' },
     { id: 'delivered', label: 'Delivered' },
@@ -575,6 +602,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setInvoicesPage(1);
   }, [searchQuery, invoiceDatePreset, customStartDate, customEndDate]);
 
+  // 3. Filter orders based on the new 'assign_partner' stage
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       const recipient = o.address_id ? addressMap[o.address_id]?.recipient_name || '' : '';
@@ -582,7 +610,14 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       const matchesSearch =
         orderNum.toLowerCase().includes(searchQuery.toLowerCase()) ||
         recipient.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = orderStatusPill === 'all' || o.status === orderStatusPill;
+
+      let matchesStatus = true;
+      if (orderStatusPill === 'assign_partner') {
+        matchesStatus = o.status === 'packed';
+      } else if (orderStatusPill !== 'all') {
+        matchesStatus = o.status === orderStatusPill;
+      }
+
       return matchesSearch && matchesStatus;
     });
   }, [orders, addressMap, searchQuery, orderStatusPill]);
@@ -662,10 +697,16 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   // Warehouse Operational Metrics
   const metrics = useMemo(() => {
     const pending = orders.filter((o) => o.status === 'pending').length;
-    const confirmed = orders.filter((o) => o.status === 'confirmed' || o.status === 'packed').length;
+    const confirmed = orders.filter((o) => o.status === 'confirmed').length;
+    const packed = orders.filter((o) => o.status === 'packed').length;
     const ready = orders.filter((o) => o.status === 'ready_for_pickup').length;
     const out = orders.filter((o) => o.status === 'out_for_delivery').length;
-    return { pending, confirmed, ready, out };
+    const delivered = orders.filter((o) => o.status === 'delivered').length;
+    const totalRevenue = orders
+      .filter((o) => o.status !== 'cancelled')
+      .reduce((acc, curr) => acc + (Number(curr.total) || 0), 0);
+
+    return { pending, confirmed, packed, ready, out, delivered, totalRevenue };
   }, [orders]);
 
   const managerDisplayName =
@@ -709,7 +750,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               </div>
 
-              {/* Greeting immediately stacked with zero vertical fluff */}
               <div className="mt-1">
                 <p className="text-[10.5px] font-medium text-emerald-200/90 leading-tight">
                   {timeGreeting},
@@ -718,7 +758,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   {managerDisplayName}
                 </h1>
                 <p className="text-[9.5px] font-medium text-emerald-300/80 leading-tight flex items-center gap-1 mt-0.5">
-                  Fulfillment & Inventory Hub 📦
+                  Fulfillment & Dispatch Command Center 📦
                 </p>
               </div>
             </div>
@@ -752,7 +792,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 )}
               </div>
 
-              {/* Warehouse Graphic right below Online Pill */}
+              {/* 4. Beautiful Warehouse SVG Graphic */}
               <div className="w-full -mr-2 -mt-1 scale-105 origin-top-right transition-transform pointer-events-none">
                 <WarehouseFacilityGraphic className="w-full h-auto drop-shadow-md" />
               </div>
@@ -761,58 +801,13 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </header>
 
         {/* Main Content Body */}
-        <main className="px-4 lg:px-8 pt-3.5 max-w-7xl mx-auto space-y-4">
-          {/* Operational Metrics Strip (Modern Fintech Cards) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <div className="bg-white border border-slate-200/80 rounded-[20px] p-3.5 shadow-sm space-y-1 hover:border-amber-300 transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">New Orders</span>
-                <div className="h-6 w-6 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/60">
-                  <Clock size={13} />
-                </div>
-              </div>
-              <p className="text-lg font-black text-slate-900">{metrics.pending}</p>
-              <p className="text-[10px] text-amber-700 font-bold">Needs Confirmation</p>
-            </div>
-
-            <div className="bg-white border border-slate-200/80 rounded-[20px] p-3.5 shadow-sm space-y-1 hover:border-blue-300 transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Packing Line</span>
-                <div className="h-6 w-6 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200/60">
-                  <Package size={13} />
-                </div>
-              </div>
-              <p className="text-lg font-black text-slate-900">{metrics.confirmed}</p>
-              <p className="text-[10px] text-blue-700 font-bold">Confirmed / Staging</p>
-            </div>
-
-            <div className="bg-white border border-slate-200/80 rounded-[20px] p-3.5 shadow-sm space-y-1 hover:border-emerald-300 transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ready Dispatch</span>
-                <div className="h-6 w-6 rounded-lg bg-emerald-50 text-[#0a382c] flex items-center justify-center border border-emerald-200/60">
-                  <CheckCircle2 size={13} />
-                </div>
-              </div>
-              <p className="text-lg font-black text-slate-900">{metrics.ready}</p>
-              <p className="text-[10px] text-emerald-700 font-bold">Waiting for Driver</p>
-            </div>
-
-            <div className="bg-white border border-slate-200/80 rounded-[20px] p-3.5 shadow-sm space-y-1 hover:border-sky-300 transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Out for Delivery</span>
-                <div className="h-6 w-6 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/60">
-                  <Truck size={13} />
-                </div>
-              </div>
-              <p className="text-lg font-black text-slate-900">{metrics.out}</p>
-              <p className="text-[10px] text-sky-700 font-bold">In-Transit Runs</p>
-            </div>
-          </div>
-
-          {/* Desktop Tab Switcher & Search Bar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
-            <div className="hidden md:flex items-center gap-1.5 bg-slate-200/70 p-1 rounded-2xl w-auto">
+        <main className="px-4 lg:px-8 pt-4 max-w-7xl mx-auto space-y-4">
+          {/* Top Control Bar: Desktop Switcher & 6. Themed Modern Search Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            {/* Desktop Switcher */}
+            <div className="hidden md:flex items-center gap-1 bg-slate-200/70 p-1 rounded-2xl w-auto">
               {[
+                { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
                 { id: 'orders', label: `Orders (${orders.length})`, icon: Package },
                 { id: 'invoices', label: 'Invoices', icon: FileText },
                 { id: 'inventory', label: `Inventory (${products.length})`, icon: Boxes },
@@ -827,7 +822,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                       setActiveTab(tab.id as any);
                       setSearchQuery('');
                     }}
-                    className={`flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-black transition-all ${
+                    className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-black transition-all ${
                       isActive ? 'bg-[#0a382c] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -843,36 +838,291 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               })}
             </div>
 
-            {/* Search Input Bar */}
-            <div className="relative w-full md:w-80">
-              <Search size={15} className="absolute left-3.5 top-3 text-slate-400" />
-              <input
-                type="text"
-                placeholder={
-                  activeTab === 'orders' || activeTab === 'invoices'
-                    ? 'Search order # or recipient...'
-                    : 'Search brand or item...'
-                }
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-9 pr-4 rounded-xl bg-white border border-slate-200 text-xs font-semibold outline-none focus:border-[#0a382c] shadow-2xs transition"
-              />
-            </div>
+            {/* 6. Themed, High-Impact Search Bar */}
+            {activeTab !== 'dashboard' && (
+              <div className="relative w-full md:w-80 group">
+                <div className="absolute inset-0 bg-gradient-to-r from-[#59D9B6]/20 to-emerald-500/10 rounded-2xl blur-xs -z-10 group-focus-within:from-[#59D9B6]/30 group-focus-within:to-emerald-500/25 transition-all" />
+                <div className="relative flex items-center bg-white border border-emerald-900/15 rounded-2xl shadow-xs transition-all duration-200 focus-within:border-[#0a382c] focus-within:ring-2 focus-within:ring-[#59D9B6]/40">
+                  <div className="pl-3.5 pr-1 flex items-center justify-center text-[#0a382c]">
+                    <Search size={16} strokeWidth={2.5} />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={
+                      activeTab === 'orders' || activeTab === 'invoices'
+                        ? 'Search order # or recipient...'
+                        : 'Search brand or inventory item...'
+                    }
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-11 py-2 px-2 bg-transparent text-xs font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-medium outline-none"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="mr-2.5 h-6 w-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition active:scale-90"
+                    >
+                      <X size={12} strokeWidth={2.5} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Orders Filter Status Pills */}
+          {/* 1 & 5. TAB 1: PROFESSIONAL OPTIMIZED WAREHOUSE DASHBOARD */}
+          {activeTab === 'dashboard' && (
+            <div className="space-y-4">
+              {/* Distribution Hub Operations Overview Card */}
+              <div className="rounded-[26px] p-5 text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#064e3b] via-[#094736] to-[#042c22] border border-emerald-500/30">
+                <div className="relative z-10 flex flex-col justify-between space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-[10px] font-black uppercase tracking-wider text-emerald-100">
+                      <ShieldCheck size={14} className="text-[#59D9B6]" />
+                      Central Dispatch Hub
+                    </div>
+                    <div className="flex items-center gap-1.5 text-emerald-300/90 text-[10px] font-bold">
+                      <Wifi size={13} className="rotate-90" />
+                      <span>LIVE DISPATCH ENGINE</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-baseline justify-between pt-1">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                        Total Order Volume Processed
+                      </p>
+                      <p className="text-3xl font-black tracking-tight text-white mt-0.5">
+                        ₹{metrics.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-400/20 text-emerald-200 border border-emerald-400/30 px-3 py-1 rounded-full">
+                        {orders.length} TOTAL RUNS
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2.5 border-t border-emerald-500/20 text-xs">
+                    <p className="text-[11px] text-emerald-200/80 font-medium">
+                      {metrics.pending > 0
+                        ? `⚠️ ${metrics.pending} pending orders require immediate confirmation!`
+                        : 'All new orders confirmed. Staging line is operating on schedule.'}
+                    </p>
+                    <div className="flex items-center gap-1 text-[#59D9B6] text-[10px] font-black">
+                      <Sparkles size={12} /> DOCK SYNCHRONIZED
+                    </div>
+                  </div>
+                </div>
+
+                <div className="absolute -right-8 -bottom-8 h-44 w-44 rounded-full bg-[#59D9B6]/15 blur-2xl pointer-events-none" />
+              </div>
+
+              {/* 5. Modern Fintech Pipeline Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {/* 1. New Orders */}
+                <div
+                  onClick={() => {
+                    setActiveTab('orders');
+                    setOrderStatusPill('pending');
+                  }}
+                  className="bg-white border border-slate-200/80 rounded-[22px] p-4 shadow-sm space-y-1 hover:border-amber-300 cursor-pointer transition-all active:scale-[0.98]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">New Inflow</span>
+                    <div className="h-7 w-7 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/60">
+                      <Clock size={15} />
+                    </div>
+                  </div>
+                  <p className="text-2xl font-black text-slate-900 tracking-tight">{metrics.pending}</p>
+                  <p className="text-[10px] text-amber-700 font-bold flex items-center gap-1">
+                    Needs Confirmation <ArrowRight size={11} />
+                  </p>
+                </div>
+
+                {/* 2. Packing Queue */}
+                <div
+                  onClick={() => {
+                    setActiveTab('orders');
+                    setOrderStatusPill('confirmed');
+                  }}
+                  className="bg-white border border-slate-200/80 rounded-[22px] p-4 shadow-sm space-y-1 hover:border-blue-300 cursor-pointer transition-all active:scale-[0.98]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Packing Line</span>
+                    <div className="h-7 w-7 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200/60">
+                      <Package size={15} />
+                    </div>
+                  </div>
+                  <p className="text-2xl font-black text-slate-900 tracking-tight">{metrics.confirmed}</p>
+                  <p className="text-[10px] text-blue-700 font-bold flex items-center gap-1">
+                    In Packing <ArrowRight size={11} />
+                  </p>
+                </div>
+
+                {/* 3. Assign Partner (Stage between Packed and Ready) */}
+                <div
+                  onClick={() => {
+                    setActiveTab('orders');
+                    setOrderStatusPill('assign_partner');
+                  }}
+                  className={`bg-white border rounded-[22px] p-4 shadow-sm space-y-1 cursor-pointer transition-all active:scale-[0.98] ${
+                    metrics.packed > 0
+                      ? 'border-emerald-500 ring-2 ring-emerald-100/70'
+                      : 'border-slate-200/80 hover:border-emerald-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Assign Partner</span>
+                    <div className="h-7 w-7 rounded-xl bg-emerald-50 text-[#0a382c] flex items-center justify-center border border-emerald-200/60">
+                      <UserCheck size={15} />
+                    </div>
+                  </div>
+                  <p className="text-2xl font-black text-slate-900 tracking-tight">{metrics.packed}</p>
+                  <p className="text-[10px] text-emerald-800 font-black flex items-center gap-1">
+                    Packed · Awaiting Driver <ArrowRight size={11} />
+                  </p>
+                </div>
+
+                {/* 4. Ready for Driver Pickup */}
+                <div
+                  onClick={() => {
+                    setActiveTab('orders');
+                    setOrderStatusPill('ready_for_pickup');
+                  }}
+                  className="bg-white border border-slate-200/80 rounded-[22px] p-4 shadow-sm space-y-1 hover:border-sky-300 cursor-pointer transition-all active:scale-[0.98]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Dock Staging</span>
+                    <div className="h-7 w-7 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/60">
+                      <Truck size={15} />
+                    </div>
+                  </div>
+                  <p className="text-2xl font-black text-slate-900 tracking-tight">{metrics.ready}</p>
+                  <p className="text-[10px] text-sky-700 font-bold flex items-center gap-1">
+                    Ready for Pickup <ArrowRight size={11} />
+                  </p>
+                </div>
+              </div>
+
+              {/* Priority Action Orders Alert */}
+              <div className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
+                      <Flame size={16} />
+                    </div>
+                    <span className="text-xs font-black text-slate-900">Priority Orders Awaiting Action</span>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('orders')}
+                    className="text-xs font-bold text-emerald-800 hover:underline flex items-center gap-0.5"
+                  >
+                    View All Queues <ChevronRight size={14} />
+                  </button>
+                </div>
+
+                {orders.filter((o) => o.status === 'pending' || o.status === 'packed').length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-6">
+                    🎉 Outstanding work! No urgent bottlenecks in the warehouse pipeline.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {orders
+                      .filter((o) => o.status === 'pending' || o.status === 'packed')
+                      .slice(0, 4)
+                      .map((ord) => {
+                        const addr = ord.address_id ? addressMap[ord.address_id] : null;
+                        const isPending = ord.status === 'pending';
+                        return (
+                          <div key={ord.id} className="py-2.5 flex items-center justify-between gap-3 first:pt-0 last:pb-0">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black text-slate-900">{ord.order_number}</span>
+                                <span
+                                  className={`text-[9px] font-black uppercase px-2 py-0.2 rounded-full ${
+                                    isPending ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-900'
+                                  }`}
+                                >
+                                  {isPending ? 'Needs Confirm' : 'Needs Driver'}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                {addr?.recipient_name} · ₹{Number(ord.total).toFixed(2)}
+                              </p>
+                            </div>
+
+                            {isPending ? (
+                              <button
+                                onClick={() => void handleConfirmOrder(ord.id)}
+                                className="px-3.5 py-1.5 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white text-xs font-black shrink-0 active:scale-95 transition"
+                              >
+                                Confirm
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setActiveTab('orders');
+                                  setOrderStatusPill('assign_partner');
+                                }}
+                                className="px-3.5 py-1.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shrink-0 active:scale-95 transition"
+                              >
+                                Assign Driver
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+
+              {/* Inventory Health & Low Stock Warning */}
+              <div className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Boxes size={18} className="text-[#0a382c]" />
+                    <span className="text-xs font-black text-slate-900">Inventory Health Status</span>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('low_stock')}
+                    className="text-xs font-bold text-red-600 hover:underline flex items-center gap-0.5"
+                  >
+                    Inspect Low Stock ({lowStockProducts.length}) <ChevronRight size={14} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 border border-slate-200/70 rounded-2xl p-3 text-center">
+                    <p className="text-xs font-bold text-slate-500 uppercase">Total Catalog SKUs</p>
+                    <p className="text-xl font-black text-slate-900 mt-1">{products.length}</p>
+                  </div>
+                  <div className="bg-red-50 border border-red-200/70 rounded-2xl p-3 text-center">
+                    <p className="text-xs font-bold text-red-600 uppercase">Below Threshold</p>
+                    <p className="text-xl font-black text-red-700 mt-1">{lowStockProducts.length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Orders Filter Status Pills (When in Orders Tab) */}
           {activeTab === 'orders' && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
               {orderPills.map((pill) => {
-                const count =
-                  pill.id === 'all' ? orders.length : orders.filter((o) => o.status === pill.id).length;
+                let count = 0;
+                if (pill.id === 'all') count = orders.length;
+                else if (pill.id === 'assign_partner') count = orders.filter((o) => o.status === 'packed').length;
+                else count = orders.filter((o) => o.status === pill.id).length;
+
                 const isActive = orderStatusPill === pill.id;
 
                 return (
                   <button
                     key={pill.id}
                     onClick={() => setOrderStatusPill(pill.id)}
-                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
                       isActive
                         ? 'bg-[#0a382c] text-white shadow-xs'
                         : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -892,7 +1142,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {/* Invoices Tab Comprehensive Date Filters */}
+          {/* Invoices Tab Period Filter */}
           {activeTab === 'invoices' && (
             <div className="bg-white border border-slate-200/80 rounded-[22px] p-3.5 space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
@@ -961,7 +1211,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           ) : (
             <>
-              {/* TAB 1: ORDERS FULFILLMENT (MODERN DELIVERY-STYLE CARDS) */}
+              {/* TAB 2: ORDERS FULFILLMENT WITH 'ASSIGN PARTNER' LIFECYCLE STAGE */}
               {activeTab === 'orders' && (
                 <div className="space-y-4">
                   {filteredOrders.length === 0 ? (
@@ -987,6 +1237,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                         const isProcessing = actionOrderId === ord.id;
                         const isDelivered = ord.status === 'delivered';
                         const isCancelled = ord.status === 'cancelled';
+                        const isPacked = ord.status === 'packed';
                         const isReadyForPickup = ord.status === 'ready_for_pickup';
                         const assignedDriver = drivers.find((d) => d.id === asg?.delivery_partner_id);
                         const isEditingDriver = editingDriverOrderId === ord.id;
@@ -998,7 +1249,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                           <div
                             key={ord.id}
                             className={`bg-white border rounded-[26px] p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.03)] space-y-3.5 flex flex-col justify-between transition-all ${
-                              hasPendingCash
+                              isPacked
+                                ? 'border-emerald-400 ring-2 ring-emerald-100/70'
+                                : hasPendingCash
                                 ? 'border-amber-300 hover:border-amber-400'
                                 : isCancelled
                                 ? 'border-red-200 bg-red-50/10'
@@ -1006,7 +1259,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                             }`}
                           >
                             <div className="space-y-3">
-                              {/* 1. Card Header */}
+                              {/* Order Card Header */}
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex items-center gap-3">
                                   <div className="h-10 w-10 rounded-2xl bg-[#0a382c] text-[#59D9B6] flex items-center justify-center shadow-xs">
@@ -1033,13 +1286,13 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                       ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                       : isReadyForPickup || ord.status === 'out_for_delivery'
                                       ? 'bg-sky-50 text-sky-800 border border-sky-200'
-                                      : ord.status === 'packed'
-                                      ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                      : isPacked
+                                      ? 'bg-emerald-100 text-emerald-950 border border-emerald-300 font-extrabold'
                                       : ord.status === 'confirmed'
                                       ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
                                       : isCancelled
                                       ? 'bg-red-50 text-red-800 border border-red-200'
-                                      : 'bg-emerald-50 text-[#0a382c] border border-emerald-200'
+                                      : 'bg-amber-50 text-amber-800 border border-amber-200'
                                   }`}
                                 >
                                   <span
@@ -1048,14 +1301,16 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                         ? 'bg-emerald-600'
                                         : isCancelled
                                         ? 'bg-red-600'
-                                        : 'bg-emerald-600'
+                                        : isPacked
+                                        ? 'bg-emerald-700 animate-pulse'
+                                        : 'bg-amber-600'
                                     }`}
                                   />
-                                  {ord.status.replace(/_/g, ' ')}
+                                  {isPacked ? 'PACKED (AWAITING DRIVER)' : ord.status.replace(/_/g, ' ')}
                                 </span>
                               </div>
 
-                              {/* 2. Highlighted Doorstep Cash Collection Card */}
+                              {/* Doorstep Cash Collection Card */}
                               <div className="relative overflow-hidden rounded-2xl p-3.5 bg-gradient-to-r from-[#0a4d3a] to-[#0e634b] text-white shadow-sm border border-emerald-600/30">
                                 <div className="flex items-center justify-between relative z-10">
                                   <div className="flex items-start gap-2.5">
@@ -1084,7 +1339,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               </div>
 
-                              {/* 3. Package Items with Eye Button Toggle */}
+                              {/* Package Items with Eye Button Toggle */}
                               <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 space-y-2.5">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
@@ -1146,7 +1401,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               </div>
 
-                              {/* 4. Customer Location Card */}
+                              {/* Customer Location Card */}
                               {addr && (
                                 <div className="rounded-2xl bg-white border border-slate-200/90 p-3 space-y-1.5 shadow-2xs">
                                   <div className="flex items-start gap-2.5">
@@ -1165,32 +1420,29 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               )}
 
-                              {/* 5. Driver Dispatch Section */}
-                              {isReadyForPickup && (
-                                <div className="rounded-2xl bg-slate-50/90 border border-slate-200 p-3 space-y-2">
+                              {/* 3. ASSIGN DELIVERY PARTNER STAGE (Appears when order is packed) */}
+                              {isPacked && (
+                                <div className="rounded-2xl bg-emerald-50/70 border border-emerald-300 p-3 space-y-2.5 animate-in fade-in duration-200">
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs font-black text-slate-700 flex items-center gap-1.5">
-                                      <UserCheck size={14} className="text-[#0a382c]" /> Dispatch Fleet Partner
+                                    <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                                      <UserCheck size={15} className="text-emerald-800" /> Assign Delivery Partner
                                     </span>
-                                    {assignedDriver && !isEditingDriver && (
-                                      <button
-                                        onClick={() => setEditingDriverOrderId(ord.id)}
-                                        className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 hover:underline"
-                                      >
-                                        <Edit2 size={11} /> Change Partner
-                                      </button>
-                                    )}
+                                    <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-200/80 text-emerald-900 px-2.5 py-0.5 rounded-full">
+                                      Packed & Staged
+                                    </span>
                                   </div>
 
-                                  {!assignedDriver || isEditingDriver ? (
-                                    <div className="relative">
+                                  <div className="flex items-center gap-2">
+                                    <div className="relative flex-1">
                                       <select
-                                        value={asg?.delivery_partner_id || ''}
+                                        value={driverSelections[ord.id] || asg?.delivery_partner_id || ''}
                                         disabled={isProcessing}
-                                        onChange={(e) => void handleAssignDriver(ord.id, e.target.value)}
-                                        className="w-full h-9 pl-3 pr-8 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 outline-none focus:border-[#0a382c] appearance-none shadow-2xs"
+                                        onChange={(e) =>
+                                          setDriverSelections((prev) => ({ ...prev, [ord.id]: e.target.value }))
+                                        }
+                                        className="w-full h-10 pl-3 pr-8 rounded-xl bg-white border border-emerald-300 text-xs font-bold text-slate-800 outline-none focus:border-[#0a382c] appearance-none shadow-2xs"
                                       >
-                                        <option value="">-- Select Driver to Dispatch --</option>
+                                        <option value="">-- Choose Partner to Dispatch --</option>
                                         {drivers.map((d) => (
                                           <option key={d.id} value={d.id}>
                                             {d.name} {d.phone ? `(${d.phone})` : ''}
@@ -1199,20 +1451,48 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                       </select>
                                       <ChevronDown
                                         size={14}
-                                        className="absolute right-2.5 top-2.5 text-slate-400 pointer-events-none"
+                                        className="absolute right-3 top-3 text-slate-400 pointer-events-none"
                                       />
                                     </div>
-                                  ) : (
-                                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-2.5">
-                                      <div>
-                                        <p className="text-xs font-black text-slate-900">{assignedDriver.name}</p>
-                                        <p className="text-[10px] text-slate-400 font-semibold">{assignedDriver.phone}</p>
-                                      </div>
-                                      <span className="bg-sky-50 text-sky-800 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-sky-200">
-                                        Assigned
-                                      </span>
+
+                                    <button
+                                      disabled={isProcessing || (!driverSelections[ord.id] && !asg?.delivery_partner_id)}
+                                      onClick={() => {
+                                        const chosen = driverSelections[ord.id] || asg?.delivery_partner_id || '';
+                                        void handleAssignDriver(ord.id, chosen);
+                                      }}
+                                      className="h-10 px-4 rounded-xl bg-[#0a382c] hover:bg-[#082d23] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition disabled:opacity-50"
+                                    >
+                                      {isProcessing ? (
+                                        <Loader2 size={14} className="animate-spin" />
+                                      ) : (
+                                        <>
+                                          <Check size={14} /> Assign & Move to Ready
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Ready for Pickup Stage Info */}
+                              {isReadyForPickup && assignedDriver && (
+                                <div className="rounded-2xl bg-slate-50 border border-slate-200 p-2.5 flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-7 w-7 rounded-lg bg-sky-100 text-sky-800 flex items-center justify-center">
+                                      <Truck size={14} />
                                     </div>
-                                  )}
+                                    <div>
+                                      <p className="text-xs font-black text-slate-900">{assignedDriver.name}</p>
+                                      <p className="text-[10px] text-slate-500">{assignedDriver.phone}</p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => setEditingDriverOrderId(ord.id)}
+                                    className="text-[11px] font-bold text-emerald-700 hover:underline"
+                                  >
+                                    Reassign
+                                  </button>
                                 </div>
                               )}
                             </div>
@@ -1226,10 +1506,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   className="flex-1 h-10 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition disabled:opacity-50"
                                 >
                                   {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                                  Confirm Order
+                                  Confirm & Deduct Stock
                                 </button>
                               )}
 
+                              {/* 3. Confirmed button moves order to 'packed' (Assign Partner stage) */}
                               {ord.status === 'confirmed' && (
                                 <button
                                   disabled={isProcessing}
@@ -1237,18 +1518,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   className="flex-1 h-10 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition disabled:opacity-50"
                                 >
                                   {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
-                                  Mark as Packed
-                                </button>
-                              )}
-
-                              {ord.status === 'packed' && (
-                                <button
-                                  disabled={isProcessing}
-                                  onClick={() => void handleUpdateStatus(ord.id, 'ready_for_pickup')}
-                                  className="flex-1 h-10 rounded-full bg-sky-600 hover:bg-sky-700 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition disabled:opacity-50"
-                                >
-                                  {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                                  Ready for Dispatch
+                                  Mark as Packed (Next: Assign Driver)
                                 </button>
                               )}
 
@@ -1308,7 +1578,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 2: INVOICES TAB */}
+              {/* TAB 3: INVOICES TAB (With 2. Red Pill for Cancelled Invoices) */}
               {activeTab === 'invoices' && (
                 <div className="space-y-4">
                   {filteredInvoices.length === 0 ? (
@@ -1321,13 +1591,18 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                       {paginatedInvoices.map((ord) => {
                         const addr = ord.address_id ? addressMap[ord.address_id] : null;
                         const pay = paymentsMap[ord.id];
+                        const isCancelled = ord.status === 'cancelled';
                         const hasPendingCash = pay && !pay.isFullyPaid && ord.status !== 'delivered' && pay.amountDue > 0;
 
                         return (
                           <div
                             key={ord.id}
                             className={`bg-white border rounded-[24px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between space-y-3 transition ${
-                              hasPendingCash ? 'border-amber-300' : 'border-slate-200/80'
+                              isCancelled
+                                ? 'border-red-300 bg-red-50/10'
+                                : hasPendingCash
+                                ? 'border-amber-300'
+                                : 'border-slate-200/80'
                             }`}
                           >
                             <div className="space-y-2.5">
@@ -1335,7 +1610,22 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <span className="font-black text-sm text-slate-900">{ord.order_number}</span>
-                                    <span className="text-[9.5px] font-black text-slate-600 uppercase px-2 py-0.5 rounded-full bg-slate-100">
+
+                                    {/* 2. Highlighted Red Pill for Cancelled Invoices */}
+                                    <span
+                                      className={`text-[9.5px] font-black uppercase px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                                        isCancelled
+                                          ? 'bg-red-100 text-red-700 border border-red-300 shadow-2xs'
+                                          : ord.status === 'delivered'
+                                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                          : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                      }`}
+                                    >
+                                      <span
+                                        className={`h-1.5 w-1.5 rounded-full ${
+                                          isCancelled ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'
+                                        }`}
+                                      />
                                       {ord.status.replace(/_/g, ' ')}
                                     </span>
                                   </div>
@@ -1443,7 +1733,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 3 & 4: INVENTORY & LOW STOCK */}
+              {/* TAB 4 & 5: INVENTORY & LOW STOCK */}
               {(activeTab === 'inventory' || activeTab === 'low_stock') && (
                 <div>
                   {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
@@ -1501,7 +1791,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                               </span>
                             </div>
 
-                            {/* Tactile Quantity Modifier Controls */}
+                            {/* Quantity Modifier Controls */}
                             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-xs text-slate-400 font-bold mr-1">Qty:</span>
@@ -1575,9 +1865,25 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </main>
       </div>
 
-      {/* Floating Bottom Navigation Bar (Mobile Only) */}
+      {/* 1. SOLID BOTTOM NAVIGATION BAR (Includes Dashboard) */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom md:hidden">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
+          {/* Dashboard Item */}
+          <button
+            onClick={() => {
+              setActiveTab('dashboard');
+              setSearchQuery('');
+            }}
+            className={`flex flex-col items-center justify-center flex-1 h-full gap-1 relative transition-colors ${
+              activeTab === 'dashboard' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
+            }`}
+          >
+            <LayoutDashboard size={19} strokeWidth={activeTab === 'dashboard' ? 2.5 : 2} />
+            <span className="text-[10px] font-black tracking-tight">Dashboard</span>
+            {activeTab === 'dashboard' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
+          </button>
+
+          {/* Orders Item */}
           <button
             onClick={() => {
               setActiveTab('orders');
@@ -1597,6 +1903,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             )}
           </button>
 
+          {/* Invoices Item */}
           <button
             onClick={() => {
               setActiveTab('invoices');
@@ -1611,6 +1918,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             {activeTab === 'invoices' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
           </button>
 
+          {/* Inventory Item */}
           <button
             onClick={() => {
               setActiveTab('inventory');
@@ -1623,13 +1931,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             <Boxes size={19} strokeWidth={activeTab === 'inventory' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Inventory</span>
             {activeTab === 'inventory' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
-            {products.length > 0 && (
-              <span className="absolute top-1.5 right-3.5 bg-slate-200 text-slate-800 text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
-                {products.length}
-              </span>
-            )}
           </button>
 
+          {/* Low Stock Item */}
           <button
             onClick={() => {
               setActiveTab('low_stock');
@@ -1651,7 +1955,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       </nav>
 
-      {/* Package Contents Inspection Modal */}
+      {/* Package Inspection Modal */}
       {inspectOrderId && !expandedOrderItems[inspectOrderId] && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-[28px] max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">

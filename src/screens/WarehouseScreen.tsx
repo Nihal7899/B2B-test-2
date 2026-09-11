@@ -13,6 +13,7 @@ import {
   Search,
   UserCheck,
   Eye,
+  EyeOff,
   X,
   FileText,
   Check,
@@ -30,6 +31,11 @@ import {
   ChevronRight,
   Calendar,
   Filter,
+  Truck,
+  Sparkles,
+  ArrowRight,
+  Store,
+  Layers,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
@@ -84,6 +90,138 @@ type InvoiceDatePreset = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'cus
 const ORDERS_PER_PAGE = 12;
 const INVOICES_PER_PAGE = 12;
 
+// Exact CafKart Vector Logo
+function CafKartLogo({ className = 'h-8 w-8' }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 1536 1535"
+      className={className}
+      fill="none"
+    >
+      <defs>
+        <linearGradient id="ckWarehouseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#59D9B6" />
+          <stop offset="100%" stopColor="#34d399" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
+        fill="#FFFFFF"
+        fillRule="evenodd"
+      />
+      <path
+        d="M 169 1186 L 169 1199 170 1200 170 1203 171 1204 171 1205 173 1208 173 1210 176 1213 176 1214 177 1215 178 1215 179 1216 179 1217 180 1218 181 1218 184 1221 185 1221 187 1223 188 1223 191 1225 194 1225 195 1226 206 1226 207 1227 372 1227 373 1226 392 1226 393 1225 395 1225 396 1224 398 1224 399 1223 400 1223 402 1221 403 1221 405 1219 406 1219 411 1214 411 1213 412 1212 412 1211 414 1209 414 1208 416 1205 416 1203 417 1202 417 1200 418 1199 418 1186 417 1185 417 1183 416 1182 416 1180 415 1179 415 1178 414 1177 414 1176 413 1175 413 1174 411 1172 411 1171 407 1167 407 1166 406 1166 405 1165 404 1165 402 1163 401 1163 398 1161 396 1161 393 1159 194 1159 191 1161 189 1161 188 1162 187 1162 186 1163 185 1163 183 1165 182 1165 176 1171 176 1172 173 1175 173 1177 172 1178 172 1179 170 1182 170 1185 Z M 987 1142 L 986 1143 981 1143 980 1144 977 1144 976 1145 974 1145 973 1146 970 1146 969 1147 968 1147 967 1148 966 1148 965 1149 964 1149 963 1150 962 1150 961 1151 960 1151 959 1152 958 1152 956 1154 955 1154 953 1156 952 1156 949 1159 948 1159 935 1172 935 1173 933 1175 933 1176 931 1178 931 1179 930 1180 930 1181 929 1182 929 1183 928 1184 928 1185 927 1186 927 1188 925 1190 925 1192 924 1193 924 1196 923 1197 923 1199 922 1200 922 1203 921 1204 921 1231 922 1232 922 1235 923 1236 923 1238 924 1239 924 1242 925 1243 925 1245 927 1247 927 1249 928 1250 928 1251 930 1253 930 1254 931 1255 931 1256 934 1259 934 1260 939 1265 939 1266 949 1276 950 1276 953 1279 954 1279 955 1280 956 1280 958 1282 959 1282 960 1283 962 1283 964 1285 966 1285 967 1286 969 1286 970 1287 971 1287 972 1288 973 1288 974 1289 979 1289 980 1290 983 1290 984 1291 990 1291 991 1292 1002 1292 1003 1291 1007 1291 1008 1290 1012 1290 1013 1289 1017 1289 1018 1288 1020 1288 1021 1287 1023 1287 1024 1286 1026 1286 1027 1285 1028 1285 1029 1284 1030 1284 1031 1283 1033 1283 1034 1282 1035 1282 1037 1280 1038 1280 1041 1277 1042 1277 1046 1273 1047 1273 1055 1265 1055 1264 1056 1263 1057 1263 1057 1262 1060 1259 1060 1258 1062 1256 1062 1255 1064 1253 1064 1252 1065 1251 1065 1250 1066 1249 1066 1248 1067 1247 1067 1246 1068 1245 1068 1243 1069 1242 1069 1240 1070 1239 1070 1237 1071 1236 1071 1232 1072 1231 1072 1204 1071 1203 1071 1199 1070 1198 1070 1196 1069 1195 1069 1193 1068 1192 1068 1190 1067 1189 1067 1188 1066 1187 1066 1185 1065 1184 1065 1183 1064 1182 1064 1181 1063 1180 1063 1179 1061 1177 1061 1176 1058 1174 1058 1173 1055 1170 1055 1169 1044 1158 1043 1158 1040 1155 1039 1155 1038 1154 1037 1154 1035 1152 1034 1152 1033 1151 1032 1151 1031 1150 1030 1150 1029 1149 1028 1149 1027 1148 1025 1148 1024 1147 1023 1147 1022 1146 1018 1146 1017 1145 1015 1145 1014 1144 1011 1144 1010 1143 1006 1143 1005 1142 Z M 634 1142 L 633 1143 629 1143 628 1144 626 1144 625 1145 622 1145 621 1146 618 1146 617 1147 616 1147 615 1148 613 1148 612 1149 610 1149 609 1150 608 1150 606 1152 604 1152 601 1155 600 1155 597 1158 596 1158 582 1172 582 1173 580 1175 580 1176 578 1178 578 1179 577 1180 577 1181 576 1182 576 1183 575 1184 575 1185 574 1186 574 1188 573 1189 573 1190 572 1191 572 1193 571 1194 571 1197 570 1198 570 1200 569 1201 569 1204 568 1205 568 1231 569 1232 569 1234 570 1235 570 1238 571 1239 571 1241 572 1242 572 1244 573 1245 573 1246 574 1247 574 1248 575 1249 575 1250 576 1251 576 1252 578 1254 578 1255 580 1257 580 1258 583 1261 583 1262 587 1266 587 1267 593 1273 594 1273 598 1277 599 1277 602 1280 603 1280 605 1282 606 1282 607 1283 608 1283 609 1284 610 1284 611 1285 612 1285 613 1286 616 1286 617 1287 618 1287 619 1288 621 1288 622 1289 626 1289 627 1290 631 1290 632 1291 639 1291 640 1292 647 1292 648 1291 654 1291 655 1290 659 1290 660 1289 664 1289 665 1288 667 1288 668 1287 670 1287 671 1286 673 1286 674 1285 675 1285 676 1284 677 1284 678 1283 680 1283 681 1282 682 1282 684 1280 685 1280 686 1279 687 1279 693 1273 694 1273 695 1272 695 1271 697 1269 698 1269 698 1268 703 1263 703 1262 706 1259 706 1258 708 1256 708 1255 711 1252 711 1251 712 1250 712 1248 714 1246 714 1244 715 1243 715 1240 716 1239 716 1236 717 1235 717 1233 718 1232 718 1226 719 1225 719 1207 718 1206 718 1201 717 1200 717 1198 716 1197 716 1195 715 1194 715 1191 714 1190 714 1189 713 1188 713 1187 712 1186 712 1184 711 1183 711 1182 709 1180 709 1179 707 1177 707 1176 704 1173 704 1172 699 1167 699 1166 694 1161 693 1161 689 1157 688 1157 686 1155 685 1155 682 1152 680 1152 678 1150 677 1150 676 1149 674 1149 673 1148 672 1148 671 1147 670 1147 669 1146 666 1146 665 1145 663 1145 662 1144 660 1144 659 1143 655 1143 654 1142 Z M 48 1054 L 48 1068 49 1069 49 1072 50 1073 50 1074 52 1077 52 1079 54 1081 54 1082 55 1083 55 1084 61 1090 62 1090 63 1091 64 1091 66 1093 68 1093 69 1094 71 1094 72 1095 75 1095 76 1096 267 1096 268 1095 271 1095 272 1094 274 1094 275 1093 276 1093 277 1092 278 1092 280 1090 281 1090 286 1085 287 1085 287 1084 290 1081 290 1080 291 1079 291 1078 293 1076 293 1075 294 1074 294 1071 295 1070 295 1068 296 1067 296 1055 295 1054 295 1052 294 1051 294 1049 293 1048 293 1047 291 1045 291 1044 290 1043 290 1042 287 1039 287 1038 286 1038 282 1034 281 1034 279 1032 278 1032 275 1030 273 1030 270 1028 74 1028 73 1029 71 1029 68 1031 66 1031 65 1032 64 1032 61 1035 60 1035 54 1041 54 1042 52 1044 52 1045 51 1046 51 1048 50 1049 50 1050 49 1051 49 1053 Z M 1315 281 L 1292 287 1277 294 1248 318 856 713 846 730 843 745 849 768 855 776 1287 1207 1311 1220 1340 1227 1460 1227 1474 1224 1483 1219 1492 1210 1496 1202 1497 1185 1487 1165 1069 746 1072 739 1447 364 1453 355 1459 336 1459 324 1456 313 1450 303 1430 287 1402 280 Z"
+        fill="url(#ckWarehouseGrad)"
+        fillRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+// Custom Isometric Automated Warehouse SVG Graphic
+function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 250 120"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <defs>
+        <linearGradient id="whBuildingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#0d523f" />
+          <stop offset="100%" stopColor="#04261c" />
+        </linearGradient>
+        <linearGradient id="whRoofGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#1a6e50" />
+          <stop offset="100%" stopColor="#0b4533" />
+        </linearGradient>
+        <linearGradient id="whGlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#59D9B6" stopOpacity="0" />
+          <stop offset="100%" stopColor="#59D9B6" stopOpacity="0.8" />
+        </linearGradient>
+      </defs>
+
+      {/* Ground Shadow */}
+      <ellipse cx="155" cy="110" rx="82" ry="7" fill="#011912" fillOpacity="0.65" />
+
+      {/* Main Distribution Center Building */}
+      <path
+        d="M 68 44 L 140 20 L 212 44 L 212 96 L 68 96 Z"
+        fill="url(#whBuildingGrad)"
+        stroke="#1a6e50"
+        strokeWidth="1.5"
+      />
+
+      {/* Overhanging Modern Canopy Roof */}
+      <path
+        d="M 62 44 L 140 18 L 218 44 L 140 50 Z"
+        fill="url(#whRoofGrad)"
+        stroke="#59D9B6"
+        strokeWidth="1.2"
+      />
+
+      {/* Solar/Skylight Panels */}
+      <polygon points="100,32 135,22 135,28 100,38" fill="#59D9B6" fillOpacity="0.3" />
+      <polygon points="145,22 180,32 180,38 145,28" fill="#59D9B6" fillOpacity="0.3" />
+
+      {/* Warehouse Logistics Dock Roller Doors */}
+      {/* Bay 1 */}
+      <rect x="80" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
+      <line x1="80" y1="64" x2="114" y2="64" stroke="#0e4330" strokeWidth="1" />
+      <line x1="80" y1="72" x2="114" y2="72" stroke="#0e4330" strokeWidth="1" />
+      <line x1="80" y1="80" x2="114" y2="80" stroke="#0e4330" strokeWidth="1" />
+      <line x1="80" y1="88" x2="114" y2="88" stroke="#0e4330" strokeWidth="1" />
+      <rect x="94" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
+
+      {/* Bay 2 (With Staged Pallet Box) */}
+      <rect x="123" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
+      <line x1="123" y1="64" x2="157" y2="64" stroke="#0e4330" strokeWidth="1" />
+      <line x1="123" y1="72" x2="157" y2="72" stroke="#0e4330" strokeWidth="1" />
+      <line x1="123" y1="80" x2="157" y2="80" stroke="#0e4330" strokeWidth="1" />
+      <line x1="123" y1="88" x2="157" y2="88" stroke="#0e4330" strokeWidth="1" />
+      <rect x="137" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
+
+      {/* Bay 3 */}
+      <rect x="166" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
+      <line x1="166" y1="64" x2="200" y2="64" stroke="#0e4330" strokeWidth="1" />
+      <line x1="166" y1="72" x2="200" y2="72" stroke="#0e4330" strokeWidth="1" />
+      <line x1="166" y1="80" x2="200" y2="80" stroke="#0e4330" strokeWidth="1" />
+      <line x1="166" y1="88" x2="200" y2="88" stroke="#0e4330" strokeWidth="1" />
+      <rect x="180" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
+
+      {/* Pallet Stacks Outside Bay 1 */}
+      <g transform="translate(42, 74)">
+        <rect x="0" y="8" width="22" height="14" rx="2" fill="#d97706" stroke="#f59e0b" strokeWidth="1" />
+        <line x1="11" y1="8" x2="11" y2="22" stroke="#b45309" strokeWidth="1" />
+        <rect x="3" y="0" width="16" height="9" rx="1.5" fill="#f59e0b" />
+      </g>
+
+      {/* Forklift Silhouette Moving Goods */}
+      <g transform="translate(15, 80)">
+        <rect x="4" y="6" width="14" height="10" rx="2" fill="#FFFFFF" />
+        <rect x="0" y="10" width="5" height="6" fill="#FFFFFF" />
+        <line x1="18" y1="2" x2="18" y2="16" stroke="#59D9B6" strokeWidth="2" />
+        <line x1="18" y1="14" x2="24" y2="14" stroke="#59D9B6" strokeWidth="2" />
+        <circle cx="6" cy="16" r="3" fill="#0f172a" />
+        <circle cx="15" cy="16" r="3" fill="#0f172a" />
+      </g>
+
+      {/* Warehouse Central Badge Logo Mark */}
+      <circle cx="140" cy="38" r="9" fill="#032117" stroke="#59D9B6" strokeWidth="1.2" />
+      <path d="M 137 38 L 139 36 L 144 41" stroke="#59D9B6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+      {/* Live Hub Radar Signal */}
+      <g transform="translate(216, 20)">
+        <circle cx="8" cy="8" r="7.5" fill="#063a2c" stroke="#59D9B6" strokeWidth="1.5" />
+        <circle cx="8" cy="8" r="3" fill="#59D9B6" />
+        <line x1="8" y1="12" x2="8" y2="17" stroke="#59D9B6" strokeWidth="2" strokeLinecap="round" />
+      </g>
+    </svg>
+  );
+}
+
 export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseScreenProps) {
   const { logout, profile } = useAuth();
   const [activeTab, setActiveTab] = useState<'orders' | 'invoices' | 'inventory' | 'low_stock'>('orders');
@@ -121,6 +259,20 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [refreshing, setRefreshing] = useState(false);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Per-order inline expandable items toggle
+  const [expandedOrderItems, setExpandedOrderItems] = useState<Record<string, boolean>>({});
+
+  const toggleOrderInlineItems = async (orderId: string) => {
+    const isCurrentlyExpanded = !!expandedOrderItems[orderId];
+    if (!isCurrentlyExpanded && inspectOrderId !== orderId) {
+      void openItemInspection(orderId);
+    }
+    setExpandedOrderItems((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  };
 
   const isStaffUnregistered = !profile?.staff_registration_status || profile.staff_registration_status === 'unregistered';
 
@@ -506,152 +658,193 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     });
   }, [products, searchQuery]);
 
+  // Warehouse Operational Metrics
+  const metrics = useMemo(() => {
+    const pending = orders.filter((o) => o.status === 'pending').length;
+    const confirmed = orders.filter((o) => o.status === 'confirmed' || o.status === 'packed').length;
+    const ready = orders.filter((o) => o.status === 'ready_for_pickup').length;
+    const out = orders.filter((o) => o.status === 'out_for_delivery').length;
+    return { pending, confirmed, ready, out };
+  }, [orders]);
+
+  const managerDisplayName =
+    profile?.full_name?.trim() ||
+    profile?.personal_name?.trim() ||
+    profile?.business_name?.trim() ||
+    'Warehouse Manager';
+
+  const timeGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }, []);
+
   return (
-    <div className="min-h-screen bg-[#f8faf9] flex flex-col justify-between pb-28 md:pb-16">
+    <div className="min-h-screen bg-[#f4f7f5] flex flex-col justify-between pb-28 md:pb-16">
       <div>
-        {/* Sticky Solid Dark Green Header with Direct SVG Logo */}
-        <header className="sticky top-0 z-30 bg-[#0a382c] text-white pt-[max(1rem,env(safe-area-inset-top))] pb-4 px-4 sm:px-6 shadow-md border-b border-[#0f4d3d]">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              {!isDedicatedRole && onBack && (
-                <button
-                  onClick={onBack}
-                  className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center text-white active:scale-95 transition-transform"
-                >
-                  <ArrowLeft size={18} />
-                </button>
-              )}
+        {/* COMPACT STICKY HEADER WITH CAFKART LOGO & WAREHOUSE FACILITY GRAPHIC */}
+        <header className="sticky top-0 z-40 bg-gradient-to-b from-[#063a2c] via-[#084534] to-[#0a4d3b] text-white pt-[max(0.4rem,env(safe-area-inset-top))] pb-2.5 px-4 sm:px-6 shadow-md rounded-b-[26px] border-b border-[#0d5944] overflow-hidden">
+          <div className="max-w-7xl mx-auto flex items-start justify-between gap-2">
+            {/* Left Column: Logo + Manager Greeting */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 select-none">
+                {!isDedicatedRole && onBack && (
+                  <button
+                    onClick={onBack}
+                    className="h-7 w-7 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center text-white active:scale-95 transition-transform shrink-0"
+                  >
+                    <ArrowLeft size={14} />
+                  </button>
+                )}
 
-              <div className="flex items-center gap-3 select-none">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 1536 1535"
-                  className="h-11 w-11 sm:h-12 sm:w-12 shrink-0 drop-shadow-sm"
-                  fill="none"
-                >
-                  <defs>
-                    <linearGradient id="warehouseGreenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#59D9B6" />
-                      <stop offset="100%" stopColor="#58D5A5" />
-                    </linearGradient>
-                  </defs>
-                  <path
-                    d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
-                    fill="#FFFFFF"
-                    fillRule="evenodd"
-                  />
-                  <path
-                    d="M 169 1186 L 169 1199 170 1200 170 1203 171 1204 171 1205 173 1208 173 1210 176 1213 176 1214 177 1215 178 1215 179 1216 179 1217 180 1218 181 1218 184 1221 185 1221 187 1223 188 1223 191 1225 194 1225 195 1226 206 1226 207 1227 372 1227 373 1226 392 1226 393 1225 395 1225 396 1224 398 1224 399 1223 400 1223 402 1221 403 1221 405 1219 406 1219 411 1214 411 1213 412 1212 412 1211 414 1209 414 1208 416 1205 416 1203 417 1202 417 1200 418 1199 418 1186 417 1185 417 1183 416 1182 416 1180 415 1179 415 1178 414 1177 414 1176 413 1175 413 1174 411 1172 411 1171 407 1167 407 1166 406 1166 405 1165 404 1165 402 1163 401 1163 398 1161 396 1161 393 1159 194 1159 191 1161 189 1161 188 1162 187 1162 186 1163 185 1163 183 1165 182 1165 176 1171 176 1172 173 1175 173 1177 172 1178 172 1179 170 1182 170 1185 Z M 987 1142 L 986 1143 981 1143 980 1144 977 1144 976 1145 974 1145 973 1146 970 1146 969 1147 968 1147 967 1148 966 1148 965 1149 964 1149 963 1150 962 1150 961 1151 960 1151 959 1152 958 1152 956 1154 955 1154 953 1156 952 1156 949 1159 948 1159 935 1172 935 1173 933 1175 933 1176 931 1178 931 1179 930 1180 930 1181 929 1182 929 1183 928 1184 928 1185 927 1186 927 1188 925 1190 925 1192 924 1193 924 1196 923 1197 923 1199 922 1200 922 1203 921 1204 921 1231 922 1232 922 1235 923 1236 923 1238 924 1239 924 1242 925 1243 925 1245 927 1247 927 1249 928 1250 928 1251 930 1253 930 1254 931 1255 931 1256 934 1259 934 1260 939 1265 939 1266 949 1276 950 1276 953 1279 954 1279 955 1280 956 1280 958 1282 959 1282 960 1283 962 1283 964 1285 966 1285 967 1286 969 1286 970 1287 971 1287 972 1288 973 1288 974 1289 979 1289 980 1290 983 1290 984 1291 990 1291 991 1292 1002 1292 1003 1291 1007 1291 1008 1290 1012 1290 1013 1289 1017 1289 1018 1288 1020 1288 1021 1287 1023 1287 1024 1286 1026 1286 1027 1285 1028 1285 1029 1284 1030 1284 1031 1283 1033 1283 1034 1282 1035 1282 1037 1280 1038 1280 1041 1277 1042 1277 1046 1273 1047 1273 1055 1265 1055 1264 1056 1263 1057 1263 1057 1262 1060 1259 1060 1258 1062 1256 1062 1255 1064 1253 1064 1252 1065 1251 1065 1250 1066 1249 1066 1248 1067 1247 1067 1246 1068 1245 1068 1243 1069 1242 1069 1240 1070 1239 1070 1237 1071 1236 1071 1232 1072 1231 1072 1204 1071 1203 1071 1199 1070 1198 1070 1196 1069 1195 1069 1193 1068 1192 1068 1190 1067 1189 1067 1188 1066 1187 1066 1185 1065 1184 1065 1183 1064 1182 1064 1181 1063 1180 1063 1179 1061 1177 1061 1176 1058 1174 1058 1173 1055 1170 1055 1169 1044 1158 1043 1158 1040 1155 1039 1155 1038 1154 1037 1154 1035 1152 1034 1152 1033 1151 1032 1151 1031 1150 1030 1150 1029 1149 1028 1149 1027 1148 1025 1148 1024 1147 1023 1147 1022 1146 1018 1146 1017 1145 1015 1145 1014 1144 1011 1144 1010 1143 1006 1143 1005 1142 Z M 634 1142 L 633 1143 629 1143 628 1144 626 1144 625 1145 622 1145 621 1146 618 1146 617 1147 616 1147 615 1148 613 1148 612 1149 610 1149 609 1150 608 1150 606 1152 604 1152 601 1155 600 1155 597 1158 596 1158 582 1172 582 1173 580 1175 580 1176 578 1178 578 1179 577 1180 577 1181 576 1182 576 1183 575 1184 575 1185 574 1186 574 1188 573 1189 573 1190 572 1191 572 1193 571 1194 571 1197 570 1198 570 1200 569 1201 569 1204 568 1205 568 1231 569 1232 569 1234 570 1235 570 1238 571 1239 571 1241 572 1242 572 1244 573 1245 573 1246 574 1247 574 1248 575 1249 575 1250 576 1251 576 1252 578 1254 578 1255 580 1257 580 1258 583 1261 583 1262 587 1266 587 1267 593 1273 594 1273 598 1277 599 1277 602 1280 603 1280 605 1282 606 1282 607 1283 608 1283 609 1284 610 1284 611 1285 612 1285 613 1286 616 1286 617 1287 618 1287 619 1288 621 1288 622 1289 626 1289 627 1290 631 1290 632 1291 639 1291 640 1292 647 1292 648 1291 654 1291 655 1290 659 1290 660 1289 664 1289 665 1288 667 1288 668 1287 670 1287 671 1286 673 1286 674 1285 675 1285 676 1284 677 1284 678 1283 680 1283 681 1282 682 1282 684 1280 685 1280 686 1279 687 1279 693 1273 694 1273 695 1272 695 1271 697 1269 698 1269 698 1268 703 1263 703 1262 706 1259 706 1258 708 1256 708 1255 711 1252 711 1251 712 1250 712 1248 714 1246 714 1244 715 1243 715 1240 716 1239 716 1236 717 1235 717 1233 718 1232 718 1226 719 1225 719 1207 718 1206 718 1201 717 1200 717 1198 716 1197 716 1195 715 1194 715 1191 714 1190 714 1189 713 1188 713 1187 712 1186 712 1184 711 1183 711 1182 709 1180 709 1179 707 1177 707 1176 704 1173 704 1172 699 1167 699 1166 694 1161 693 1161 689 1157 688 1157 686 1155 685 1155 682 1152 680 1152 678 1150 677 1150 676 1149 674 1149 673 1148 672 1148 671 1147 670 1147 669 1146 666 1146 665 1145 663 1145 662 1144 660 1144 659 1143 655 1143 654 1142 Z M 48 1054 L 48 1068 49 1069 49 1072 50 1073 50 1074 52 1077 52 1079 54 1081 54 1082 55 1083 55 1084 61 1090 62 1090 63 1091 64 1091 66 1093 68 1093 69 1094 71 1094 72 1095 75 1095 76 1096 267 1096 268 1095 271 1095 272 1094 274 1094 275 1093 276 1093 277 1092 278 1092 280 1090 281 1090 286 1085 287 1085 287 1084 290 1081 290 1080 291 1079 291 1078 293 1076 293 1075 294 1074 294 1071 295 1070 295 1068 296 1067 296 1055 295 1054 295 1052 294 1051 294 1049 293 1048 293 1047 291 1045 291 1044 290 1043 290 1042 287 1039 287 1038 286 1038 282 1034 281 1034 279 1032 278 1032 275 1030 273 1030 270 1028 74 1028 73 1029 71 1029 68 1031 66 1031 65 1032 64 1032 61 1035 60 1035 54 1041 54 1042 52 1044 52 1045 51 1046 51 1048 50 1049 50 1050 49 1051 49 1053 Z M 1315 281 L 1292 287 1277 294 1248 318 856 713 846 730 843 745 849 768 855 776 1287 1207 1311 1220 1340 1227 1460 1227 1474 1224 1483 1219 1492 1210 1496 1202 1497 1185 1487 1165 1069 746 1072 739 1447 364 1453 355 1459 336 1459 324 1456 313 1450 303 1430 287 1402 280 Z"
-                    fill="url(#warehouseGreenGrad)"
-                    fillRule="evenodd"
-                  />
-                </svg>
-
-                <div className="flex flex-col justify-center">
-                  <div className="flex items-center gap-1.5 leading-none">
-                    <span className="text-xl font-black tracking-tight text-white font-sans">Caf</span>
-                    <span className="text-xl font-black tracking-tight text-[#59D9B6] font-sans">Kart</span>
-                    <span className="ml-1 inline-flex items-center gap-1 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-[#59D9B6] border border-emerald-400/30">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#59D9B6] animate-pulse" />
-                      ONLINE
-                    </span>
-                  </div>
-                  <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-emerald-200/90 mt-1">
-                    WAREHOUSE OPERATIONS
+                <CafKartLogo className="h-7 w-7 shrink-0 drop-shadow-xs" />
+                <div className="flex items-baseline gap-1 leading-none">
+                  <span className="text-base font-black tracking-tight text-white">Caf</span>
+                  <span className="text-base font-black tracking-tight text-[#59D9B6]">Kart</span>
+                  <span className="text-[7.5px] font-black uppercase tracking-[0.16em] text-emerald-300/80 ml-1">
+                    WAREHOUSE
                   </span>
                 </div>
               </div>
+
+              {/* Greeting immediately stacked with zero vertical fluff */}
+              <div className="mt-1">
+                <p className="text-[10.5px] font-medium text-emerald-200/90 leading-tight">
+                  {timeGreeting},
+                </p>
+                <h1 className="text-base sm:text-lg font-black text-white tracking-tight truncate leading-tight mt-0.5">
+                  {managerDisplayName}
+                </h1>
+                <p className="text-[9.5px] font-medium text-emerald-300/80 leading-tight flex items-center gap-1 mt-0.5">
+                  Fulfillment & Inventory Hub 📦
+                </p>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center text-emerald-200 active:scale-95 transition-transform"
-                title="Refresh Queue"
-              >
-                <RefreshCw size={17} className={refreshing ? 'animate-spin text-white' : ''} />
-              </button>
+            {/* Right Column: Online pill, actions & custom Warehouse SVG */}
+            <div className="flex flex-col items-end shrink-0 w-[46%] max-w-[190px]">
+              <div className="flex items-center gap-1.5">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-[#59D9B6] border border-emerald-400/30 text-[9.5px] font-black tracking-wide">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#59D9B6] animate-pulse" />
+                  ONLINE
+                </div>
 
-              {isDedicatedRole && (
                 <button
-                  onClick={() => void logout({ scope: 'local' })}
-                  className="h-10 px-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-200 flex items-center gap-1.5 text-xs font-bold active:scale-95 transition-transform"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="h-6 w-6 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center text-emerald-200 active:scale-95 transition-transform"
+                  title="Refresh Queue"
                 >
-                  <LogOut size={16} />
-                  <span className="hidden sm:inline">Sign Out</span>
+                  <RefreshCw size={12} className={refreshing ? 'animate-spin text-white' : ''} />
                 </button>
-              )}
+
+                {isDedicatedRole && (
+                  <button
+                    onClick={() => void logout({ scope: 'local' })}
+                    className="h-6 px-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-200 flex items-center gap-1 text-[10px] font-bold active:scale-95 transition-transform"
+                    title="Sign Out"
+                  >
+                    <LogOut size={11} />
+                    <span className="hidden sm:inline">Exit</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Warehouse Graphic right below Online Pill */}
+              <div className="w-full -mr-2 -mt-1 scale-105 origin-top-right transition-transform pointer-events-none">
+                <WarehouseFacilityGraphic className="w-full h-auto drop-shadow-md" />
+              </div>
             </div>
           </div>
         </header>
 
-        {/* Content Body */}
-        <main className="px-4 lg:px-8 pt-4 max-w-7xl mx-auto space-y-4">
-          {/* Desktop Navigation Tabs Switcher */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="hidden md:grid grid-cols-4 gap-1 bg-slate-200/70 p-1 rounded-2xl w-auto">
-              <button
-                onClick={() => {
-                  setActiveTab('orders');
-                  setSearchQuery('');
-                }}
-                className={`flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'orders' ? 'bg-white text-[#0a382c] shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Package size={15} />
-                <span>Orders ({orders.length})</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab('invoices');
-                  setSearchQuery('');
-                }}
-                className={`flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'invoices' ? 'bg-white text-[#0a382c] shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <FileText size={15} />
-                <span>Invoices</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab('inventory');
-                  setSearchQuery('');
-                }}
-                className={`flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'inventory' ? 'bg-white text-[#0a382c] shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Boxes size={15} />
-                <span>Inventory ({products.length})</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab('low_stock');
-                  setSearchQuery('');
-                }}
-                className={`flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl text-xs font-bold transition-all relative ${
-                  activeTab === 'low_stock' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <AlertTriangle size={15} />
-                <span>Low Stock</span>
-                {lowStockProducts.length > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full ml-0.5">
-                    {lowStockProducts.length}
-                  </span>
-                )}
-              </button>
+        {/* Main Content Body */}
+        <main className="px-4 lg:px-8 pt-3.5 max-w-7xl mx-auto space-y-4">
+          {/* Operational Metrics Strip (Modern Fintech Cards) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="bg-white border border-slate-200/80 rounded-[20px] p-3.5 shadow-sm space-y-1 hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">New Orders</span>
+                <div className="h-6 w-6 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/60">
+                  <Clock size={13} />
+                </div>
+              </div>
+              <p className="text-lg font-black text-slate-900">{metrics.pending}</p>
+              <p className="text-[10px] text-amber-700 font-bold">Needs Confirmation</p>
             </div>
 
-            {/* Global Search Bar */}
+            <div className="bg-white border border-slate-200/80 rounded-[20px] p-3.5 shadow-sm space-y-1 hover:border-blue-300 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Packing Line</span>
+                <div className="h-6 w-6 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200/60">
+                  <Package size={13} />
+                </div>
+              </div>
+              <p className="text-lg font-black text-slate-900">{metrics.confirmed}</p>
+              <p className="text-[10px] text-blue-700 font-bold">Confirmed / Staging</p>
+            </div>
+
+            <div className="bg-white border border-slate-200/80 rounded-[20px] p-3.5 shadow-sm space-y-1 hover:border-emerald-300 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Ready Dispatch</span>
+                <div className="h-6 w-6 rounded-lg bg-emerald-50 text-[#0a382c] flex items-center justify-center border border-emerald-200/60">
+                  <CheckCircle2 size={13} />
+                </div>
+              </div>
+              <p className="text-lg font-black text-slate-900">{metrics.ready}</p>
+              <p className="text-[10px] text-emerald-700 font-bold">Waiting for Driver</p>
+            </div>
+
+            <div className="bg-white border border-slate-200/80 rounded-[20px] p-3.5 shadow-sm space-y-1 hover:border-sky-300 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Out for Delivery</span>
+                <div className="h-6 w-6 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/60">
+                  <Truck size={13} />
+                </div>
+              </div>
+              <p className="text-lg font-black text-slate-900">{metrics.out}</p>
+              <p className="text-[10px] text-sky-700 font-bold">In-Transit Runs</p>
+            </div>
+          </div>
+
+          {/* Desktop Tab Switcher & Search Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+            <div className="hidden md:flex items-center gap-1.5 bg-slate-200/70 p-1 rounded-2xl w-auto">
+              {[
+                { id: 'orders', label: `Orders (${orders.length})`, icon: Package },
+                { id: 'invoices', label: 'Invoices', icon: FileText },
+                { id: 'inventory', label: `Inventory (${products.length})`, icon: Boxes },
+                { id: 'low_stock', label: 'Low Stock', icon: AlertTriangle, count: lowStockProducts.length },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id as any);
+                      setSearchQuery('');
+                    }}
+                    className={`flex items-center gap-2 py-2 px-4 rounded-xl text-xs font-black transition-all ${
+                      isActive ? 'bg-[#0a382c] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon size={14} />
+                    <span>{tab.label}</span>
+                    {tab.count !== undefined && tab.count > 0 && (
+                      <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Search Input Bar */}
             <div className="relative w-full md:w-80">
-              <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
+              <Search size={15} className="absolute left-3.5 top-3 text-slate-400" />
               <input
                 type="text"
                 placeholder={
@@ -661,12 +854,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-11 pl-10 pr-4 rounded-xl bg-white border border-slate-200 text-xs font-semibold outline-none focus:border-[#0a382c] shadow-xs transition"
+                className="w-full h-10 pl-9 pr-4 rounded-xl bg-white border border-slate-200 text-xs font-semibold outline-none focus:border-[#0a382c] shadow-2xs transition"
               />
             </div>
           </div>
 
-          {/* Orders Tab Status Filter Pills */}
+          {/* Orders Filter Status Pills */}
           {activeTab === 'orders' && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
               {orderPills.map((pill) => {
@@ -678,7 +871,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   <button
                     key={pill.id}
                     onClick={() => setOrderStatusPill(pill.id)}
-                    className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
                       isActive
                         ? 'bg-[#0a382c] text-white shadow-xs'
                         : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -686,7 +879,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   >
                     <span>{pill.label}</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                      className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
                         isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
                       }`}
                     >
@@ -700,31 +893,31 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
           {/* Invoices Tab Comprehensive Date Filters */}
           {activeTab === 'invoices' && (
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-3.5 space-y-3 shadow-xs">
+            <div className="bg-white border border-slate-200/80 rounded-[22px] p-3.5 space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
-                  <Filter size={14} className="text-[#0a382c]" /> Filter Invoices by Date
+                <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                  <Filter size={14} className="text-[#0a382c]" /> Filter Invoices by Period
                 </span>
                 <span className="text-[11px] font-bold text-slate-400">
-                  {filteredInvoices.length} {filteredInvoices.length === 1 ? 'invoice' : 'invoices'} found
+                  {filteredInvoices.length} {filteredInvoices.length === 1 ? 'invoice' : 'invoices'}
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                 {[
                   { id: 'all', label: 'All Time' },
                   { id: 'today', label: 'Today' },
                   { id: 'yesterday', label: 'Yesterday' },
                   { id: 'week', label: 'Last 7 Days' },
                   { id: 'month', label: 'This Month' },
-                  { id: 'custom', label: 'Custom Range' },
+                  { id: 'custom', label: 'Custom' },
                 ].map((preset) => {
                   const isActive = invoiceDatePreset === preset.id;
                   return (
                     <button
                       key={preset.id}
                       onClick={() => setInvoiceDatePreset(preset.id as InvoiceDatePreset)}
-                      className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
                         isActive
                           ? 'bg-[#0a382c] text-white shadow-xs'
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -767,13 +960,13 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           ) : (
             <>
-              {/* TAB 1: ORDERS FULFILLMENT WITH REFINED PAYMENT BREAKDOWN & HIGHLIGHTED CASH */}
+              {/* TAB 1: ORDERS FULFILLMENT (MODERN DELIVERY-STYLE CARDS) */}
               {activeTab === 'orders' && (
                 <div className="space-y-4">
                   {filteredOrders.length === 0 ? (
-                    <div className="bg-white border border-slate-200/80 rounded-3xl p-12 text-center text-slate-400 space-y-2">
+                    <div className="bg-white border border-slate-200/80 rounded-[26px] p-12 text-center text-slate-400 space-y-2">
                       <Package size={40} className="mx-auto text-slate-300" />
-                      <p className="font-bold text-sm text-slate-700">No orders matching criteria</p>
+                      <p className="font-bold text-sm text-slate-700">No orders matching filter</p>
                       <p className="text-xs">Adjust your search query or status filter pill above.</p>
                     </div>
                   ) : (
@@ -797,153 +990,186 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                         const assignedDriver = drivers.find((d) => d.id === asg?.delivery_partner_id);
                         const isEditingDriver = editingDriverOrderId === ord.id;
 
-                        const hasAnyPaymentPaid = pay.walletPaid > 0 || pay.onlinePaid > 0 || pay.codPaid > 0;
                         const hasPendingCash = !pay.isFullyPaid && !isDelivered && pay.amountDue > 0;
+                        const isInlineExpanded = !!expandedOrderItems[ord.id];
 
                         return (
                           <div
                             key={ord.id}
-                            className={`bg-white border rounded-[22px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] space-y-3.5 flex flex-col justify-between transition-all ${
+                            className={`bg-white border rounded-[26px] p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.03)] space-y-3.5 flex flex-col justify-between transition-all ${
                               hasPendingCash
-                                ? 'border-amber-400 ring-2 ring-amber-100/70'
+                                ? 'border-amber-300 hover:border-amber-400'
                                 : isCancelled
-                                ? 'border-red-200 bg-red-50/20'
-                                : 'border-slate-200/80 hover:border-slate-300'
+                                ? 'border-red-200 bg-red-50/10'
+                                : 'border-slate-200/80 hover:border-emerald-200'
                             }`}
                           >
                             <div className="space-y-3">
-                              {/* Order Card Header */}
+                              {/* 1. Card Header */}
                               <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-10 w-10 rounded-2xl bg-[#0a382c] text-[#59D9B6] flex items-center justify-center shadow-xs">
+                                    <Package size={18} strokeWidth={2.2} />
+                                  </div>
+                                  <div>
                                     <span className="text-sm font-black text-slate-900 tracking-tight">
                                       {ord.order_number}
                                     </span>
-                                    <span className="text-[10px] text-slate-400 font-semibold">
+                                    <p className="text-[11px] font-semibold text-slate-400 mt-0.5">
                                       {new Date(ord.created_at).toLocaleDateString('en-IN', {
                                         day: 'numeric',
                                         month: 'short',
                                         hour: '2-digit',
                                         minute: '2-digit',
                                       })}
-                                    </span>
+                                    </p>
                                   </div>
-                                  <p className="text-xs font-bold text-slate-700 mt-0.5">
-                                    {addr?.recipient_name || 'Commercial Customer'}
-                                    {addr?.city ? ` · ${addr.city}` : ''}
-                                  </p>
                                 </div>
 
                                 <span
-                                  className={`text-[9px] font-black uppercase rounded-full px-2.5 py-1 ${
+                                  className={`text-[9.5px] font-black uppercase rounded-full px-3 py-1 tracking-wider inline-flex items-center gap-1.5 ${
                                     isDelivered
-                                      ? 'bg-emerald-100 text-emerald-800'
+                                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                       : isReadyForPickup || ord.status === 'out_for_delivery'
-                                      ? 'bg-sky-100 text-sky-800'
+                                      ? 'bg-sky-50 text-sky-800 border border-sky-200'
                                       : ord.status === 'packed'
-                                      ? 'bg-amber-100 text-amber-800'
+                                      ? 'bg-amber-50 text-amber-800 border border-amber-200'
                                       : ord.status === 'confirmed'
-                                      ? 'bg-indigo-100 text-indigo-800'
+                                      ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
                                       : isCancelled
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-emerald-100 text-[#0a382c]'
+                                      ? 'bg-red-50 text-red-800 border border-red-200'
+                                      : 'bg-emerald-50 text-[#0a382c] border border-emerald-200'
                                   }`}
                                 >
+                                  <span
+                                    className={`h-1.5 w-1.5 rounded-full ${
+                                      isDelivered
+                                        ? 'bg-emerald-600'
+                                        : isCancelled
+                                        ? 'bg-red-600'
+                                        : 'bg-emerald-600'
+                                    }`}
+                                  />
                                   {ord.status.replace(/_/g, ' ')}
                                 </span>
                               </div>
 
-                              {/* HIGHLIGHTED CASH TO COLLECT / PAYMENT STATUS BANNER */}
-                              <div className="space-y-2">
-                                {hasPendingCash ? (
-                                  <div className="p-3 rounded-2xl bg-amber-500 text-white shadow-sm border border-amber-600 flex items-center justify-between">
-                                    <div className="flex items-center gap-2.5">
-                                      <div className="h-8 w-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                                        <Banknote size={18} className="text-white" />
-                                      </div>
-                                      <div>
-                                        <p className="text-[10px] uppercase font-black tracking-wider text-amber-100">
-                                          Cash to Collect (COD)
-                                        </p>
-                                        <p className="text-xs font-semibold text-white">
-                                          Collect at doorstep before handover
-                                        </p>
-                                      </div>
+                              {/* 2. Highlighted Doorstep Cash Collection Card */}
+                              <div className="relative overflow-hidden rounded-2xl p-3.5 bg-gradient-to-r from-[#0a4d3a] to-[#0e634b] text-white shadow-sm border border-emerald-600/30">
+                                <div className="flex items-center justify-between relative z-10">
+                                  <div className="flex items-start gap-2.5">
+                                    <div className="h-9 w-9 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
+                                      <Wallet size={18} className="text-[#59D9B6]" />
                                     </div>
-                                    <div className="text-right">
-                                      <p className="text-base font-black tracking-tight">
-                                        ₹{pay.amountDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    <div>
+                                      <p className="text-xs uppercase tracking-wider font-black text-white">
+                                        {hasPendingCash ? 'Collect Doorstep Cash (COD)' : 'Payment Settled'}
+                                      </p>
+                                      <p className="text-[10px] text-emerald-200/90 font-medium mt-0.5">
+                                        {hasPendingCash
+                                          ? 'Driver must collect cash before handover'
+                                          : 'Prepaid in Full · No doorstep cash required'}
                                       </p>
                                     </div>
                                   </div>
-                                ) : (
-                                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-emerald-900">
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-                                      <span className="text-xs font-extrabold uppercase tracking-wide">
-                                        {isDelivered ? 'Delivered & Settled in Full' : 'Prepaid in Full — Do Not Collect Cash'}
-                                      </span>
-                                    </div>
-                                    <span className="text-xs font-black">₹0.00 Due</span>
+
+                                  <div className="bg-black/25 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/15 text-right shrink-0">
+                                    <p className="text-sm font-black tracking-tight text-white">
+                                      {hasPendingCash
+                                        ? `₹${pay.amountDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                        : '₹0.00'}
+                                    </p>
                                   </div>
-                                )}
-
-                                {/* ONLY RENDER PAYMENT CHIPS WITH AMOUNT > 0 */}
-                                {hasAnyPaymentPaid && (
-                                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                                    <span className="text-[10px] font-bold text-slate-400 mr-1 uppercase tracking-wider">
-                                      Paid via:
-                                    </span>
-
-                                    {pay.walletPaid > 0 && (
-                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-extrabold">
-                                        <Wallet size={13} className="text-emerald-600" />
-                                        <span>Wallet:</span>
-                                        <span className="font-black">₹{pay.walletPaid.toLocaleString('en-IN')}</span>
-                                      </div>
-                                    )}
-
-                                    {pay.onlinePaid > 0 && (
-                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-extrabold">
-                                        <CreditCard size={13} className="text-blue-600" />
-                                        <span>Razorpay:</span>
-                                        <span className="font-black">₹{pay.onlinePaid.toLocaleString('en-IN')}</span>
-                                      </div>
-                                    )}
-
-                                    {pay.codPaid > 0 && (
-                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-extrabold">
-                                        <Banknote size={13} className="text-amber-600" />
-                                        <span>COD Settled:</span>
-                                        <span className="font-black">₹{pay.codPaid.toLocaleString('en-IN')}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                </div>
                               </div>
 
-                              {/* Total and Line Items Inspection */}
-                              <div className="flex items-center justify-between text-xs pt-0.5">
-                                <div>
-                                  <span className="text-slate-400">Total Bill: </span>
-                                  <span className="font-extrabold text-slate-900 text-sm">
-                                    ₹{Number(ord.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              {/* 3. Package Items with Eye Button Toggle */}
+                              <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-black text-slate-800">Package Contents</span>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => void toggleOrderInlineItems(ord.id)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-slate-200 hover:border-emerald-300 text-[11px] font-black text-emerald-800 shadow-2xs active:scale-95 transition-all"
+                                  >
+                                    {isInlineExpanded ? (
+                                      <>
+                                        <EyeOff size={13} className="text-slate-500" />
+                                        <span>Hide Items</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Eye size={13} className="text-emerald-600" />
+                                        <span>View Items</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                {isInlineExpanded && inspectOrderId === ord.id ? (
+                                  <div className="divide-y divide-slate-100 pt-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                                    {inspectLoading ? (
+                                      <div className="py-3 flex justify-center">
+                                        <Loader2 size={16} className="animate-spin text-emerald-700" />
+                                      </div>
+                                    ) : (
+                                      inspectItems.map((it) => (
+                                        <div key={it.id} className="flex justify-between items-center text-xs py-1.5">
+                                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                                            <span className="h-5 w-5 rounded-md bg-emerald-50 text-[#0a382c] font-black text-[9px] flex items-center justify-center shrink-0 border border-emerald-200">
+                                              ×{it.quantity}
+                                            </span>
+                                            <span className="text-slate-700 font-semibold truncate">
+                                              {it.brand ? `${it.brand} ` : ''}{it.product_name}
+                                            </span>
+                                          </div>
+                                          <span className="font-black text-slate-900 whitespace-nowrap">
+                                            ₹{Number(it.line_total).toLocaleString('en-IN')}
+                                          </span>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                ) : null}
+
+                                <div className="pt-2 border-t border-dashed border-slate-200 flex justify-between items-center text-xs font-black">
+                                  <span className="text-slate-600 flex items-center gap-1.5">
+                                    <Banknote size={14} className="text-emerald-700" /> Total Order Bill
+                                  </span>
+                                  <span className="text-emerald-800 text-sm font-black">
+                                    ₹{Number(ord.total).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </span>
                                 </div>
-                                <button
-                                  onClick={() => void openItemInspection(ord.id)}
-                                  className="flex items-center gap-1 text-[#0a382c] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold text-[11px] transition"
-                                >
-                                  <Eye size={12} /> View Items
-                                </button>
                               </div>
 
-                              {/* Driver Assignment Section */}
+                              {/* 4. Customer Location Card */}
+                              {addr && (
+                                <div className="rounded-2xl bg-white border border-slate-200/90 p-3 space-y-1.5 shadow-2xs">
+                                  <div className="flex items-start gap-2.5">
+                                    <div className="h-8 w-8 rounded-xl bg-emerald-50 text-[#0a382c] flex items-center justify-center shrink-0 border border-emerald-200/60 mt-0.5">
+                                      <Store size={15} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-black text-slate-900 truncate">
+                                        {addr.recipient_name} · {addr.label || 'Commercial'}
+                                      </p>
+                                      <p className="text-[11px] text-slate-500 leading-relaxed truncate">
+                                        {addr.line1}, {addr.city} - {addr.postal_code}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 5. Driver Dispatch Section */}
                               {isReadyForPickup && (
-                                <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 space-y-2">
+                                <div className="rounded-2xl bg-slate-50/90 border border-slate-200 p-3 space-y-2">
                                   <div className="flex items-center justify-between">
-                                    <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                                      <UserCheck size={14} className="text-[#0a382c]" /> Delivery Partner
+                                    <span className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+                                      <UserCheck size={14} className="text-[#0a382c]" /> Dispatch Fleet Partner
                                     </span>
                                     {assignedDriver && !isEditingDriver && (
                                       <button
@@ -961,9 +1187,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                         value={asg?.delivery_partner_id || ''}
                                         disabled={isProcessing}
                                         onChange={(e) => void handleAssignDriver(ord.id, e.target.value)}
-                                        className="w-full h-9 pl-2.5 pr-8 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-800 outline-none focus:border-[#0a382c] appearance-none shadow-xs"
+                                        className="w-full h-9 pl-3 pr-8 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 outline-none focus:border-[#0a382c] appearance-none shadow-2xs"
                                       >
-                                        <option value="">-- Choose Partner to Dispatch --</option>
+                                        <option value="">-- Select Driver to Dispatch --</option>
                                         {drivers.map((d) => (
                                           <option key={d.id} value={d.id}>
                                             {d.name} {d.phone ? `(${d.phone})` : ''}
@@ -976,12 +1202,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                       />
                                     </div>
                                   ) : (
-                                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-lg p-2">
+                                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-2.5">
                                       <div>
-                                        <p className="text-xs font-bold text-slate-900">{assignedDriver.name}</p>
-                                        <p className="text-[10px] text-slate-400">{assignedDriver.phone}</p>
+                                        <p className="text-xs font-black text-slate-900">{assignedDriver.name}</p>
+                                        <p className="text-[10px] text-slate-400 font-semibold">{assignedDriver.phone}</p>
                                       </div>
-                                      <span className="bg-sky-50 text-sky-700 text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-sky-200">
+                                      <span className="bg-sky-50 text-sky-800 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-sky-200">
                                         Assigned
                                       </span>
                                     </div>
@@ -990,16 +1216,16 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                               )}
                             </div>
 
-                            {/* Operational Progression Buttons */}
-                            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                            {/* Action Buttons Toolbar */}
+                            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
                               {ord.status === 'pending' && (
                                 <button
                                   disabled={isProcessing}
                                   onClick={() => void handleConfirmOrder(ord.id)}
-                                  className="flex-1 h-9 rounded-xl bg-[#0a382c] hover:bg-[#082d23] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs active:scale-98 transition disabled:opacity-50"
+                                  className="flex-1 h-10 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition disabled:opacity-50"
                                 >
                                   {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                                  Confirm & Deduct Stock
+                                  Confirm Order
                                 </button>
                               )}
 
@@ -1007,7 +1233,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 <button
                                   disabled={isProcessing}
                                   onClick={() => void handleUpdateStatus(ord.id, 'packed')}
-                                  className="flex-1 h-9 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs active:scale-98 transition disabled:opacity-50"
+                                  className="flex-1 h-10 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition disabled:opacity-50"
                                 >
                                   {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
                                   Mark as Packed
@@ -1018,7 +1244,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 <button
                                   disabled={isProcessing}
                                   onClick={() => void handleUpdateStatus(ord.id, 'ready_for_pickup')}
-                                  className="flex-1 h-9 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs active:scale-98 transition disabled:opacity-50"
+                                  className="flex-1 h-10 rounded-full bg-sky-600 hover:bg-sky-700 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition disabled:opacity-50"
                                 >
                                   {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
                                   Ready for Dispatch
@@ -1029,7 +1255,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 <button
                                   disabled={isProcessing}
                                   onClick={() => void handleCancelOrder(ord.id)}
-                                  className="h-9 px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center gap-1 shadow-xs active:scale-98 transition"
+                                  className="h-10 px-4 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-black flex items-center gap-1 active:scale-95 transition"
                                 >
                                   <XCircle size={14} /> Cancel
                                 </button>
@@ -1037,7 +1263,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
                               <button
                                 onClick={() => void handlePrint(ord.id, ord.order_number)}
-                                className="h-9 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-xs active:scale-98 transition"
+                                className="h-10 px-4 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-black flex items-center gap-1.5 shadow-2xs active:scale-95 transition"
                               >
                                 <Printer size={14} className="text-slate-600" /> Invoice
                               </button>
@@ -1050,34 +1276,28 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
                   {/* Orders Pagination */}
                   {filteredOrders.length > ORDERS_PER_PAGE && (
-                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-xs">
+                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-[22px] px-4 py-3 shadow-xs">
                       <p className="text-xs font-semibold text-slate-500">
-                        Showing{' '}
-                        <span className="font-bold text-slate-800">
-                          {(ordersPage - 1) * ORDERS_PER_PAGE + 1}
-                        </span>{' '}
-                        to{' '}
-                        <span className="font-bold text-slate-800">
-                          {Math.min(ordersPage * ORDERS_PER_PAGE, filteredOrders.length)}
-                        </span>{' '}
-                        of <span className="font-bold text-slate-800">{filteredOrders.length}</span> orders
+                        Showing <span className="font-black text-slate-900">{(ordersPage - 1) * ORDERS_PER_PAGE + 1}</span> to{' '}
+                        <span className="font-black text-slate-900">{Math.min(ordersPage * ORDERS_PER_PAGE, filteredOrders.length)}</span> of{' '}
+                        <span className="font-black text-slate-900">{filteredOrders.length}</span>
                       </p>
 
                       <div className="flex items-center gap-1.5">
                         <button
                           disabled={ordersPage === 1}
                           onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
-                          className="h-8 w-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
+                          className="h-8 w-8 rounded-full border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
                         >
                           <ChevronLeft size={16} />
                         </button>
                         <span className="text-xs font-black text-[#0a382c] px-2">
-                          Page {ordersPage} of {totalOrderPages}
+                          Page {ordersPage} / {totalOrderPages}
                         </span>
                         <button
                           disabled={ordersPage >= totalOrderPages}
                           onClick={() => setOrdersPage((p) => Math.min(totalOrderPages, p + 1))}
-                          className="h-8 w-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
+                          className="h-8 w-8 rounded-full border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
                         >
                           <ChevronRight size={16} />
                         </button>
@@ -1087,16 +1307,16 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 2: INVOICES TAB WITH HIGHLIGHTED COLLECT & PAID BADGES */}
+              {/* TAB 2: INVOICES TAB */}
               {activeTab === 'invoices' && (
                 <div className="space-y-4">
                   {filteredInvoices.length === 0 ? (
-                    <div className="bg-white border border-slate-200/80 rounded-3xl p-12 text-center text-slate-400 space-y-2">
+                    <div className="bg-white border border-slate-200/80 rounded-[26px] p-12 text-center text-slate-400 space-y-2">
                       <FileText size={40} className="mx-auto text-slate-300" />
-                      <p className="font-bold text-sm text-slate-700">No invoices match selected date range</p>
+                      <p className="font-bold text-sm text-slate-700">No invoices match period</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                       {paginatedInvoices.map((ord) => {
                         const addr = ord.address_id ? addressMap[ord.address_id] : null;
                         const pay = paymentsMap[ord.id];
@@ -1105,23 +1325,23 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                         return (
                           <div
                             key={ord.id}
-                            className={`bg-white border rounded-2xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)] flex flex-col justify-between space-y-3 transition ${
+                            className={`bg-white border rounded-[24px] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between space-y-3 transition ${
                               hasPendingCash ? 'border-amber-300' : 'border-slate-200/80'
                             }`}
                           >
-                            <div className="space-y-2">
+                            <div className="space-y-2.5">
                               <div className="flex items-start justify-between gap-2">
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <span className="font-black text-sm text-slate-900">{ord.order_number}</span>
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase px-2 py-0.5 rounded-md bg-slate-100">
+                                    <span className="text-[9.5px] font-black text-slate-600 uppercase px-2 py-0.5 rounded-full bg-slate-100">
                                       {ord.status.replace(/_/g, ' ')}
                                     </span>
                                   </div>
-                                  <p className="text-xs text-slate-600 font-medium mt-0.5">
+                                  <p className="text-xs text-slate-600 font-bold mt-0.5">
                                     {addr?.recipient_name} · {addr?.city}
                                   </p>
-                                  <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                  <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1 font-semibold">
                                     <Calendar size={11} />
                                     {new Date(ord.created_at).toLocaleDateString('en-IN', {
                                       day: 'numeric',
@@ -1143,32 +1363,32 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               </div>
 
-                              {/* Clean Paid From Components */}
+                              {/* Paid Source Chips */}
                               {pay && (
                                 <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold pt-1">
                                   {pay.walletPaid > 0 && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800">
                                       <Wallet size={11} className="text-emerald-600" />
                                       Wallet: ₹{pay.walletPaid.toFixed(0)}
                                     </span>
                                   )}
 
                                   {pay.onlinePaid > 0 && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-800">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800">
                                       <CreditCard size={11} className="text-blue-600" />
                                       Razorpay: ₹{pay.onlinePaid.toFixed(0)}
                                     </span>
                                   )}
 
                                   {pay.codPaid > 0 && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900">
                                       <Banknote size={11} className="text-amber-600" />
-                                      COD Settled: ₹{pay.codPaid.toFixed(0)}
+                                      COD: ₹{pay.codPaid.toFixed(0)}
                                     </span>
                                   )}
 
                                   {hasPendingCash && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500 text-white font-black">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500 text-white font-black">
                                       <Banknote size={11} className="text-amber-100" />
                                       Collect: ₹{pay.amountDue.toFixed(0)} COD
                                     </span>
@@ -1179,9 +1399,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
                             <button
                               onClick={() => void handlePrint(ord.id, ord.order_number)}
-                              className="w-full h-10 rounded-xl bg-[#0a382c] hover:bg-[#082d23] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition"
+                              className="w-full h-10 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition"
                             >
-                              <Printer size={15} /> Print GST Invoice
+                              <Printer size={14} /> Print GST Invoice
                             </button>
                           </div>
                         );
@@ -1191,34 +1411,28 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
                   {/* Invoice Pagination */}
                   {filteredInvoices.length > INVOICES_PER_PAGE && (
-                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-xs">
+                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-[22px] px-4 py-3 shadow-xs">
                       <p className="text-xs font-semibold text-slate-500">
-                        Showing{' '}
-                        <span className="font-bold text-slate-800">
-                          {(invoicesPage - 1) * INVOICES_PER_PAGE + 1}
-                        </span>{' '}
-                        to{' '}
-                        <span className="font-bold text-slate-800">
-                          {Math.min(invoicesPage * INVOICES_PER_PAGE, filteredInvoices.length)}
-                        </span>{' '}
-                        of <span className="font-bold text-slate-800">{filteredInvoices.length}</span> invoices
+                        Showing <span className="font-black text-slate-900">{(invoicesPage - 1) * INVOICES_PER_PAGE + 1}</span> to{' '}
+                        <span className="font-black text-slate-900">{Math.min(invoicesPage * INVOICES_PER_PAGE, filteredInvoices.length)}</span> of{' '}
+                        <span className="font-black text-slate-900">{filteredInvoices.length}</span>
                       </p>
 
                       <div className="flex items-center gap-1.5">
                         <button
                           disabled={invoicesPage === 1}
                           onClick={() => setInvoicesPage((p) => Math.max(1, p - 1))}
-                          className="h-8 w-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
+                          className="h-8 w-8 rounded-full border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
                         >
                           <ChevronLeft size={16} />
                         </button>
                         <span className="text-xs font-black text-[#0a382c] px-2">
-                          Page {invoicesPage} of {totalInvoicePages}
+                          Page {invoicesPage} / {totalInvoicePages}
                         </span>
                         <button
                           disabled={invoicesPage >= totalInvoicePages}
                           onClick={() => setInvoicesPage((p) => Math.min(totalInvoicePages, p + 1))}
-                          className="h-8 w-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
+                          className="h-8 w-8 rounded-full border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-700 disabled:opacity-40 transition"
                         >
                           <ChevronRight size={16} />
                         </button>
@@ -1232,7 +1446,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               {(activeTab === 'inventory' || activeTab === 'low_stock') && (
                 <div>
                   {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
-                    <div className="bg-white border border-slate-200/80 rounded-3xl p-12 text-center text-slate-400 space-y-2">
+                    <div className="bg-white border border-slate-200/80 rounded-[26px] p-12 text-center text-slate-400 space-y-2">
                       <Boxes size={40} className="mx-auto text-slate-300" />
                       <p className="font-bold text-sm text-slate-700">No items found</p>
                       <p className="text-xs">
@@ -1242,7 +1456,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                       {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).map((prod) => {
                         const currentStock = prod.stock_quantity ?? 0;
                         const threshold = prod.stock_threshold || 10;
@@ -1255,12 +1469,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                         return (
                           <div
                             key={prod.id}
-                            className={`bg-white border rounded-2xl p-4 shadow-card space-y-3 flex flex-col justify-between transition-all ${
+                            className={`bg-white border rounded-[24px] p-4 shadow-sm space-y-3 flex flex-col justify-between transition-all ${
                               isOut
-                                ? 'border-red-300 ring-1 ring-red-100'
+                                ? 'border-red-300 ring-2 ring-red-100'
                                 : isLow
-                                ? 'border-amber-300 ring-1 ring-amber-100'
-                                : 'border-slate-200/80'
+                                ? 'border-amber-300 ring-2 ring-amber-100'
+                                : 'border-slate-200/80 hover:border-emerald-200'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -1286,12 +1500,13 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                               </span>
                             </div>
 
+                            {/* Tactile Quantity Modifier Controls */}
                             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs text-slate-400 font-semibold mr-1">Qty:</span>
+                                <span className="text-xs text-slate-400 font-bold mr-1">Qty:</span>
                                 <button
                                   onClick={() => handleStockDelta(prod.id, currentStock, -1)}
-                                  className="h-8 w-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
+                                  className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
                                 >
                                   <Minus size={13} />
                                 </button>
@@ -1300,16 +1515,16 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   type="number"
                                   value={displayStock}
                                   onChange={(e) => handleStockInputChange(prod.id, e.target.value)}
-                                  className={`w-16 h-8 text-center text-xs font-black rounded-lg border outline-none ${
+                                  className={`w-16 h-8 text-center text-xs font-black rounded-xl border outline-none ${
                                     isModified
-                                      ? 'border-[#0a382c] bg-emerald-50/40 text-emerald-900 ring-1 ring-emerald-300'
+                                      ? 'border-[#0a382c] bg-emerald-50/50 text-emerald-900 ring-1 ring-emerald-300'
                                       : 'border-slate-200 bg-white text-slate-900'
                                   }`}
                                 />
 
                                 <button
                                   onClick={() => handleStockDelta(prod.id, currentStock, 1)}
-                                  className="h-8 w-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
+                                  className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
                                 >
                                   <Plus size={13} />
                                 </button>
@@ -1319,7 +1534,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                     <button
                                       key={amt}
                                       onClick={() => handleStockDelta(prod.id, currentStock, amt)}
-                                      className="h-8 px-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-[10px] border border-slate-200 active:scale-95 transition"
+                                      className="h-8 px-2 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-black text-[10px] border border-slate-200 active:scale-95 transition"
                                     >
                                       +{amt}
                                     </button>
@@ -1331,7 +1546,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 <div className="flex items-center gap-1.5 ml-auto">
                                   <button
                                     onClick={() => handleCancelStockEdit(prod.id)}
-                                    className="h-8 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs flex items-center gap-1 shadow-xs active:scale-95 transition"
+                                    className="h-8 px-3 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-black text-xs flex items-center gap-1 active:scale-95 transition"
                                   >
                                     <RotateCcw size={12} />
                                     Cancel
@@ -1339,7 +1554,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   <button
                                     disabled={isSaving}
                                     onClick={() => void handleSaveStock(prod.id)}
-                                    className="h-8 px-3 rounded-lg bg-[#0a382c] hover:bg-[#082d23] text-white font-bold text-xs flex items-center gap-1 shadow-xs active:scale-95 transition disabled:opacity-50"
+                                    className="h-8 px-3 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white font-black text-xs flex items-center gap-1 shadow-xs active:scale-95 transition disabled:opacity-50"
                                   >
                                     {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
                                     Update
@@ -1359,8 +1574,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </main>
       </div>
 
-      {/* Solid White Bottom Navigation Bar (Mobile Only) */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] safe-bottom md:hidden">
+      {/* Floating Bottom Navigation Bar (Mobile Only) */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom md:hidden">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
           <button
             onClick={() => {
@@ -1371,10 +1586,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               activeTab === 'orders' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
-            <Package size={20} strokeWidth={activeTab === 'orders' ? 2.5 : 2} />
+            <Package size={19} strokeWidth={activeTab === 'orders' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Orders</span>
+            {activeTab === 'orders' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
             {orders.length > 0 && (
-              <span className="absolute top-1.5 right-3.5 bg-slate-900 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
+              <span className="absolute top-1.5 right-3.5 bg-slate-900 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center shadow-xs">
                 {orders.length}
               </span>
             )}
@@ -1385,12 +1601,13 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               setActiveTab('invoices');
               setSearchQuery('');
             }}
-            className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${
+            className={`flex flex-col items-center justify-center flex-1 h-full gap-1 relative transition-colors ${
               activeTab === 'invoices' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
-            <FileText size={20} strokeWidth={activeTab === 'invoices' ? 2.5 : 2} />
+            <FileText size={19} strokeWidth={activeTab === 'invoices' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Invoices</span>
+            {activeTab === 'invoices' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
           </button>
 
           <button
@@ -1402,8 +1619,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               activeTab === 'inventory' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
-            <Boxes size={20} strokeWidth={activeTab === 'inventory' ? 2.5 : 2} />
+            <Boxes size={19} strokeWidth={activeTab === 'inventory' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Inventory</span>
+            {activeTab === 'inventory' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
             {products.length > 0 && (
               <span className="absolute top-1.5 right-3.5 bg-slate-200 text-slate-800 text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
                 {products.length}
@@ -1420,10 +1638,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               activeTab === 'low_stock' ? 'text-red-600' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
-            <AlertTriangle size={20} strokeWidth={activeTab === 'low_stock' ? 2.5 : 2} />
+            <AlertTriangle size={19} strokeWidth={activeTab === 'low_stock' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Low Stock</span>
+            {activeTab === 'low_stock' && <span className="h-1 w-5 rounded-full bg-red-600 -mb-1" />}
             {lowStockProducts.length > 0 && (
-              <span className="absolute top-1.5 right-3.5 bg-red-500 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center animate-pulse">
+              <span className="absolute top-1.5 right-3.5 bg-red-500 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center animate-pulse shadow-xs">
                 {lowStockProducts.length}
               </span>
             )}
@@ -1432,9 +1651,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       </nav>
 
       {/* Package Contents Inspection Modal */}
-      {inspectOrderId && (
+      {inspectOrderId && !expandedOrderItems[inspectOrderId] && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-[28px] max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-black text-sm text-slate-900">Package Contents</h3>
@@ -1442,30 +1661,30 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               </div>
               <button
                 onClick={() => setInspectOrderId(null)}
-                className="h-8 w-8 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition"
+                className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
 
             {inspectLoading ? (
               <div className="py-10 flex justify-center">
-                <Loader2 size={28} className="animate-spin text-[#0a382c]" />
+                <Loader2 size={26} className="animate-spin text-[#0a382c]" />
               </div>
             ) : (
               <div className="space-y-2 max-h-80 overflow-y-auto pr-1 divide-y divide-slate-50">
                 {inspectItems.map((item) => (
                   <div key={item.id} className="flex justify-between items-center text-xs py-2">
                     <div className="flex-1 min-w-0 pr-2">
-                      <p className="font-bold text-slate-900 truncate">
+                      <p className="font-black text-slate-900 truncate">
                         {item.brand} {item.product_name}
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        {item.pack_size} · Qty: <span className="font-bold text-slate-700">{item.quantity}</span>
+                      <p className="text-[10px] text-slate-400 mt-0.5 font-semibold">
+                        {item.pack_size} · Qty: <span className="font-black text-slate-800">{item.quantity}</span>
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-extrabold text-slate-900">
+                      <p className="font-black text-slate-900">
                         ₹{Number(item.line_total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </p>
                       <p className="text-[10px] text-slate-400">₹{Number(item.unit_price).toFixed(2)} / unit</p>
@@ -1477,7 +1696,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
             <button
               onClick={() => setInspectOrderId(null)}
-              className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition"
+              className="w-full h-11 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white text-xs font-black transition shadow-xs"
             >
               Done
             </button>

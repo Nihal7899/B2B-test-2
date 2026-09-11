@@ -454,7 +454,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
               <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
             </button>
             <button
-              onClick={() => void signOut()}
+              onClick={() => void logout({ scope: 'local' })}
               aria-label="Exit"
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-400/25 bg-rose-500/10 text-rose-300 transition active:scale-95"
             >

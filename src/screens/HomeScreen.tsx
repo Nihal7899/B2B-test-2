@@ -29,7 +29,9 @@ import {
   fetchUserReorderProducts,
   fetchRecentlyViewedProducts,
   fetchCategories,
-  fetchProducts
+  fetchProducts,
+  fetchStores,          // <-- Restored
+  fetchTrustedBrands    // <-- Restored
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
 import { getHomeDataSync, updateHomeDataCache, type PreloadedHomeData } from '@/services/homePreload';
@@ -139,6 +141,10 @@ export function HomeScreen({
   const [categories, setCategories] = useState<Category[]>(initialCache.categories);
   const [products, setProducts] = useState<Product[]>(initialCache.products);
   
+  // <-- Added Setters for Stores and Brands back
+  const [stores, setStores] = useState<Store[]>(initialCache.stores);
+  const [brands, setBrands] = useState<TrustedBrand[]>(initialCache.brands);
+  
   const [popularProducts, setPopularProducts] = useState<Product[]>(initialCache.popularProducts);
   const [reorderProducts, setReorderProducts] = useState<Product[]>(initialCache.reorderProducts);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>(initialCache.recentlyViewed);
@@ -147,8 +153,6 @@ export function HomeScreen({
   const [topRated, setTopRated] = useState<Product[]>(initialCache.topRated);
   const [limitedStock, setLimitedStock] = useState<Product[]>(initialCache.limitedStock);
   const [brandSpotlight, setBrandSpotlight] = useState(initialCache.brandSpotlight);
-  const [stores] = useState<Store[]>(initialCache.stores);
-  const [brands] = useState<TrustedBrand[]>(initialCache.brands);
   
   const [address] = useState<DbAddress | null>(initialCache.address);
   const [showPopup, setShowPopup] = useState(() => !sessionStorage.getItem('hasSeenBottomPopup'));
@@ -204,17 +208,24 @@ export function HomeScreen({
 
   const refreshCatalogData = useCallback(async () => {
     try {
-      const [catRes, prodRes] = await Promise.all([
+      // Fetch Stores and Brands alongside Categories and Products
+      const [catRes, prodRes, storeRes, brandRes] = await Promise.all([
         fetchCategories().catch(() => ({ categories: [] as Category[] })),
         fetchProducts().catch(() => ({ products: [] as Product[] })),
+        fetchStores().catch(() => [] as Store[]),
+        fetchTrustedBrands().catch(() => [] as TrustedBrand[]),
       ]);
 
       if (catRes.categories?.length) setCategories(catRes.categories);
       if (prodRes.products?.length) setProducts(prodRes.products);
+      if (storeRes?.length) setStores(storeRes);
+      if (brandRes?.length) setBrands(brandRes);
 
       updateHomeDataCache({
         categories: catRes.categories?.length ? catRes.categories : undefined,
         products: prodRes.products?.length ? prodRes.products : undefined,
+        stores: storeRes?.length ? storeRes : undefined,
+        brands: brandRes?.length ? brandRes : undefined,
       });
       
     } catch (e) {
@@ -441,6 +452,7 @@ export function HomeScreen({
                     </button>
                   </div>
                   <div className="grid grid-cols-4 gap-3">
+                    {/* Increased slice to 16 to show 4 perfect rows */}
                     {categories.slice(0, 16).map((category) => (
                       <button
                         key={category.id}

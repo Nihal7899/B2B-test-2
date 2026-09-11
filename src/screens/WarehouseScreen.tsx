@@ -36,6 +36,7 @@ import {
   ArrowRight,
   Store,
   Layers,
+  Clock,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';

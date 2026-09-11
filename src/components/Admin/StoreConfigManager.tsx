@@ -10,6 +10,7 @@ import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
 import { CachedImage } from '@/components/CachedImage';
+import { CtaActionEditor } from '@/components/CtaActionEditor';
 
 const ICON_OPTIONS = [
   'Apple', 'Wheat', 'Flame', 'Coffee', 'Cookie', 'Milk', 'Croissant',
@@ -117,11 +118,11 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
   useEffect(() => {
     if (config) {
       setDraft({
-        hero: config.hero || { enabled: true, image: '', gradientFrom: '#065f46', gradientTo: '#16a34a', title: '', subtitle: '', ctaText: 'Shop Now', ctaLink: '/categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
+        hero: config.hero || { enabled: true, image: '', gradientFrom: '#065f46', gradientTo: '#16a34a', title: '', subtitle: '', ctaText: 'Shop Now', actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
         highlights: config.highlights || [],
         categories: config.categories || [],
-        bulkDeal: config.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
-        trending: config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
+        bulkDeal: config.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
+        trending: config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
       });
       setPendingFiles({});
     }
@@ -145,7 +146,6 @@ function StoreConfigEditor({ addToast }: { addToast: (msg: string, type: any) =>
 
   const deleteOrphanedImages = async (original: any, updated: any) => {
     if (!original || !updated) return;
-
     const checkAndDelete = (orig: any, upd: any) => {
       if (typeof orig === 'string' && orig.includes('/storage/v1/object/public/store-images/')) {
         const urlExists = (obj: any): boolean => {
@@ -425,9 +425,6 @@ function HeroEditor({ draft, setDraft, setPendingFile, clearPendingFile, pending
             )}
           </div>
         )}
-        {pendingFiles['hero.image'] && (
-          <p className="text-xs text-green-600 mt-1">New image selected. Will be uploaded on save.</p>
-        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -438,7 +435,15 @@ function HeroEditor({ draft, setDraft, setPendingFile, clearPendingFile, pending
       <div><label className="block text-sm font-medium text-gray-700">Title</label><input value={hero.title} onChange={e => updateHero('title', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
       <div><label className="block text-sm font-medium text-gray-700">Subtitle</label><input value={hero.subtitle} onChange={e => updateHero('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
       <div><label className="block text-sm font-medium text-gray-700">CTA Text</label><input value={hero.ctaText} onChange={e => updateHero('ctaText', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
-      <div><label className="block text-sm font-medium text-gray-700">CTA Link</label><input value={hero.ctaLink} onChange={e => updateHero('ctaLink', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+
+      <CtaActionEditor 
+        actionType={hero.actionType} 
+        actionConfig={hero.actionConfig || {}} 
+        onChange={(type, conf) => {
+          updateHero('actionType', type);
+          updateHero('actionConfig', conf);
+        }} 
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <ColorInput value={hero.ctaBgColor || '#ffffff'} onChange={(val) => updateHero('ctaBgColor', val)} label="CTA Background" />
@@ -749,6 +754,15 @@ function BulkDealEditor({ draft, setDraft }: {
       <div><label className="block text-sm font-medium text-gray-700">Subtitle</label><input value={bulkDeal.subtitle} onChange={e => updateBulkDeal('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
       <div><label className="block text-sm font-medium text-gray-700">CTA Text</label><input value={bulkDeal.cta} onChange={e => updateBulkDeal('cta', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
       <div><label className="block text-sm font-medium text-gray-700">Icon</label><select value={bulkDeal.icon || 'Package'} onChange={e => updateBulkDeal('icon', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm">{ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}</select></div>
+      
+      <CtaActionEditor 
+        actionType={bulkDeal.actionType} 
+        actionConfig={bulkDeal.actionConfig || {}} 
+        onChange={(type, conf) => {
+          updateBulkDeal('actionType', type);
+          updateBulkDeal('actionConfig', conf);
+        }} 
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <ColorInput value={bulkDeal.ctaBgColor || '#ffffff'} onChange={(val) => updateBulkDeal('ctaBgColor', val)} label="CTA Background" />
@@ -765,7 +779,7 @@ function TrendingEditor({ draft, setDraft, setPendingFile, clearPendingFile, pen
   clearPendingFile: (path: string) => void;
   pendingFiles: Record<string, File>;
 }) {
-  const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [] } = draft;
+  const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [] } = draft;
   const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
   const updateTrending = (field: string, value: any) => {
@@ -836,6 +850,15 @@ function TrendingEditor({ draft, setDraft, setPendingFile, clearPendingFile, pen
       <div><label className="block text-sm font-medium text-gray-700">Title</label><input value={trending.title} onChange={e => updateTrending('title', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
       <div><label className="block text-sm font-medium text-gray-700">Subtitle</label><input value={trending.subtitle} onChange={e => updateTrending('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
       <div><label className="block text-sm font-medium text-gray-700">CTA Text</label><input value={trending.ctaText} onChange={e => updateTrending('ctaText', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
+
+      <CtaActionEditor 
+        actionType={trending.actionType} 
+        actionConfig={trending.actionConfig || {}} 
+        onChange={(type, conf) => {
+          updateTrending('actionType', type);
+          updateTrending('actionConfig', conf);
+        }} 
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <ColorInput value={trending.ctaBgColor || '#ffffff'} onChange={(val) => updateTrending('ctaBgColor', val)} label="CTA Background" />

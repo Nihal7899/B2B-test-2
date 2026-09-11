@@ -1,9 +1,9 @@
-// src/screens/StoreScreen.tsx
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { useCart } from '@/store';
 import { fetchProductsByIds, toggleWishlist, fetchWishlist } from '@/services/catalog';
+import { handleHomeAction, type ActionContext } from '@/services/actionResolver';
 import type { Product as AppProduct } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { getStoreIcon } from '@/data/storeIcons';
@@ -46,6 +46,18 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
 
+  const actionCtx: ActionContext = useMemo(() => ({
+    setScreen: (screen) => navigate(`/${screen}`),
+    setSearch: (query) => navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search'),
+    openProduct: (p: any) => navigate(`/product?id=${p.id}`),
+    openCategory: (c: any) => navigate(`/category?id=${c.id}`),
+    openBrand: (b: any) => navigate(`/brand?id=${b.id}`),
+    openStore: (s: any) => navigate(`/store?storeId=${s.id}`),
+    navigate: (path) => navigate(path),
+    setFilterConfig: () => {}, 
+    setFilterTitle: () => {},
+  }), [navigate]);
+
   const hero = config?.hero ?? {
     enabled: true,
     image: '',
@@ -54,7 +66,8 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
     title: '',
     subtitle: '',
     ctaText: 'Shop Now',
-    ctaLink: '/categories',
+    actionType: 'VIEW_CATEGORY',
+    actionConfig: {},
     ctaBgColor: '#ffffff',
     ctaTextColor: '#065f46',
   };
@@ -67,6 +80,8 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
     subtitle: '',
     cta: '',
     icon: 'Package',
+    actionType: 'VIEW_CATEGORY',
+    actionConfig: {},
     ctaBgColor: '#ffffff',
     ctaTextColor: '#065f46',
   };
@@ -76,6 +91,8 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
     subtitle: 'Jump straight to what customers are buying most',
     iconButtons: [],
     ctaText: 'Browse all categories',
+    actionType: 'VIEW_CATEGORY',
+    actionConfig: {},
     ctaBgColor: '#ffffff',
     ctaTextColor: '#065f46',
   };
@@ -263,7 +280,7 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
           {hero.ctaText && (
             <div className="mt-4 rounded-xl bg-white/15 p-3 backdrop-blur">
               <button
-                onClick={() => navigate(hero.ctaLink || '/categories')}
+                onClick={() => handleHomeAction(hero.actionType, hero.actionConfig, actionCtx)}
                 className="flex items-center gap-1.5 text-xs font-bold rounded-lg px-4 py-2"
                 style={{ backgroundColor: heroCtaBg, color: heroCtaText }}
               >
@@ -303,7 +320,6 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
         </div>
       )}
 
-      {/* Styled Sticky Search Bar */}
       <div 
         className="sticky top-0 z-30 bg-gray-50/95 px-4 pb-3 mt-5 backdrop-blur-lg"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
@@ -357,6 +373,7 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
               ctaBgColor={bulkDeal.ctaBgColor || '#ffffff'}
               ctaTextColor={bulkDeal.ctaTextColor || '#065f46'}
               renderIcon={renderIcon}
+              onAction={() => handleHomeAction(bulkDeal.actionType, bulkDeal.actionConfig, actionCtx)}
             />
           </div>
         )}
@@ -450,6 +467,7 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
                       ctaTextColor={trending.ctaTextColor || '#065f46'}
                       onIconClick={handleIconClick}
                       renderIcon={renderIcon}
+                      onAction={() => handleHomeAction(trending.actionType, trending.actionConfig, actionCtx)}
                     />
                   </React.Fragment>
                 );
@@ -504,6 +522,7 @@ function BulkDealBanner({
   ctaBgColor,
   ctaTextColor,
   renderIcon: renderBannerIcon,
+  onAction,
 }: {
   themeFrom: string;
   themeTo: string;
@@ -515,6 +534,7 @@ function BulkDealBanner({
   ctaBgColor: string;
   ctaTextColor: string;
   renderIcon: (name: string, className?: string, color?: string) => React.ReactNode;
+  onAction: () => void;
 }) {
   return (
     <div
@@ -537,6 +557,7 @@ function BulkDealBanner({
         </div>
       </div>
       <button
+        onClick={onAction}
         className="mt-3 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
         style={{ backgroundColor: ctaBgColor, color: ctaTextColor }}
       >
@@ -557,6 +578,7 @@ function TrendingBanner({
   ctaTextColor,
   onIconClick,
   renderIcon: renderTrendingIcon,
+  onAction,
 }: {
   themeFrom: string;
   themeTo: string;
@@ -568,6 +590,7 @@ function TrendingBanner({
   ctaTextColor: string;
   onIconClick: (id: string) => void;
   renderIcon: (name: string, className?: string, color?: string) => React.ReactNode;
+  onAction: () => void;
 }) {
   return (
     <div className="my-6">
@@ -612,6 +635,7 @@ function TrendingBanner({
           </div>
 
           <button
+            onClick={onAction}
             className="mt-4 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
             style={{ backgroundColor: ctaBgColor, color: ctaTextColor }}
           >

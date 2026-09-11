@@ -1,8 +1,8 @@
-// src/screens/BrandScreen.tsx
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, ChevronRight, ShieldCheck, Truck, Star, Search, X, ShoppingBag } from 'lucide-react';
 import { fetchBrandById, fetchProducts, fetchWishlist, toggleWishlist } from '@/services/catalog';
+import { handleHomeAction, type ActionContext } from '@/services/actionResolver';
 import type { TrustedBrand, Product } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { useCart } from '@/store';
@@ -82,6 +82,18 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const actionCtx: ActionContext = useMemo(() => ({
+    setScreen: (screen) => navigate(`/${screen}`),
+    setSearch: (query) => navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search'),
+    openProduct: (p: any) => navigate(`/product?id=${p.id}`),
+    openCategory: (c: any) => navigate(`/category?id=${c.id}`),
+    openBrand: (b: any) => navigate(`/brand?id=${b.id}`),
+    openStore: (s: any) => navigate(`/store?storeId=${s.id}`),
+    navigate: (path) => navigate(path),
+    setFilterConfig: () => {}, 
+    setFilterTitle: () => {},
+  }), [navigate]);
 
   const loadWishlist = useCallback(async () => {
     try {
@@ -189,8 +201,8 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   const highlights = config.highlights || [];
   const categories = config.categories || [];
-  const bulkDeal = config.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' };
-  const trending = config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' };
+  const bulkDeal = config.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46' };
+  const trending = config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46' };
 
   const productCardTheme = {
     primaryColor: primary_color,
@@ -378,6 +390,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
                 </div>
               </div>
               <button
+                onClick={() => handleHomeAction(bulkDeal.actionType, bulkDeal.actionConfig, actionCtx)}
                 className="mt-3 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
                 style={{ backgroundColor: bulkDeal.ctaBgColor || '#ffffff', color: bulkDeal.ctaTextColor || '#065f46' }}
               >
@@ -501,6 +514,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
                           </div>
 
                           <button
+                            onClick={() => handleHomeAction(trending.actionType, trending.actionConfig, actionCtx)}
                             className="mt-4 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
                             style={{ backgroundColor: trending.ctaBgColor || '#ffffff', color: trending.ctaTextColor || '#065f46' }}
                           >

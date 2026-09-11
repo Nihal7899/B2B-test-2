@@ -42,7 +42,7 @@ import { AuthScreen } from '@/screens/AuthScreen';
 import StoreScreen from '@/screens/StoreScreen';
 import { CategoryScreen } from '@/screens/CategoryScreen';
 import { BrandScreen } from '@/screens/BrandScreen';
-import { BannerScreen } from '@/screens/BannerScreen';
+//import { BannerScreen } from '@/screens/BannerScreen';
 import { WalletScreen } from '@/screens/WalletScreen';
 import { HomeLoadingScreen } from '@/components/HomeLoadingScreen';
 import type {
@@ -98,7 +98,7 @@ const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   store: '/store',
   categoryDetail: '/category',
   brand: '/brand',
-  banner: '/banner',
+//  banner: '/banner',
   wallet: '/wallet',
 };
 
@@ -360,7 +360,7 @@ function App() {
     screen === 'categories' ||
     screen === 'categoryDetail' ||
     screen === 'brand' ||
-    screen === 'banner' ||
+    //screen === 'banner' ||
     screen === 'search' ||
     screen === 'product';
 
@@ -672,8 +672,8 @@ function App() {
       case 'brand':
         return <BrandScreen />;
 
-      case 'banner':
-        return <BannerScreen />;
+  //    case 'banner':
+   //     return <BannerScreen />;
 
       case 'categoryDetail':
         return <CategoryScreen onBack={() => navigate(-1)} onProduct={openProduct} cart={cart} />;

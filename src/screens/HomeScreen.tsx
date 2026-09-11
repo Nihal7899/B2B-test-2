@@ -23,15 +23,25 @@ import { SectionHeader } from '@/components/SectionHeader';
 import { StoreCarousel } from '@/components/StoreCard';
 import { BrandCarousel } from '@/components/BrandCard';
 import { ModernPopupBanner } from '@/components/ModernPopupBanner';
-import { CachedImage } from '@/components/CachedImage'; // <-- Added CachedImage import
+import { CachedImage } from '@/components/CachedImage';
 import {
   fetchHomeSections,
   fetchHomeBanners,
   fetchUserReorderProducts,
   fetchRecentlyViewedProducts,
+  fetchCategories,
+  fetchProducts,
+  fetchPopularProducts,
+  fetchVolumeDealsProducts,
+  fetchNewArrivalsProducts,
+  fetchTopRatedProducts,
+  fetchLimitedStockProducts,
+  fetchBrandSpotlight,
+  fetchStores,
+  fetchTrustedBrands
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
-import { getHomeDataSync, type PreloadedHomeData } from '@/services/homePreload';
+import { getHomeDataSync, updateHomeDataCache, type PreloadedHomeData } from '@/services/homePreload';
 
 interface HomeScreenProps {
   onCategory: (category: Category) => void;
@@ -134,18 +144,21 @@ export function HomeScreen({
 
   const [sections, setSections] = useState<HomeSection[]>(initialCache.sections);
   const [banners, setBanners] = useState<PromoBanner[]>(initialCache.banners);
-  const [categories] = useState<Category[]>(initialCache.categories);
-  const [products] = useState<Product[]>(initialCache.products);
-  const [popularProducts] = useState<Product[]>(initialCache.popularProducts);
+  
+  // Setters added to allow background refresh
+  const [categories, setCategories] = useState<Category[]>(initialCache.categories);
+  const [products, setProducts] = useState<Product[]>(initialCache.products);
+  const [popularProducts, setPopularProducts] = useState<Product[]>(initialCache.popularProducts);
   const [reorderProducts, setReorderProducts] = useState<Product[]>(initialCache.reorderProducts);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>(initialCache.recentlyViewed);
-  const [volumeDeals] = useState<Product[]>(initialCache.volumeDeals);
-  const [newArrivals] = useState<Product[]>(initialCache.newArrivals);
-  const [topRated] = useState<Product[]>(initialCache.topRated);
-  const [limitedStock] = useState<Product[]>(initialCache.limitedStock);
-  const [brandSpotlight] = useState(initialCache.brandSpotlight);
-  const [stores] = useState<Store[]>(initialCache.stores);
-  const [brands] = useState<TrustedBrand[]>(initialCache.brands);
+  const [volumeDeals, setVolumeDeals] = useState<Product[]>(initialCache.volumeDeals);
+  const [newArrivals, setNewArrivals] = useState<Product[]>(initialCache.newArrivals);
+  const [topRated, setTopRated] = useState<Product[]>(initialCache.topRated);
+  const [limitedStock, setLimitedStock] = useState<Product[]>(initialCache.limitedStock);
+  const [brandSpotlight, setBrandSpotlight] = useState(initialCache.brandSpotlight);
+  const [stores, setStores] = useState<Store[]>(initialCache.stores);
+  const [brands, setBrands] = useState<TrustedBrand[]>(initialCache.brands);
+  
   const [address] = useState<DbAddress | null>(initialCache.address);
 
   const [showPopup, setShowPopup] = useState(() => !sessionStorage.getItem('hasSeenBottomPopup'));
@@ -185,6 +198,63 @@ export function HomeScreen({
     }
   }, []);
 
+  // New Catalog background fetcher
+  const refreshCatalogData = useCallback(async () => {
+    try {
+      const [
+        catRes,
+        prodRes,
+        popRes,
+        volRes,
+        newRes,
+        topRes,
+        limRes,
+        spotRes,
+        storeRes,
+        brandRes
+      ] = await Promise.all([
+        fetchCategories().catch(() => ({ categories: [] as Category[] })),
+        fetchProducts().catch(() => ({ products: [] as Product[] })),
+        fetchPopularProducts(12).catch(() => [] as Product[]),
+        fetchVolumeDealsProducts(10).catch(() => [] as Product[]),
+        fetchNewArrivalsProducts(10).catch(() => [] as Product[]),
+        fetchTopRatedProducts(10).catch(() => [] as Product[]),
+        fetchLimitedStockProducts(10).catch(() => [] as Product[]),
+        fetchBrandSpotlight().catch(() => null),
+        fetchStores().catch(() => [] as Store[]),
+        fetchTrustedBrands().catch(() => [] as TrustedBrand[])
+      ]);
+
+      if (catRes.categories?.length) setCategories(catRes.categories);
+      if (prodRes.products?.length) setProducts(prodRes.products);
+      if (popRes?.length) setPopularProducts(popRes);
+      if (volRes?.length) setVolumeDeals(volRes);
+      if (newRes?.length) setNewArrivals(newRes);
+      if (topRes?.length) setTopRated(topRes);
+      if (limRes?.length) setLimitedStock(limRes);
+      if (spotRes) setBrandSpotlight(spotRes);
+      if (storeRes?.length) setStores(storeRes);
+      if (brandRes?.length) setBrands(brandRes);
+
+      // Update global cache
+      updateHomeDataCache({
+        categories: catRes.categories?.length ? catRes.categories : undefined,
+        products: prodRes.products?.length ? prodRes.products : undefined,
+        popularProducts: popRes?.length ? popRes : undefined,
+        volumeDeals: volRes?.length ? volRes : undefined,
+        newArrivals: newRes?.length ? newRes : undefined,
+        topRated: topRes?.length ? topRes : undefined,
+        limitedStock: limRes?.length ? limRes : undefined,
+        brandSpotlight: spotRes || undefined,
+        stores: storeRes?.length ? storeRes : undefined,
+        brands: brandRes?.length ? brandRes : undefined,
+      });
+      
+    } catch (e) {
+      console.warn('Failed to refresh core catalog data:', e);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
 
@@ -212,6 +282,7 @@ export function HomeScreen({
       if (active && (customEvent.detail?.key === '/' || customEvent.detail?.key === 'home' || !customEvent.detail?.key)) {
         void refreshDynamicSections();
         void refreshLayoutAndBanners();
+        void refreshCatalogData(); // Update catalog on KeepAlive reactivation
       }
     };
     window.addEventListener('keepalive:activated', handleKeepAliveFocus);
@@ -220,6 +291,7 @@ export function HomeScreen({
       if (document.visibilityState === 'visible' && active) {
         void refreshDynamicSections();
         void refreshLayoutAndBanners();
+        void refreshCatalogData(); // Update catalog on App Foregrounding
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);
@@ -231,7 +303,7 @@ export function HomeScreen({
       window.removeEventListener('visibilitychange', handleVisibilityChange);
       void supabase.removeChannel(homeChannel);
     };
-  }, [refreshDynamicSections, refreshLayoutAndBanners]);
+  }, [refreshDynamicSections, refreshLayoutAndBanners, refreshCatalogData]);
 
   const deals = useMemo(() => {
     if (!Array.isArray(products)) return [];
@@ -384,7 +456,6 @@ export function HomeScreen({
                           className="relative h-16 w-16 overflow-hidden rounded-2xl p-0.5 shadow-sm ring-1 ring-slate-100"
                           style={{ background: category.gradient || '#10b981' }}
                         >
-                          {/* Replaced raw <img> with <CachedImage> and enforced eager decoding */}
                           <CachedImage
                             src={category.image}
                             alt={category.name}

@@ -84,7 +84,6 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'homeSections', label: 'Home Sections', icon: LayoutGrid },
     { id: 'banners', label: 'Banners', icon: Tag },
-    { id: 'synonyms', label: 'Search Synonyms', icon: BookOpen },
     { id: 'stores', label: 'Stores', icon: Store },
     { id: 'storeContent', label: 'Store Content', icon: PenTool },
     { id: 'brands', label: 'Brands', icon: Award },
@@ -105,6 +104,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
     { id: 'reports', label: 'Reports', icon: BarChart2 },
     { id: 'compression', label: 'Compression', icon: Settings },
+    { id: 'synonyms', label: 'Search Synonyms', icon: BookOpen },
   ];
 
   return (
@@ -145,7 +145,6 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'dashboard' && <Dashboard onNavigateToTab={(tabId: Tab) => setTab(tabId)} />}
         {tab === 'homeSections' && <SectionsManager />}
         {tab === 'banners' && <BannersManager />}
-        {tab === 'synonyms' && <SynonymsManager />}
         {tab === 'stores' && <StoresManager />}
         {tab === 'storeContent' && <StoreConfigManager />}
         {tab === 'brands' && <BrandsManager />}
@@ -166,6 +165,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'whatsapp' && <WhatsAppCampaignManager />}       
         {tab === 'compression' && <CompressionSettings />}
         {tab === 'reports' && <Reports />}
+        {tab === 'synonyms' && <SynonymsManager />}
       </div>
     </div>
   );

@@ -4,7 +4,6 @@ import {
   Package,
   Truck,
   CheckCircle2,
-  MapPin,
   PhoneCall,
   Navigation,
   Banknote,
@@ -19,10 +18,11 @@ import {
   ArrowUpRight,
   ShieldCheck,
   Wallet,
-  Store,
   ChevronRight,
-  Bell,
-  ArrowRight,
+  Eye,
+  EyeOff,
+  Store,
+  Compass,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
@@ -61,65 +61,31 @@ interface ToastNotification {
   type: 'success' | 'error' | 'info' | 'warning';
 }
 
-function DeliveryTruckGraphic({ className = '' }: { className?: string }) {
+// Custom CafKart Exact Vector Logo
+function CafKartLogo({ className = 'h-9 w-9' }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 240 120"
-      fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 1536 1535"
       className={className}
+      fill="none"
     >
       <defs>
-        <linearGradient id="truckBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#0f5132" />
-          <stop offset="100%" stopColor="#083824" />
-        </linearGradient>
-        <linearGradient id="mintAccent" x1="0%" y1="0%" x2="100%" y2="0%">
+        <linearGradient id="ckDeliveryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#59D9B6" />
-          <stop offset="100%" stopColor="#2dd4bf" />
-        </linearGradient>
-        <linearGradient id="speedLine" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#59D9B6" stopOpacity="0" />
-          <stop offset="100%" stopColor="#59D9B6" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="#34d399" />
         </linearGradient>
       </defs>
-
-      <line x1="10" y1="42" x2="80" y2="42" stroke="url(#speedLine)" strokeWidth="3" strokeLinecap="round" />
-      <line x1="28" y1="58" x2="100" y2="58" stroke="url(#speedLine)" strokeWidth="3.5" strokeLinecap="round" />
-      <line x1="16" y1="74" x2="92" y2="74" stroke="url(#speedLine)" strokeWidth="2.5" strokeLinecap="round" />
-
-      <ellipse cx="150" cy="106" rx="72" ry="7" fill="#021c14" fillOpacity="0.5" />
-
-      <rect x="85" y="28" width="85" height="64" rx="10" fill="url(#truckBodyGrad)" stroke="#1a6e49" strokeWidth="1.5" />
-      <path d="M 85 80 L 170 80" stroke="#125838" strokeWidth="2" />
-      
-      <circle cx="127" cy="55" r="14" fill="#042a1b" stroke="#59D9B6" strokeWidth="1.5" />
-      <path d="M 122 55 L 126 51 L 133 58" stroke="#59D9B6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-
       <path
-        d="M 168 45 L 186 45 C 196 45 204 53 207 63 L 213 82 C 214 86 211 92 206 92 L 168 92 Z"
+        d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
         fill="#FFFFFF"
+        fillRule="evenodd"
       />
       <path
-        d="M 174 50 L 187 50 C 193 50 198 55 200 62 L 204 72 L 174 72 Z"
-        fill="#1e293b"
+        d="M 169 1186 L 169 1199 170 1200 170 1203 171 1204 171 1205 173 1208 173 1210 176 1213 176 1214 177 1215 178 1215 179 1216 179 1217 180 1218 181 1218 184 1221 185 1221 187 1223 188 1223 191 1225 194 1225 195 1226 206 1226 207 1227 372 1227 373 1226 392 1226 393 1225 395 1225 396 1224 398 1224 399 1223 400 1223 402 1221 403 1221 405 1219 406 1219 411 1214 411 1213 412 1212 412 1211 414 1209 414 1208 416 1205 416 1203 417 1202 417 1200 418 1199 418 1186 417 1185 417 1183 416 1182 416 1180 415 1179 415 1178 414 1177 414 1176 413 1175 413 1174 411 1172 411 1171 407 1167 407 1166 406 1166 405 1165 404 1165 402 1163 401 1163 398 1161 396 1161 393 1159 194 1159 191 1161 189 1161 188 1162 187 1162 186 1163 185 1163 183 1165 182 1165 176 1171 176 1172 173 1175 173 1177 172 1178 172 1179 170 1182 170 1185 Z M 987 1142 L 986 1143 981 1143 980 1144 977 1144 976 1145 974 1145 973 1146 970 1146 969 1147 968 1147 967 1148 966 1148 965 1149 964 1149 963 1150 962 1150 961 1151 960 1151 959 1152 958 1152 956 1154 955 1154 953 1156 952 1156 949 1159 948 1159 935 1172 935 1173 933 1175 933 1176 931 1178 931 1179 930 1180 930 1181 929 1182 929 1183 928 1184 928 1185 927 1186 927 1188 925 1190 925 1192 924 1193 924 1196 923 1197 923 1199 922 1200 922 1203 921 1204 921 1231 922 1232 922 1235 923 1236 923 1238 924 1239 924 1242 925 1243 925 1245 927 1247 927 1249 928 1250 928 1251 930 1253 930 1254 931 1255 931 1256 934 1259 934 1260 939 1265 939 1266 949 1276 950 1276 953 1279 954 1279 955 1280 956 1280 958 1282 959 1282 960 1283 962 1283 964 1285 966 1285 967 1286 969 1286 970 1287 971 1287 972 1288 973 1288 974 1289 979 1289 980 1290 983 1290 984 1291 990 1291 991 1292 1002 1292 1003 1291 1007 1291 1008 1290 1012 1290 1013 1289 1017 1289 1018 1288 1020 1288 1021 1287 1023 1287 1024 1286 1026 1286 1027 1285 1028 1285 1029 1284 1030 1284 1031 1283 1033 1283 1034 1282 1035 1282 1037 1280 1038 1280 1041 1277 1042 1277 1046 1273 1047 1273 1055 1265 1055 1264 1056 1263 1057 1263 1057 1262 1060 1259 1060 1258 1062 1256 1062 1255 1064 1253 1064 1252 1065 1251 1065 1250 1066 1249 1066 1248 1067 1247 1067 1246 1068 1245 1068 1243 1069 1242 1069 1240 1070 1239 1070 1237 1071 1236 1071 1232 1072 1231 1072 1204 1071 1203 1071 1199 1070 1198 1070 1196 1069 1195 1069 1193 1068 1192 1068 1190 1067 1189 1067 1188 1066 1187 1066 1185 1065 1184 1065 1183 1064 1182 1064 1181 1063 1180 1063 1179 1061 1177 1061 1176 1058 1174 1058 1173 1055 1170 1055 1169 1044 1158 1043 1158 1040 1155 1039 1155 1038 1154 1037 1154 1035 1152 1034 1152 1033 1151 1032 1151 1031 1150 1030 1150 1029 1149 1028 1149 1027 1148 1025 1148 1024 1147 1023 1147 1022 1146 1018 1146 1017 1145 1015 1145 1014 1144 1011 1144 1010 1143 1006 1143 1005 1142 Z M 634 1142 L 633 1143 629 1143 628 1144 626 1144 625 1145 622 1145 621 1146 618 1146 617 1147 616 1147 615 1148 613 1148 612 1149 610 1149 609 1150 608 1150 606 1152 604 1152 601 1155 600 1155 597 1158 596 1158 582 1172 582 1173 580 1175 580 1176 578 1178 578 1179 577 1180 577 1181 576 1182 576 1183 575 1184 575 1185 574 1186 574 1188 573 1189 573 1190 572 1191 572 1193 571 1194 571 1197 570 1198 570 1200 569 1201 569 1204 568 1205 568 1231 569 1232 569 1234 570 1235 570 1238 571 1239 571 1241 572 1242 572 1244 573 1245 573 1246 574 1247 574 1248 575 1249 575 1250 576 1251 576 1252 578 1254 578 1255 580 1257 580 1258 583 1261 583 1262 587 1266 587 1267 593 1273 594 1273 598 1277 599 1277 602 1280 603 1280 605 1282 606 1282 607 1283 608 1283 609 1284 610 1284 611 1285 612 1285 613 1286 616 1286 617 1287 618 1287 619 1288 621 1288 622 1289 626 1289 627 1290 631 1290 632 1291 639 1291 640 1292 647 1292 648 1291 654 1291 655 1290 659 1290 660 1289 664 1289 665 1288 667 1288 668 1287 670 1287 671 1286 673 1286 674 1285 675 1285 676 1284 677 1284 678 1283 680 1283 681 1282 682 1282 684 1280 685 1280 686 1279 687 1279 693 1273 694 1273 695 1272 695 1271 697 1269 698 1269 698 1268 703 1263 703 1262 706 1259 706 1258 708 1256 708 1255 711 1252 711 1251 712 1250 712 1248 714 1246 714 1244 715 1243 715 1240 716 1239 716 1236 717 1235 717 1233 718 1232 718 1226 719 1225 719 1207 718 1206 718 1201 717 1200 717 1198 716 1197 716 1195 715 1194 715 1191 714 1190 714 1189 713 1188 713 1187 712 1186 712 1184 711 1183 711 1182 709 1180 709 1179 707 1177 707 1176 704 1173 704 1172 699 1167 699 1166 694 1161 693 1161 689 1157 688 1157 686 1155 685 1155 682 1152 680 1152 678 1150 677 1150 676 1149 674 1149 673 1148 672 1148 671 1147 670 1147 669 1146 666 1146 665 1145 663 1145 662 1144 660 1144 659 1143 655 1143 654 1142 Z M 48 1054 L 48 1068 49 1069 49 1072 50 1073 50 1074 52 1077 52 1079 54 1081 54 1082 55 1083 55 1084 61 1090 62 1090 63 1091 64 1091 66 1093 68 1093 69 1094 71 1094 72 1095 75 1095 76 1096 267 1096 268 1095 271 1095 272 1094 274 1094 275 1093 276 1093 277 1092 278 1092 280 1090 281 1090 286 1085 287 1085 287 1084 290 1081 290 1080 291 1079 291 1078 293 1076 293 1075 294 1074 294 1071 295 1070 295 1068 296 1067 296 1055 295 1054 295 1052 294 1051 294 1049 293 1048 293 1047 291 1045 291 1044 290 1043 290 1042 287 1039 287 1038 286 1038 282 1034 281 1034 279 1032 278 1032 275 1030 273 1030 270 1028 74 1028 73 1029 71 1029 68 1031 66 1031 65 1032 64 1032 61 1035 60 1035 54 1041 54 1042 52 1044 52 1045 51 1046 51 1048 50 1049 50 1050 49 1051 49 1053 Z M 1315 281 L 1292 287 1277 294 1248 318 856 713 846 730 843 745 849 768 855 776 1287 1207 1311 1220 1340 1227 1460 1227 1474 1224 1483 1219 1492 1210 1496 1202 1497 1185 1487 1165 1069 746 1072 739 1447 364 1453 355 1459 336 1459 324 1456 313 1450 303 1430 287 1402 280 Z"
+        fill="url(#ckDeliveryGrad)"
+        fillRule="evenodd"
       />
-      <rect x="209" y="80" width="4" height="7" rx="2" fill="#59D9B6" />
-      <rect x="174" y="80" width="28" height="3" rx="1.5" fill="url(#mintAccent)" />
-
-      <circle cx="114" cy="95" r="14" fill="#0f172a" />
-      <circle cx="114" cy="95" r="8" fill="#334155" />
-      <circle cx="114" cy="95" r="4" fill="#59D9B6" />
-
-      <circle cx="190" cy="95" r="14" fill="#0f172a" />
-      <circle cx="190" cy="95" r="8" fill="#334155" />
-      <circle cx="190" cy="95" r="4" fill="#59D9B6" />
-
-      <g transform="translate(216, 26)">
-        <circle cx="10" cy="10" r="10" fill="#0a382c" stroke="#59D9B6" strokeWidth="1.5" />
-        <circle cx="10" cy="9" r="4" fill="#59D9B6" />
-        <path d="M 10 13 L 10 17" stroke="#59D9B6" strokeWidth="2" strokeLinecap="round" />
-      </g>
     </svg>
   );
 }
@@ -145,6 +111,16 @@ export function DeliveryScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [toastNotification, setToastNotification] = useState<ToastNotification | null>(null);
+
+  // Expanded items state tracker for Order Cards
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+
+  const toggleOrderItems = (orderId: string) => {
+    setExpandedItems((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  };
 
   useEffect(() => {
     if (initialTab && initialTab !== navTab) {
@@ -453,31 +429,19 @@ export function DeliveryScreen({
     return [];
   }, [navTab, pendingList, pickedUpList, deliveredList]);
 
-  // Primary active delivery assignment for Dashboard spotlight
-  const activeSpotlight = useMemo(() => {
-    return pickedUpList[0] || pendingList[0] || assignments[0] || null;
-  }, [pickedUpList, pendingList, assignments]);
-
   const isProcessing = (id: string) => processingId === id;
 
   const driverDisplayName =
     profile?.full_name?.trim() ||
     profile?.personal_name?.trim() ||
     profile?.business_name?.trim() ||
-    'Delivery Partner';
-
-  const timeGreeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  }, []);
+    'Fleet Partner';
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#f4f7f5] gap-3">
         <div className="h-10 w-10 rounded-full border-3 border-emerald-300 border-t-emerald-700 animate-spin" />
-        <p className="text-xs font-black text-slate-500 tracking-wider uppercase">Loading Fleet Logistics...</p>
+        <p className="text-xs font-black text-slate-500 tracking-wider uppercase">Loading Logistics Portal...</p>
       </div>
     );
   }
@@ -495,292 +459,221 @@ export function DeliveryScreen({
       )}
 
       <div>
-        {/* Curving Forest Green Hero Header */}
-        <header className="relative bg-gradient-to-b from-[#063a2c] via-[#094736] to-[#0d5944] text-white pt-[max(1rem,env(safe-area-inset-top))] pb-8 px-4 sm:px-6 shadow-md rounded-b-[36px] overflow-hidden">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-[#59D9B6]/15 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="max-w-xl mx-auto relative z-10 space-y-4">
-            {/* Top Branding Row */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                {!isDedicatedRole && onBack && (
-                  <button
-                    onClick={onBack}
-                    className="h-10 w-10 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white active:scale-95 transition-all shadow-xs"
-                  >
-                    <ArrowLeft size={18} />
-                  </button>
-                )}
-
-                <div className="flex items-center gap-2.5">
-                  <div className="h-10 w-10 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-md">
-                    <Truck size={20} className="text-[#59D9B6]" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-lg font-black tracking-tight text-white">Caf</span>
-                      <span className="text-lg font-black tracking-tight text-[#59D9B6]">Kart</span>
-                    </div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-emerald-200/80">
-                      FLEET LOGISTICS
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Status Pill & Action Icons */}
-              <div className="flex items-center gap-2">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-[#59D9B6] border border-emerald-400/30 text-[11px] font-black">
-                  <span className="h-2 w-2 rounded-full bg-[#59D9B6] animate-pulse" />
-                  Online
-                  <ChevronRight size={13} className="opacity-70" />
-                </div>
-
+        {/* 1 & 2: COMPACT SLIM STICKY HEADER WITH EXACT CAFKART LOGO */}
+        <header className="sticky top-0 z-40 bg-[#063a2c]/95 backdrop-blur-md text-white pt-[max(0.6rem,env(safe-area-inset-top))] pb-3 px-4 sm:px-6 shadow-md border-b border-[#0b4d3b]">
+          <div className="max-w-xl mx-auto flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              {!isDedicatedRole && onBack && (
                 <button
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-emerald-200 active:scale-95 transition-all"
-                  title="Refresh Queue"
+                  onClick={onBack}
+                  className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center text-white active:scale-95 transition-transform"
                 >
-                  <RefreshCw size={15} className={refreshing ? 'animate-spin text-white' : ''} />
+                  <ArrowLeft size={16} />
                 </button>
+              )}
+
+              {/* Exact CafKart Vector Logo */}
+              <div className="flex items-center gap-2.5 select-none">
+                <CafKartLogo className="h-9 w-9 shrink-0 drop-shadow-xs" />
+                <div className="flex flex-col justify-center">
+                  <div className="flex items-center gap-1 leading-none">
+                    <span className="text-lg font-black tracking-tight text-white">Caf</span>
+                    <span className="text-lg font-black tracking-tight text-[#59D9B6]">Kart</span>
+                  </div>
+                  <span className="text-[8px] font-black uppercase tracking-[0.2em] text-emerald-300/80 mt-0.5">
+                    FLEET LOGISTICS
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Greeting + Custom Delivery Truck Graphic */}
-            <div className="flex items-center justify-between pt-1">
-              <div className="max-w-[56%]">
-                <p className="text-xs font-semibold text-emerald-200/90">{timeGreeting},</p>
-                <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-snug">
-                  {driverDisplayName}
-                </h1>
-                <p className="text-[11px] font-medium text-emerald-300/80 mt-0.5 flex items-center gap-1">
-                  Let's keep the orders moving 🚚
-                </p>
+            {/* Right Status Pill & Refresh Trigger */}
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-[#59D9B6] border border-emerald-400/30 text-[10px] font-black tracking-wider">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#59D9B6] animate-pulse" />
+                ONLINE
               </div>
 
-              <div className="w-[44%] max-w-[170px] -mr-1">
-                <DeliveryTruckGraphic className="w-full h-auto drop-shadow-md" />
-              </div>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="h-9 w-9 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 flex items-center justify-center text-emerald-200 active:scale-95 transition-transform"
+                title="Refresh Queue"
+              >
+                <RefreshCw size={15} className={refreshing ? 'animate-spin text-white' : ''} />
+              </button>
             </div>
           </div>
         </header>
 
         {/* Content Body */}
-        <main className="px-4 sm:px-6 -mt-3 max-w-xl mx-auto space-y-4 relative z-20">
-          {/* TAB 1: REDESIGNED DASHBOARD (Matches Reference 1000506822.png & 1000506821.png) */}
+        <main className="px-4 sm:px-6 pt-4 max-w-xl mx-auto space-y-4">
+          {/* TAB 1: RESTORED & MODERNIZED DASHBOARD */}
           {navTab === 'dashboard' && (
             <div className="space-y-4">
-              {activeSpotlight ? (
-                <>
-                  {/* Spotlight Active / Pending Order Card */}
-                  <div className="rounded-[28px] p-5 text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#064e3b] via-[#084938] to-[#04281f] border border-emerald-500/30 space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-400/25 text-[#59D9B6] px-2.5 py-0.5 rounded-full border border-emerald-400/30">
-                          {activeSpotlight.assignment.status === 'out_for_delivery'
-                            ? 'IN TRANSIT'
-                            : 'PENDING ORDER'}
-                        </span>
-                        <h2 className="text-base sm:text-lg font-black tracking-tight text-white mt-1.5">
-                          {activeSpotlight.order.order_number}
-                        </h2>
-                        <p className="text-[11px] text-emerald-200/80 font-medium mt-0.5">
-                          Assigned: {new Date(activeSpotlight.order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} ·{' '}
-                          <span className="font-bold text-white uppercase">
-                            {activeSpotlight.paymentSummary.codPaid > 0 || activeSpotlight.paymentSummary.amountToCollect > 0 ? 'COD' : 'PREPAID'}
+              {/* COD REMITTANCE CARD */}
+              <div className="rounded-[28px] p-5 text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#064e3b] via-[#074635] to-[#04281f] border border-emerald-500/30">
+                <div className="relative z-10 flex flex-col justify-between h-44">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-lg bg-emerald-500/20 flex items-center justify-center border border-emerald-400/30">
+                        <Banknote size={15} className="text-[#59D9B6]" />
+                      </div>
+                      <span className="text-[10px] font-black tracking-wider uppercase text-emerald-100">
+                        COD SETTLEMENT BALANCE
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-emerald-300/80">
+                      <Wifi size={14} className="rotate-90 opacity-90" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">AUTO-SYNC</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between my-auto">
+                    {/* Metallic Security Chip */}
+                    <div className="h-8 w-11 rounded-md bg-gradient-to-br from-amber-200 via-amber-300 to-amber-500 border border-amber-400/80 shadow-xs flex items-center justify-center relative shrink-0">
+                      <div className="w-full h-[1px] bg-amber-600/40 absolute" />
+                      <div className="h-full w-[1px] bg-amber-600/40 absolute" />
+                      <div className="h-4 w-5 rounded-xs border border-amber-600/50" />
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-300">
+                        Net Cash to Deposit
+                      </p>
+                      <p className="text-3xl font-black tracking-tight text-white mt-0.5">
+                        ₹{netCodCashToDeposit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-[10px] text-emerald-200/75 mt-0.5 font-medium">
+                        {totalSettledWithAdmin > 0
+                          ? `₹${totalSettledWithAdmin.toLocaleString('en-IN')} cleared to date`
+                          : 'Remit to warehouse at shift end'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2.5 border-t border-emerald-400/20 text-xs">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest text-emerald-400 font-bold">Dispatch Partner</p>
+                      <p className="font-black uppercase tracking-wide text-white truncate max-w-[170px] sm:max-w-xs">
+                        {driverDisplayName}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-emerald-400/15 px-2.5 py-1 rounded-full border border-emerald-300/30">
+                      <Sparkles size={11} className="text-[#59D9B6]" />
+                      <span className="text-[10px] font-black text-emerald-100">ON-DUTY FLEET</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="absolute -right-8 -bottom-8 h-40 w-40 rounded-full bg-[#59D9B6]/15 blur-2xl pointer-events-none" />
+              </div>
+
+              {/* 3: RESTORED 2X2 FINTECH METRICS GRID */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Metric 1: Cash in Hand */}
+                <div className="rounded-[24px] p-4 text-white shadow-md relative overflow-hidden bg-gradient-to-br from-[#065f46] to-[#059669]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider opacity-90">Net Cash In Hand</span>
+                    <div className="h-7 w-7 rounded-lg bg-white/15 flex items-center justify-center">
+                      <Banknote size={15} />
+                    </div>
+                  </div>
+                  <div className="text-xl font-black mt-2 tracking-tight">
+                    ₹{netCodCashToDeposit.toLocaleString('en-IN')}
+                  </div>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">Physical driver cash</p>
+                </div>
+
+                {/* Metric 2: Route Pending */}
+                <div className="rounded-[24px] p-4 text-white shadow-md relative overflow-hidden bg-gradient-to-br from-[#b45309] to-[#d97706]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider opacity-90">Route Pending</span>
+                    <div className="h-7 w-7 rounded-lg bg-white/15 flex items-center justify-center">
+                      <Clock size={15} />
+                    </div>
+                  </div>
+                  <div className="text-xl font-black mt-2 tracking-tight">
+                    ₹{routeOutstandingCod.toLocaleString('en-IN')}
+                  </div>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">Active run collections</p>
+                </div>
+
+                {/* Metric 3: Active Route Packages */}
+                <div className="rounded-[24px] p-4 text-white shadow-md relative overflow-hidden bg-gradient-to-br from-[#0369a1] to-[#0284c7]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider opacity-90">Active Route</span>
+                    <div className="h-7 w-7 rounded-lg bg-white/15 flex items-center justify-center">
+                      <Package size={15} />
+                    </div>
+                  </div>
+                  <div className="text-xl font-black mt-2 tracking-tight">
+                    {pendingList.length + pickedUpList.length}
+                  </div>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">
+                    {pendingList.length} pending · {pickedUpList.length} in transit
+                  </p>
+                </div>
+
+                {/* Metric 4: Total Reconciled */}
+                <div className="rounded-[24px] p-4 text-white shadow-md relative overflow-hidden bg-gradient-to-br from-[#4338ca] to-[#6366f1]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider opacity-90">Total Cleared</span>
+                    <div className="h-7 w-7 rounded-lg bg-white/15 flex items-center justify-center">
+                      <CheckCircle2 size={15} />
+                    </div>
+                  </div>
+                  <div className="text-xl font-black mt-2 tracking-tight">
+                    ₹{totalSettledWithAdmin.toLocaleString('en-IN')}
+                  </div>
+                  <p className="text-[10px] mt-1 opacity-80 font-medium">Reconciled deposits</p>
+                </div>
+              </div>
+
+              {/* Settlements Clearance Receipts Card */}
+              <div className="bg-white border border-slate-200/80 rounded-[24px] shadow-sm overflow-hidden">
+                <div className="px-4 py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+                  <span className="text-xs font-black text-slate-800 flex items-center gap-2">
+                    <ShieldCheck size={16} className="text-[#0a382c]" />
+                    Today's Settlements
+                  </span>
+                  <button
+                    onClick={() => setNavTab('delivered')}
+                    className="text-[11px] font-bold text-emerald-700 hover:underline flex items-center gap-0.5"
+                  >
+                    View All ({deliveredList.length}) <ArrowUpRight size={12} />
+                  </button>
+                </div>
+
+                <div className="p-3.5 space-y-2">
+                  {deliveredList.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-4">No completed orders settled yet</p>
+                  ) : (
+                    deliveredList.slice(0, 3).map(({ order, paymentSummary: pay }) => (
+                      <div
+                        key={order.id}
+                        className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0"
+                      >
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">{order.order_number}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {new Date(order.created_at).toLocaleTimeString('en-IN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-extrabold text-emerald-700">
+                            +₹{Number(order.total).toLocaleString('en-IN')}
+                          </p>
+                          <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                            {pay.codPaid > 0 ? 'COD Cash' : 'Prepaid'}
                           </span>
-                        </p>
-                      </div>
-
-                      {/* Total Amount Tag Button */}
-                      <button
-                        onClick={() => setNavTab('pending')}
-                        className="bg-black/30 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-white/15 text-right flex items-center gap-1.5 group hover:border-emerald-400/50 transition-all"
-                      >
-                        <span className="text-sm sm:text-base font-black tracking-tight text-white">
-                          ₹{Number(activeSpotlight.order.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </span>
-                        <ChevronRight size={15} className="text-emerald-300 group-hover:translate-x-0.5 transition-transform" />
-                      </button>
-                    </div>
-
-                    {/* Step Flow Banner */}
-                    <div className="rounded-2xl bg-black/25 backdrop-blur-sm p-3 border border-white/10 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-9 w-9 rounded-xl bg-emerald-500/25 border border-emerald-400/30 flex items-center justify-center shrink-0">
-                          <Store size={18} className="text-[#59D9B6]" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-black text-white">Collect Cash / UPI</p>
-                          <p className="text-[10px] text-emerald-200/75">before handing over goods</p>
                         </div>
                       </div>
-
-                      {/* Flow Arrow Indicator */}
-                      <div className="h-7 w-7 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-[#59D9B6] shrink-0">
-                        <ArrowRight size={13} strokeWidth={2.5} />
-                      </div>
-
-                      <div className="flex items-center gap-2.5 text-right">
-                        <div>
-                          <p className="text-xs font-black text-white">Deliver to</p>
-                          <p className="text-[10px] text-emerald-200/75 truncate max-w-[70px]">Customer</p>
-                        </div>
-                        <div className="h-9 w-9 rounded-xl bg-emerald-500/25 border border-emerald-400/30 flex items-center justify-center shrink-0">
-                          <Package size={18} className="text-[#59D9B6]" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Order Quick Metrics Strip */}
-                  <div className="bg-white border border-slate-200/80 rounded-[24px] p-4 shadow-sm space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-slate-800">Order Details</span>
-                      <button
-                        onClick={() => setNavTab(activeSpotlight.assignment.status === 'out_for_delivery' ? 'picked_up' : 'pending')}
-                        className="text-[11px] font-bold text-emerald-700 hover:underline flex items-center gap-0.5"
-                      >
-                        View All <ChevronRight size={12} />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-slate-50/80 rounded-2xl p-2.5 flex flex-col items-center text-center border border-slate-100">
-                        <div className="h-8 w-8 rounded-xl bg-emerald-50 text-[#0a382c] flex items-center justify-center mb-1">
-                          <Package size={16} />
-                        </div>
-                        <span className="text-xs font-black text-slate-800">
-                          {activeSpotlight.items.reduce((acc, it) => acc + (it.quantity || 1), 0) || 1}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium">Items</span>
-                      </div>
-
-                      <div className="bg-slate-50/80 rounded-2xl p-2.5 flex flex-col items-center text-center border border-slate-100">
-                        <div className="h-8 w-8 rounded-xl bg-emerald-50 text-[#0a382c] flex items-center justify-center mb-1">
-                          <Banknote size={16} />
-                        </div>
-                        <span className="text-xs font-black text-slate-800 truncate max-w-full">
-                          ₹{Number(activeSpotlight.order.total).toLocaleString('en-IN')}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium">Total Amount</span>
-                      </div>
-
-                      <div className="bg-slate-50/80 rounded-2xl p-2.5 flex flex-col items-center text-center border border-slate-100">
-                        <div className="h-8 w-8 rounded-xl bg-emerald-50 text-[#0a382c] flex items-center justify-center mb-1">
-                          <MapPin size={16} />
-                        </div>
-                        <span className="text-xs font-black text-slate-800">Local</span>
-                        <span className="text-[10px] text-slate-400 font-medium">Dispatch Run</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Pickup Location Card */}
-                  <div className="bg-white border border-slate-200/80 rounded-[24px] p-4 shadow-sm flex items-center justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="h-10 w-10 rounded-2xl bg-emerald-50 text-[#0a382c] flex items-center justify-center shrink-0 border border-emerald-200/60 mt-0.5">
-                        <Store size={18} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-black text-slate-900">Pickup Location</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed truncate">
-                          Central Warehouse Hub · Talapady
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => showToast('Opening pickup route...', 'info')}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-emerald-300 text-xs font-black text-slate-800 shadow-2xs active:scale-95 transition-all shrink-0"
-                    >
-                      <Navigation size={13} className="text-emerald-700" />
-                      Navigate
-                    </button>
-                  </div>
-
-                  {/* Delivery Location Card */}
-                  {activeSpotlight.address && (
-                    <div className="bg-white border border-slate-200/80 rounded-[24px] p-4 shadow-sm flex items-center justify-between gap-3">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <div className="h-10 w-10 rounded-2xl bg-emerald-50 text-[#0a382c] flex items-center justify-center shrink-0 border border-emerald-200/60 mt-0.5">
-                          <MapPin size={18} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-black text-slate-900 truncate">
-                            {activeSpotlight.address.label || 'Delivery'} · {activeSpotlight.address.recipient_name}
-                          </p>
-                          <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed truncate">
-                            {activeSpotlight.address.line1}, {activeSpotlight.address.city}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <a
-                          href={`tel:${activeSpotlight.address.phone}`}
-                          className="h-9 w-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center border border-emerald-200/60 active:scale-95 transition-all"
-                          title="Call Customer"
-                        >
-                          <PhoneCall size={14} />
-                        </a>
-                        {activeSpotlight.address.latitude && activeSpotlight.address.longitude && (
-                          <a
-                            href={`https://www.google.com/maps?q=${activeSpotlight.address.latitude},${activeSpotlight.address.longitude}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:border-emerald-300 text-xs font-black text-slate-800 shadow-2xs active:scale-95 transition-all"
-                          >
-                            <Navigation size={13} className="text-sky-700" />
-                            Navigate
-                          </a>
-                        )}
-                      </div>
-                    </div>
+                    ))
                   )}
-
-                  {/* Cash / UPI Collection Summary Bar */}
-                  <div className="bg-white border border-slate-200/80 rounded-[24px] p-4 shadow-sm flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-2xl bg-emerald-50 text-[#0a382c] flex items-center justify-center shrink-0 border border-emerald-200/60">
-                        <Wallet size={18} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-black text-slate-900">Cash / UPI Collection</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">
-                          {activeSpotlight.paymentSummary.isFullyPaid
-                            ? 'Order already prepaid'
-                            : `Collect ₹${activeSpotlight.paymentSummary.amountToCollect.toFixed(2)} before handover`}
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronRight size={18} className="text-slate-400" />
-                  </div>
-                </>
-              ) : (
-                /* Empty state when no orders are queued */
-                <div className="bg-white rounded-[28px] border border-slate-200/70 p-8 flex flex-col items-center justify-center text-center shadow-sm">
-                  <div className="h-16 w-16 rounded-2xl bg-emerald-50 flex items-center justify-center text-[#0a382c] border border-emerald-100">
-                    <Truck size={30} />
-                  </div>
-                  <h3 className="text-sm font-black text-slate-900 mt-3">All Caught Up!</h3>
-                  <p className="text-xs text-slate-500 mt-1 max-w-[240px]">
-                    No active dispatches right now. Stand by for upcoming delivery assignments.
-                  </p>
-                </div>
-              )}
-
-              {/* Safety & Driver Encouragement Banner */}
-              <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-r from-emerald-50 via-teal-50/50 to-white border border-emerald-200/60 p-4 flex items-center gap-3.5 shadow-2xs">
-                <div className="h-10 w-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                  <ShieldCheck size={20} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-black text-slate-900">Stay Safe & On Time</p>
-                  <p className="text-[11px] text-slate-600 font-medium mt-0.5">
-                    Your efforts keep our customers happy 💚
-                  </p>
                 </div>
               </div>
             </div>
@@ -797,9 +690,9 @@ export function DeliveryScreen({
                   <h2 className="text-base font-black text-slate-900 mt-4">No packages in this queue</h2>
                   <p className="text-xs text-slate-500 mt-1 max-w-[260px] leading-relaxed">
                     {navTab === 'pending'
-                      ? 'No pending pick ups waiting at the hub.'
+                      ? 'No pending pick ups waiting at warehouse.'
                       : navTab === 'picked_up'
-                      ? 'No parcels currently in transit. Pick up pending orders to begin route.'
+                      ? 'No parcels currently in transit.'
                       : 'Delivered orders will appear here once confirmed.'}
                   </p>
                 </div>
@@ -808,6 +701,7 @@ export function DeliveryScreen({
                   {currentOrderList.map(({ assignment, order, items, address, paymentSummary: pay }) => {
                     const isCurrentProcessing = isProcessing(assignment.id);
                     const isDelivered = assignment.status === 'delivered';
+                    const isItemsExpanded = !!expandedItems[order.id];
 
                     return (
                       <div
@@ -846,7 +740,7 @@ export function DeliveryScreen({
                           </span>
                         </div>
 
-                        {/* 2. Doorstep COD Collection Banner */}
+                        {/* 2. Collect Doorstep Cash Banner */}
                         <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-r from-[#0a4d3a] to-[#0e634b] text-white shadow-sm border border-emerald-600/30">
                           <div className="flex items-center justify-between relative z-10">
                             <div className="flex items-start gap-3">
@@ -875,38 +769,64 @@ export function DeliveryScreen({
                           </div>
                         </div>
 
-                        {/* 3. Package Contents Section */}
+                        {/* 4: PACKAGE CONTENTS WITH EYE BUTTON DRAWER */}
                         {items.length > 0 && (
-                          <div className="bg-slate-50/70 border border-slate-200/70 rounded-2xl p-3.5 space-y-2.5">
+                          <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3.5 space-y-3">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                                <Package size={15} className="text-slate-500" />
-                                Package Contents
-                              </span>
-                              <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100/70 text-emerald-800 px-2.5 py-0.5 rounded-full">
-                                {items.reduce((acc, it) => acc + (it.quantity || 1), 0)} Items
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black text-slate-800">Package Contents</span>
+                                <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                                  {items.reduce((acc, it) => acc + (it.quantity || 1), 0)} Items
+                                </span>
+                              </div>
+
+                              {/* Eye Button Toggle */}
+                              <button
+                                type="button"
+                                onClick={() => toggleOrderItems(order.id)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white border border-slate-200 hover:border-emerald-300 text-[11px] font-black text-emerald-800 shadow-2xs active:scale-95 transition-all"
+                              >
+                                {isItemsExpanded ? (
+                                  <>
+                                    <EyeOff size={14} className="text-slate-500" />
+                                    <span>Hide Items</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye size={14} className="text-emerald-600" />
+                                    <span>View Items</span>
+                                  </>
+                                )}
+                              </button>
                             </div>
 
-                            <div className="divide-y divide-slate-100">
-                              {items.map((item) => (
-                                <div key={item.id} className="flex justify-between items-center text-xs py-2">
-                                  <div className="flex items-center gap-2 min-w-0 pr-2">
-                                    <div className="h-7 w-7 rounded-lg bg-emerald-50 text-[#0a382c] font-black text-[10px] flex items-center justify-center shrink-0 border border-emerald-200/50">
-                                      ×{item.quantity}
+                            {/* Collapsible Product Details */}
+                            {isItemsExpanded ? (
+                              <div className="divide-y divide-slate-100 pt-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                                {items.map((item) => (
+                                  <div key={item.id} className="flex justify-between items-center text-xs py-2">
+                                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                                      <div className="h-6 w-6 rounded-md bg-emerald-50 text-[#0a382c] font-black text-[10px] flex items-center justify-center shrink-0 border border-emerald-200">
+                                        ×{item.quantity}
+                                      </div>
+                                      <span className="text-slate-700 font-semibold truncate">
+                                        {item.brand ? `${item.brand} ` : ''}{item.product_name}
+                                      </span>
                                     </div>
-                                    <span className="text-slate-700 font-semibold truncate">
-                                      {item.brand ? `${item.brand} ` : ''}{item.product_name}
+                                    <span className="font-black text-slate-900 whitespace-nowrap">
+                                      ₹{Number(item.line_total).toLocaleString('en-IN')}
                                     </span>
                                   </div>
-                                  <span className="font-black text-slate-900 whitespace-nowrap">
-                                    ₹{Number(item.line_total).toLocaleString('en-IN')}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-slate-400 italic">
+                                Tap "View Items" to verify package contents before dispatch.
+                              </p>
+                            )}
 
-                            <div className="pt-2 border-t border-dashed border-slate-200 flex justify-between items-center text-xs font-black">
+                            {/* Total Order Bill Strip */}
+                            <div className="pt-2.5 border-t border-dashed border-slate-200 flex justify-between items-center text-xs font-black">
                               <span className="text-slate-600 flex items-center gap-1.5">
                                 <Banknote size={14} className="text-emerald-700" /> Total Order Bill
                               </span>
@@ -917,51 +837,56 @@ export function DeliveryScreen({
                           </div>
                         )}
 
-                        {/* 4. Customer Address & One-Tap Actions */}
+                        {/* 5: IMPROVED CALL & NAVIGATION PILLS */}
                         {address && (
-                          <div className="rounded-2xl bg-white border border-slate-200/90 p-4 space-y-3.5 shadow-xs">
+                          <div className="rounded-2xl bg-white border border-slate-200/90 p-4 space-y-3.5 shadow-2xs">
                             <div className="flex items-start gap-3">
                               <div className="h-9 w-9 rounded-xl bg-emerald-50 text-[#0a382c] flex items-center justify-center shrink-0 border border-emerald-200/60 mt-0.5">
                                 <MapPin size={18} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-xs font-black text-slate-900 truncate">
-                                    {address.label || 'Delivery'} · {address.recipient_name}
-                                  </p>
-                                  <ChevronRight size={14} className="text-slate-400 shrink-0" />
-                                </div>
-                                <p className="text-[11px] text-slate-600 mt-1 leading-relaxed font-medium">
+                                <p className="text-xs font-black text-slate-900 truncate">
+                                  {address.label || 'Delivery'} · {address.recipient_name}
+                                </p>
+                                <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed font-medium">
                                   {address.line1}
                                   {address.line2 ? `, ${address.line2}` : ''}, {address.city}, {address.state} - {address.postal_code}
                                 </p>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2.5 pt-1">
+                            {/* Dedicated Action Pills */}
+                            <div className="flex items-center gap-2.5 pt-0.5">
+                              {/* Call Pill */}
                               <a
                                 href={`tel:${address.phone}`}
-                                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-300/80 text-emerald-900 text-xs font-black active:scale-[0.98] transition-all"
+                                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-full bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-300 text-emerald-900 text-xs font-black shadow-xs active:scale-[0.98] transition-all"
                               >
-                                <PhoneCall size={15} className="text-emerald-700" />
-                                Call
+                                <div className="h-6 w-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                                  <PhoneCall size={12} strokeWidth={2.5} />
+                                </div>
+                                <span>Call Customer</span>
                               </a>
+
+                              {/* GPS Navigate Pill */}
                               {address.latitude && address.longitude && (
                                 <a
                                   href={`https://www.google.com/maps?q=${address.latitude},${address.longitude}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex-1 flex items-center justify-center gap-2 h-11 rounded-2xl bg-sky-50 hover:bg-sky-100/80 border border-sky-300/80 text-sky-900 text-xs font-black active:scale-[0.98] transition-all"
+                                  className="flex-1 flex items-center justify-center gap-2 h-11 rounded-full bg-gradient-to-r from-sky-50 to-blue-50 hover:from-sky-100 hover:to-blue-100 border border-sky-300 text-sky-900 text-xs font-black shadow-xs active:scale-[0.98] transition-all"
                                 >
-                                  <Navigation size={15} className="text-sky-700" />
-                                  GPS Navigate
+                                  <div className="h-6 w-6 rounded-full bg-sky-600 text-white flex items-center justify-center shrink-0">
+                                    <Navigation size={12} strokeWidth={2.5} />
+                                  </div>
+                                  <span>GPS Navigate</span>
                                 </a>
                               )}
                             </div>
                           </div>
                         )}
 
-                        {/* 5. Slide to Confirm Button */}
+                        {/* Slide to Confirm Action Area */}
                         <div className="pt-1">
                           {assignment.status === 'ready_for_pickup' && (
                             <SlideToConfirm

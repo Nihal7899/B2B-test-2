@@ -65,7 +65,7 @@ export function DeliveryScreen({
   isDedicatedRole = false,
   initialTab = 'dashboard',
 }: DeliveryScreenProps) {
-  const { user, profile, refreshProfile, signOut } = useAuth();
+  const { user, profile, refreshProfile, logout } = useAuth();
   const [navTab, setNavTab] = useState<'dashboard' | 'pending' | 'picked_up' | 'delivered' | 'account'>(initialTab);
   const [assignments, setAssignments] = useState<
     {
@@ -977,13 +977,22 @@ export function DeliveryScreen({
                 )}
               </div>
 
-              <button
-                onClick={() => void signOut()}
-                className="w-full h-12 rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 font-black text-xs flex items-center justify-center gap-2 border border-red-200 shadow-xs active:scale-[0.98] transition-all"
-              >
-                <LogOut size={16} />
-                Sign Out from Fleet App
-              </button>
+              <div className="space-y-2.5 pt-2">
+                <button
+                  onClick={() => void logout({ scope: 'local' })}
+                  className="w-full h-12 rounded-2xl bg-white hover:bg-red-50 text-red-600 font-black text-xs flex items-center justify-center gap-2 border border-red-200 shadow-xs active:scale-[0.98] transition-all"
+                >
+                  <LogOut size={16} />
+                  Sign Out (This Device)
+                </button>
+                <button
+                  onClick={() => void logout({ scope: 'global' })}
+                  className="w-full h-12 rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 font-black text-xs flex items-center justify-center gap-2 border border-red-200 shadow-xs active:scale-[0.98] transition-all"
+                >
+                  <LogOut size={16} />
+                  Sign Out All Devices
+                </button>
+              </div>
             </div>
           )}
         </main>

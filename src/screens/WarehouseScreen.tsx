@@ -85,7 +85,7 @@ const ORDERS_PER_PAGE = 12;
 const INVOICES_PER_PAGE = 12;
 
 export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseScreenProps) {
-  const { signOut, profile } = useAuth();
+  const { logout, profile } = useAuth();
   const [activeTab, setActiveTab] = useState<'orders' | 'invoices' | 'inventory' | 'low_stock'>('orders');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
 
@@ -575,7 +575,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
               {isDedicatedRole && (
                 <button
-                  onClick={() => void signOut()}
+                  onClick={() => void logout({ scope: 'local' })}
                   className="h-10 px-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-200 flex items-center gap-1.5 text-xs font-bold active:scale-95 transition-transform"
                 >
                   <LogOut size={16} />

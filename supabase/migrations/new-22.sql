@@ -281,3 +281,36 @@ $$;
 
 -- Grant execution permissions
 GRANT EXECUTE ON FUNCTION get_investor_dashboard_data() TO authenticated;
+
+DO $$
+DECLARE
+    table_name text;
+    tables_to_remove text[] := ARRAY[
+        'products', 
+        'categories', 
+        'subcategories', 
+        'stores', 
+        'trusted_brands', 
+        'home_sections', 
+        'home_banners', 
+        'smart_collections', 
+        'product_volume_pricing', 
+        'wishlists', 
+        'payments'
+    ];
+BEGIN
+    FOR table_name IN SELECT unnest(tables_to_remove)
+    LOOP
+        -- Check if the table is currently in the realtime publication
+        IF EXISTS (
+            SELECT 1
+            FROM pg_publication_tables
+            WHERE pubname = 'supabase_realtime' 
+              AND schemaname = 'public' 
+              AND tablename = table_name
+        ) THEN
+            -- If it exists, drop it from the publication
+            EXECUTE format('ALTER PUBLICATION supabase_realtime DROP TABLE public.%I', table_name);
+        END IF;
+    END LOOP;
+END $$;

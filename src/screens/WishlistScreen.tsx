@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Heart, ArrowRight } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Heart, ArrowRight, Loader2 } from 'lucide-react';
 import type { Product } from '@/types';
 import type { useCart } from '@/store';
-import { fetchWishlist, toggleWishlist, fetchProducts } from '@/services/catalog';
+import { fetchWishlist, toggleWishlist, fetchProductsByIds } from '@/services/catalog';
 import { ProductCard } from '@/components/ProductCard';
 
 interface WishlistScreenProps {
@@ -11,20 +11,41 @@ interface WishlistScreenProps {
   onShop: () => void;
 }
 
+const ITEMS_PER_PAGE = 20;
+
 export function WishlistScreen({ cart, onProduct, onShop }: WishlistScreenProps) {
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
 
-  const load = useCallback(async (silent = false) => {
+  // Intersection Observer for Infinite Scroll
+  const observer = useRef<IntersectionObserver | null>(null);
+
+  const loadInitial = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [ids, { products: allProducts }] = await Promise.all([
-        fetchWishlist(),
-        fetchProducts(),
-      ]);
+      const ids = await fetchWishlist();
       setWishlistIds(ids);
-      setProducts(allProducts.filter((p) => ids.includes(p.id)));
+
+      const firstPageIds = ids.slice(0, ITEMS_PER_PAGE);
+      if (firstPageIds.length > 0) {
+        const fetchedProducts = await fetchProductsByIds(firstPageIds);
+        // Maintain the exact chronological order of the wishlist
+        const orderedProducts = firstPageIds
+          .map((id) => fetchedProducts.find((p) => p.id === id))
+          .filter((p): p is Product => Boolean(p));
+        setProducts(orderedProducts);
+      } else {
+        setProducts([]);
+      }
+      
+      setPage(1);
+      setHasMore(ids.length > ITEMS_PER_PAGE);
     } catch (err) {
       console.error('Failed to load wishlist', err);
     } finally {
@@ -32,28 +53,68 @@ export function WishlistScreen({ cart, onProduct, onShop }: WishlistScreenProps)
     }
   }, []);
 
-  // Initial Load
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const nextIds = wishlistIds.slice((nextPage - 1) * ITEMS_PER_PAGE, nextPage * ITEMS_PER_PAGE);
+
+      if (nextIds.length > 0) {
+        const fetchedProducts = await fetchProductsByIds(nextIds);
+        const orderedProducts = nextIds
+          .map((id) => fetchedProducts.find((p) => p.id === id))
+          .filter((p): p is Product => Boolean(p));
+
+        setProducts((prev) => [...prev, ...orderedProducts]);
+        setPage(nextPage);
+        setHasMore(wishlistIds.length > nextPage * ITEMS_PER_PAGE);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('Failed to load more wishlist items', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [page, hasMore, loadingMore, wishlistIds]);
+
+  // Attach observer to sentinel div at the bottom
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (loadingMore) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          void loadMore();
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [loadingMore, hasMore, loadMore]
+  );
+
   useEffect(() => {
-    void load(false);
-  }, [load]);
+    void loadInitial(false);
+  }, [loadInitial]);
 
   // Background Data Refresh Listeners
   useEffect(() => {
     let active = true;
 
-    const handleWishlistChange = () => void load(true);
+    const handleWishlistChange = () => void loadInitial(true);
     
     const handleKeepAliveFocus = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
       if (active && customEvent.detail?.key?.includes('/wishlist')) {
-        void load(true);
+        void loadInitial(true);
       }
     };
 
     const handleVisibilityChange = () => {
       const isCurrentlyActive = window.location.pathname.includes('/wishlist');
       if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
-        void load(true);
+        void loadInitial(true);
       }
     };
 
@@ -67,7 +128,7 @@ export function WishlistScreen({ cart, onProduct, onShop }: WishlistScreenProps)
       window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [load]);
+  }, [loadInitial]);
 
   const handleWishlistToggle = async (productId: string) => {
     const isCurrentlyIn = wishlistIds.includes(productId);
@@ -85,7 +146,7 @@ export function WishlistScreen({ cart, onProduct, onShop }: WishlistScreenProps)
       );
     } catch (err) {
       console.error('Error toggling wishlist', err);
-      void load(true); // Rollback on error silently
+      void loadInitial(true); // Rollback on error silently
     }
   };
 
@@ -102,7 +163,7 @@ export function WishlistScreen({ cart, onProduct, onShop }: WishlistScreenProps)
       <div>
         <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Your wishlist</h1>
         <p className="text-xs text-ink-500 mt-1">
-          {products.length} saved {products.length === 1 ? 'product' : 'products'}
+          {wishlistIds.length} saved {wishlistIds.length === 1 ? 'product' : 'products'}
         </p>
       </div>
 
@@ -117,7 +178,7 @@ export function WishlistScreen({ cart, onProduct, onShop }: WishlistScreenProps)
           </p>
           <button
             onClick={onShop}
-            className="mt-5 h-11 px-5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-2 shadow-soft"
+            className="mt-5 h-11 px-5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-2 shadow-soft hover:bg-brand-700 transition"
           >
             Browse products <ArrowRight size={16} />
           </button>
@@ -139,6 +200,11 @@ export function WishlistScreen({ cart, onProduct, onShop }: WishlistScreenProps)
               onWishlistToggle={handleWishlistToggle}
             />
           ))}
+
+          {/* Sentinel Div for Intersection Observer (Triggers loadMore when scrolled into view) */}
+          <div ref={sentinelRef} className="col-span-full h-10 flex items-center justify-center mt-4">
+            {loadingMore && <Loader2 size={24} className="animate-spin text-brand-600" />}
+          </div>
         </div>
       )}
     </div>

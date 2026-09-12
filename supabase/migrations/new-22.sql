@@ -422,3 +422,9 @@ BEGIN
   RETURN v_result;
 END;
 $$;
+
+
+
+-- Force the database to send full row data in websocket payloads
+ALTER TABLE orders REPLICA IDENTITY FULL;
+ALTER TABLE delivery_assignments REPLICA IDENTITY FULL;

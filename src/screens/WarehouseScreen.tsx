@@ -448,43 +448,37 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     // 2. Setup Debouncer to protect the database from mass-query spikes
     let debounceTimer: NodeJS.Timeout;
     
-    const handleRealtimeSpike = () => {
+    const handleRealtimeSpike = (payload: any) => {
+      // DIAGNOSTIC LOG: If you don't see this in your console when an order changes, 
+      // your database RLS is blocking the event from reaching the browser.
+      console.log('[Warehouse Realtime] Event received from DB:', payload);
+      
       clearTimeout(debounceTimer);
-      // Wait 500ms before fetching. Groups rapid order events into a single database hit.
       debounceTimer = setTimeout(() => {
-        console.log('[Warehouse Realtime] Processing batched updates...');
+        console.log('[Warehouse Realtime] Fetching fresh data...');
         void loadOrders();
         void loadStats();
       }, 500); 
     };
 
-    // 3. Setup Comprehensive Realtime Channel
+    // 3. Setup Comprehensive Realtime Channel with Unique ID to prevent React caching bugs
+    const channelName = `warehouse_live_sync_${Date.now()}`;
     const channel = supabase
-      .channel('warehouse_live_sync')
-      // Watch Orders Table
-      .on(
-        'postgres_changes', 
-        { event: '*', schema: 'public', table: 'orders' }, 
-        handleRealtimeSpike
-      )
+      .channel(channelName)
+      // Watch Orders
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleRealtimeSpike)
       // Watch Delivery Assignments
-      .on(
-        'postgres_changes', 
-        { event: '*', schema: 'public', table: 'delivery_assignments' }, 
-        handleRealtimeSpike
-      )
-      // Watch Optimistic App Broadcasts (Cross-device assignments)
-      .on(
-        'broadcast', 
-        { event: 'assignment_changed' }, 
-        handleRealtimeSpike
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_assignments' }, handleRealtimeSpike)
+      // Watch Payments
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, handleRealtimeSpike)
+      // Watch Cross-Device Broadcasts
+      .on('broadcast', { event: 'assignment_changed' }, handleRealtimeSpike)
       // Monitor Connection Health
       .subscribe((status, err) => {
         if (err) {
           console.error('[Warehouse Realtime] Subscription Error:', err);
         } else if (status === 'SUBSCRIBED') {
-          console.log('[Warehouse Realtime] Sync is ACTIVE 🟢');
+          console.log(`[Warehouse Realtime] Sync is ACTIVE 🟢 (${channelName})`);
         }
       });
 
@@ -493,6 +487,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       void supabase.removeChannel(channel);
     };
   }, [loadAll, loadOrders, loadStats]);
+
 
 
   const handleRefresh = () => {

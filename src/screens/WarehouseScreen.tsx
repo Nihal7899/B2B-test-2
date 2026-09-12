@@ -13,6 +13,7 @@ import {
   Search,
   UserCheck,
   Eye,
+  EyeOff,
   X,
   FileText,
   Check,
@@ -148,7 +149,6 @@ function CafKartLogo({ className = 'h-8 w-8' }: { className?: string }) {
   );
 }
 
-// 6. High-Tech Glass & Neon Smart Fulfillment Center SVG
 function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
   return (
     <svg viewBox="0 0 260 120" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -168,35 +168,18 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
         </linearGradient>
       </defs>
 
-      {/* Ground Ambience Shadow */}
       <ellipse cx="160" cy="112" rx="88" ry="6.5" fill="#011912" fillOpacity="0.75" />
 
-      {/* Main High-Tech Hub Terminal */}
-      <path
-        d="M 64 42 L 142 16 L 220 42 L 220 98 L 64 98 Z"
-        fill="url(#hubGlassRoof)"
-        stroke="#1a6e50"
-        strokeWidth="1.5"
-      />
+      <path d="M 64 42 L 142 16 L 220 42 L 220 98 L 64 98 Z" fill="url(#hubGlassRoof)" stroke="#1a6e50" strokeWidth="1.5" />
+      <path d="M 58 42 L 142 14 L 226 42 L 142 49 Z" fill="#0b4533" stroke="#59D9B6" strokeWidth="1.25" />
 
-      {/* Aerodynamic Solar Roof Canopy */}
-      <path
-        d="M 58 42 L 142 14 L 226 42 L 142 49 Z"
-        fill="#0b4533"
-        stroke="#59D9B6"
-        strokeWidth="1.25"
-      />
-
-      {/* Solar Panel Array Grids */}
       <polygon points="98,30 138,18 138,25 98,36" fill="url(#solarGlow)" />
       <polygon points="146,18 186,30 186,36 146,25" fill="url(#solarGlow)" />
 
-      {/* Loading Dock Volumetric Light Cones */}
       <polygon points="86,60 110,60 116,98 80,98" fill="url(#hubBeamGrad)" />
       <polygon points="130,60 154,60 160,98 124,98" fill="url(#hubBeamGrad)" />
       <polygon points="174,60 198,60 204,98 168,98" fill="url(#hubBeamGrad)" />
 
-      {/* Automated Dock Gates */}
       <rect x="82" y="58" width="30" height="40" rx="3.5" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
       <line x1="82" y1="66" x2="112" y2="66" stroke="#0e4330" strokeWidth="1" />
       <line x1="82" y1="74" x2="112" y2="74" stroke="#0e4330" strokeWidth="1" />
@@ -215,7 +198,6 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
       <line x1="170" y1="82" x2="200" y2="82" stroke="#0e4330" strokeWidth="1" />
       <rect x="182" y="54" width="6" height="2" rx="1" fill="#59D9B6" />
 
-      {/* Autonomous Electric Guided Vehicle (AGV) with Pallet Stack */}
       <g transform="translate(18, 76)">
         <rect x="0" y="10" width="22" height="12" rx="2.5" fill="#FFFFFF" />
         <rect x="16" y="13" width="8" height="6" rx="1" fill="#59D9B6" />
@@ -224,17 +206,14 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
         <circle cx="17" cy="22" r="3" fill="#0f172a" />
       </g>
 
-      {/* Pallet Crates Staged at Dock */}
       <g transform="translate(44, 76)">
         <rect x="0" y="6" width="18" height="14" rx="2" fill="#d97706" stroke="#f59e0b" strokeWidth="1" />
         <line x1="9" y1="6" x2="9" y2="20" stroke="#b45309" strokeWidth="1" />
       </g>
 
-      {/* Central Hub Hologram Logo Mark */}
       <circle cx="142" cy="37" r="8.5" fill="#032117" stroke="#59D9B6" strokeWidth="1.5" />
       <path d="M 139 37 L 141 35 L 145 40" stroke="#59D9B6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
 
-      {/* Pulsing Satellite Radar Beacon */}
       <g transform="translate(222, 18)">
         <circle cx="8" cy="8" r="8" fill="#063a2c" stroke="#59D9B6" strokeWidth="1.5" />
         <circle cx="8" cy="8" r="3" fill="#59D9B6" />
@@ -249,23 +228,19 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'invoices' | 'inventory' | 'low_stock'>('dashboard');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
 
-  // 2. Scroll to top automatically whenever tab changes
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [activeTab]);
 
-  // Toast Notification State
   const [toastNotification, setToastNotification] = useState<ToastNotification | null>(null);
   const showToast = (message: string, type: ToastNotification['type'] = 'info') => {
     setToastNotification({ message, type });
   };
 
-  // 6. Orders Sorting & Filtering State
   const [orderSortField, setOrderSortField] = useState<'created_at' | 'updated_at'>('created_at');
   const [orderSortDirection, setOrderSortDirection] = useState<'desc' | 'asc'>('desc');
   const [showOrderSortMenu, setShowOrderSortMenu] = useState(false);
 
-  // 5. Invoices Date Field Selection (created_at vs updated_at)
   const [invoiceDateField, setInvoiceDateField] = useState<'created_at' | 'updated_at'>('created_at');
 
   const [ordersPage, setOrdersPage] = useState(1);
@@ -283,12 +258,10 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [editingDriverOrderId, setEditingDriverOrderId] = useState<string | null>(null);
   const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
 
-  // Cancellation Modal State
   const [cancelModalOrderId, setCancelModalOrderId] = useState<string | null>(null);
   const [cancelReasonType, setCancelReasonType] = useState<'damaged' | 'out_of_stock' | 'customer_request' | 'duplicate' | 'other'>('damaged');
   const [customCancelReason, setCustomCancelReason] = useState('');
 
-  // 4. Stock Update Confirmation Dialog State
   const [stockConfirmDialog, setStockConfirmDialog] = useState<{
     isOpen: boolean;
     productId?: string;
@@ -311,16 +284,27 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [refreshing, setRefreshing] = useState(false);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedOrderItems, setExpandedOrderItems] = useState<Record<string, boolean>>({});
+
+  const toggleOrderInlineItems = async (orderId: string) => {
+    const isCurrentlyExpanded = !!expandedOrderItems[orderId];
+    if (!isCurrentlyExpanded && inspectOrderId !== orderId) {
+      void openItemInspection(orderId);
+    }
+    setExpandedOrderItems((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  };
 
   const isStaffUnregistered = !profile?.staff_registration_status || profile.staff_registration_status === 'unregistered';
 
   const loadDrivers = useCallback(async () => {
     try {
-      const { data, error } = await supabase.rpc('get_delivery_partners');
-      if (error) throw error;
+      const { data } = await supabase.rpc('get_delivery_partners');
       setDrivers(data || []);
-    } catch (err) {
-      console.error('Failed to load drivers:', err);
+    } catch {
+      // ignore
     }
   }, []);
 
@@ -331,7 +315,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         setServerStats(data as TodayWarehouseStats);
       }
     } catch {
-      // Fallback runs client-side if RPC isn't loaded
+      // fallback
     }
   }, []);
 
@@ -415,22 +399,20 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       });
 
       setPaymentsMap(paySummaries);
-    } catch (err) {
-      console.error('Failed to load orders:', err);
+    } catch {
+      // ignore
     }
   }, []);
 
   const loadInventory = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('products')
         .select('id, name, brand, pack_size, stock_quantity, stock_threshold, wholesale_price, mrp, image_url, image_urls, is_available')
         .order('name', { ascending: true });
-
-      if (error) throw error;
-      setProducts(data as ProductInventory[]);
-    } catch (err) {
-      console.error('Failed to load inventory:', err);
+      setProducts((data as ProductInventory[]) || []);
+    } catch {
+      // ignore
     }
   }, []);
 
@@ -441,49 +423,50 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setRefreshing(false);
   }, [loadDrivers, loadOrders, loadInventory, loadStats]);
 
-  // 1. Initial Data Load (Separated from Websockets)
+  // 1. Initial Load
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
 
-  // 2. Realtime Listener (Isolated & Bulletproof)
+  // 2. Exact DeliveryScreen Realtime Pattern
   useEffect(() => {
+    let warehouseChannel: ReturnType<typeof supabase.channel> | null = null;
+    let dispatchChannel: ReturnType<typeof supabase.channel> | null = null;
     let debounceTimer: NodeJS.Timeout;
-    
-    const handleRealtimeSpike = (payload: any) => {
-      console.log(`[Warehouse Realtime] Event received on ${payload.table}:`, payload.eventType);
-      
+
+    const handleRealtimeSpike = () => {
       clearTimeout(debounceTimer);
-      // Wait 400ms to batch rapid events together
       debounceTimer = setTimeout(() => {
         void loadOrders();
         void loadStats();
-      }, 400); 
+      }, 400);
     };
 
-    // Use a hardcoded, stable channel name. NEVER use Date.now() here.
-    const channel = supabase
-      .channel('warehouse_global_sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleRealtimeSpike)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_assignments' }, handleRealtimeSpike)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, handleRealtimeSpike)
-      .on('broadcast', { event: 'assignment_changed' }, handleRealtimeSpike)
-      .subscribe((status, err) => {
-        if (err) {
-          console.error('[Warehouse Realtime] Subscription Error:', err);
-        } else if (status === 'SUBSCRIBED') {
-          console.log('[Warehouse Realtime] Sync is ACTIVE 🟢 (Stable Connection)');
-        }
-      });
+    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+      if (!authUser) return;
+
+      warehouseChannel = supabase
+        .channel(`warehouse_sync_${authUser.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleRealtimeSpike)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_assignments' }, handleRealtimeSpike)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, handleRealtimeSpike)
+        .subscribe((status, err) => {
+          if (err) console.error('[Warehouse Realtime] Subscription Error:', err);
+          else if (status === 'SUBSCRIBED') console.log('[Warehouse Realtime] Sync ACTIVE 🟢');
+        });
+
+      dispatchChannel = supabase
+        .channel('delivery_dispatch_sync')
+        .on('broadcast', { event: 'assignment_changed' }, handleRealtimeSpike)
+        .subscribe();
+    });
 
     return () => {
       clearTimeout(debounceTimer);
-      void supabase.removeChannel(channel);
+      if (warehouseChannel) void supabase.removeChannel(warehouseChannel);
+      if (dispatchChannel) void supabase.removeChannel(dispatchChannel);
     };
-  }, []); // <-- CRITICAL: Empty dependency array ensures the socket never disconnects on re-render
-
-
-
+  }, [loadOrders, loadStats]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -496,8 +479,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     try {
       const { data } = await supabase.from('order_items').select('*').eq('order_id', orderId);
       setInspectItems((data as DbOrderItem[]) || []);
-    } catch (err) {
-      console.error('Failed to fetch items:', err);
+    } catch {
       showToast('Could not load package items', 'error');
     } finally {
       setInspectLoading(false);
@@ -663,7 +645,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     });
   };
 
-  // 4. Save stock execution after confirmation dialog
   const handleSaveStock = async (productId: string) => {
     const updatedQuantity = stockEdits[productId];
     if (updatedQuantity === undefined) return;
@@ -708,7 +689,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setInvoicesPage(1);
   }, [searchQuery, invoiceDatePreset, customStartDate, customEndDate, invoiceDateField]);
 
-  // Orders Filtered & Sorted
   const filteredOrders = useMemo(() => {
     const list = orders.filter((o) => {
       const recipient = o.address_id ? addressMap[o.address_id]?.recipient_name || '' : '';
@@ -742,7 +722,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     return filteredOrders.slice(start, start + ORDERS_PER_PAGE);
   }, [filteredOrders, ordersPage]);
 
-  // Invoices Filtered by created_at OR updated_at
   const filteredInvoices = useMemo(() => {
     const now = new Date();
     const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -863,19 +842,19 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   return (
     <div className="min-h-screen bg-[#f4f7f5] flex flex-col justify-between pb-28 md:pb-16">
-      {/* 1. Toast Notification Display with Safe Area Support */}
       {toastNotification && (
-        <div className="fixed top-4 inset-x-4 pt-[env(safe-area-inset-top,0px)] z-50 max-w-sm mx-auto animate-in fade-in slide-in-from-top-4 duration-200">
-          <Toast
-            message={toastNotification.message}
-            type={toastNotification.type}
-            onClose={() => setToastNotification(null)}
-          />
+        <div className="fixed top-4 inset-x-4 pt-[env(safe-area-inset-top,0px)] z-[500] max-w-sm mx-auto animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-none">
+          <div className="pointer-events-auto">
+            <Toast
+              message={toastNotification.message}
+              type={toastNotification.type}
+              onClose={() => setToastNotification(null)}
+            />
+          </div>
         </div>
       )}
 
       <div>
-        {/* Compact Sticky Top Bar */}
         <header className="sticky top-0 z-40 bg-gradient-to-b from-[#063a2c] via-[#084534] to-[#0a4d3b] text-white pt-[max(0.4rem,env(safe-area-inset-top))] pb-2.5 px-4 sm:px-6 shadow-md rounded-b-[26px] border-b border-[#0d5944] overflow-hidden">
           <div className="max-w-7xl mx-auto flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
@@ -940,7 +919,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 )}
               </div>
 
-              {/* 6. Beautiful Themed Warehouse Facility SVG */}
               <div className="w-full -mr-2 -mt-1 scale-105 origin-top-right transition-transform pointer-events-none">
                 <WarehouseFacilityGraphic className="w-full h-auto drop-shadow-md" />
               </div>
@@ -949,7 +927,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </header>
 
         <main className="px-4 lg:px-8 pt-4 max-w-7xl mx-auto space-y-4">
-          {/* Top Control Bar: Desktop Switcher & 4. Beautiful Themed Search Bar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="hidden md:flex items-center gap-1 bg-slate-200/70 p-1 rounded-2xl w-auto">
               {[
@@ -984,7 +961,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               })}
             </div>
 
-            {/* 4. Beautiful Themed Elevated Search Bar */}
             {activeTab !== 'dashboard' && (
               <div className="relative w-full md:w-84 group">
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-teal-400/15 to-[#59D9B6]/20 rounded-2xl blur-xs -z-10 group-focus-within:opacity-100 opacity-60 transition-opacity" />
@@ -1016,7 +992,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             )}
           </div>
 
-          {/* TAB 1: DASHBOARD (1. Unbroken Today's Orders Pill) */}
           {activeTab === 'dashboard' && (
             <div className="space-y-4">
               <div className="rounded-[26px] p-5 text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#064e3b] via-[#094736] to-[#042c22] border border-emerald-500/30">
@@ -1032,7 +1007,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     </div>
                   </div>
 
-                  {/* 1. Unbroken Single-Line Pill Fix */}
                   <div className="flex items-center justify-between gap-3 pt-1">
                     <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
@@ -1065,7 +1039,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 <div className="absolute -right-8 -bottom-8 h-44 w-44 rounded-full bg-[#59D9B6]/15 blur-2xl pointer-events-none" />
               </div>
 
-              {/* 4 Pipeline Metric Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div
                   onClick={() => {
@@ -1148,7 +1121,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               </div>
 
-              {/* Priority Action Orders */}
               <div className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1200,7 +1172,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 onClick={() => void handleConfirmOrder(ord.id)}
                                 className="px-3.5 py-1.5 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white text-xs font-black shrink-0 active:scale-95 transition"
                               >
-                                Confirm Order
+                                Confirm
                               </button>
                             ) : (
                               <button
@@ -1220,7 +1192,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 )}
               </div>
 
-              {/* Inventory Health Summary */}
               <div className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1249,7 +1220,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {/* 6. ORDERS VIEW: Mobile Select + Filter / Desktop Pills */}
           {activeTab === 'orders' && (
             <div className="space-y-2">
               <div className="flex md:hidden items-center gap-2">
@@ -1274,7 +1244,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   <ChevronDown size={15} className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" />
                 </div>
 
-                {/* 6. Address / Date Filter Popover */}
                 <div className="relative">
                   <button
                     onClick={() => setShowOrderSortMenu((prev) => !prev)}
@@ -1365,7 +1334,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               </div>
 
-              {/* Desktop Pill View */}
               <div className="hidden md:flex items-center justify-between gap-3">
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 flex-1">
                   {orderPills.map((pill) => {
@@ -1415,7 +1383,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {/* 5. INVOICES TAB WITH created_at vs updated_at TOGGLE */}
           {activeTab === 'invoices' && (
             <div className="bg-white border border-slate-200/80 rounded-[22px] p-3.5 space-y-3 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1505,7 +1472,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           ) : (
             <>
-              {/* TAB 2: ORDERS LIST (2. Direct Popup for View Items, No Card Clutter) */}
               {activeTab === 'orders' && (
                 <div className="space-y-4">
                   {filteredOrders.length === 0 ? (
@@ -1630,7 +1596,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               </div>
 
-                              {/* 2. Package Overview Strip: View Items opens POPUP modal directly */}
                               <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 flex items-center justify-between">
                                 <div>
                                   <span className="text-xs font-black text-slate-800">Package Items</span>
@@ -1743,7 +1708,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
-                              {/* 5. Clean Button Name for Small Screen */}
                               {ord.status === 'pending' && (
                                 <button
                                   disabled={isProcessing}
@@ -1826,7 +1790,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 3: INVOICES */}
               {activeTab === 'invoices' && (
                 <div className="space-y-4">
                   {filteredInvoices.length === 0 ? (
@@ -1978,7 +1941,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 4 & 5: INVENTORY & LOW STOCK (3. CachedImage Component) */}
               {(activeTab === 'inventory' || activeTab === 'low_stock') && (
                 <div>
                   {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
@@ -2016,7 +1978,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                             }`}
                           >
                             <div className="flex items-start gap-3">
-                              {/* 3. Cached Image Component with Fallback Icon */}
                               <div className="h-14 w-14 rounded-2xl bg-slate-100 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center">
                                 {primaryImage ? (
                                   <CachedImage
@@ -2052,7 +2013,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                               </div>
                             </div>
 
-                            {/* Tactile Modifier Bar */}
                             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-xs text-slate-400 font-bold mr-1">Qty:</span>
@@ -2103,7 +2063,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                     <RotateCcw size={12} />
                                     Cancel
                                   </button>
-                                  {/* 4. Opens Confirmation Dialog before updating stock */}
                                   <button
                                     disabled={isSaving}
                                     onClick={() => {
@@ -2135,7 +2094,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </main>
       </div>
 
-      {/* Solid Floating Bottom Navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom md:hidden">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
           <button
@@ -2220,7 +2178,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       </nav>
 
-      {/* Cancellation Reason Modal */}
       {cancelModalOrderId && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-[28px] max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
@@ -2306,14 +2263,13 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       )}
 
-      {/* 2. Package Contents Inspection Modal */}
       {inspectOrderId && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-[28px] max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-black text-sm text-slate-900">Package Contents</h3>
-                <p className="text-[11px] text-slate-500">Ordered items verification</p>
+                <p className="text-[11px] text-slate-500">Inspect ordered line items before dispatch</p>
               </div>
               <button
                 onClick={() => setInspectOrderId(null)}
@@ -2360,11 +2316,10 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       )}
 
-      {/* 4. Confirmation Dialog for Updating Stock */}
       <ConfirmationDialog
         isOpen={stockConfirmDialog.isOpen}
-        title="Update Inventory Stock"
-        message={`Are you sure you want to update the stock count for "${stockConfirmDialog.productName}" from ${stockConfirmDialog.oldStock} to ${stockConfirmDialog.newStock} units?`}
+        title="Confirm Inventory Update"
+        message={`Update stock for "${stockConfirmDialog.productName}" from ${stockConfirmDialog.oldStock} to ${stockConfirmDialog.newStock} units?`}
         confirmLabel="Update Stock"
         cancelLabel="Cancel"
         variant="warning"

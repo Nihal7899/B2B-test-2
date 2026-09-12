@@ -442,23 +442,58 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   }, [loadDrivers, loadOrders, loadInventory, loadStats]);
 
   useEffect(() => {
+    // 1. Load initial data on mount
     void loadAll();
 
-    const channel = supabase
-      .channel('warehouse_live_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+    // 2. Setup Debouncer to protect the database from mass-query spikes
+    let debounceTimer: NodeJS.Timeout;
+    
+    const handleRealtimeSpike = () => {
+      clearTimeout(debounceTimer);
+      // Wait 500ms before fetching. Groups rapid order events into a single database hit.
+      debounceTimer = setTimeout(() => {
+        console.log('[Warehouse Realtime] Processing batched updates...');
         void loadOrders();
         void loadStats();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_assignments' }, () => {
-        void loadOrders();
-      })
-      .subscribe();
+      }, 500); 
+    };
+
+    // 3. Setup Comprehensive Realtime Channel
+    const channel = supabase
+      .channel('warehouse_live_sync')
+      // Watch Orders Table
+      .on(
+        'postgres_changes', 
+        { event: '*', schema: 'public', table: 'orders' }, 
+        handleRealtimeSpike
+      )
+      // Watch Delivery Assignments
+      .on(
+        'postgres_changes', 
+        { event: '*', schema: 'public', table: 'delivery_assignments' }, 
+        handleRealtimeSpike
+      )
+      // Watch Optimistic App Broadcasts (Cross-device assignments)
+      .on(
+        'broadcast', 
+        { event: 'assignment_changed' }, 
+        handleRealtimeSpike
+      )
+      // Monitor Connection Health
+      .subscribe((status, err) => {
+        if (err) {
+          console.error('[Warehouse Realtime] Subscription Error:', err);
+        } else if (status === 'SUBSCRIBED') {
+          console.log('[Warehouse Realtime] Sync is ACTIVE 🟢');
+        }
+      });
 
     return () => {
+      clearTimeout(debounceTimer);
       void supabase.removeChannel(channel);
     };
   }, [loadAll, loadOrders, loadStats]);
+
 
   const handleRefresh = () => {
     setRefreshing(true);

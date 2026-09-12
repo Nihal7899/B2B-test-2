@@ -314,3 +314,108 @@ BEGIN
         END IF;
     END LOOP;
 END $$;
+
+-- 1. Drop existing conflicting signatures
+DROP FUNCTION IF EXISTS cancel_order_warehouse(UUID, TEXT);
+DROP FUNCTION IF EXISTS cancel_order_warehouse(UUID);
+DROP FUNCTION IF EXISTS get_warehouse_today_stats();
+
+-- 2. Recreate cancel_order_warehouse with automated stock restoration
+CREATE OR REPLACE FUNCTION cancel_order_warehouse(
+  p_order_id UUID,
+  p_reason TEXT DEFAULT 'Cancelled by warehouse manager'
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_current_status TEXT;
+  v_item RECORD;
+BEGIN
+  -- Fetch current order status
+  SELECT status INTO v_current_status
+  FROM orders
+  WHERE id = p_order_id;
+
+  IF v_current_status IS NULL THEN
+    RAISE EXCEPTION 'Order not found';
+  END IF;
+
+  IF v_current_status = 'cancelled' THEN
+    RAISE EXCEPTION 'Order is already cancelled';
+  END IF;
+
+  IF v_current_status = 'delivered' THEN
+    RAISE EXCEPTION 'Cannot cancel an order that has already been delivered';
+  END IF;
+
+  -- Restore inventory stock if order was confirmed or in any downstream stage
+  IF v_current_status IN ('confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery') THEN
+    FOR v_item IN
+      SELECT product_id, quantity
+      FROM order_items
+      WHERE order_id = p_order_id
+    LOOP
+      UPDATE products
+      SET stock_quantity = COALESCE(stock_quantity, 0) + v_item.quantity,
+          updated_at = NOW()
+      WHERE id = v_item.product_id;
+    END LOOP;
+  END IF;
+
+  -- Mark order as cancelled
+  UPDATE orders
+  SET status = 'cancelled',
+      cancel_reason = p_reason,
+      updated_at = NOW()
+  WHERE id = p_order_id;
+
+  -- Mark corresponding delivery assignment as cancelled if active
+  UPDATE delivery_assignments
+  SET status = 'cancelled',
+      updated_at = NOW()
+  WHERE order_id = p_order_id;
+
+  RETURN json_build_object(
+    'success', true,
+    'order_id', p_order_id,
+    'previous_status', v_current_status,
+    'stock_restored', (v_current_status IN ('confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery'))
+  );
+END;
+$$;
+
+-- 3. Recreate high-performance today metrics RPC
+CREATE OR REPLACE FUNCTION get_warehouse_today_stats()
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_result JSON;
+BEGIN
+  SELECT json_build_object(
+    'today_volume', COALESCE(SUM(total) FILTER (
+      WHERE created_at >= CURRENT_DATE 
+        AND status != 'cancelled'
+    ), 0),
+    'today_orders_count', COUNT(*) FILTER (
+      WHERE created_at >= CURRENT_DATE 
+        AND status != 'cancelled'
+    ),
+    'pending_count', COUNT(*) FILTER (WHERE status = 'pending'),
+    'confirmed_count', COUNT(*) FILTER (WHERE status = 'confirmed'),
+    'packed_count', COUNT(*) FILTER (WHERE status = 'packed'),
+    'ready_count', COUNT(*) FILTER (WHERE status = 'ready_for_pickup'),
+    'out_count', COUNT(*) FILTER (WHERE status = 'out_for_delivery'),
+    'delivered_today_count', COUNT(*) FILTER (
+      WHERE status = 'delivered' 
+        AND updated_at >= CURRENT_DATE
+    )
+  ) INTO v_result
+  FROM orders;
+  
+  RETURN v_result;
+END;
+$$;

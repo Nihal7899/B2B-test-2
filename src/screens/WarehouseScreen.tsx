@@ -88,21 +88,32 @@ interface PaymentSummary {
   providers: string[];
 }
 
-interface ServerWarehouseStats {
-  total_volume: number;
+interface TodayWarehouseStats {
+  today_volume: number;
+  today_orders_count: number;
   pending_count: number;
   confirmed_count: number;
   packed_count: number;
   ready_count: number;
   out_count: number;
-  delivered_count: number;
-  total_count: number;
+  delivered_today_count: number;
 }
 
 type InvoiceDatePreset = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
 const ORDERS_PER_PAGE = 12;
 const INVOICES_PER_PAGE = 12;
+
+const isTodayDate = (dateString: string | null | undefined): boolean => {
+  if (!dateString) return false;
+  const d = new Date(dateString);
+  const now = new Date();
+  return (
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear()
+  );
+};
 
 function CafKartLogo({ className = 'h-8 w-8' }: { className?: string }) {
   return (
@@ -211,7 +222,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [inspectItems, setInspectItems] = useState<DbOrderItem[]>([]);
   const [inspectLoading, setInspectLoading] = useState(false);
 
-  const [serverStats, setServerStats] = useState<ServerWarehouseStats | null>(null);
+  const [serverStats, setServerStats] = useState<TodayWarehouseStats | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -244,12 +255,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   const loadStats = useCallback(async () => {
     try {
-      const { data, error } = await supabase.rpc('get_warehouse_stats');
+      const { data, error } = await supabase.rpc('get_warehouse_today_stats');
       if (!error && data) {
-        setServerStats(data as ServerWarehouseStats);
+        setServerStats(data as TodayWarehouseStats);
       }
     } catch {
-      // Fallback runs seamlessly if RPC not yet created in PostgreSQL
+      // Fallback runs seamlessly if RPC not added yet
     }
   }, []);
 
@@ -427,8 +438,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   };
 
+  // Requirement 2: Cancelling order after confirmation restores stock in DB & updates inventory UI
   const handleCancelOrder = async (orderId: string) => {
-    if (!confirm('Are you sure you want to cancel this order? Stock will be preserved.')) return;
+    if (!confirm('Are you sure you want to cancel this order? Stock will be automatically restored if previously confirmed.')) return;
     setActionOrderId(orderId);
     try {
       const { error } = await supabase.rpc('cancel_order_warehouse', {
@@ -445,10 +457,10 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   };
 
-  // Fixed: Uses RPC update_order_status and updates local optimistic state so order leaves Assign Partner tab
+  // Requirement 3: Assign delivery partner moves order to ready_for_pickup
   const handleAssignDriver = async (orderId: string, driverId: string) => {
     if (!driverId) {
-      alert('Please select a delivery partner to dispatch.');
+      alert('Please choose a delivery partner to dispatch.');
       return;
     }
     setActionOrderId(orderId);
@@ -456,7 +468,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     const previousDriverId = existing?.delivery_partner_id || null;
 
     try {
-      // 1. Assign partner in delivery_assignments table
       if (existing) {
         await supabase
           .from('delivery_assignments')
@@ -474,32 +485,21 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         });
       }
 
-      // 2. Safely transition order to ready_for_pickup via RPC
       const { error: rpcErr } = await supabase.rpc('update_order_status', {
         p_order_id: orderId,
         p_status: 'ready_for_pickup',
       });
 
       if (rpcErr) {
-        // Fallback update
         await supabase
           .from('orders')
           .update({ status: 'ready_for_pickup', updated_at: new Date().toISOString() })
           .eq('id', orderId);
       }
 
-      // 3. Optimistic local state update so it instantly moves to 'ready_for_pickup' tab
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: 'ready_for_pickup' } : o))
       );
-      setAssignmentsMap((prev) => ({
-        ...prev,
-        [orderId]: {
-          id: prev[orderId]?.id || 'assignment_' + orderId,
-          delivery_partner_id: driverId,
-          status: 'ready_for_pickup',
-        },
-      }));
 
       const syncChannel = supabase.channel('delivery_dispatch_sync');
       await syncChannel.send({
@@ -679,7 +679,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     });
   }, [products, searchQuery]);
 
-  // Scalable Metrics: Uses serverStats if available, otherwise calculates from loaded orders
+  // Requirement 1: Optimized calculations strictly for TODAY'S processed orders
   const metrics = useMemo(() => {
     if (serverStats) {
       return {
@@ -688,9 +688,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         packed: serverStats.packed_count,
         ready: serverStats.ready_count,
         out: serverStats.out_count,
-        delivered: serverStats.delivered_count,
-        totalRevenue: serverStats.total_volume,
-        totalOrders: serverStats.total_count,
+        todayVolume: serverStats.today_volume,
+        todayOrdersCount: serverStats.today_orders_count,
       };
     }
 
@@ -699,10 +698,14 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     const packed = orders.filter((o) => o.status === 'packed').length;
     const ready = orders.filter((o) => o.status === 'ready_for_pickup').length;
     const out = orders.filter((o) => o.status === 'out_for_delivery').length;
-    const delivered = orders.filter((o) => o.status === 'delivered').length;
-    const totalRevenue = orders
-      .filter((o) => o.status !== 'cancelled')
-      .reduce((acc, curr) => acc + (Number(curr.total) || 0), 0);
+
+    const todayOrders = orders.filter(
+      (o) => isTodayDate(o.created_at) && o.status !== 'cancelled'
+    );
+    const todayVolume = todayOrders.reduce(
+      (acc, curr) => acc + (Number(curr.total) || 0),
+      0
+    );
 
     return {
       pending,
@@ -710,9 +713,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       packed,
       ready,
       out,
-      delivered,
-      totalRevenue,
-      totalOrders: orders.filter((o) => o.status !== 'cancelled').length,
+      todayVolume,
+      todayOrdersCount: todayOrders.length,
     };
   }, [orders, serverStats]);
 
@@ -732,6 +734,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   return (
     <div className="min-h-screen bg-[#f4f7f5] flex flex-col justify-between pb-28 md:pb-16">
       <div>
+        {/* Compact Sticky Header */}
         <header className="sticky top-0 z-40 bg-gradient-to-b from-[#063a2c] via-[#084534] to-[#0a4d3b] text-white pt-[max(0.4rem,env(safe-area-inset-top))] pb-2.5 px-4 sm:px-6 shadow-md rounded-b-[26px] border-b border-[#0d5944] overflow-hidden">
           <div className="max-w-7xl mx-auto flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
@@ -804,6 +807,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </header>
 
         <main className="px-4 lg:px-8 pt-4 max-w-7xl mx-auto space-y-4">
+          {/* Top Control Bar: Desktop Switcher & Themed Search Bar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="hidden md:flex items-center gap-1 bg-slate-200/70 p-1 rounded-2xl w-auto">
               {[
@@ -869,6 +873,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             )}
           </div>
 
+          {/* TAB 1: DASHBOARD (Requirement 1: Strictly Today's Processed Orders) */}
           {activeTab === 'dashboard' && (
             <div className="space-y-4">
               <div className="rounded-[26px] p-5 text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#064e3b] via-[#094736] to-[#042c22] border border-emerald-500/30">
@@ -876,27 +881,27 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   <div className="flex items-center justify-between">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-[10px] font-black uppercase tracking-wider text-emerald-100">
                       <ShieldCheck size={14} className="text-[#59D9B6]" />
-                      Central Dispatch Hub
+                      Today's Dispatch Volume
                     </div>
                     <div className="flex items-center gap-1.5 text-emerald-300/90 text-[10px] font-bold">
                       <Wifi size={13} className="rotate-90" />
-                      <span>LIVE DISPATCH ENGINE</span>
+                      <span>TODAY LIVE</span>
                     </div>
                   </div>
 
                   <div className="flex items-baseline justify-between pt-1">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
-                        Total Order Volume Processed
+                        Today's Processed Order Volume
                       </p>
                       <p className="text-3xl font-black tracking-tight text-white mt-0.5">
-                        ₹{metrics.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{metrics.todayVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
 
                     <div className="text-right">
                       <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-400/20 text-emerald-200 border border-emerald-400/30 px-3 py-1 rounded-full">
-                        {metrics.totalOrders} ORDERS
+                        {metrics.todayOrdersCount} ORDERS TODAY
                       </span>
                     </div>
                   </div>
@@ -904,11 +909,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   <div className="flex items-center justify-between pt-2.5 border-t border-emerald-500/20 text-xs">
                     <p className="text-[11px] text-emerald-200/80 font-medium">
                       {metrics.pending > 0
-                        ? `⚠️ ${metrics.pending} pending orders require immediate confirmation!`
-                        : 'All new orders confirmed. Staging line is operating on schedule.'}
+                        ? `⚠️ ${metrics.pending} pending orders require confirmation today!`
+                        : 'All today orders confirmed. Operations running on schedule.'}
                     </p>
                     <div className="flex items-center gap-1 text-[#59D9B6] text-[10px] font-black">
-                      <Sparkles size={12} /> DOCK SYNCHRONIZED
+                      <Sparkles size={12} /> SHIFT ACTIVE
                     </div>
                   </div>
                 </div>
@@ -916,6 +921,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 <div className="absolute -right-8 -bottom-8 h-44 w-44 rounded-full bg-[#59D9B6]/15 blur-2xl pointer-events-none" />
               </div>
 
+              {/* 4 Pipeline Metric Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div
                   onClick={() => {
@@ -998,6 +1004,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               </div>
 
+              {/* Priority Action Orders */}
               <div className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1069,6 +1076,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 )}
               </div>
 
+              {/* Inventory Health Summary */}
               <div className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1097,6 +1105,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
+          {/* Orders Stage Pill Filter */}
           {activeTab === 'orders' && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
               {orderPills.map((pill) => {
@@ -1131,6 +1140,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
+          {/* Invoices Tab Period Filter */}
           {activeTab === 'invoices' && (
             <div className="bg-white border border-slate-200/80 rounded-[22px] p-3.5 space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
@@ -1199,6 +1209,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           ) : (
             <>
+              {/* TAB 2: ORDERS LIST */}
               {activeTab === 'orders' && (
                 <div className="space-y-4">
                   {filteredOrders.length === 0 ? (
@@ -1403,6 +1414,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               )}
 
+                              {/* Assign Partner Area */}
                               {isPacked && (
                                 <div className="rounded-2xl bg-emerald-50/70 border border-emerald-300 p-3 space-y-2.5 animate-in fade-in duration-200">
                                   <div className="flex items-center justify-between">
@@ -1490,7 +1502,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </button>
                               )}
 
-                              {/* Simplified button label as requested */}
+                              {/* Button label shortened to "Mark as Packed" */}
                               {ord.status === 'confirmed' && (
                                 <button
                                   disabled={isProcessing}
@@ -1525,6 +1537,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     </div>
                   )}
 
+                  {/* Pagination */}
                   {filteredOrders.length > ORDERS_PER_PAGE && (
                     <div className="flex items-center justify-between bg-white border border-slate-200 rounded-[22px] px-4 py-3 shadow-xs">
                       <p className="text-xs font-semibold text-slate-500">
@@ -1557,6 +1570,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
+              {/* TAB 3: INVOICES (Red pill for cancelled status) */}
               {activeTab === 'invoices' && (
                 <div className="space-y-4">
                   {filteredInvoices.length === 0 ? (
@@ -1589,7 +1603,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   <div className="flex items-center gap-2">
                                     <span className="font-black text-sm text-slate-900">{ord.order_number}</span>
 
-                                    {/* Cancelled invoice pill rendered as Red Pill */}
                                     <span
                                       className={`text-[9.5px] font-black uppercase px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 ${
                                         isCancelled
@@ -1709,6 +1722,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
+              {/* TAB 4 & 5: INVENTORY & LOW STOCK */}
               {(activeTab === 'inventory' || activeTab === 'low_stock') && (
                 <div>
                   {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
@@ -1839,6 +1853,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </main>
       </div>
 
+      {/* Solid Floating Bottom Navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom md:hidden">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
           <button
@@ -1900,6 +1915,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             <Boxes size={19} strokeWidth={activeTab === 'inventory' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Inventory</span>
             {activeTab === 'inventory' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
+            {products.length > 0 && (
+              <span className="absolute top-1.5 right-3.5 bg-slate-200 text-slate-800 text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
+                {products.length}
+              </span>
+            )}
           </button>
 
           <button
@@ -1923,6 +1943,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       </nav>
 
+      {/* Package Inspection Modal */}
       {inspectOrderId && !expandedOrderItems[inspectOrderId] && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-[28px] max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">

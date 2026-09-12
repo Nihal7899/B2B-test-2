@@ -173,6 +173,7 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
       <rect x="180" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
       <g transform="translate(42, 74)">
         <rect x="0" y="8" width="22" height="14" rx="2" fill="#d97706" stroke="#f59e0b" strokeWidth="1" />
+        <line x1="11" y1="8" x2="11" y2="22" stroke="#b45309" strokeWidth="1" />
         <rect x="3" y="0" width="16" height="9" rx="1.5" fill="#f59e0b" />
       </g>
       <g transform="translate(15, 80)">
@@ -213,6 +214,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [drivers, setDrivers] = useState<DeliveryDriver[]>([]);
   const [editingDriverOrderId, setEditingDriverOrderId] = useState<string | null>(null);
   const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
+
+  // Cancellation Modal State
+  const [cancelModalOrderId, setCancelModalOrderId] = useState<string | null>(null);
+  const [cancelReasonType, setCancelReasonType] = useState<'damaged' | 'out_of_stock' | 'customer_request' | 'duplicate' | 'other'>('damaged');
+  const [customCancelReason, setCustomCancelReason] = useState('');
 
   const [products, setProducts] = useState<ProductInventory[]>([]);
   const [stockEdits, setStockEdits] = useState<Record<string, number>>({});
@@ -260,7 +266,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         setServerStats(data as TodayWarehouseStats);
       }
     } catch {
-      // Fallback runs seamlessly if RPC not added yet
+      // Fallback runs client-side if RPC isn't loaded yet
     }
   }, []);
 
@@ -438,18 +444,35 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   };
 
-  // Requirement 2: Cancelling order after confirmation restores stock in DB & updates inventory UI
-  const handleCancelOrder = async (orderId: string) => {
-    if (!confirm('Are you sure you want to cancel this order? Stock will be automatically restored if previously confirmed.')) return;
-    setActionOrderId(orderId);
+  // Dedicated Cancel Order Flow with Modal & Stock Restoration
+  const handleConfirmCancel = async () => {
+    if (!cancelModalOrderId) return;
+
+    const reasonMap = {
+      damaged: 'Damaged or defective stock in warehouse',
+      out_of_stock: 'Item unexpectedly out of stock',
+      customer_request: 'Customer requested cancellation',
+      duplicate: 'Duplicate order placed',
+      other: customCancelReason.trim() || 'Cancelled by warehouse manager',
+    };
+
+    const finalReason = reasonMap[cancelReasonType];
+    setActionOrderId(cancelModalOrderId);
+
     try {
       const { error } = await supabase.rpc('cancel_order_warehouse', {
-        p_order_id: orderId,
-        p_reason: 'Cancelled by warehouse manager',
+        p_order_id: cancelModalOrderId,
+        p_reason: finalReason,
       });
-      if (error) alert('Cancel failed: ' + error.message);
-      else {
-        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'cancelled' } : o)));
+
+      if (error) {
+        alert('Cancel failed: ' + error.message);
+      } else {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === cancelModalOrderId ? { ...o, status: 'cancelled' } : o))
+        );
+        setCancelModalOrderId(null);
+        setCustomCancelReason('');
         await Promise.all([loadOrders(), loadInventory(), loadStats()]);
       }
     } finally {
@@ -457,7 +480,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   };
 
-  // Requirement 3: Assign delivery partner moves order to ready_for_pickup
   const handleAssignDriver = async (orderId: string, driverId: string) => {
     if (!driverId) {
       alert('Please choose a delivery partner to dispatch.');
@@ -679,7 +701,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     });
   }, [products, searchQuery]);
 
-  // Requirement 1: Optimized calculations strictly for TODAY'S processed orders
+  // Scalable Metrics strictly for TODAY'S processed orders
   const metrics = useMemo(() => {
     if (serverStats) {
       return {
@@ -734,7 +756,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   return (
     <div className="min-h-screen bg-[#f4f7f5] flex flex-col justify-between pb-28 md:pb-16">
       <div>
-        {/* Compact Sticky Header */}
         <header className="sticky top-0 z-40 bg-gradient-to-b from-[#063a2c] via-[#084534] to-[#0a4d3b] text-white pt-[max(0.4rem,env(safe-area-inset-top))] pb-2.5 px-4 sm:px-6 shadow-md rounded-b-[26px] border-b border-[#0d5944] overflow-hidden">
           <div className="max-w-7xl mx-auto flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
@@ -807,7 +828,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </header>
 
         <main className="px-4 lg:px-8 pt-4 max-w-7xl mx-auto space-y-4">
-          {/* Top Control Bar: Desktop Switcher & Themed Search Bar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="hidden md:flex items-center gap-1 bg-slate-200/70 p-1 rounded-2xl w-auto">
               {[
@@ -873,7 +893,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             )}
           </div>
 
-          {/* TAB 1: DASHBOARD (Requirement 1: Strictly Today's Processed Orders) */}
+          {/* TAB 1: DASHBOARD (Today's Processed Orders) */}
           {activeTab === 'dashboard' && (
             <div className="space-y-4">
               <div className="rounded-[26px] p-5 text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#064e3b] via-[#094736] to-[#042c22] border border-emerald-500/30">
@@ -1076,7 +1096,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 )}
               </div>
 
-              {/* Inventory Health Summary */}
+              {/* Inventory Health */}
               <div className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1105,7 +1125,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {/* Orders Stage Pill Filter */}
+          {/* Orders Pill Filter */}
           {activeTab === 'orders' && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
               {orderPills.map((pill) => {
@@ -1140,7 +1160,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {/* Invoices Tab Period Filter */}
+          {/* Invoices Period Filter */}
           {activeTab === 'invoices' && (
             <div className="bg-white border border-slate-200/80 rounded-[22px] p-3.5 space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
@@ -1209,7 +1229,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           ) : (
             <>
-              {/* TAB 2: ORDERS LIST */}
+              {/* TAB 2: ORDERS */}
               {activeTab === 'orders' && (
                 <div className="space-y-4">
                   {filteredOrders.length === 0 ? (
@@ -1414,7 +1434,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               )}
 
-                              {/* Assign Partner Area */}
                               {isPacked && (
                                 <div className="rounded-2xl bg-emerald-50/70 border border-emerald-300 p-3 space-y-2.5 animate-in fade-in duration-200">
                                   <div className="flex items-center justify-between">
@@ -1502,7 +1521,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </button>
                               )}
 
-                              {/* Button label shortened to "Mark as Packed" */}
                               {ord.status === 'confirmed' && (
                                 <button
                                   disabled={isProcessing}
@@ -1517,7 +1535,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                               {!isDelivered && !isCancelled && (
                                 <button
                                   disabled={isProcessing}
-                                  onClick={() => void handleCancelOrder(ord.id)}
+                                  onClick={() => {
+                                    setCancelModalOrderId(ord.id);
+                                    setCancelReasonType('damaged');
+                                    setCustomCancelReason('');
+                                  }}
                                   className="h-10 px-4 rounded-full border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-black flex items-center gap-1 active:scale-95 transition"
                                 >
                                   <XCircle size={14} /> Cancel
@@ -1537,7 +1559,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     </div>
                   )}
 
-                  {/* Pagination */}
                   {filteredOrders.length > ORDERS_PER_PAGE && (
                     <div className="flex items-center justify-between bg-white border border-slate-200 rounded-[22px] px-4 py-3 shadow-xs">
                       <p className="text-xs font-semibold text-slate-500">
@@ -1570,7 +1591,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 3: INVOICES (Red pill for cancelled status) */}
+              {/* TAB 3: INVOICES (Red pill for cancelled invoices) */}
               {activeTab === 'invoices' && (
                 <div className="space-y-4">
                   {filteredInvoices.length === 0 ? (
@@ -1915,11 +1936,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             <Boxes size={19} strokeWidth={activeTab === 'inventory' ? 2.5 : 2} />
             <span className="text-[10px] font-black tracking-tight">Inventory</span>
             {activeTab === 'inventory' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
-            {products.length > 0 && (
-              <span className="absolute top-1.5 right-3.5 bg-slate-200 text-slate-800 text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
-                {products.length}
-              </span>
-            )}
           </button>
 
           <button
@@ -1942,6 +1958,95 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           </button>
         </div>
       </nav>
+
+      {/* Cancellation Reason Modal */}
+      {cancelModalOrderId && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-[28px] max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                  <XCircle size={18} />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900">Cancel Order</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Inventory stock will be restored automatically</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCancelModalOrderId(null)}
+                className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Presets */}
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-700">Select Cancellation Reason</label>
+              <div className="grid grid-cols-1 gap-1.5 text-xs font-bold">
+                {[
+                  { id: 'damaged', label: 'Damaged or defective stock' },
+                  { id: 'out_of_stock', label: 'Item out of stock / discrepancy' },
+                  { id: 'customer_request', label: 'Customer requested cancellation' },
+                  { id: 'duplicate', label: 'Duplicate order' },
+                  { id: 'other', label: 'Other / Custom reason' },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setCancelReasonType(item.id as any)}
+                    className={`w-full py-2.5 px-3 rounded-xl text-left border transition-all ${
+                      cancelReasonType === item.id
+                        ? 'border-[#0a382c] bg-emerald-50/60 text-[#0a382c] font-black shadow-2xs'
+                        : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Input */}
+            {cancelReasonType === 'other' && (
+              <div className="space-y-1 animate-in fade-in duration-150">
+                <label className="text-[11px] font-bold text-slate-600">Type Reason Note:</label>
+                <input
+                  type="text"
+                  placeholder="Explain why this order is being cancelled..."
+                  value={customCancelReason}
+                  onChange={(e) => setCustomCancelReason(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 outline-none focus:border-[#0a382c]"
+                />
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setCancelModalOrderId(null)}
+                className="flex-1 h-11 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition"
+              >
+                Nevermind
+              </button>
+              <button
+                type="button"
+                disabled={actionOrderId === cancelModalOrderId}
+                onClick={() => void handleConfirmCancel()}
+                className="flex-1 h-11 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition disabled:opacity-50"
+              >
+                {actionOrderId === cancelModalOrderId ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  'Confirm Cancellation'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Package Inspection Modal */}
       {inspectOrderId && !expandedOrderItems[inspectOrderId] && (

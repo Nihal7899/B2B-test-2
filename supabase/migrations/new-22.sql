@@ -315,12 +315,15 @@ BEGIN
     END LOOP;
 END $$;
 
--- 1. Drop existing conflicting signatures
+-- 1. Ensure orders table has cancel_reason column
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_reason TEXT;
+
+-- 2. Drop older signatures to prevent return type conflict errors
 DROP FUNCTION IF EXISTS cancel_order_warehouse(UUID, TEXT);
 DROP FUNCTION IF EXISTS cancel_order_warehouse(UUID);
 DROP FUNCTION IF EXISTS get_warehouse_today_stats();
 
--- 2. Recreate cancel_order_warehouse with automated stock restoration
+-- 3. Cancel Order & Auto-Restore Inventory Stock if previously confirmed
 CREATE OR REPLACE FUNCTION cancel_order_warehouse(
   p_order_id UUID,
   p_reason TEXT DEFAULT 'Cancelled by warehouse manager'
@@ -333,7 +336,7 @@ DECLARE
   v_current_status TEXT;
   v_item RECORD;
 BEGIN
-  -- Fetch current order status
+  -- Fetch current status
   SELECT status INTO v_current_status
   FROM orders
   WHERE id = p_order_id;
@@ -350,7 +353,7 @@ BEGIN
     RAISE EXCEPTION 'Cannot cancel an order that has already been delivered';
   END IF;
 
-  -- Restore inventory stock if order was confirmed or in any downstream stage
+  -- Restore inventory if order was confirmed or downstream in dispatch
   IF v_current_status IN ('confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery') THEN
     FOR v_item IN
       SELECT product_id, quantity
@@ -364,14 +367,14 @@ BEGIN
     END LOOP;
   END IF;
 
-  -- Mark order as cancelled
+  -- Mark order as cancelled with recorded reason
   UPDATE orders
   SET status = 'cancelled',
       cancel_reason = p_reason,
       updated_at = NOW()
   WHERE id = p_order_id;
 
-  -- Mark corresponding delivery assignment as cancelled if active
+  -- Cancel delivery assignment if present
   UPDATE delivery_assignments
   SET status = 'cancelled',
       updated_at = NOW()
@@ -386,7 +389,7 @@ BEGIN
 END;
 $$;
 
--- 3. Recreate high-performance today metrics RPC
+-- 4. Fast Aggregate Metrics for Today's Processed Orders
 CREATE OR REPLACE FUNCTION get_warehouse_today_stats()
 RETURNS JSON
 LANGUAGE plpgsql

@@ -13,6 +13,7 @@ import {
   CreditCard,
   Banknote,
   AlertCircle,
+  AlertOctagon,
 } from 'lucide-react';
 import { fetchOrderDetail } from '@/services/catalog';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
@@ -34,8 +35,13 @@ interface OrderPaymentSummary {
   isFullyPaid: boolean;
 }
 
+// Support cancel_reason on DbOrder
+type OrderWithCancelReason = DbOrder & {
+  cancel_reason?: string | null;
+};
+
 export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
-  const [order, setOrder] = useState<DbOrder | null>(null);
+  const [order, setOrder] = useState<OrderWithCancelReason | null>(null);
   const [items, setItems] = useState<DbOrderItem[]>([]);
   const [address, setAddress] = useState<DbAddress | null>(null);
   const [paymentSummary, setPaymentSummary] = useState<OrderPaymentSummary>({
@@ -57,7 +63,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
       ]);
 
       if (orderData) {
-        setOrder(orderData.order);
+        setOrder(orderData.order as OrderWithCancelReason);
         setItems(orderData.items);
         setAddress(orderData.address);
 
@@ -174,12 +180,37 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         </div>
       </div>
 
+      {/* Cancellation Reason Display Card */}
       {order.status === 'cancelled' ? (
-        <div className="rounded-2xl bg-red-50 border border-red-100 p-4 flex items-center gap-3">
-          <XCircle size={22} className="text-red-500 shrink-0" />
-          <div>
-            <p className="text-sm font-bold text-red-700">Order cancelled</p>
-            <p className="text-xs text-red-500 mt-0.5">This order was cancelled</p>
+        <div className="rounded-2xl bg-red-50 border border-red-200/80 p-4 space-y-2.5 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="h-9 w-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0 mt-0.5 border border-red-200">
+              <XCircle size={20} strokeWidth={2.5} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-black text-red-800">Order Cancelled</p>
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-200/70 text-red-800">
+                  Void
+                </span>
+              </div>
+              <p className="text-xs text-red-600 mt-0.5">
+                This order was cancelled and will not be delivered.
+              </p>
+            </div>
+          </div>
+
+          {/* Cancellation Reason Tag */}
+          <div className="bg-white/80 rounded-xl p-3 border border-red-200/70 flex items-start gap-2">
+            <AlertOctagon size={16} className="text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] uppercase font-black tracking-wider text-red-500">
+                Cancellation Reason
+              </p>
+              <p className="text-xs font-bold text-red-950 mt-0.5 break-words">
+                {order.cancel_reason?.trim() || 'Cancelled by warehouse manager'}
+              </p>
+            </div>
           </div>
         </div>
       ) : (

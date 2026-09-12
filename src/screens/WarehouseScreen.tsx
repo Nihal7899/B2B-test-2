@@ -48,6 +48,8 @@ import { buildGstBillHtml } from '@/services/gstBill';
 import { printHtml } from '@/utils/printHtml';
 import { StaffRegistrationModal } from '@/components/StaffRegistrationModal';
 import { CachedImage } from '@/components/CachedImage';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { Toast } from '@/components/ui/Toast';
 
 interface WarehouseScreenProps {
   onBack?: () => void;
@@ -102,6 +104,11 @@ interface TodayWarehouseStats {
   delivered_today_count: number;
 }
 
+interface ToastNotification {
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+}
+
 type InvoiceDatePreset = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
 const ORDERS_PER_PAGE = 12;
@@ -141,55 +148,95 @@ function CafKartLogo({ className = 'h-8 w-8' }: { className?: string }) {
   );
 }
 
+// 6. High-Tech Glass & Neon Smart Fulfillment Center SVG
 function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 250 120" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <svg viewBox="0 0 260 120" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
       <defs>
-        <linearGradient id="whBuildingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#0d523f" />
+        <linearGradient id="hubGlassRoof" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1a6e50" />
+          <stop offset="50%" stopColor="#0d523f" />
           <stop offset="100%" stopColor="#04261c" />
         </linearGradient>
-        <linearGradient id="whRoofGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#1a6e50" />
-          <stop offset="100%" stopColor="#0b4533" />
+        <linearGradient id="hubBeamGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#59D9B6" stopOpacity="0.8" />
+          <stop offset="100%" stopColor="#59D9B6" stopOpacity="0.05" />
+        </linearGradient>
+        <linearGradient id="solarGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#59D9B6" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="#34d399" stopOpacity="0.15" />
         </linearGradient>
       </defs>
-      <ellipse cx="155" cy="110" rx="82" ry="7" fill="#011912" fillOpacity="0.65" />
-      <path d="M 68 44 L 140 20 L 212 44 L 212 96 L 68 96 Z" fill="url(#whBuildingGrad)" stroke="#1a6e50" strokeWidth="1.5" />
-      <path d="M 62 44 L 140 18 L 218 44 L 140 50 Z" fill="url(#whRoofGrad)" stroke="#59D9B6" strokeWidth="1.2" />
-      <polygon points="100,32 135,22 135,28 100,38" fill="#59D9B6" fillOpacity="0.3" />
-      <polygon points="145,22 180,32 180,38 145,28" fill="#59D9B6" fillOpacity="0.3" />
-      <rect x="80" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
-      <line x1="80" y1="64" x2="114" y2="64" stroke="#0e4330" strokeWidth="1" />
-      <line x1="80" y1="72" x2="114" y2="72" stroke="#0e4330" strokeWidth="1" />
-      <line x1="80" y1="80" x2="114" y2="80" stroke="#0e4330" strokeWidth="1" />
-      <rect x="94" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
-      <rect x="123" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
-      <line x1="123" y1="64" x2="157" y2="64" stroke="#0e4330" strokeWidth="1" />
-      <line x1="123" y1="72" x2="157" y2="72" stroke="#0e4330" strokeWidth="1" />
-      <line x1="123" y1="80" x2="157" y2="80" stroke="#0e4330" strokeWidth="1" />
-      <rect x="137" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
-      <rect x="166" y="56" width="34" height="40" rx="4" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
-      <line x1="166" y1="64" x2="200" y2="64" stroke="#0e4330" strokeWidth="1" />
-      <line x1="166" y1="72" x2="200" y2="72" stroke="#0e4330" strokeWidth="1" />
-      <line x1="166" y1="80" x2="200" y2="80" stroke="#0e4330" strokeWidth="1" />
-      <rect x="180" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
-      <g transform="translate(42, 74)">
-        <rect x="0" y="8" width="22" height="14" rx="2" fill="#d97706" stroke="#f59e0b" strokeWidth="1" />
-        <rect x="3" y="0" width="16" height="9" rx="1.5" fill="#f59e0b" />
+
+      {/* Ground Ambience Shadow */}
+      <ellipse cx="160" cy="112" rx="88" ry="6.5" fill="#011912" fillOpacity="0.75" />
+
+      {/* Main High-Tech Hub Terminal */}
+      <path
+        d="M 64 42 L 142 16 L 220 42 L 220 98 L 64 98 Z"
+        fill="url(#hubGlassRoof)"
+        stroke="#1a6e50"
+        strokeWidth="1.5"
+      />
+
+      {/* Aerodynamic Solar Roof Canopy */}
+      <path
+        d="M 58 42 L 142 14 L 226 42 L 142 49 Z"
+        fill="#0b4533"
+        stroke="#59D9B6"
+        strokeWidth="1.25"
+      />
+
+      {/* Solar Panel Array Grids */}
+      <polygon points="98,30 138,18 138,25 98,36" fill="url(#solarGlow)" />
+      <polygon points="146,18 186,30 186,36 146,25" fill="url(#solarGlow)" />
+
+      {/* Loading Dock Volumetric Light Cones */}
+      <polygon points="86,60 110,60 116,98 80,98" fill="url(#hubBeamGrad)" />
+      <polygon points="130,60 154,60 160,98 124,98" fill="url(#hubBeamGrad)" />
+      <polygon points="174,60 198,60 204,98 168,98" fill="url(#hubBeamGrad)" />
+
+      {/* Automated Dock Gates */}
+      <rect x="82" y="58" width="30" height="40" rx="3.5" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
+      <line x1="82" y1="66" x2="112" y2="66" stroke="#0e4330" strokeWidth="1" />
+      <line x1="82" y1="74" x2="112" y2="74" stroke="#0e4330" strokeWidth="1" />
+      <line x1="82" y1="82" x2="112" y2="82" stroke="#0e4330" strokeWidth="1" />
+      <rect x="94" y="54" width="6" height="2" rx="1" fill="#59D9B6" />
+
+      <rect x="126" y="58" width="30" height="40" rx="3.5" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
+      <line x1="126" y1="66" x2="156" y2="66" stroke="#0e4330" strokeWidth="1" />
+      <line x1="126" y1="74" x2="156" y2="74" stroke="#0e4330" strokeWidth="1" />
+      <line x1="126" y1="82" x2="156" y2="82" stroke="#0e4330" strokeWidth="1" />
+      <rect x="138" y="54" width="6" height="2" rx="1" fill="#59D9B6" />
+
+      <rect x="170" y="58" width="30" height="40" rx="3.5" fill="#032117" stroke="#165c43" strokeWidth="1.5" />
+      <line x1="170" y1="66" x2="200" y2="66" stroke="#0e4330" strokeWidth="1" />
+      <line x1="170" y1="74" x2="200" y2="74" stroke="#0e4330" strokeWidth="1" />
+      <line x1="170" y1="82" x2="200" y2="82" stroke="#0e4330" strokeWidth="1" />
+      <rect x="182" y="54" width="6" height="2" rx="1" fill="#59D9B6" />
+
+      {/* Autonomous Electric Guided Vehicle (AGV) with Pallet Stack */}
+      <g transform="translate(18, 76)">
+        <rect x="0" y="10" width="22" height="12" rx="2.5" fill="#FFFFFF" />
+        <rect x="16" y="13" width="8" height="6" rx="1" fill="#59D9B6" />
+        <rect x="3" y="1" width="16" height="9" rx="1.5" fill="#f59e0b" stroke="#d97706" strokeWidth="1" />
+        <circle cx="5" cy="22" r="3" fill="#0f172a" />
+        <circle cx="17" cy="22" r="3" fill="#0f172a" />
       </g>
-      <g transform="translate(15, 80)">
-        <rect x="4" y="6" width="14" height="10" rx="2" fill="#FFFFFF" />
-        <rect x="0" y="10" width="5" height="6" fill="#FFFFFF" />
-        <line x1="18" y1="2" x2="18" y2="16" stroke="#59D9B6" strokeWidth="2" />
-        <line x1="18" y1="14" x2="24" y2="14" stroke="#59D9B6" strokeWidth="2" />
-        <circle cx="6" cy="16" r="3" fill="#0f172a" />
-        <circle cx="15" cy="16" r="3" fill="#0f172a" />
+
+      {/* Pallet Crates Staged at Dock */}
+      <g transform="translate(44, 76)">
+        <rect x="0" y="6" width="18" height="14" rx="2" fill="#d97706" stroke="#f59e0b" strokeWidth="1" />
+        <line x1="9" y1="6" x2="9" y2="20" stroke="#b45309" strokeWidth="1" />
       </g>
-      <circle cx="140" cy="38" r="9" fill="#032117" stroke="#59D9B6" strokeWidth="1.2" />
-      <path d="M 137 38 L 139 36 L 144 41" stroke="#59D9B6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <g transform="translate(216, 20)">
-        <circle cx="8" cy="8" r="7.5" fill="#063a2c" stroke="#59D9B6" strokeWidth="1.5" />
+
+      {/* Central Hub Hologram Logo Mark */}
+      <circle cx="142" cy="37" r="8.5" fill="#032117" stroke="#59D9B6" strokeWidth="1.5" />
+      <path d="M 139 37 L 141 35 L 145 40" stroke="#59D9B6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+
+      {/* Pulsing Satellite Radar Beacon */}
+      <g transform="translate(222, 18)">
+        <circle cx="8" cy="8" r="8" fill="#063a2c" stroke="#59D9B6" strokeWidth="1.5" />
         <circle cx="8" cy="8" r="3" fill="#59D9B6" />
         <line x1="8" y1="12" x2="8" y2="17" stroke="#59D9B6" strokeWidth="2" strokeLinecap="round" />
       </g>
@@ -202,12 +249,23 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'invoices' | 'inventory' | 'low_stock'>('dashboard');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
 
-  // Sorting & Filtering Options for Orders
+  // 2. Scroll to top automatically whenever tab changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [activeTab]);
+
+  // Toast Notification State
+  const [toastNotification, setToastNotification] = useState<ToastNotification | null>(null);
+  const showToast = (message: string, type: ToastNotification['type'] = 'info') => {
+    setToastNotification({ message, type });
+  };
+
+  // 6. Orders Sorting & Filtering State
   const [orderSortField, setOrderSortField] = useState<'created_at' | 'updated_at'>('created_at');
   const [orderSortDirection, setOrderSortDirection] = useState<'desc' | 'asc'>('desc');
   const [showOrderSortMenu, setShowOrderSortMenu] = useState(false);
 
-  // Invoices Date Field Selection (created_at vs updated_at)
+  // 5. Invoices Date Field Selection (created_at vs updated_at)
   const [invoiceDateField, setInvoiceDateField] = useState<'created_at' | 'updated_at'>('created_at');
 
   const [ordersPage, setOrdersPage] = useState(1);
@@ -229,6 +287,15 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [cancelModalOrderId, setCancelModalOrderId] = useState<string | null>(null);
   const [cancelReasonType, setCancelReasonType] = useState<'damaged' | 'out_of_stock' | 'customer_request' | 'duplicate' | 'other'>('damaged');
   const [customCancelReason, setCustomCancelReason] = useState('');
+
+  // 4. Stock Update Confirmation Dialog State
+  const [stockConfirmDialog, setStockConfirmDialog] = useState<{
+    isOpen: boolean;
+    productId?: string;
+    productName?: string;
+    oldStock?: number;
+    newStock?: number;
+  }>({ isOpen: false });
 
   const [products, setProducts] = useState<ProductInventory[]>([]);
   const [stockEdits, setStockEdits] = useState<Record<string, number>>({});
@@ -264,7 +331,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         setServerStats(data as TodayWarehouseStats);
       }
     } catch {
-      // Graceful fallback to client-computed metrics
+      // Fallback runs client-side if RPC isn't loaded
     }
   }, []);
 
@@ -395,7 +462,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   const handleRefresh = () => {
     setRefreshing(true);
-    void loadAll();
+    void loadAll().then(() => showToast('Warehouse queue refreshed', 'info'));
   };
 
   const openItemInspection = async (orderId: string) => {
@@ -406,6 +473,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       setInspectItems((data as DbOrderItem[]) || []);
     } catch (err) {
       console.error('Failed to fetch items:', err);
+      showToast('Could not load package items', 'error');
     } finally {
       setInspectLoading(false);
     }
@@ -415,9 +483,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setActionOrderId(orderId);
     try {
       const { error } = await supabase.rpc('confirm_order', { p_order_id: orderId });
-      if (error) alert('Could not confirm order: ' + error.message);
-      else {
+      if (error) {
+        showToast('Could not confirm order: ' + error.message, 'error');
+      } else {
         setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'confirmed' } : o)));
+        showToast('Order confirmed and stock allocated', 'success');
         await Promise.all([loadOrders(), loadInventory(), loadStats()]);
       }
     } finally {
@@ -432,9 +502,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         p_order_id: orderId,
         p_status: status,
       });
-      if (error) alert('Status update failed: ' + error.message);
-      else {
+      if (error) {
+        showToast('Status update failed: ' + error.message, 'error');
+      } else {
         setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+        showToast(`Order marked as ${status.replace(/_/g, ' ')}`, 'success');
         await Promise.all([loadOrders(), loadStats()]);
       }
     } finally {
@@ -463,11 +535,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       });
 
       if (error) {
-        alert('Cancel failed: ' + error.message);
+        showToast('Cancel failed: ' + error.message, 'error');
       } else {
         setOrders((prev) =>
           prev.map((o) => (o.id === cancelModalOrderId ? { ...o, status: 'cancelled' } : o))
         );
+        showToast('Order cancelled & inventory restored', 'info');
         setCancelModalOrderId(null);
         setCustomCancelReason('');
         await Promise.all([loadOrders(), loadInventory(), loadStats()]);
@@ -479,7 +552,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   const handleAssignDriver = async (orderId: string, driverId: string) => {
     if (!driverId) {
-      alert('Please choose a delivery partner to dispatch.');
+      showToast('Please choose a delivery partner to dispatch.', 'warning');
       return;
     }
     setActionOrderId(orderId);
@@ -527,10 +600,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         payload: { orderId, previousDriverId, newDriverId: driverId },
       });
 
+      showToast('Driver assigned & order ready for pickup', 'success');
       setEditingDriverOrderId(null);
       await Promise.all([loadOrders(), loadStats()]);
     } catch (err: any) {
-      alert('Failed to assign driver: ' + err.message);
+      showToast('Failed to assign driver: ' + err.message, 'error');
     } finally {
       setActionOrderId(null);
     }
@@ -541,7 +615,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       const html = await buildGstBillHtml(orderId);
       await printHtml(html, orderNumber);
     } catch {
-      alert('Failed to generate bill.');
+      showToast('Failed to generate GST invoice', 'error');
     }
   };
 
@@ -564,6 +638,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     });
   };
 
+  // 4. Save stock execution after confirmation dialog
   const handleSaveStock = async (productId: string) => {
     const updatedQuantity = stockEdits[productId];
     if (updatedQuantity === undefined) return;
@@ -576,12 +651,13 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         .eq('id', productId);
 
       if (error) {
-        alert('Failed to update stock: ' + error.message);
+        showToast('Failed to update stock: ' + error.message, 'error');
       } else {
         setProducts((prev) =>
           prev.map((p) => (p.id === productId ? { ...p, stock_quantity: updatedQuantity } : p))
         );
         handleCancelStockEdit(productId);
+        showToast('Inventory stock updated successfully', 'success');
       }
     } finally {
       setSavingStockId(null);
@@ -607,7 +683,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setInvoicesPage(1);
   }, [searchQuery, invoiceDatePreset, customStartDate, customEndDate, invoiceDateField]);
 
-  // Orders Filtered & Sorted by created_at or updated_at
+  // Orders Filtered & Sorted
   const filteredOrders = useMemo(() => {
     const list = orders.filter((o) => {
       const recipient = o.address_id ? addressMap[o.address_id]?.recipient_name || '' : '';
@@ -762,6 +838,17 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   return (
     <div className="min-h-screen bg-[#f4f7f5] flex flex-col justify-between pb-28 md:pb-16">
+      {/* 1. Toast Notification Display with Safe Area Support */}
+      {toastNotification && (
+        <div className="fixed top-4 inset-x-4 pt-[env(safe-area-inset-top,0px)] z-50 max-w-sm mx-auto animate-in fade-in slide-in-from-top-4 duration-200">
+          <Toast
+            message={toastNotification.message}
+            type={toastNotification.type}
+            onClose={() => setToastNotification(null)}
+          />
+        </div>
+      )}
+
       <div>
         {/* Compact Sticky Top Bar */}
         <header className="sticky top-0 z-40 bg-gradient-to-b from-[#063a2c] via-[#084534] to-[#0a4d3b] text-white pt-[max(0.4rem,env(safe-area-inset-top))] pb-2.5 px-4 sm:px-6 shadow-md rounded-b-[26px] border-b border-[#0d5944] overflow-hidden">
@@ -828,6 +915,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 )}
               </div>
 
+              {/* 6. Beautiful Themed Warehouse Facility SVG */}
               <div className="w-full -mr-2 -mt-1 scale-105 origin-top-right transition-transform pointer-events-none">
                 <WarehouseFacilityGraphic className="w-full h-auto drop-shadow-md" />
               </div>
@@ -871,7 +959,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               })}
             </div>
 
-            {/* 4. Beautiful Elevated Emerald Search Bar */}
+            {/* 4. Beautiful Themed Elevated Search Bar */}
             {activeTab !== 'dashboard' && (
               <div className="relative w-full md:w-84 group">
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-teal-400/15 to-[#59D9B6]/20 rounded-2xl blur-xs -z-10 group-focus-within:opacity-100 opacity-60 transition-opacity" />
@@ -919,7 +1007,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     </div>
                   </div>
 
-                  {/* 1. Unbroken Single-Line Pill Fix (image 1000509524.jpg) */}
+                  {/* 1. Unbroken Single-Line Pill Fix */}
                   <div className="flex items-center justify-between gap-3 pt-1">
                     <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
@@ -1087,7 +1175,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 onClick={() => void handleConfirmOrder(ord.id)}
                                 className="px-3.5 py-1.5 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white text-xs font-black shrink-0 active:scale-95 transition"
                               >
-                                Confirm
+                                Confirm Order
                               </button>
                             ) : (
                               <button
@@ -1136,10 +1224,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {/* 6. ORDERS VIEW CONTROLS: Select on Mobile, Pills on Desktop + Sort Button */}
+          {/* 6. ORDERS VIEW: Mobile Select + Filter / Desktop Pills */}
           {activeTab === 'orders' && (
             <div className="space-y-2">
-              {/* Mobile Control Bar: Status Select + Sort Filter Button */}
               <div className="flex md:hidden items-center gap-2">
                 <div className="relative flex-1">
                   <select
@@ -1162,7 +1249,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   <ChevronDown size={15} className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" />
                 </div>
 
-                {/* Sort / Date Filter Popover Toggle */}
+                {/* 6. Address / Date Filter Popover */}
                 <div className="relative">
                   <button
                     onClick={() => setShowOrderSortMenu((prev) => !prev)}
@@ -1179,7 +1266,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     <ChevronDown size={12} />
                   </button>
 
-                  {/* Dropdown Menu */}
                   {showOrderSortMenu && (
                     <div className="absolute right-0 top-12 z-30 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 w-56 space-y-2.5 animate-in fade-in zoom-in-95 duration-100">
                       <div>
@@ -1254,7 +1340,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               </div>
 
-              {/* Desktop Pill View + Sort Selector */}
+              {/* Desktop Pill View */}
               <div className="hidden md:flex items-center justify-between gap-3">
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 flex-1">
                   {orderPills.map((pill) => {
@@ -1288,7 +1374,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   })}
                 </div>
 
-                {/* Desktop Sort Control */}
                 <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-bold shrink-0">
                   <ArrowUpDown size={13} className="text-[#0a382c]" />
                   <span className="text-slate-400">Order by:</span>
@@ -1313,7 +1398,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   <Filter size={14} className="text-[#0a382c]" /> Filter Invoices
                 </span>
 
-                {/* 5. Date Field Selector Pill: created_at vs updated_at */}
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[10px] font-black self-start sm:self-auto">
                   <span className="text-slate-400 px-1 font-bold">Field:</span>
                   <button
@@ -1396,7 +1480,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           ) : (
             <>
-              {/* TAB 2: ORDERS LIST (2. Direct Popup for View Items, No Inline Card Clutter) */}
+              {/* TAB 2: ORDERS LIST (2. Direct Popup for View Items, No Card Clutter) */}
               {activeTab === 'orders' && (
                 <div className="space-y-4">
                   {filteredOrders.length === 0 ? (
@@ -1521,7 +1605,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               </div>
 
-                              {/* 2. Package Overview Strip: Clicking View Items ONLY Triggers Modal */}
+                              {/* 2. Package Overview Strip: View Items opens POPUP modal directly */}
                               <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 flex items-center justify-between">
                                 <div>
                                   <span className="text-xs font-black text-slate-800">Package Items</span>
@@ -1634,6 +1718,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                              {/* 5. Clean Button Name for Small Screen */}
                               {ord.status === 'pending' && (
                                 <button
                                   disabled={isProcessing}
@@ -1641,7 +1726,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   className="flex-1 h-10 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition disabled:opacity-50"
                                 >
                                   {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                                  Confirm & Deduct Stock
+                                  <span className="sm:hidden">Confirm Order</span>
+                                  <span className="hidden sm:inline">Confirm & Deduct Stock</span>
                                 </button>
                               )}
 
@@ -1715,7 +1801,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 3: INVOICES (Red pill for cancelled invoices) */}
+              {/* TAB 3: INVOICES */}
               {activeTab === 'invoices' && (
                 <div className="space-y-4">
                   {filteredInvoices.length === 0 ? (
@@ -1867,7 +1953,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 4 & 5: INVENTORY & LOW STOCK (3. Cached Product Image Rendering) */}
+              {/* TAB 4 & 5: INVENTORY & LOW STOCK (3. CachedImage Component) */}
               {(activeTab === 'inventory' || activeTab === 'low_stock') && (
                 <div>
                   {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
@@ -1905,7 +1991,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                             }`}
                           >
                             <div className="flex items-start gap-3">
-                              {/* 3. Cached Image Thumbnail */}
+                              {/* 3. Cached Image Component with Fallback Icon */}
                               <div className="h-14 w-14 rounded-2xl bg-slate-100 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center">
                                 {primaryImage ? (
                                   <CachedImage
@@ -1992,9 +2078,18 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                     <RotateCcw size={12} />
                                     Cancel
                                   </button>
+                                  {/* 4. Opens Confirmation Dialog before updating stock */}
                                   <button
                                     disabled={isSaving}
-                                    onClick={() => void handleSaveStock(prod.id)}
+                                    onClick={() => {
+                                      setStockConfirmDialog({
+                                        isOpen: true,
+                                        productId: prod.id,
+                                        productName: `${prod.brand} ${prod.name}`,
+                                        oldStock: currentStock,
+                                        newStock: displayStock,
+                                      });
+                                    }}
                                     className="h-8 px-3 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white font-black text-xs flex items-center gap-1 shadow-xs active:scale-95 transition disabled:opacity-50"
                                   >
                                     {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
@@ -2015,7 +2110,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </main>
       </div>
 
-      {/* Floating Bottom Nav for Mobile */}
+      {/* Solid Floating Bottom Navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom md:hidden">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
           <button
@@ -2186,14 +2281,14 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       )}
 
-      {/* Package Contents Inspection Modal */}
+      {/* 2. Package Contents Inspection Modal */}
       {inspectOrderId && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-[28px] max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-black text-sm text-slate-900">Package Contents</h3>
-                <p className="text-[11px] text-slate-500">Inspect ordered line items before dispatch</p>
+                <p className="text-[11px] text-slate-500">Ordered items verification</p>
               </div>
               <button
                 onClick={() => setInspectOrderId(null)}
@@ -2239,6 +2334,23 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           </div>
         </div>
       )}
+
+      {/* 4. Confirmation Dialog for Updating Stock */}
+      <ConfirmationDialog
+        isOpen={stockConfirmDialog.isOpen}
+        title="Update Inventory Stock"
+        message={`Are you sure you want to update the stock count for "${stockConfirmDialog.productName}" from ${stockConfirmDialog.oldStock} to ${stockConfirmDialog.newStock} units?`}
+        confirmLabel="Update Stock"
+        cancelLabel="Cancel"
+        variant="warning"
+        onConfirm={async () => {
+          if (stockConfirmDialog.productId) {
+            await handleSaveStock(stockConfirmDialog.productId);
+          }
+          setStockConfirmDialog({ isOpen: false });
+        }}
+        onCancel={() => setStockConfirmDialog({ isOpen: false })}
+      />
 
       <StaffRegistrationModal isOpen={isStaffUnregistered} />
     </div>

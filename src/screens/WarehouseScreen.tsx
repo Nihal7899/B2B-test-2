@@ -441,44 +441,38 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setRefreshing(false);
   }, [loadDrivers, loadOrders, loadInventory, loadStats]);
 
+  // 1. Initial Data Load (Separated from Websockets)
   useEffect(() => {
-    // 1. Load initial data on mount
     void loadAll();
+  }, [loadAll]);
 
-    // 2. Setup Debouncer to protect the database from mass-query spikes
+  // 2. Realtime Listener (Isolated & Bulletproof)
+  useEffect(() => {
     let debounceTimer: NodeJS.Timeout;
     
     const handleRealtimeSpike = (payload: any) => {
-      // DIAGNOSTIC LOG: If you don't see this in your console when an order changes, 
-      // your database RLS is blocking the event from reaching the browser.
-      console.log('[Warehouse Realtime] Event received from DB:', payload);
+      console.log(`[Warehouse Realtime] Event received on ${payload.table}:`, payload.eventType);
       
       clearTimeout(debounceTimer);
+      // Wait 400ms to batch rapid events together
       debounceTimer = setTimeout(() => {
-        console.log('[Warehouse Realtime] Fetching fresh data...');
         void loadOrders();
         void loadStats();
-      }, 500); 
+      }, 400); 
     };
 
-    // 3. Setup Comprehensive Realtime Channel with Unique ID to prevent React caching bugs
-    const channelName = `warehouse_live_sync_${Date.now()}`;
+    // Use a hardcoded, stable channel name. NEVER use Date.now() here.
     const channel = supabase
-      .channel(channelName)
-      // Watch Orders
+      .channel('warehouse_global_sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleRealtimeSpike)
-      // Watch Delivery Assignments
       .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_assignments' }, handleRealtimeSpike)
-      // Watch Payments
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, handleRealtimeSpike)
-      // Watch Cross-Device Broadcasts
       .on('broadcast', { event: 'assignment_changed' }, handleRealtimeSpike)
-      // Monitor Connection Health
       .subscribe((status, err) => {
         if (err) {
           console.error('[Warehouse Realtime] Subscription Error:', err);
         } else if (status === 'SUBSCRIBED') {
-          console.log(`[Warehouse Realtime] Sync is ACTIVE 🟢 (${channelName})`);
+          console.log('[Warehouse Realtime] Sync is ACTIVE 🟢 (Stable Connection)');
         }
       });
 
@@ -486,7 +480,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       clearTimeout(debounceTimer);
       void supabase.removeChannel(channel);
     };
-  }, [loadAll, loadOrders, loadStats]);
+  }, []); // <-- CRITICAL: Empty dependency array ensures the socket never disconnects on re-render
+
 
 
 

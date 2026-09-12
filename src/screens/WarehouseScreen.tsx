@@ -13,7 +13,6 @@ import {
   Search,
   UserCheck,
   Eye,
-  EyeOff,
   X,
   FileText,
   Check,
@@ -39,6 +38,8 @@ import {
   ShieldCheck,
   Flame,
   Wifi,
+  SlidersHorizontal,
+  ArrowUpDown,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
@@ -46,6 +47,7 @@ import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
 import { buildGstBillHtml } from '@/services/gstBill';
 import { printHtml } from '@/utils/printHtml';
 import { StaffRegistrationModal } from '@/components/StaffRegistrationModal';
+import { CachedImage } from '@/components/CachedImage';
 
 interface WarehouseScreenProps {
   onBack?: () => void;
@@ -68,6 +70,7 @@ interface ProductInventory {
   wholesale_price: number;
   mrp: number;
   image_url: string;
+  image_urls?: string[];
   is_available: boolean;
 }
 
@@ -173,7 +176,6 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
       <rect x="180" y="52" width="6" height="2" rx="1" fill="#59D9B6" />
       <g transform="translate(42, 74)">
         <rect x="0" y="8" width="22" height="14" rx="2" fill="#d97706" stroke="#f59e0b" strokeWidth="1" />
-        <line x1="11" y1="8" x2="11" y2="22" stroke="#b45309" strokeWidth="1" />
         <rect x="3" y="0" width="16" height="9" rx="1.5" fill="#f59e0b" />
       </g>
       <g transform="translate(15, 80)">
@@ -199,6 +201,14 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const { logout, profile } = useAuth();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'invoices' | 'inventory' | 'low_stock'>('dashboard');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
+
+  // Sorting & Filtering Options for Orders
+  const [orderSortField, setOrderSortField] = useState<'created_at' | 'updated_at'>('created_at');
+  const [orderSortDirection, setOrderSortDirection] = useState<'desc' | 'asc'>('desc');
+  const [showOrderSortMenu, setShowOrderSortMenu] = useState(false);
+
+  // Invoices Date Field Selection (created_at vs updated_at)
+  const [invoiceDateField, setInvoiceDateField] = useState<'created_at' | 'updated_at'>('created_at');
 
   const [ordersPage, setOrdersPage] = useState(1);
   const [invoicesPage, setInvoicesPage] = useState(1);
@@ -234,18 +244,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [refreshing, setRefreshing] = useState(false);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedOrderItems, setExpandedOrderItems] = useState<Record<string, boolean>>({});
-
-  const toggleOrderInlineItems = async (orderId: string) => {
-    const isCurrentlyExpanded = !!expandedOrderItems[orderId];
-    if (!isCurrentlyExpanded && inspectOrderId !== orderId) {
-      void openItemInspection(orderId);
-    }
-    setExpandedOrderItems((prev) => ({
-      ...prev,
-      [orderId]: !prev[orderId],
-    }));
-  };
 
   const isStaffUnregistered = !profile?.staff_registration_status || profile.staff_registration_status === 'unregistered';
 
@@ -266,7 +264,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         setServerStats(data as TodayWarehouseStats);
       }
     } catch {
-      // Fallback runs client-side if RPC isn't loaded yet
+      // Graceful fallback to client-computed metrics
     }
   }, []);
 
@@ -359,7 +357,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, brand, pack_size, stock_quantity, stock_threshold, wholesale_price, mrp, image_url, is_available')
+        .select('id, name, brand, pack_size, stock_quantity, stock_threshold, wholesale_price, mrp, image_url, image_urls, is_available')
         .order('name', { ascending: true });
 
       if (error) throw error;
@@ -444,7 +442,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   };
 
-  // Dedicated Cancel Order Flow with Modal & Stock Restoration
   const handleConfirmCancel = async () => {
     if (!cancelModalOrderId) return;
 
@@ -604,14 +601,15 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   useEffect(() => {
     setOrdersPage(1);
-  }, [searchQuery, orderStatusPill]);
+  }, [searchQuery, orderStatusPill, orderSortField, orderSortDirection]);
 
   useEffect(() => {
     setInvoicesPage(1);
-  }, [searchQuery, invoiceDatePreset, customStartDate, customEndDate]);
+  }, [searchQuery, invoiceDatePreset, customStartDate, customEndDate, invoiceDateField]);
 
+  // Orders Filtered & Sorted by created_at or updated_at
   const filteredOrders = useMemo(() => {
-    return orders.filter((o) => {
+    const list = orders.filter((o) => {
       const recipient = o.address_id ? addressMap[o.address_id]?.recipient_name || '' : '';
       const orderNum = o.order_number || '';
       const matchesSearch =
@@ -627,7 +625,15 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
       return matchesSearch && matchesStatus;
     });
-  }, [orders, addressMap, searchQuery, orderStatusPill]);
+
+    list.sort((a, b) => {
+      const dateA = new Date((orderSortField === 'updated_at' ? a.updated_at : a.created_at) || a.created_at).getTime();
+      const dateB = new Date((orderSortField === 'updated_at' ? b.updated_at : b.created_at) || b.created_at).getTime();
+      return orderSortDirection === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+
+    return list;
+  }, [orders, addressMap, searchQuery, orderStatusPill, orderSortField, orderSortDirection]);
 
   const totalOrderPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE) || 1;
   const paginatedOrders = useMemo(() => {
@@ -635,6 +641,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     return filteredOrders.slice(start, start + ORDERS_PER_PAGE);
   }, [filteredOrders, ordersPage]);
 
+  // Invoices Filtered by created_at OR updated_at
   const filteredInvoices = useMemo(() => {
     const now = new Date();
     const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -656,7 +663,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
       if (!matchesSearch) return false;
 
-      const ordDate = new Date(ord.created_at);
+      const dateFieldVal = invoiceDateField === 'updated_at' ? ord.updated_at || ord.created_at : ord.created_at;
+      const ordDate = new Date(dateFieldVal);
 
       if (invoiceDatePreset === 'all') return true;
       if (invoiceDatePreset === 'today') return ordDate >= todayMidnight;
@@ -673,7 +681,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
       return true;
     });
-  }, [orders, addressMap, searchQuery, invoiceDatePreset, customStartDate, customEndDate]);
+  }, [orders, addressMap, searchQuery, invoiceDatePreset, customStartDate, customEndDate, invoiceDateField]);
 
   const totalInvoicePages = Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE) || 1;
   const paginatedInvoices = useMemo(() => {
@@ -701,7 +709,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     });
   }, [products, searchQuery]);
 
-  // Scalable Metrics strictly for TODAY'S processed orders
   const metrics = useMemo(() => {
     if (serverStats) {
       return {
@@ -756,6 +763,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   return (
     <div className="min-h-screen bg-[#f4f7f5] flex flex-col justify-between pb-28 md:pb-16">
       <div>
+        {/* Compact Sticky Top Bar */}
         <header className="sticky top-0 z-40 bg-gradient-to-b from-[#063a2c] via-[#084534] to-[#0a4d3b] text-white pt-[max(0.4rem,env(safe-area-inset-top))] pb-2.5 px-4 sm:px-6 shadow-md rounded-b-[26px] border-b border-[#0d5944] overflow-hidden">
           <div className="max-w-7xl mx-auto flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
@@ -828,6 +836,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </header>
 
         <main className="px-4 lg:px-8 pt-4 max-w-7xl mx-auto space-y-4">
+          {/* Top Control Bar: Desktop Switcher & 4. Beautiful Themed Search Bar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="hidden md:flex items-center gap-1 bg-slate-200/70 p-1 rounded-2xl w-auto">
               {[
@@ -862,11 +871,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               })}
             </div>
 
+            {/* 4. Beautiful Elevated Emerald Search Bar */}
             {activeTab !== 'dashboard' && (
-              <div className="relative w-full md:w-80 group">
-                <div className="absolute inset-0 bg-gradient-to-r from-[#59D9B6]/20 to-emerald-500/10 rounded-2xl blur-xs -z-10 group-focus-within:from-[#59D9B6]/30 group-focus-within:to-emerald-500/25 transition-all" />
-                <div className="relative flex items-center bg-white border border-emerald-900/15 rounded-2xl shadow-xs transition-all duration-200 focus-within:border-[#0a382c] focus-within:ring-2 focus-within:ring-[#59D9B6]/40">
-                  <div className="pl-3.5 pr-1 flex items-center justify-center text-[#0a382c]">
+              <div className="relative w-full md:w-84 group">
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-teal-400/15 to-[#59D9B6]/20 rounded-2xl blur-xs -z-10 group-focus-within:opacity-100 opacity-60 transition-opacity" />
+                <div className="relative flex items-center bg-white/95 backdrop-blur-sm border border-emerald-900/15 rounded-2xl shadow-[0_2px_12px_rgba(10,56,44,0.06)] focus-within:border-[#0a382c] focus-within:ring-2 focus-within:ring-[#59D9B6]/40 transition-all">
+                  <div className="pl-3.5 pr-2 flex items-center justify-center text-[#0a382c]">
                     <Search size={16} strokeWidth={2.5} />
                   </div>
                   <input
@@ -874,16 +884,16 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     placeholder={
                       activeTab === 'orders' || activeTab === 'invoices'
                         ? 'Search order # or recipient...'
-                        : 'Search brand or inventory item...'
+                        : 'Search brand or inventory product...'
                     }
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-11 py-2 px-2 bg-transparent text-xs font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-medium outline-none"
+                    className="w-full h-11 py-2 pr-2 bg-transparent text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-medium outline-none"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="mr-2.5 h-6 w-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition active:scale-90"
+                      className="mr-3 h-6 w-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition active:scale-90"
                     >
                       <X size={12} strokeWidth={2.5} />
                     </button>
@@ -893,7 +903,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             )}
           </div>
 
-          {/* TAB 1: DASHBOARD (Today's Processed Orders) */}
+          {/* TAB 1: DASHBOARD (1. Unbroken Today's Orders Pill) */}
           {activeTab === 'dashboard' && (
             <div className="space-y-4">
               <div className="rounded-[26px] p-5 text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#064e3b] via-[#094736] to-[#042c22] border border-emerald-500/30">
@@ -909,18 +919,19 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     </div>
                   </div>
 
-                  <div className="flex items-baseline justify-between pt-1">
-                    <div>
+                  {/* 1. Unbroken Single-Line Pill Fix (image 1000509524.jpg) */}
+                  <div className="flex items-center justify-between gap-3 pt-1">
+                    <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
                         Today's Processed Order Volume
                       </p>
-                      <p className="text-3xl font-black tracking-tight text-white mt-0.5">
+                      <p className="text-3xl font-black tracking-tight text-white mt-0.5 truncate">
                         ₹{metrics.todayVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-400/20 text-emerald-200 border border-emerald-400/30 px-3 py-1 rounded-full">
+                    <div className="shrink-0 flex items-center">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-400/20 text-emerald-200 border border-emerald-400/30 px-3.5 py-1.5 rounded-full whitespace-nowrap inline-flex items-center shadow-xs">
                         {metrics.todayOrdersCount} ORDERS TODAY
                       </span>
                     </div>
@@ -1096,7 +1107,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 )}
               </div>
 
-              {/* Inventory Health */}
+              {/* Inventory Health Summary */}
               <div className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1125,51 +1136,207 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {/* Orders Pill Filter */}
+          {/* 6. ORDERS VIEW CONTROLS: Select on Mobile, Pills on Desktop + Sort Button */}
           {activeTab === 'orders' && (
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-              {orderPills.map((pill) => {
-                let count = 0;
-                if (pill.id === 'all') count = orders.length;
-                else if (pill.id === 'assign_partner') count = orders.filter((o) => o.status === 'packed').length;
-                else count = orders.filter((o) => o.status === pill.id).length;
+            <div className="space-y-2">
+              {/* Mobile Control Bar: Status Select + Sort Filter Button */}
+              <div className="flex md:hidden items-center gap-2">
+                <div className="relative flex-1">
+                  <select
+                    value={orderStatusPill}
+                    onChange={(e) => setOrderStatusPill(e.target.value)}
+                    className="w-full h-11 pl-3.5 pr-8 rounded-2xl bg-white border border-emerald-900/15 text-xs font-black text-slate-800 shadow-xs outline-none focus:border-[#0a382c] appearance-none"
+                  >
+                    {orderPills.map((pill) => {
+                      let count = 0;
+                      if (pill.id === 'all') count = orders.length;
+                      else if (pill.id === 'assign_partner') count = orders.filter((o) => o.status === 'packed').length;
+                      else count = orders.filter((o) => o.status === pill.id).length;
+                      return (
+                        <option key={pill.id} value={pill.id}>
+                          {pill.label} ({count})
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <ChevronDown size={15} className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" />
+                </div>
 
-                const isActive = orderStatusPill === pill.id;
-
-                return (
+                {/* Sort / Date Filter Popover Toggle */}
+                <div className="relative">
                   <button
-                    key={pill.id}
-                    onClick={() => setOrderStatusPill(pill.id)}
-                    className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
-                      isActive
-                        ? 'bg-[#0a382c] text-white shadow-xs'
-                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    onClick={() => setShowOrderSortMenu((prev) => !prev)}
+                    className={`h-11 px-3.5 rounded-2xl border flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95 transition-all ${
+                      showOrderSortMenu
+                        ? 'bg-[#0a382c] text-white border-[#0a382c]'
+                        : 'bg-white border-emerald-900/15 text-slate-700 hover:border-emerald-600'
                     }`}
                   >
-                    <span>{pill.label}</span>
-                    <span
-                      className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {count}
+                    <SlidersHorizontal size={14} className={showOrderSortMenu ? 'text-[#59D9B6]' : 'text-emerald-700'} />
+                    <span className="truncate max-w-[80px]">
+                      {orderSortField === 'created_at' ? 'Created' : 'Updated'}
                     </span>
+                    <ChevronDown size={12} />
                   </button>
-                );
-              })}
+
+                  {/* Dropdown Menu */}
+                  {showOrderSortMenu && (
+                    <div className="absolute right-0 top-12 z-30 bg-white rounded-2xl border border-slate-200 shadow-xl p-3 w-56 space-y-2.5 animate-in fade-in zoom-in-95 duration-100">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                          Order Filter Field
+                        </p>
+                        <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl">
+                          <button
+                            onClick={() => {
+                              setOrderSortField('created_at');
+                              setShowOrderSortMenu(false);
+                            }}
+                            className={`py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                              orderSortField === 'created_at'
+                                ? 'bg-white text-[#0a382c] shadow-xs'
+                                : 'text-slate-500'
+                            }`}
+                          >
+                            created_at
+                          </button>
+                          <button
+                            onClick={() => {
+                              setOrderSortField('updated_at');
+                              setShowOrderSortMenu(false);
+                            }}
+                            className={`py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                              orderSortField === 'updated_at'
+                                ? 'bg-white text-[#0a382c] shadow-xs'
+                                : 'text-slate-500'
+                            }`}
+                          >
+                            updated_at
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                          Sorting Direction
+                        </p>
+                        <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl">
+                          <button
+                            onClick={() => {
+                              setOrderSortDirection('desc');
+                              setShowOrderSortMenu(false);
+                            }}
+                            className={`py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                              orderSortDirection === 'desc'
+                                ? 'bg-white text-[#0a382c] shadow-xs'
+                                : 'text-slate-500'
+                            }`}
+                          >
+                            Newest First
+                          </button>
+                          <button
+                            onClick={() => {
+                              setOrderSortDirection('asc');
+                              setShowOrderSortMenu(false);
+                            }}
+                            className={`py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                              orderSortDirection === 'asc'
+                                ? 'bg-white text-[#0a382c] shadow-xs'
+                                : 'text-slate-500'
+                            }`}
+                          >
+                            Oldest First
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Desktop Pill View + Sort Selector */}
+              <div className="hidden md:flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 flex-1">
+                  {orderPills.map((pill) => {
+                    let count = 0;
+                    if (pill.id === 'all') count = orders.length;
+                    else if (pill.id === 'assign_partner') count = orders.filter((o) => o.status === 'packed').length;
+                    else count = orders.filter((o) => o.status === pill.id).length;
+
+                    const isActive = orderStatusPill === pill.id;
+
+                    return (
+                      <button
+                        key={pill.id}
+                        onClick={() => setOrderStatusPill(pill.id)}
+                        className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                          isActive
+                            ? 'bg-[#0a382c] text-white shadow-xs'
+                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{pill.label}</span>
+                        <span
+                          className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
+                            isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Sort Control */}
+                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-bold shrink-0">
+                  <ArrowUpDown size={13} className="text-[#0a382c]" />
+                  <span className="text-slate-400">Order by:</span>
+                  <select
+                    value={orderSortField}
+                    onChange={(e) => setOrderSortField(e.target.value as any)}
+                    className="bg-transparent font-black text-slate-800 outline-none cursor-pointer"
+                  >
+                    <option value="created_at">created_at</option>
+                    <option value="updated_at">updated_at</option>
+                  </select>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Invoices Period Filter */}
+          {/* 5. INVOICES TAB WITH created_at vs updated_at TOGGLE */}
           {activeTab === 'invoices' && (
             <div className="bg-white border border-slate-200/80 rounded-[22px] p-3.5 space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                  <Filter size={14} className="text-[#0a382c]" /> Filter Invoices by Period
+                  <Filter size={14} className="text-[#0a382c]" /> Filter Invoices
                 </span>
-                <span className="text-[11px] font-bold text-slate-400">
-                  {filteredInvoices.length} {filteredInvoices.length === 1 ? 'invoice' : 'invoices'}
-                </span>
+
+                {/* 5. Date Field Selector Pill: created_at vs updated_at */}
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[10px] font-black self-start sm:self-auto">
+                  <span className="text-slate-400 px-1 font-bold">Field:</span>
+                  <button
+                    onClick={() => setInvoiceDateField('created_at')}
+                    className={`px-2.5 py-1 rounded-lg transition-all ${
+                      invoiceDateField === 'created_at'
+                        ? 'bg-white text-[#0a382c] shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    created_at
+                  </button>
+                  <button
+                    onClick={() => setInvoiceDateField('updated_at')}
+                    className={`px-2.5 py-1 rounded-lg transition-all ${
+                      invoiceDateField === 'updated_at'
+                        ? 'bg-white text-[#0a382c] shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    updated_at
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
@@ -1229,7 +1396,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           ) : (
             <>
-              {/* TAB 2: ORDERS */}
+              {/* TAB 2: ORDERS LIST (2. Direct Popup for View Items, No Inline Card Clutter) */}
               {activeTab === 'orders' && (
                 <div className="space-y-4">
                   {filteredOrders.length === 0 ? (
@@ -1261,7 +1428,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                         const isEditingDriver = editingDriverOrderId === ord.id;
 
                         const hasPendingCash = !pay.isFullyPaid && !isDelivered && pay.amountDue > 0;
-                        const isInlineExpanded = !!expandedOrderItems[ord.id];
 
                         return (
                           <div
@@ -1287,7 +1453,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                       {ord.order_number}
                                     </span>
                                     <p className="text-[11px] font-semibold text-slate-400 mt-0.5">
-                                      {new Date(ord.created_at).toLocaleDateString('en-IN', {
+                                      {new Date(orderSortField === 'updated_at' && ord.updated_at ? ord.updated_at : ord.created_at).toLocaleDateString('en-IN', {
                                         day: 'numeric',
                                         month: 'short',
                                         hour: '2-digit',
@@ -1355,65 +1521,23 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 </div>
                               </div>
 
-                              <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 space-y-2.5">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-black text-slate-800">Package Contents</span>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => void toggleOrderInlineItems(ord.id)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-slate-200 hover:border-emerald-300 text-[11px] font-black text-emerald-800 shadow-2xs active:scale-95 transition-all"
-                                  >
-                                    {isInlineExpanded ? (
-                                      <>
-                                        <EyeOff size={13} className="text-slate-500" />
-                                        <span>Hide Items</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Eye size={13} className="text-emerald-600" />
-                                        <span>View Items</span>
-                                      </>
-                                    )}
-                                  </button>
+                              {/* 2. Package Overview Strip: Clicking View Items ONLY Triggers Modal */}
+                              <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 flex items-center justify-between">
+                                <div>
+                                  <span className="text-xs font-black text-slate-800">Package Items</span>
+                                  <p className="text-[11px] text-emerald-800 font-bold mt-0.5">
+                                    Total Bill: ₹{Number(ord.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                  </p>
                                 </div>
 
-                                {isInlineExpanded && inspectOrderId === ord.id ? (
-                                  <div className="divide-y divide-slate-100 pt-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                                    {inspectLoading ? (
-                                      <div className="py-3 flex justify-center">
-                                        <Loader2 size={16} className="animate-spin text-emerald-700" />
-                                      </div>
-                                    ) : (
-                                      inspectItems.map((it) => (
-                                        <div key={it.id} className="flex justify-between items-center text-xs py-1.5">
-                                          <div className="flex items-center gap-2 min-w-0 pr-2">
-                                            <span className="h-5 w-5 rounded-md bg-emerald-50 text-[#0a382c] font-black text-[9px] flex items-center justify-center shrink-0 border border-emerald-200">
-                                              ×{it.quantity}
-                                            </span>
-                                            <span className="text-slate-700 font-semibold truncate">
-                                              {it.brand ? `${it.brand} ` : ''}{it.product_name}
-                                            </span>
-                                          </div>
-                                          <span className="font-black text-slate-900 whitespace-nowrap">
-                                            ₹{Number(it.line_total).toLocaleString('en-IN')}
-                                          </span>
-                                        </div>
-                                      ))
-                                    )}
-                                  </div>
-                                ) : null}
-
-                                <div className="pt-2 border-t border-dashed border-slate-200 flex justify-between items-center text-xs font-black">
-                                  <span className="text-slate-600 flex items-center gap-1.5">
-                                    <Banknote size={14} className="text-emerald-700" /> Total Order Bill
-                                  </span>
-                                  <span className="text-emerald-800 text-sm font-black">
-                                    ₹{Number(ord.total).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </span>
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => void openItemInspection(ord.id)}
+                                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 hover:border-emerald-300 text-[11px] font-black text-emerald-800 shadow-2xs active:scale-95 transition-all"
+                                >
+                                  <Eye size={13} className="text-emerald-600" />
+                                  <span>View Items</span>
+                                </button>
                               </div>
 
                               {addr && (
@@ -1646,7 +1770,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   </p>
                                   <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1 font-semibold">
                                     <Calendar size={11} />
-                                    {new Date(ord.created_at).toLocaleDateString('en-IN', {
+                                    {new Date(invoiceDateField === 'updated_at' && ord.updated_at ? ord.updated_at : ord.created_at).toLocaleDateString('en-IN', {
                                       day: 'numeric',
                                       month: 'short',
                                       year: 'numeric',
@@ -1743,7 +1867,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {/* TAB 4 & 5: INVENTORY & LOW STOCK */}
+              {/* TAB 4 & 5: INVENTORY & LOW STOCK (3. Cached Product Image Rendering) */}
               {(activeTab === 'inventory' || activeTab === 'low_stock') && (
                 <div>
                   {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
@@ -1767,6 +1891,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                         const isLow = currentStock <= threshold && currentStock > 0;
                         const isOut = currentStock <= 0;
 
+                        const primaryImage = prod.image_url || (prod.image_urls && prod.image_urls.length > 0 ? prod.image_urls[0] : '');
+
                         return (
                           <div
                             key={prod.id}
@@ -1778,29 +1904,44 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                 : 'border-slate-200/80 hover:border-emerald-200'
                             }`}
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <span className="text-xs font-black text-slate-900 truncate block">
-                                  {prod.brand} {prod.name}
-                                </span>
-                                <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                                  Pack: {prod.pack_size} · Wholesale: ₹{Number(prod.wholesale_price).toFixed(2)} · MRP: ₹{Number(prod.mrp).toFixed(2)}
-                                </p>
+                            <div className="flex items-start gap-3">
+                              {/* 3. Cached Image Thumbnail */}
+                              <div className="h-14 w-14 rounded-2xl bg-slate-100 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center">
+                                {primaryImage ? (
+                                  <CachedImage
+                                    src={primaryImage}
+                                    alt={prod.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <Package size={22} className="text-slate-400" />
+                                )}
                               </div>
 
-                              <span
-                                className={`text-[9px] font-black uppercase rounded-full px-2.5 py-1 shrink-0 ${
-                                  isOut
-                                    ? 'bg-red-100 text-red-800'
-                                    : isLow
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-emerald-100 text-emerald-800'
-                                }`}
-                              >
-                                {isOut ? 'Out of Stock' : isLow ? 'Low Stock' : 'In Stock'}
-                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-1">
+                                  <span className="text-xs font-black text-slate-900 truncate block">
+                                    {prod.brand} {prod.name}
+                                  </span>
+                                  <span
+                                    className={`text-[8.5px] font-black uppercase rounded-full px-2 py-0.5 shrink-0 ${
+                                      isOut
+                                        ? 'bg-red-100 text-red-800'
+                                        : isLow
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-emerald-100 text-emerald-800'
+                                    }`}
+                                  >
+                                    {isOut ? 'Out' : isLow ? 'Low' : 'In Stock'}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
+                                  Pack: {prod.pack_size} · Wholesale: ₹{Number(prod.wholesale_price).toFixed(2)}
+                                </p>
+                              </div>
                             </div>
 
+                            {/* Tactile Modifier Bar */}
                             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-xs text-slate-400 font-bold mr-1">Qty:</span>
@@ -1874,7 +2015,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </main>
       </div>
 
-      {/* Solid Floating Bottom Navigation */}
+      {/* Floating Bottom Nav for Mobile */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom md:hidden">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
           <button
@@ -1981,7 +2122,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               </button>
             </div>
 
-            {/* Presets */}
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-700">Select Cancellation Reason</label>
               <div className="grid grid-cols-1 gap-1.5 text-xs font-bold">
@@ -2008,7 +2148,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               </div>
             </div>
 
-            {/* Custom Input */}
             {cancelReasonType === 'other' && (
               <div className="space-y-1 animate-in fade-in duration-150">
                 <label className="text-[11px] font-bold text-slate-600">Type Reason Note:</label>
@@ -2022,7 +2161,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               </div>
             )}
 
-            {/* Buttons */}
             <div className="flex items-center gap-2 pt-2">
               <button
                 type="button"
@@ -2048,8 +2186,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </div>
       )}
 
-      {/* Package Inspection Modal */}
-      {inspectOrderId && !expandedOrderItems[inspectOrderId] && (
+      {/* Package Contents Inspection Modal */}
+      {inspectOrderId && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-[28px] max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">

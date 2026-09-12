@@ -12,6 +12,9 @@ import {
   ChevronRight,
   X
 } from 'lucide-react';
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
+
 import type { Category, Product, PromoBanner, Store, TrustedBrand, HomeSection, DbAddress } from '@/types';
 import { useCart } from '@/store';
 import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
@@ -30,8 +33,8 @@ import {
   fetchRecentlyViewedProducts,
   fetchCategories,
   fetchProducts,
-  fetchStores,          // <-- Restored
-  fetchTrustedBrands    // <-- Restored
+  fetchStores,
+  fetchTrustedBrands
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
 import { getHomeDataSync, updateHomeDataCache, type PreloadedHomeData } from '@/services/homePreload';
@@ -137,11 +140,8 @@ export function HomeScreen({
 
   const [sections, setSections] = useState<HomeSection[]>(initialCache.sections);
   const [banners, setBanners] = useState<PromoBanner[]>(initialCache.banners);
-  
   const [categories, setCategories] = useState<Category[]>(initialCache.categories);
   const [products, setProducts] = useState<Product[]>(initialCache.products);
-  
-  // <-- Added Setters for Stores and Brands back
   const [stores, setStores] = useState<Store[]>(initialCache.stores);
   const [brands, setBrands] = useState<TrustedBrand[]>(initialCache.brands);
   
@@ -156,6 +156,7 @@ export function HomeScreen({
   
   const [address] = useState<DbAddress | null>(initialCache.address);
   const [showPopup, setShowPopup] = useState(() => !sessionStorage.getItem('hasSeenBottomPopup'));
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
 
   const bottomPopupBanner = useMemo(() => {
     return Array.isArray(banners) ? banners.find((b) => b?.position === 'bottom_popup') : null;
@@ -165,6 +166,83 @@ export function HomeScreen({
     setShowPopup(false);
     sessionStorage.setItem('hasSeenBottomPopup', 'true');
   }, []);
+
+  // --- GPS WARMUP & PERMISSIONS LOGIC ---
+  const warmUpGps = async () => {
+    try {
+      console.log('🌍 Warming up hardware GPS in background...');
+      await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 15000, 
+        maximumAge: 0
+      });
+      console.log('✅ GPS Warm-up complete. Cache is hot.');
+    } catch (error) {
+      console.warn('GPS warm-up bypassed or failed:', error);
+    }
+  };
+
+  const handleAllowLocation = async () => {
+    localStorage.setItem('hasSeenLocationPrompt', 'true');
+    setShowLocationPrompt(false);
+    
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const perm = await Geolocation.requestPermissions();
+        if (perm.location === 'granted' || perm.coarseLocation === 'granted') {
+          void warmUpGps();
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+    } else {
+      // For Web, calling getCurrentPosition automatically triggers the browser prompt
+      void warmUpGps();
+    }
+  };
+
+  const handleDismissLocation = () => {
+    localStorage.setItem('hasSeenLocationPrompt', 'true');
+    setShowLocationPrompt(false);
+  };
+
+  useEffect(() => {
+    let active = true;
+    const checkLocationStatus = async () => {
+      const hasSeenPrompt = localStorage.getItem('hasSeenLocationPrompt');
+      
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const perm = await Geolocation.checkPermissions();
+          if (perm.location === 'granted' || perm.coarseLocation === 'granted') {
+            // Permission already granted. Silently warm up GPS.
+            void warmUpGps();
+          } else if (!hasSeenPrompt && active) {
+            // Not granted and hasn't seen the prompt yet. Show beautiful UI.
+            setShowLocationPrompt(true);
+          }
+        } catch (e) {
+          console.warn('Permission check failed:', e);
+        }
+      } else {
+        // Handle web fallback
+        if (!hasSeenPrompt && active) {
+          setShowLocationPrompt(true);
+        }
+      }
+    };
+    
+    // Delay prompt slightly so it doesn't collide with app load animations
+    const timer = setTimeout(() => {
+      void checkLocationStatus();
+    }, 1500);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, []);
+  // --------------------------------------
 
   const refreshDynamicSections = useCallback(async () => {
     try {
@@ -208,7 +286,6 @@ export function HomeScreen({
 
   const refreshCatalogData = useCallback(async () => {
     try {
-      // Fetch Stores and Brands alongside Categories and Products
       const [catRes, prodRes, storeRes, brandRes] = await Promise.all([
         fetchCategories().catch(() => ({ categories: [] as Category[] })),
         fetchProducts().catch(() => ({ products: [] as Product[] })),
@@ -452,7 +529,6 @@ export function HomeScreen({
                     </button>
                   </div>
                   <div className="grid grid-cols-4 gap-3">
-                    {/* Increased slice to 16 to show 4 perfect rows */}
                     {categories.slice(0, 16).map((category) => (
                       <button
                         key={category.id}
@@ -724,7 +800,53 @@ export function HomeScreen({
         })}
       </div>
 
-      {bottomPopupBanner && showPopup && (
+      {/* --- LOCATION PERMISSION BOTTOM SHEET --- */}
+      {showLocationPrompt && (
+        <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity duration-300" 
+            onClick={handleDismissLocation}
+          />
+          <div className="relative w-full bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] pointer-events-auto flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300 pb-6 safe-bottom">
+            <div className="flex justify-end p-4">
+              <button 
+                onClick={handleDismissLocation}
+                className="h-8 w-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+              >
+                <X size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+            
+            <div className="px-6 pb-4 flex flex-col items-center text-center">
+              <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
+                <MapPin size={32} strokeWidth={2} />
+              </div>
+              <h2 className="text-xl font-black text-slate-900 mb-2">Enable Location</h2>
+              <p className="text-sm text-slate-500 mb-8 max-w-[280px]">
+                We need your location to show wholesale deals, accurate stock, and express delivery times in your area.
+              </p>
+              
+              <div className="w-full flex flex-col gap-3">
+                <button 
+                  onClick={handleAllowLocation}
+                  className="w-full h-12 rounded-xl bg-emerald-600 text-white font-bold text-sm shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-transform"
+                >
+                  Allow Location
+                </button>
+                <button 
+                  onClick={handleDismissLocation}
+                  className="w-full h-12 rounded-xl bg-slate-50 text-slate-600 font-bold text-sm active:bg-slate-100 transition-colors"
+                >
+                  Not Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- PROMO POPUP BOTTOM SHEET --- */}
+      {bottomPopupBanner && showPopup && !showLocationPrompt && (
         <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">
           <div 
             className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity duration-300" 

@@ -423,6 +423,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setRefreshing(false);
   }, [loadDrivers, loadOrders, loadInventory, loadStats]);
 
+  // 1. Initial Data Load
+  useEffect(() => {
+    void loadAll();
+  }, [loadAll]);
+
   // 2. Realtime Listener Hooked to `warehouse_sync_signals` (The Signal Pattern)
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;

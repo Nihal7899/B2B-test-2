@@ -423,36 +423,42 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setRefreshing(false);
   }, [loadDrivers, loadOrders, loadInventory, loadStats]);
 
+  // 2. Realtime Listener Hooked to `warehouse_sync_signals` (The Signal Pattern)
   useEffect(() => {
-    void loadAll();
-  }, [loadAll]);
-
-  useEffect(() => {
-    const channelName = 'warehouse_global_broadcast';
+    let channel: ReturnType<typeof supabase.channel> | null = null;
     let debounceTimer: NodeJS.Timeout;
 
-    const handleBroadcast = (payload: any) => {
-      console.log(`[Warehouse Broadcast] Event received:`, payload);
+    const handleRealtimeSpike = () => {
+      console.log('[Warehouse Realtime] Sync Signal received from DB ⚡');
       clearTimeout(debounceTimer);
+      
+      // Debounce: Groups rapid events together to protect database CPU
       debounceTimer = setTimeout(() => {
         void loadOrders();
         void loadStats();
-      }, 300);
+      }, 400); 
     };
 
-    const channel = supabase
-      .channel(channelName)
-      .on('broadcast', { event: 'warehouse_update' }, handleBroadcast)
-      .on('broadcast', { event: 'assignment_changed' }, handleBroadcast)
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[Warehouse Broadcast] Connected 🟢');
-        }
-      });
+    // Wait for the Auth token to load before opening the connection
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      
+      const channelName = `warehouse_signal_sync_${user.id}`;
+      channel = supabase
+        .channel(channelName)
+        // Listen ONLY to the tiny signal table (Bypasses all RLS blocks)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'warehouse_sync_signals' }, handleRealtimeSpike)
+        // Listen to cross-device driver assignments
+        .on('broadcast', { event: 'assignment_changed' }, handleRealtimeSpike)
+        .subscribe((status, err) => {
+          if (err) console.error('[Warehouse Realtime] Error:', err);
+          else if (status === 'SUBSCRIBED') console.log('[Warehouse Realtime] Signal Sync ACTIVE 🟢');
+        });
+    });
 
     return () => {
       clearTimeout(debounceTimer);
-      void supabase.removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [loadOrders, loadStats]);
 

@@ -285,6 +285,18 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [refreshing, setRefreshing] = useState(false);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedOrderItems, setExpandedOrderItems] = useState<Record<string, boolean>>({});
+
+  const toggleOrderInlineItems = async (orderId: string) => {
+    const isCurrentlyExpanded = !!expandedOrderItems[orderId];
+    if (!isCurrentlyExpanded && inspectOrderId !== orderId) {
+      void openItemInspection(orderId);
+    }
+    setExpandedOrderItems((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  };
 
   const isStaffUnregistered = !profile?.staff_registration_status || profile.staff_registration_status === 'unregistered';
 
@@ -419,10 +431,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setRefreshing(false);
   }, [loadDrivers, loadOrders, loadInventory, loadStats]);
 
+  // 1. Initial Data Load
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
 
+  // 2. Realtime Listener Hooked to `warehouse_sync_signals` (The Signal Pattern)
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let debounceTimer: NodeJS.Timeout;
@@ -431,19 +445,23 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       console.log('[Warehouse Realtime] Sync Signal received from DB ⚡');
       clearTimeout(debounceTimer);
       
+      // Debounce: Groups rapid events together to protect database CPU
       debounceTimer = setTimeout(() => {
         void loadOrders();
         void loadStats();
       }, 400); 
     };
 
+    // Wait for the Auth token to load before opening the connection
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       
       const channelName = `warehouse_signal_sync_${user.id}`;
       channel = supabase
         .channel(channelName)
+        // Listen ONLY to the tiny signal table (Bypasses all RLS blocks)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'warehouse_sync_signals' }, handleRealtimeSpike)
+        // Listen to cross-device driver assignments
         .on('broadcast', { event: 'assignment_changed' }, handleRealtimeSpike)
         .subscribe((status, err) => {
           if (err) console.error('[Warehouse Realtime] Error:', err);
@@ -522,6 +540,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   const handleConfirmCancel = async () => {
     if (!cancelModalOrderId) return;
+
     const reasonMap = {
       damaged: 'Damaged or defective stock in warehouse',
       out_of_stock: 'Item unexpectedly out of stock',
@@ -548,8 +567,10 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           console.error("Razorpay refund invocation failed");
         });
 
-        setOrders((prev) => prev.map((o) => (o.id === cancelModalOrderId ? { ...o, status: 'cancelled' } : o)));
-        showToast('Order cancelled & refund initiated', 'info');
+        setOrders((prev) =>
+          prev.map((o) => (o.id === cancelModalOrderId ? { ...o, status: 'cancelled' } : o))
+        );
+        showToast('Order cancelled, inventory restored & refund initiated', 'info');
         setCancelModalOrderId(null);
         setCustomCancelReason('');
         await Promise.all([loadOrders(), loadInventory(), loadStats()]);
@@ -651,7 +672,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   const handleStockDelta = (productId: string, currentStock: number, delta: number) => {
     const activeValue = stockEdits[productId] !== undefined ? stockEdits[productId] : currentStock;
-    setStockEdits((prev) => ({ ...prev, [productId]: Math.max(0, activeValue + delta) }));
+    const nextVal = Math.max(0, activeValue + delta);
+    setStockEdits((prev) => ({ ...prev, [productId]: nextVal }));
   };
 
   const handleStockInputChange = (productId: string, val: string) => {
@@ -670,6 +692,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const handleSaveStock = async (productId: string) => {
     const updatedQuantity = stockEdits[productId];
     if (updatedQuantity === undefined) return;
+
     setSavingStockId(productId);
     try {
       const { error } = await supabase
@@ -830,17 +853,27 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       };
     }
 
+    const pending = orders.filter((o) => o.status === 'pending').length;
+    const confirmed = orders.filter((o) => o.status === 'confirmed').length;
+    const packed = orders.filter((o) => o.status === 'packed').length;
+    const ready = orders.filter((o) => o.status === 'ready_for_pickup').length;
+    const out = orders.filter((o) => o.status === 'out_for_delivery').length;
+
     const todayOrders = orders.filter(
       (o) => isTodayDate(o.created_at) && o.status !== 'cancelled'
     );
+    const todayVolume = todayOrders.reduce(
+      (acc, curr) => acc + (Number(curr.total) || 0),
+      0
+    );
 
     return {
-      pending: orders.filter((o) => o.status === 'pending').length,
-      confirmed: orders.filter((o) => o.status === 'confirmed').length,
-      packed: orders.filter((o) => o.status === 'packed').length,
-      ready: orders.filter((o) => o.status === 'ready_for_pickup').length,
-      out: orders.filter((o) => o.status === 'out_for_delivery').length,
-      todayVolume: todayOrders.reduce((acc, curr) => acc + (Number(curr.total) || 0), 0),
+      pending,
+      confirmed,
+      packed,
+      ready,
+      out,
+      todayVolume,
       todayOrdersCount: todayOrders.length,
     };
   }, [orders, serverStats]);
@@ -2049,14 +2082,16 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom md:hidden">
-        <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-1">
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom md:hidden overflow-x-auto no-scrollbar">
+        <div className="min-w-max w-full max-w-2xl mx-auto flex items-center justify-between h-16 px-2 gap-2 sm:justify-around">
+          
           <button
             onClick={() => {
               setActiveTab('dashboard');
               setSearchQuery('');
             }}
-            className={`flex flex-col items-center justify-center flex-1 h-full gap-1 relative transition-colors ${
+            className={`flex flex-col items-center justify-center flex-1 min-w-[70px] h-full gap-1 relative transition-colors ${
               activeTab === 'dashboard' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
@@ -2070,7 +2105,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               setActiveTab('orders');
               setSearchQuery('');
             }}
-            className={`flex flex-col items-center justify-center flex-1 h-full gap-1 relative transition-colors ${
+            className={`flex flex-col items-center justify-center flex-1 min-w-[70px] h-full gap-1 relative transition-colors ${
               activeTab === 'orders' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
@@ -2089,7 +2124,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               setActiveTab('refunds');
               setSearchQuery('');
             }}
-            className={`flex flex-col items-center justify-center flex-1 h-full gap-1 relative transition-colors ${
+            className={`flex flex-col items-center justify-center flex-1 min-w-[70px] h-full gap-1 relative transition-colors ${
               activeTab === 'refunds' ? 'text-red-600' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
@@ -2105,10 +2140,24 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
           <button
             onClick={() => {
+              setActiveTab('invoices');
+              setSearchQuery('');
+            }}
+            className={`flex flex-col items-center justify-center flex-1 min-w-[70px] h-full gap-1 relative transition-colors ${
+              activeTab === 'invoices' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
+            }`}
+          >
+            <FileText size={19} strokeWidth={activeTab === 'invoices' ? 2.5 : 2} />
+            <span className="text-[10px] font-black tracking-tight">Invoices</span>
+            {activeTab === 'invoices' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
+          </button>
+
+          <button
+            onClick={() => {
               setActiveTab('inventory');
               setSearchQuery('');
             }}
-            className={`flex flex-col items-center justify-center flex-1 h-full gap-1 relative transition-colors ${
+            className={`flex flex-col items-center justify-center flex-1 min-w-[70px] h-full gap-1 relative transition-colors ${
               activeTab === 'inventory' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
             }`}
           >
@@ -2116,6 +2165,26 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             <span className="text-[10px] font-black tracking-tight">Inventory</span>
             {activeTab === 'inventory' && <span className="h-1 w-5 rounded-full bg-[#0a382c] -mb-1" />}
           </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('low_stock');
+              setSearchQuery('');
+            }}
+            className={`flex flex-col items-center justify-center flex-1 min-w-[70px] h-full gap-1 relative transition-colors ${
+              activeTab === 'low_stock' ? 'text-red-600' : 'text-slate-400 hover:text-slate-700'
+            }`}
+          >
+            <AlertTriangle size={19} strokeWidth={activeTab === 'low_stock' ? 2.5 : 2} />
+            <span className="text-[10px] font-black tracking-tight">Low Stock</span>
+            {activeTab === 'low_stock' && <span className="h-1 w-5 rounded-full bg-red-600 -mb-1" />}
+            {lowStockProducts.length > 0 && (
+              <span className="absolute top-1.5 right-3.5 bg-red-500 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center animate-pulse shadow-xs">
+                {lowStockProducts.length}
+              </span>
+            )}
+          </button>
+
         </div>
       </nav>
 

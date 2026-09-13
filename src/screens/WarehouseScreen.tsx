@@ -423,50 +423,46 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setRefreshing(false);
   }, [loadDrivers, loadOrders, loadInventory, loadStats]);
 
-  // 1. Initial Load
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
 
-  // 2. Exact DeliveryScreen Realtime Pattern
   useEffect(() => {
-    let warehouseChannel: ReturnType<typeof supabase.channel> | null = null;
-    let dispatchChannel: ReturnType<typeof supabase.channel> | null = null;
+    const channelName = 'warehouse_global_broadcast';
     let debounceTimer: NodeJS.Timeout;
 
-    const handleRealtimeSpike = () => {
+    const handleBroadcast = (payload: any) => {
+      console.log(`[Warehouse Broadcast] Event received:`, payload);
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         void loadOrders();
         void loadStats();
-      }, 400);
+      }, 300);
     };
 
-    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
-      if (!authUser) return;
-
-      warehouseChannel = supabase
-        .channel(`warehouse_sync_${authUser.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleRealtimeSpike)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_assignments' }, handleRealtimeSpike)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, handleRealtimeSpike)
-        .subscribe((status, err) => {
-          if (err) console.error('[Warehouse Realtime] Subscription Error:', err);
-          else if (status === 'SUBSCRIBED') console.log('[Warehouse Realtime] Sync ACTIVE 🟢');
-        });
-
-      dispatchChannel = supabase
-        .channel('delivery_dispatch_sync')
-        .on('broadcast', { event: 'assignment_changed' }, handleRealtimeSpike)
-        .subscribe();
-    });
+    const channel = supabase
+      .channel(channelName)
+      .on('broadcast', { event: 'warehouse_update' }, handleBroadcast)
+      .on('broadcast', { event: 'assignment_changed' }, handleBroadcast)
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Warehouse Broadcast] Connected 🟢');
+        }
+      });
 
     return () => {
       clearTimeout(debounceTimer);
-      if (warehouseChannel) void supabase.removeChannel(warehouseChannel);
-      if (dispatchChannel) void supabase.removeChannel(dispatchChannel);
+      void supabase.removeChannel(channel);
     };
   }, [loadOrders, loadStats]);
+
+  const sendWarehouseUpdateBroadcast = async () => {
+    await supabase.channel('warehouse_global_broadcast').send({
+      type: 'broadcast',
+      event: 'warehouse_update',
+      payload: { timestamp: Date.now() },
+    });
+  };
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -496,6 +492,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'confirmed' } : o)));
         showToast('Order confirmed and stock allocated', 'success');
         await Promise.all([loadOrders(), loadInventory(), loadStats()]);
+        void sendWarehouseUpdateBroadcast();
       }
     } finally {
       setActionOrderId(null);
@@ -515,6 +512,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
         showToast(`Order marked as ${status.replace(/_/g, ' ')}`, 'success');
         await Promise.all([loadOrders(), loadStats()]);
+        void sendWarehouseUpdateBroadcast();
       }
     } finally {
       setActionOrderId(null);
@@ -551,6 +549,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         setCancelModalOrderId(null);
         setCustomCancelReason('');
         await Promise.all([loadOrders(), loadInventory(), loadStats()]);
+        void sendWarehouseUpdateBroadcast();
       }
     } finally {
       setActionOrderId(null);
@@ -664,6 +663,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         );
         handleCancelStockEdit(productId);
         showToast('Inventory stock updated successfully', 'success');
+        void sendWarehouseUpdateBroadcast();
       }
     } finally {
       setSavingStockId(null);

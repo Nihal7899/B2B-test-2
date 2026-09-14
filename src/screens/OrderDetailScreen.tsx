@@ -37,7 +37,6 @@ interface OrderPaymentSummary {
   isFullyPaid: boolean;
 }
 
-// Support cancel_reason on DbOrder
 type OrderWithCancelReason = DbOrder & {
   cancel_reason?: string | null;
 };
@@ -86,7 +85,9 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             if (pProvider === 'wallet') walletPaid += amt;
             else if (pProvider === 'razorpay') onlinePaid += amt;
             else if (pProvider === 'cod') codPaid += amt;
-          } else if (pStatus === 'refunded') {
+          } 
+          // FIX: The wallet RPC sets status to 'cancelled', so we must check for it here
+          else if (pStatus === 'refunded' || (pProvider === 'wallet' && pStatus === 'cancelled')) {
             if (pProvider === 'wallet') walletRefunded += amt;
             else if (pProvider === 'razorpay') onlineRefunded += amt;
           }
@@ -393,7 +394,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </div>
         )}
 
-        {/* Refund Status Segment */}
         {order.status === 'cancelled' && (paymentSummary.walletRefunded > 0 || paymentSummary.onlineRefunded > 0) && (
           <div className="mt-3 pt-3 border-t border-ink-200 space-y-2">
             <h3 className="text-xs font-black text-ink-900 uppercase tracking-wider mb-2">Refund Details</h3>

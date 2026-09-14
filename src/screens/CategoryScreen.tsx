@@ -109,22 +109,35 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
   // 2. Initial Mount Effect
   useEffect(() => {
     if (!categoryId) return;
+    let isMounted = true;
+    
     (async () => {
       setLoading(true);
       await refreshCategoryData('all');
-      setLoading(false);
+      if (isMounted) setLoading(false);
     })();
+    
+    return () => { isMounted = false; };
   }, [categoryId, refreshCategoryData]);
 
-  // 3. Subcategory Click Effect
+  // 3. Subcategory Click Effect (FIXED INFINITE LOOP)
   useEffect(() => {
-    if (!category || loading) return;
+    // If loading is true or category isn't set, this is the initial mount. Skip to avoid double-fetching.
+    if (loading || !category) return;
+    
+    let isMounted = true;
     (async () => {
       setProductsLoading(true);
       await refreshCategoryData(activeSubId);
-      setProductsLoading(false);
+      if (isMounted) setProductsLoading(false);
     })();
-  }, [activeSubId, category, loading, refreshCategoryData]); 
+    
+    return () => { isMounted = false; };
+    
+    // We intentionally OMIT `category` and `loading` from dependencies here.
+    // If we include them, fetching new data creates a new category object, which triggers this effect again and causes an infinite loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSubId]); 
 
   // 4. Background Data Refresh Effect
   useEffect(() => {

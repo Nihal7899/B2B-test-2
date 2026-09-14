@@ -81,7 +81,8 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
     }
   };
 
-  const refreshCategoryData = useCallback(async () => {
+  // 1. Pass targetSubId directly to avoid dependency loops with activeSubId
+  const refreshCategoryData = useCallback(async (targetSubId: string) => {
     if (!categoryId) return;
     try {
       const { categories } = await fetchCategories();
@@ -91,39 +92,41 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
         setSubcategories(found.subcategories || []);
         
         let freshProducts = [];
-        if (activeSubId === 'all') {
+        if (targetSubId === 'all') {
           const subs = found.subcategories || [];
           const prodsArray = await Promise.all(subs.map((s) => fetchProductsBySubcategory(s.id)));
           freshProducts = Array.from(new Map(prodsArray.flat().map((p) => [p.id, p])).values());
         } else {
-          freshProducts = await fetchProductsBySubcategory(activeSubId);
+          freshProducts = await fetchProductsBySubcategory(targetSubId);
         }
         setProducts(freshProducts);
       }
     } catch (err) {
       console.warn('Failed to refresh category silently', err);
     }
-  }, [categoryId, activeSubId]);
+  }, [categoryId]);
 
+  // 2. Initial Mount Effect
   useEffect(() => {
     if (!categoryId) return;
     (async () => {
       setLoading(true);
-      await refreshCategoryData();
-      setActiveSubId('all');
+      await refreshCategoryData('all');
       setLoading(false);
     })();
   }, [categoryId, refreshCategoryData]);
 
+  // 3. Subcategory Click Effect
   useEffect(() => {
     if (!category || loading) return;
     (async () => {
       setProductsLoading(true);
-      await refreshCategoryData();
+      await refreshCategoryData(activeSubId);
       setProductsLoading(false);
     })();
-  }, [activeSubId]); 
+  }, [activeSubId, category, loading, refreshCategoryData]); 
 
+  // 4. Background Data Refresh Effect
   useEffect(() => {
     let active = true;
     const expectedKey = `category|${categoryId}`;
@@ -131,14 +134,14 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
     const handleKeepAliveFocus = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
       if (active && customEvent.detail?.key === expectedKey) {
-        void refreshCategoryData();
+        void refreshCategoryData(activeSubId);
       }
     };
     
     const handleVisibilityChange = () => {
       const isCurrentlyActive = window.location.pathname.includes('/category') && window.location.search.includes(`id=${categoryId}`);
       if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
-        void refreshCategoryData();
+        void refreshCategoryData(activeSubId);
       }
     };
 
@@ -150,7 +153,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
       window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [refreshCategoryData, categoryId]);
+  }, [refreshCategoryData, categoryId, activeSubId]);
 
   const filteredAndSortedProducts = useMemo(() => {
     let result = [...products];

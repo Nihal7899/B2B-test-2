@@ -30,6 +30,8 @@ interface OrderPaymentSummary {
   walletPaid: number;
   onlinePaid: number;
   codPaid: number;
+  walletRefunded: number;
+  onlineRefunded: number;
   totalPaid: number;
   amountToCollect: number;
   isFullyPaid: boolean;
@@ -48,6 +50,8 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
     walletPaid: 0,
     onlinePaid: 0,
     codPaid: 0,
+    walletRefunded: 0,
+    onlineRefunded: 0,
     totalPaid: 0,
     amountToCollect: 0,
     isFullyPaid: false,
@@ -70,6 +74,8 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         let walletPaid = 0;
         let onlinePaid = 0;
         let codPaid = 0;
+        let walletRefunded = 0;
+        let onlineRefunded = 0;
 
         (paymentsRes.data || []).forEach((p) => {
           const pStatus = (p.status || '').toLowerCase();
@@ -80,6 +86,9 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             if (pProvider === 'wallet') walletPaid += amt;
             else if (pProvider === 'razorpay') onlinePaid += amt;
             else if (pProvider === 'cod') codPaid += amt;
+          } else if (pStatus === 'refunded') {
+            if (pProvider === 'wallet') walletRefunded += amt;
+            else if (pProvider === 'razorpay') onlineRefunded += amt;
           }
         });
 
@@ -87,13 +96,16 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         const totalPaid = walletPaid + onlinePaid + codPaid;
         const pending = Math.max(0, total - totalPaid);
         const isDelivered = orderData.order.status === 'delivered';
+        const isCancelled = orderData.order.status === 'cancelled';
 
         setPaymentSummary({
           walletPaid,
           onlinePaid,
           codPaid,
+          walletRefunded,
+          onlineRefunded,
           totalPaid,
-          amountToCollect: isDelivered ? 0 : pending,
+          amountToCollect: isDelivered || isCancelled ? 0 : pending,
           isFullyPaid: isDelivered || pending <= 0.01,
         });
       }
@@ -180,7 +192,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         </div>
       </div>
 
-      {/* Cancellation Reason Display Card */}
       {order.status === 'cancelled' ? (
         <div className="rounded-2xl bg-red-50 border border-red-200/80 p-4 space-y-2.5 shadow-xs">
           <div className="flex items-start gap-3">
@@ -200,7 +211,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             </div>
           </div>
 
-          {/* Cancellation Reason Tag */}
           <div className="bg-white/80 rounded-xl p-3 border border-red-200/70 flex items-start gap-2">
             <AlertOctagon size={16} className="text-red-600 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
@@ -243,41 +253,41 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         </section>
       )}
 
-      {/* Payment Status Summary */}
-      <section
-        className={`rounded-2xl p-4 border shadow-xs ${
-          paymentSummary.isFullyPaid
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-            : 'bg-amber-50 border-amber-200 text-amber-900'
-        }`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {paymentSummary.isFullyPaid ? (
-              <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
-            ) : (
-              <AlertCircle size={18} className="text-amber-600 shrink-0" />
-            )}
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider">
-                {paymentSummary.isFullyPaid ? 'Payment Complete' : 'Cash to Pay on Delivery'}
-              </p>
-              <p className="text-[11px] opacity-80 mt-0.5">
-                {paymentSummary.isFullyPaid
-                  ? 'All dues settled for this order'
-                  : 'Pay remaining balance upon receiving delivery'}
-              </p>
+      {order.status !== 'cancelled' && (
+        <section
+          className={`rounded-2xl p-4 border shadow-xs ${
+            paymentSummary.isFullyPaid
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-amber-50 border-amber-200 text-amber-900'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {paymentSummary.isFullyPaid ? (
+                <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle size={18} className="text-amber-600 shrink-0" />
+              )}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider">
+                  {paymentSummary.isFullyPaid ? 'Payment Complete' : 'Cash to Pay on Delivery'}
+                </p>
+                <p className="text-[11px] opacity-80 mt-0.5">
+                  {paymentSummary.isFullyPaid
+                    ? 'All dues settled for this order'
+                    : 'Pay remaining balance upon receiving delivery'}
+                </p>
+              </div>
             </div>
+            <p className="text-base font-black">
+              {paymentSummary.isFullyPaid
+                ? '₹0.00'
+                : `₹${paymentSummary.amountToCollect.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+            </p>
           </div>
-          <p className="text-base font-black">
-            {paymentSummary.isFullyPaid
-              ? '₹0.00'
-              : `₹${paymentSummary.amountToCollect.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
-          </p>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* Items Section */}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
         <h2 className="text-sm font-bold text-ink-900 mb-3">Items ({items.length})</h2>
         <div className="space-y-3">
@@ -299,7 +309,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         </div>
       </section>
 
-      {/* Address */}
       {address && (
         <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card">
           <h2 className="text-sm font-bold text-ink-900 mb-2">Delivery address</h2>
@@ -320,7 +329,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         </section>
       )}
 
-      {/* Payment Details & Multi-Payment Breakdown */}
       <section className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card space-y-2">
         <h2 className="text-sm font-bold text-ink-900 mb-1">Payment Breakdown</h2>
         <div className="flex justify-between text-xs text-ink-500">
@@ -378,10 +386,37 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </div>
         )}
 
-        {!paymentSummary.isFullyPaid && (
+        {order.status !== 'cancelled' && !paymentSummary.isFullyPaid && (
           <div className="flex justify-between text-xs text-amber-700 font-bold items-center pt-1 border-t border-ink-100">
             <span className="flex items-center gap-1.5"><Banknote size={13} /> Balance Due (COD)</span>
             <span>₹{paymentSummary.amountToCollect.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+          </div>
+        )}
+
+        {/* Refund Status Segment */}
+        {order.status === 'cancelled' && (paymentSummary.walletRefunded > 0 || paymentSummary.onlineRefunded > 0) && (
+          <div className="mt-3 pt-3 border-t border-ink-200 space-y-2">
+            <h3 className="text-xs font-black text-ink-900 uppercase tracking-wider mb-2">Refund Details</h3>
+            
+            {paymentSummary.walletRefunded > 0 && (
+              <div className="flex justify-between text-xs text-emerald-600 font-bold items-start">
+                <div className="flex flex-col gap-0.5">
+                  <span className="flex items-center gap-1.5"><Wallet size={13} /> Wallet Recharged</span>
+                  <span className="text-[10px] text-emerald-500 ml-5">Credited instantly to B2B Wallet</span>
+                </div>
+                <span>+ ₹{paymentSummary.walletRefunded.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+
+            {paymentSummary.onlineRefunded > 0 && (
+              <div className="flex justify-between text-xs text-blue-600 font-bold items-start">
+                <div className="flex flex-col gap-0.5">
+                  <span className="flex items-center gap-1.5"><CreditCard size={13} /> Bank Refund Initiated</span>
+                  <span className="text-[10px] text-blue-500 ml-5">Expect Razorpay credit in 2-3 business days</span>
+                </div>
+                <span>+ ₹{paymentSummary.onlineRefunded.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
           </div>
         )}
       </section>

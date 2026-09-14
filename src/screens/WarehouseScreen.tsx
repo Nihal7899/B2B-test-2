@@ -16,7 +16,6 @@ import {
   X,
   FileText,
   Check,
-  CheckCircle2,
   XCircle,
   ChevronDown,
   RotateCcw,
@@ -92,7 +91,7 @@ interface PaymentSummary {
   amountDue: number;
   isFullyPaid: boolean;
   providers: string[];
-  hasFailedRefund: boolean;
+  needsRefundRetry: boolean;
   isProcessingRefund: boolean;
 }
 
@@ -285,18 +284,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [refreshing, setRefreshing] = useState(false);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedOrderItems, setExpandedOrderItems] = useState<Record<string, boolean>>({});
-
-  const toggleOrderInlineItems = async (orderId: string) => {
-    const isCurrentlyExpanded = !!expandedOrderItems[orderId];
-    if (!isCurrentlyExpanded && inspectOrderId !== orderId) {
-      void openItemInspection(orderId);
-    }
-    setExpandedOrderItems((prev) => ({
-      ...prev,
-      [orderId]: !prev[orderId],
-    }));
-  };
 
   const isStaffUnregistered = !profile?.staff_registration_status || profile.staff_registration_status === 'unregistered';
 
@@ -366,11 +353,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         let walletPaid = 0;
         let onlinePaid = 0;
         let codPaid = 0;
-        let hasFailedRefund = false;
+        let needsRefundRetry = false;
         let isProcessingRefund = false;
         const providers: string[] = [];
 
         const orderPayments = allPayments.filter((p) => p.order_id === ord.id);
+        const isCancelled = ord.status === 'cancelled';
 
         orderPayments.forEach((p) => {
           const status = (p.status || '').toLowerCase();
@@ -385,8 +373,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             else if (provider === 'cod') codPaid += amt;
           }
 
-          if (status === 'refund_failed') hasFailedRefund = true;
           if (status === 'processing_refund') isProcessingRefund = true;
+          
+          // If the payment is marked as failed, or if the order was cancelled but the Razorpay payment is still sitting in 'paid'
+          if (status === 'refund_failed' || (isCancelled && provider === 'razorpay' && (status === 'paid' || status === 'completed'))) {
+            needsRefundRetry = true;
+          }
         });
 
         const total = Number(ord.total) || 0;
@@ -401,7 +393,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           amountDue: ord.status === 'delivered' ? 0 : pending,
           isFullyPaid: ord.status === 'delivered' || pending <= 0.01,
           providers,
-          hasFailedRefund,
+          needsRefundRetry,
           isProcessingRefund,
         };
       });
@@ -431,12 +423,10 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setRefreshing(false);
   }, [loadDrivers, loadOrders, loadInventory, loadStats]);
 
-  // 1. Initial Data Load
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
 
-  // 2. Realtime Listener Hooked to `warehouse_sync_signals` (The Signal Pattern)
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let debounceTimer: NodeJS.Timeout;
@@ -445,23 +435,19 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       console.log('[Warehouse Realtime] Sync Signal received from DB ⚡');
       clearTimeout(debounceTimer);
       
-      // Debounce: Groups rapid events together to protect database CPU
       debounceTimer = setTimeout(() => {
         void loadOrders();
         void loadStats();
       }, 400); 
     };
 
-    // Wait for the Auth token to load before opening the connection
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       
       const channelName = `warehouse_signal_sync_${user.id}`;
       channel = supabase
         .channel(channelName)
-        // Listen ONLY to the tiny signal table (Bypasses all RLS blocks)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'warehouse_sync_signals' }, handleRealtimeSpike)
-        // Listen to cross-device driver assignments
         .on('broadcast', { event: 'assignment_changed' }, handleRealtimeSpike)
         .subscribe((status, err) => {
           if (err) console.error('[Warehouse Realtime] Error:', err);
@@ -726,7 +712,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     { id: 'cancelled', label: 'Cancelled' },
   ];
 
-  const failedRefundsCount = orders.filter((o) => paymentsMap[o.id]?.hasFailedRefund).length;
+  const failedRefundsCount = orders.filter((o) => paymentsMap[o.id]?.needsRefundRetry).length;
 
   useEffect(() => {
     setOrdersPage(1);
@@ -745,7 +731,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         recipient.toLowerCase().includes(searchQuery.toLowerCase());
 
       if (activeTab === 'refunds') {
-        return matchesSearch && (paymentsMap[o.id]?.hasFailedRefund || paymentsMap[o.id]?.isProcessingRefund);
+        return matchesSearch && (paymentsMap[o.id]?.needsRefundRetry || paymentsMap[o.id]?.isProcessingRefund);
       }
 
       let matchesStatus = true;
@@ -1472,7 +1458,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   {paginatedOrders.map((ord) => {
                     const addr = ord.address_id ? addressMap[ord.address_id] : null;
                     const asg = assignmentsMap[ord.id];
-                    const pay = paymentsMap[ord.id] || { walletPaid: 0, onlinePaid: 0, codPaid: 0, totalPaid: 0, amountDue: Number(ord.total), isFullyPaid: false, providers: [], hasFailedRefund: false, isProcessingRefund: false };
+                    const pay = paymentsMap[ord.id] || { walletPaid: 0, onlinePaid: 0, codPaid: 0, totalPaid: 0, amountDue: Number(ord.total), isFullyPaid: false, providers: [], needsRefundRetry: false, isProcessingRefund: false };
                     const isProcessing = actionOrderId === ord.id;
                     const isDelivered = ord.status === 'delivered';
                     const isCancelled = ord.status === 'cancelled';
@@ -1487,7 +1473,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                       <div
                         key={ord.id}
                         className={`bg-white border rounded-[26px] p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.03)] space-y-3.5 flex flex-col justify-between transition-all ${
-                          pay.hasFailedRefund 
+                          pay.needsRefundRetry 
                             ? 'border-red-400 ring-2 ring-red-100/70'
                             : isPacked
                             ? 'border-emerald-400 ring-2 ring-emerald-100/70'
@@ -1544,8 +1530,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                             </span>
                           </div>
 
-                          {isCancelled && (pay.hasFailedRefund || pay.isProcessingRefund) && (
-                            <div className={`p-3 rounded-2xl border ${pay.hasFailedRefund ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                          {isCancelled && (pay.needsRefundRetry || pay.isProcessingRefund) && (
+                            <div className={`p-3 rounded-2xl border ${pay.needsRefundRetry ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
                               <div className="flex justify-between items-center">
                                 <div className="flex items-center gap-2">
                                   {pay.isProcessingRefund ? (
@@ -1554,15 +1540,15 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                     <AlertOctagon size={16} className="text-red-600" />
                                   )}
                                   <div>
-                                    <p className={`text-xs font-black ${pay.hasFailedRefund ? 'text-red-900' : 'text-amber-900'}`}>
-                                      {pay.hasFailedRefund ? 'Refund Failed' : 'Processing Refund'}
+                                    <p className={`text-xs font-black ${pay.needsRefundRetry ? 'text-red-900' : 'text-amber-900'}`}>
+                                      {pay.needsRefundRetry ? 'Refund Required' : 'Processing Refund'}
                                     </p>
-                                    <p className={`text-[10px] font-medium ${pay.hasFailedRefund ? 'text-red-700' : 'text-amber-700'}`}>
-                                      {pay.hasFailedRefund ? 'Automated Razorpay refund rejected' : 'Communicating with gateway...'}
+                                    <p className={`text-[10px] font-medium ${pay.needsRefundRetry ? 'text-red-700' : 'text-amber-700'}`}>
+                                      {pay.needsRefundRetry ? 'Razorpay payment is still captured. Manual retry needed.' : 'Communicating with gateway...'}
                                     </p>
                                   </div>
                                 </div>
-                                {pay.hasFailedRefund && (
+                                {pay.needsRefundRetry && (
                                   <button 
                                     onClick={() => void handleRetryRefund(ord.id)}
                                     disabled={isProcessing}
@@ -1812,6 +1798,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="font-black text-sm text-slate-900">{ord.order_number}</span>
+
                                 <span
                                   className={`text-[9.5px] font-black uppercase px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 ${
                                     isCancelled

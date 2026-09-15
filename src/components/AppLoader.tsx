@@ -51,7 +51,7 @@ export const AppLoader = React.memo(function AppLoader({
       <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass}`}>
         
         {/* Main Stage Viewport */}
-        <div className="relative w-full max-w-[800px] h-[400px] flex items-end justify-center overflow-hidden pb-12">
+        <div className="relative w-full max-w-[800px] h-[400px] flex items-end justify-center overflow-hidden">
           
           {/* ========================================================= */}
           {/* 1. SEAMLESS MOVING CLOUDS                                 */}
@@ -69,9 +69,9 @@ export const AppLoader = React.memo(function AppLoader({
           </div>
 
           {/* ========================================================= */}
-          {/* 2. TALLER, WIDER ARCHITECTURAL CITY BUILDINGS             */}
+          {/* 2. TALLER, WIDER ARCHITECTURAL CITY BUILDINGS (Moved UP)  */}
           {/* ========================================================= */}
-          <div className="absolute bottom-12 left-0 w-full h-[350px] overflow-hidden pointer-events-none z-0 flex items-end">
+          <div className="absolute bottom-[90px] left-0 w-full h-[250px] overflow-hidden pointer-events-none z-0 flex items-end">
             <div 
               className="flex w-[1260px] animate-skyline-scroll opacity-85" 
               style={{ transform: 'scale(2.2)', transformOrigin: 'bottom left' }}
@@ -96,7 +96,7 @@ export const AppLoader = React.memo(function AppLoader({
                   <rect x="106" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
                   <rect x="76" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
                   <rect x="91" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                  <rect x="106" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                  <rect x="106" y="60" width="10" height="15" fill="#f0f7f2" />
                   <rect x="76" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
                   <rect x="91" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
                   <rect x="106" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
@@ -141,13 +141,12 @@ export const AppLoader = React.memo(function AppLoader({
           </div>
 
           {/* ========================================================= */}
-          {/* 3. SHRUNKEN TRUCK & PROMINENT GROCERY LOAD                */}
+          {/* 3. SHRUNKEN TRUCK & PROMINENT GROCERY LOAD (Moved DOWN)   */}
           {/* ========================================================= */}
-          {/* Padded viewBox shrinks the truck significantly relative to the screen */}
-          <div className="relative z-10 w-full pointer-events-none">
+          <div className="relative z-10 w-[380px] sm:w-[420px] pointer-events-none translate-y-8">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              viewBox="-300 -350 2000 1200"
+              viewBox="0 0 1400 720"
               className="w-full h-auto drop-shadow-xl"
               fill="none"
               role="img"
@@ -191,65 +190,67 @@ export const AppLoader = React.memo(function AppLoader({
                 
                 {/* 
                   GROCERIES - BURSTING OUT
-                  Massively scaled (3.0) and shifted upwards (-1050) so they peek highly above Y=132.
-                  Because they are rendered FIRST, the cargo-container overlaps their bottom edge,
-                  making them securely packed inside the truck bed.
+                  1. The parent `<g>` applies the absolute scale and translate coordinates. 
+                     This protects the layout from being overwritten by CSS.
+                  2. The child `<g>` handles the jiggle animation.
                 */}
-                <g transform="translate(-500, -1050) scale(3.0)" className="animate-produce-jiggle">
-                  {/* Lettuce */}
-                  <circle cx="280" cy="350" r="35" fill="url(#lettuceGrad1)" />
-                  <circle cx="315" cy="330" r="40" fill="url(#lettuceGrad2)" />
-                  <circle cx="355" cy="350" r="35" fill="url(#lettuceGrad1)" />
+                <g transform="translate(-150, -600) scale(2.2)">
+                  <g className="animate-produce-jiggle">
+                    {/* Lettuce */}
+                    <circle cx="280" cy="350" r="35" fill="url(#lettuceGrad1)" />
+                    <circle cx="315" cy="330" r="40" fill="url(#lettuceGrad2)" />
+                    <circle cx="355" cy="350" r="35" fill="url(#lettuceGrad1)" />
 
-                  {/* Paper Bag */}
-                  <path d="M 400 400 L 450 400 L 465 300 L 415 315 Z" fill="#D4A373" />
-                  <path d="M 410 295 L 460 280 L 465 300 L 415 315 Z" fill="#BC8A5F" />
-                  <ellipse cx="430" cy="350" rx="12" ry="12" fill="#E76F51" transform="rotate(-15 430 350)" />
-                  <ellipse cx="430" cy="350" rx="5" ry="5" fill="#F4A261" transform="rotate(-15 430 350)" />
+                    {/* Paper Bag */}
+                    <path d="M 400 400 L 450 400 L 465 300 L 415 315 Z" fill="#D4A373" />
+                    <path d="M 410 295 L 460 280 L 465 300 L 415 315 Z" fill="#BC8A5F" />
+                    <ellipse cx="430" cy="350" rx="12" ry="12" fill="#E76F51" transform="rotate(-15 430 350)" />
+                    <ellipse cx="430" cy="350" rx="5" ry="5" fill="#F4A261" transform="rotate(-15 430 350)" />
 
-                  {/* Milk Bottle */}
-                  <g transform="translate(385, 360) rotate(12)">
-                    <rect x="-18" y="-60" width="36" height="100" rx="6" fill="url(#milkGrad)" />
-                    <rect x="-18" y="-20" width="36" height="35" fill="#2196F3" />
-                    <circle cx="0" cy="-2" r="8" fill="#FFFFFF" />
-                    <circle cx="0" cy="-2" r="4" fill="#2196F3" />
-                    <rect x="-10" y="-75" width="20" height="20" fill="#E3F2FD" />
-                    <rect x="-12" y="-80" width="24" height="10" rx="3" fill="#0D47A1" />
-                    <path d="M -12 -50 L -12 30" stroke="#FFFFFF" strokeWidth="3" opacity="0.6" strokeLinecap="round" />
-                  </g>
+                    {/* Milk Bottle */}
+                    <g transform="translate(385, 360) rotate(12)">
+                      <rect x="-18" y="-60" width="36" height="100" rx="6" fill="url(#milkGrad)" />
+                      <rect x="-18" y="-20" width="36" height="35" fill="#2196F3" />
+                      <circle cx="0" cy="-2" r="8" fill="#FFFFFF" />
+                      <circle cx="0" cy="-2" r="4" fill="#2196F3" />
+                      <rect x="-10" y="-75" width="20" height="20" fill="#E3F2FD" />
+                      <rect x="-12" y="-80" width="24" height="10" rx="3" fill="#0D47A1" />
+                      <path d="M -12 -50 L -12 30" stroke="#FFFFFF" strokeWidth="3" opacity="0.6" strokeLinecap="round" />
+                    </g>
 
-                  {/* Baguette */}
-                  <g transform="translate(350, 345) rotate(25)">
-                    <ellipse cx="0" cy="0" rx="20" ry="70" fill="url(#baguetteGrad)" />
-                    <path d="M -10 -40 Q 0 -35 12 -25" fill="none" stroke="#5D4037" strokeWidth="4" strokeLinecap="round" />
-                    <path d="M -12 -10 Q 0 -5 12 5" fill="none" stroke="#5D4037" strokeWidth="4" strokeLinecap="round" />
-                    <path d="M -12 20 Q 0 25 12 35" fill="none" stroke="#5D4037" strokeWidth="4" strokeLinecap="round" />
-                    <ellipse cx="-8" cy="0" rx="4" ry="55" fill="#FFFFFF" opacity="0.3" />
-                  </g>
+                    {/* Baguette */}
+                    <g transform="translate(350, 345) rotate(25)">
+                      <ellipse cx="0" cy="0" rx="20" ry="70" fill="url(#baguetteGrad)" />
+                      <path d="M -10 -40 Q 0 -35 12 -25" fill="none" stroke="#5D4037" strokeWidth="4" strokeLinecap="round" />
+                      <path d="M -12 -10 Q 0 -5 12 5" fill="none" stroke="#5D4037" strokeWidth="4" strokeLinecap="round" />
+                      <path d="M -12 20 Q 0 25 12 35" fill="none" stroke="#5D4037" strokeWidth="4" strokeLinecap="round" />
+                      <ellipse cx="-8" cy="0" rx="4" ry="55" fill="#FFFFFF" opacity="0.3" />
+                    </g>
 
-                  {/* Red Peppers */}
-                  <g>
-                    <ellipse cx="315" cy="375" rx="20" ry="28" fill="url(#pepperGrad)" />
-                    <ellipse cx="295" cy="385" rx="18" ry="25" fill="url(#pepperGrad)" />
-                    <ellipse cx="335" cy="385" rx="18" ry="25" fill="url(#pepperGrad)" />
-                    <path d="M 315 348 Q 320 335 330 340" fill="none" stroke="#1B5E20" strokeWidth="5" strokeLinecap="round" />
-                    <ellipse cx="308" cy="360" rx="4" ry="10" fill="#FFFFFF" opacity="0.5" transform="rotate(-15 308 360)" />
-                    <ellipse cx="328" cy="368" rx="3" ry="8" fill="#FFFFFF" opacity="0.5" transform="rotate(-15 328 368)" />
-                  </g>
+                    {/* Red Peppers */}
+                    <g>
+                      <ellipse cx="315" cy="375" rx="20" ry="28" fill="url(#pepperGrad)" />
+                      <ellipse cx="295" cy="385" rx="18" ry="25" fill="url(#pepperGrad)" />
+                      <ellipse cx="335" cy="385" rx="18" ry="25" fill="url(#pepperGrad)" />
+                      <path d="M 315 348 Q 320 335 330 340" fill="none" stroke="#1B5E20" strokeWidth="5" strokeLinecap="round" />
+                      <ellipse cx="308" cy="360" rx="4" ry="10" fill="#FFFFFF" opacity="0.5" transform="rotate(-15 308 360)" />
+                      <ellipse cx="328" cy="368" rx="3" ry="8" fill="#FFFFFF" opacity="0.5" transform="rotate(-15 328 368)" />
+                    </g>
 
-                  {/* Tomato */}
-                  <g>
-                    <circle cx="365" cy="390" r="24" fill="url(#tomatoGrad)" />
-                    <path d="M 365 366 L 358 373 M 365 366 L 372 373 M 365 366 L 365 375 M 365 366 L 360 361" stroke="#1B5E20" strokeWidth="3" strokeLinecap="round" />
-                    <ellipse cx="355" cy="378" rx="6" ry="4" fill="#FFFFFF" opacity="0.5" transform="rotate(-30 355 378)" />
-                  </g>
+                    {/* Tomato */}
+                    <g>
+                      <circle cx="365" cy="390" r="24" fill="url(#tomatoGrad)" />
+                      <path d="M 365 366 L 358 373 M 365 366 L 372 373 M 365 366 L 365 375 M 365 366 L 360 361" stroke="#1B5E20" strokeWidth="3" strokeLinecap="round" />
+                      <ellipse cx="355" cy="378" rx="6" ry="4" fill="#FFFFFF" opacity="0.5" transform="rotate(-30 355 378)" />
+                    </g>
 
-                  {/* Bananas */}
-                  <g>
-                    <path d="M 235 340 C 240 390 270 405 295 395 C 290 365 260 350 235 340 Z" fill="#FBC02D" />
-                    <path d="M 245 330 C 255 380 285 395 310 385 C 305 355 275 340 245 330 Z" fill="#FFF176" />
-                    <path d="M 235 340 C 240 390 270 405 295 395" fill="none" stroke="#F57F17" strokeWidth="2" />
-                    <path d="M 235 340 L 225 330 L 240 325 Z" fill="#8BC34A" />
+                    {/* Bananas */}
+                    <g>
+                      <path d="M 235 340 C 240 390 270 405 295 395 C 290 365 260 350 235 340 Z" fill="#FBC02D" />
+                      <path d="M 245 330 C 255 380 285 395 310 385 C 305 355 275 340 245 330 Z" fill="#FFF176" />
+                      <path d="M 235 340 C 240 390 270 405 295 395" fill="none" stroke="#F57F17" strokeWidth="2" />
+                      <path d="M 235 340 L 225 330 L 240 325 Z" fill="#8BC34A" />
+                    </g>
                   </g>
                 </g>
 
@@ -381,7 +382,7 @@ export const AppLoader = React.memo(function AppLoader({
         {/* 5. DYNAMIC STEPPER & ROTATING WHOLESALE STATUS            */}
         {/* ========================================================= */}
         {showStatus && (
-          <div className="mt-4 flex flex-col items-center justify-center animate-fade-in">
+          <div className="mt-8 flex flex-col items-center justify-center animate-fade-in">
             <div className="relative flex items-center justify-between w-64 mb-3">
               <div className="absolute top-1/2 left-0 right-0 h-[2.5px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
 
@@ -466,9 +467,10 @@ export const AppLoader = React.memo(function AppLoader({
         }
 
         /* Produce stack slight independent bounce */
+        /* It safely uses translateY relative to the isolated static transform */
         @keyframes produceJiggle {
           0%, 100% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-3px) rotate(-1.5deg); }
+          50% { transform: translateY(-4px) rotate(-1.5deg); }
         }
         .animate-produce-jiggle {
           animation: produceJiggle 0.65s ease-in-out infinite 0.1s;

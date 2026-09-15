@@ -25,379 +25,1617 @@ export const AppLoader = React.memo(function AppLoader({
 
   useEffect(() => {
     if (!showStatus) return;
+
     const interval = setInterval(() => {
       setMsgIndex((prev) => (prev + 1) % HOME_MESSAGES.length);
     }, 1800);
+
     return () => clearInterval(interval);
   }, [showStatus]);
 
   const scaleClass =
-    size === 'sm' ? 'scale-75' : size === 'lg' ? 'scale-105' : 'scale-95 sm:scale-100';
+    size === 'sm'
+      ? 'scale-75'
+      : size === 'lg'
+        ? 'scale-105'
+        : 'scale-95 sm:scale-100';
 
-  const progressPercent = (msgIndex / (HOME_MESSAGES.length - 1)) * 100;
+  const progressPercent =
+    (msgIndex / (HOME_MESSAGES.length - 1)) * 100;
 
   return (
     <div
       className={`flex flex-col items-center justify-center bg-white select-none ${
-        fullScreen ? 'fixed inset-0 z-50 animate-fade-in px-6' : 'w-full py-8'
+        fullScreen
+          ? 'fixed inset-0 z-50 animate-fade-in px-4'
+          : 'w-full py-8'
       } ${className}`}
     >
-      <div className={`relative flex flex-col items-center justify-center ${scaleClass}`}>
-        <div className="relative w-92 h-80 flex items-center justify-center overflow-hidden">
-          
-          {/* ========================================================= */}
-          {/* 1. SEAMLESS MOVING CLOUDS                                 */}
-          {/* ========================================================= */}
-          <div className="absolute top-1 left-0 w-full h-16 overflow-hidden pointer-events-none z-0">
-            <div className="flex w-[840px] animate-clouds-scroll opacity-75">
-              <svg viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
-                <path d="M40 28C40 22 45 18 51 18C53 18 55 18.8 56.5 20C58.5 15.5 63 13 68 13C75 13 81 18.5 81 25.5C83 25.5 85 27.5 85 29.5C85 32 83 34 80.5 34H44C41.8 34 40 31.5 40 28Z" fill="#e2efe6" />
-                <path d="M190 22C190 16.5 194.5 12 200 12C201.8 12 203.5 12.6 205 13.8C207 9.8 211 7.5 215.5 7.5C222 7.5 227 12.5 227 19C229 19 231 21 231 23C231 25.5 229 27.5 226.5 27.5H194C191.8 27.5 190 25 190 22Z" fill="#d9ebdf" />
-                <path d="M330 25C330 20 334 16 339 16C340.5 16 342 16.5 343.5 17.5C345 14 349 12 353 12C359 12 364 16.5 364 22.5C365.5 22.5 367 24 367 26C367 28.5 365 30.5 363 30.5H334C331.8 30.5 330 28.2 330 25Z" fill="#e2efe6" />
-              </svg>
-              <svg viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
-                <path d="M40 28C40 22 45 18 51 18C53 18 55 18.8 56.5 20C58.5 15.5 63 13 68 13C75 13 81 18.5 81 25.5C83 25.5 85 27.5 85 29.5C85 32 83 34 80.5 34H44C41.8 34 40 31.5 40 28Z" fill="#e2efe6" />
-                <path d="M190 22C190 16.5 194.5 12 200 12C201.8 12 203.5 12.6 205 13.8C207 9.8 211 7.5 215.5 7.5C222 7.5 227 12.5 227 19C229 19 231 21 231 23C231 25.5 229 27.5 226.5 27.5H194C191.8 27.5 190 25 190 22Z" fill="#d9ebdf" />
-                <path d="M330 25C330 20 334 16 339 16C340.5 16 342 16.5 343.5 17.5C345 14 349 12 353 12C359 12 364 16.5 364 22.5C365.5 22.5 367 24 367 26C367 28.5 365 30.5 363 30.5H334C331.8 30.5 330 28.2 330 25Z" fill="#e2efe6" />
-              </svg>
-            </div>
-          </div>
+      <div
+        className={`relative flex flex-col items-center justify-center ${scaleClass}`}
+      >
+        {/* ============================================================
+            MAIN LOADING STAGE
+        ============================================================ */}
+        <div className="relative w-[370px] h-[300px] max-w-[100vw] overflow-hidden">
 
-          {/* ========================================================= */}
-          {/* 2. CITY SKYLINE                                           */}
-          {/* ========================================================= */}
-          <div className="absolute top-6 left-0 w-full h-52 overflow-hidden pointer-events-none z-0">
-            <div className="flex w-[840px] animate-skyline-scroll opacity-85">
-              <svg viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
-                <rect x="0" y="52" width="60" height="138" rx="3" fill="#d9ebdf" />
-                <rect x="6" y="58" width="48" height="6" rx="1" fill="#c3decc" />
-                <line x1="12" y1="74" x2="48" y2="74" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="82" x2="48" y2="82" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="90" x2="48" y2="90" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="98" x2="48" y2="98" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <rect x="15" y="116" width="30" height="40" rx="1.5" fill="#cbe3d3" />
-                <line x1="15" y1="126" x2="45" y2="126" stroke="#d9ebdf" strokeWidth="1.5" />
-                <line x1="15" y1="136" x2="45" y2="136" stroke="#d9ebdf" strokeWidth="1.5" />
-                <rect x="68" y="22" width="56" height="168" rx="2" fill="#e2efe6" />
-                <rect x="74" y="26" width="44" height="4" fill="#cbe3d3" />
-                <line x1="78" y1="10" x2="78" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
-                <line x1="114" y1="10" x2="114" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
-                <rect x="76" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="76" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="76" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="132" y="68" width="66" height="122" rx="3" fill="#d9ebdf" />
-                <path d="M129 78H201L197 90H133L129 78Z" fill="#c3decc" />
-                <path d="M134 90C134 92.5 136.5 94 139 94C141.5 94 144 92.5 144 90H134Z" fill="#b1d3bc" />
-                <path d="M144 90C144 92.5 146.5 94 149 94C151.5 94 154 92.5 154 90H144Z" fill="#b1d3bc" />
-                <path d="M154 90C154 92.5 156.5 94 159 94C161.5 94 164 92.5 164 90H154Z" fill="#b1d3bc" />
-                <path d="M164 90C164 92.5 166.5 94 169 94C171.5 94 174 92.5 174 90H164Z" fill="#b1d3bc" />
-                <path d="M174 90C174 92.5 176.5 94 179 94C181.5 94 184 92.5 184 90H174Z" fill="#b1d3bc" />
-                <path d="M184 90C184 92.5 186.5 94 189 94C191.5 94 194 92.5 194 90H184Z" fill="#b1d3bc" />
-                <path d="M143 118V106C143 103 145 101 148 101C151 101 153 103 153 106V118H143Z" fill="#f0f7f2" />
-                <path d="M160 118V106C160 103 162 101 165 101C168 101 170 103 170 106V118H160Z" fill="#f0f7f2" />
-                <path d="M177 118V106C177 103 179 101 182 101C185 101 187 103 187 106V118H177Z" fill="#f0f7f2" />
-                <rect x="206" y="50" width="68" height="140" fill="#cbe3d3" />
-                <rect x="216" y="24" width="48" height="26" fill="#d9ebdf" />
-                <rect x="228" y="8" width="24" height="16" fill="#e2efe6" />
-                <line x1="240" y1="-4" x2="240" y2="8" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
-                <circle cx="224" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="224" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="224" cy="94" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="94" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="94" r="2.2" fill="#f0f7f2" />
-                <g transform="translate(210, 26) scale(0.75)">
-                  <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
-                  <circle cx="10" cy="9" r="4" fill="#ffffff" />
-                </g>
-                <rect x="282" y="55" width="28" height="135" fill="#e2efe6" />
-                <ellipse cx="296" cy="55" rx="14" ry="7" fill="#d9ebdf" />
-                <rect x="314" y="45" width="30" height="145" fill="#d9ebdf" />
-                <ellipse cx="329" cy="45" rx="15" ry="8" fill="#cbe3d3" />
-                <rect x="296" y="68" width="33" height="4" fill="#b1d3bc" />
-                <rect x="352" y="40" width="60" height="150" rx="2" fill="#cbe3d3" />
-                <rect x="360" y="45" width="44" height="4" fill="#b1d3bc" />
-                <rect x="362" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="382" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="362" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="382" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <g transform="translate(390, 24) scale(0.75)">
-                  <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
-                  <circle cx="10" cy="9" r="4" fill="#ffffff" />
-                </g>
-              </svg>
-              {/* SVG Duplicate for seamless scroll */}
-              <svg viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
-                <rect x="0" y="52" width="60" height="138" rx="3" fill="#d9ebdf" />
-                <rect x="6" y="58" width="48" height="6" rx="1" fill="#c3decc" />
-                <line x1="12" y1="74" x2="48" y2="74" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="82" x2="48" y2="82" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="90" x2="48" y2="90" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="98" x2="48" y2="98" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <rect x="15" y="116" width="30" height="40" rx="1.5" fill="#cbe3d3" />
-                <line x1="15" y1="126" x2="45" y2="126" stroke="#d9ebdf" strokeWidth="1.5" />
-                <line x1="15" y1="136" x2="45" y2="136" stroke="#d9ebdf" strokeWidth="1.5" />
-                <rect x="68" y="22" width="56" height="168" rx="2" fill="#e2efe6" />
-                <rect x="74" y="26" width="44" height="4" fill="#cbe3d3" />
-                <line x1="78" y1="10" x2="78" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
-                <line x1="114" y1="10" x2="114" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
-                <rect x="76" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="76" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="76" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="132" y="68" width="66" height="122" rx="3" fill="#d9ebdf" />
-                <path d="M129 78H201L197 90H133L129 78Z" fill="#c3decc" />
-                <path d="M134 90C134 92.5 136.5 94 139 94C141.5 94 144 92.5 144 90H134Z" fill="#b1d3bc" />
-                <path d="M144 90C144 92.5 146.5 94 149 94C151.5 94 154 92.5 154 90H144Z" fill="#b1d3bc" />
-                <path d="M154 90C154 92.5 156.5 94 159 94C161.5 94 164 92.5 164 90H154Z" fill="#b1d3bc" />
-                <path d="M164 90C164 92.5 166.5 94 169 94C171.5 94 174 92.5 174 90H164Z" fill="#b1d3bc" />
-                <path d="M174 90C174 92.5 176.5 94 179 94C181.5 94 184 92.5 184 90H174Z" fill="#b1d3bc" />
-                <path d="M184 90C184 92.5 186.5 94 189 94C191.5 94 194 92.5 194 90H184Z" fill="#b1d3bc" />
-                <path d="M143 118V106C143 103 145 101 148 101C151 101 153 103 153 106V118H143Z" fill="#f0f7f2" />
-                <path d="M160 118V106C160 103 162 101 165 101C168 101 170 103 170 106V118H160Z" fill="#f0f7f2" />
-                <path d="M177 118V106C177 103 179 101 182 101C185 101 187 103 187 106V118H177Z" fill="#f0f7f2" />
-                <rect x="206" y="50" width="68" height="140" fill="#cbe3d3" />
-                <rect x="216" y="24" width="48" height="26" fill="#d9ebdf" />
-                <rect x="228" y="8" width="24" height="16" fill="#e2efe6" />
-                <line x1="240" y1="-4" x2="240" y2="8" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
-                <circle cx="224" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="224" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="224" cy="94" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="94" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="94" r="2.2" fill="#f0f7f2" />
-                <g transform="translate(210, 26) scale(0.75)">
-                  <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
-                  <circle cx="10" cy="9" r="4" fill="#ffffff" />
-                </g>
-                <rect x="282" y="55" width="28" height="135" fill="#e2efe6" />
-                <ellipse cx="296" cy="55" rx="14" ry="7" fill="#d9ebdf" />
-                <rect x="314" y="45" width="30" height="145" fill="#d9ebdf" />
-                <ellipse cx="329" cy="45" rx="15" ry="8" fill="#cbe3d3" />
-                <rect x="296" y="68" width="33" height="4" fill="#b1d3bc" />
-                <rect x="352" y="40" width="60" height="150" rx="2" fill="#cbe3d3" />
-                <rect x="360" y="45" width="44" height="4" fill="#b1d3bc" />
-                <rect x="362" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="382" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="362" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="382" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <g transform="translate(390, 24) scale(0.75)">
-                  <path d="M10 0C4.5 0 0 4.5 0 10C0 17 10 26 10 26C10 26 20 17 20 10C20 4.5 15.5 0 10 0Z" fill="#a4cfb1" />
-                  <circle cx="10" cy="9" r="4" fill="#ffffff" />
-                </g>
-              </svg>
-            </div>
-          </div>
-
-          {/* ========================================================= */}
-          {/* 3. COLORFUL GROCERY TEMPO & REALISTIC FRUIT LOAD          */}
-          {/* ========================================================= */}
+          {/* ============================================================
+              BACKGROUND — SKY
+          ============================================================ */}
           <svg
-            viewBox="0 0 360 250"
-            className="w-full h-full z-10 pointer-events-none"
-            fill="none"
+            viewBox="0 0 740 300"
+            className="absolute inset-0 w-[740px] h-full z-0 animate-loader-background"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient
+                id="skyGradientA"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor="#ffffff" />
+                <stop offset="72%" stopColor="#ffffff" />
+                <stop offset="100%" stopColor="#f5fbf7" />
+              </linearGradient>
+
+              <linearGradient
+                id="buildingFadeA"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor="#e9f5ed" />
+                <stop offset="100%" stopColor="#d7ebe0" />
+              </linearGradient>
+            </defs>
+
+            <rect
+              width="740"
+              height="300"
+              fill="url(#skyGradientA)"
+            />
+
+            {/* --------------------------------------------------------
+                SOFT CLOUDS
+            -------------------------------------------------------- */}
+            <g opacity="0.75">
+
+              <g transform="translate(58 38)">
+                <path
+                  d="M0 17C0 11 5 7 11 7C13 7 15 7.5 17 9C19 4 24 1 30 1C38 1 44 7 44 15C48 15 51 18 51 21C51 24 48 27 44 27H7C3 27 0 23 0 17Z"
+                  fill="#e4f1e9"
+                />
+              </g>
+
+              <g transform="translate(280 30) scale(.85)">
+                <path
+                  d="M0 17C0 11 5 7 11 7C13 7 15 7.5 17 9C19 4 24 1 30 1C38 1 44 7 44 15C48 15 51 18 51 21C51 24 48 27 44 27H7C3 27 0 23 0 17Z"
+                  fill="#e0efe6"
+                />
+              </g>
+
+              <g transform="translate(525 42) scale(.9)">
+                <path
+                  d="M0 17C0 11 5 7 11 7C13 7 15 7.5 17 9C19 4 24 1 30 1C38 1 44 7 44 15C48 15 51 18 51 21C51 24 48 27 44 27H7C3 27 0 23 0 17Z"
+                  fill="#e6f3eb"
+                />
+              </g>
+
+            </g>
+
+            {/* ========================================================
+                DISTANT CITY
+            ======================================================== */}
+            <g opacity="0.62">
+
+              {/* Far buildings */}
+              <rect
+                x="8"
+                y="130"
+                width="44"
+                height="108"
+                rx="2"
+                fill="#e5f2e9"
+              />
+
+              <rect
+                x="60"
+                y="108"
+                width="57"
+                height="130"
+                rx="3"
+                fill="#deefe5"
+              />
+
+              <rect
+                x="125"
+                y="145"
+                width="46"
+                height="93"
+                rx="3"
+                fill="#e7f3eb"
+              />
+
+              <rect
+                x="181"
+                y="118"
+                width="64"
+                height="120"
+                rx="3"
+                fill="#dceee3"
+              />
+
+              <rect
+                x="258"
+                y="142"
+                width="48"
+                height="96"
+                rx="3"
+                fill="#e5f2e9"
+              />
+
+              <rect
+                x="317"
+                y="125"
+                width="59"
+                height="113"
+                rx="3"
+                fill="#dceee4"
+              />
+
+              <rect
+                x="392"
+                y="143"
+                width="46"
+                height="95"
+                rx="3"
+                fill="#e6f2e9"
+              />
+
+              <rect
+                x="451"
+                y="112"
+                width="64"
+                height="126"
+                rx="3"
+                fill="#deefe5"
+              />
+
+              <rect
+                x="528"
+                y="138"
+                width="50"
+                height="100"
+                rx="3"
+                fill="#e7f3eb"
+              />
+
+              <rect
+                x="590"
+                y="105"
+                width="58"
+                height="133"
+                rx="3"
+                fill="#dceee3"
+              />
+
+              <rect
+                x="662"
+                y="132"
+                width="54"
+                height="106"
+                rx="3"
+                fill="#e5f2e9"
+              />
+
+              {/* Building windows */}
+              <g fill="#f7fbf8" opacity="0.85">
+
+                <rect x="70" y="121" width="8" height="13" rx="1" />
+                <rect x="84" y="121" width="8" height="13" rx="1" />
+                <rect x="98" y="121" width="8" height="13" rx="1" />
+
+                <rect x="70" y="143" width="8" height="13" rx="1" />
+                <rect x="84" y="143" width="8" height="13" rx="1" />
+                <rect x="98" y="143" width="8" height="13" rx="1" />
+
+                <rect x="193" y="132" width="9" height="13" rx="1" />
+                <rect x="210" y="132" width="9" height="13" rx="1" />
+                <rect x="227" y="132" width="9" height="13" rx="1" />
+
+                <rect x="193" y="154" width="9" height="13" rx="1" />
+                <rect x="210" y="154" width="9" height="13" rx="1" />
+                <rect x="227" y="154" width="9" height="13" rx="1" />
+
+                <rect x="328" y="139" width="9" height="13" rx="1" />
+                <rect x="345" y="139" width="9" height="13" rx="1" />
+
+                <rect x="461" y="125" width="9" height="14" rx="1" />
+                <rect x="479" y="125" width="9" height="14" rx="1" />
+                <rect x="497" y="125" width="9" height="14" rx="1" />
+
+                <rect x="600" y="119" width="10" height="15" rx="1" />
+                <rect x="619" y="119" width="10" height="15" rx="1" />
+                <rect x="638" y="119" width="10" height="15" rx="1" />
+
+              </g>
+
+              {/* Rooftop details */}
+              <rect
+                x="73"
+                y="101"
+                width="30"
+                height="7"
+                rx="2"
+                fill="#cce5d5"
+              />
+
+              <rect
+                x="200"
+                y="108"
+                width="28"
+                height="10"
+                rx="2"
+                fill="#c8e2d1"
+              />
+
+              <rect
+                x="605"
+                y="95"
+                width="38"
+                height="10"
+                rx="2"
+                fill="#c8e2d1"
+              />
+
+            </g>
+
+            {/* ========================================================
+                WAREHOUSE
+            ======================================================== */}
+            <g transform="translate(500 126)">
+
+              {/* Roof */}
+              <path
+                d="M-12 32L88 0L188 32V43H-12V32Z"
+                fill="#d4eade"
+              />
+
+              <path
+                d="M-3 32L88 5L179 32"
+                fill="none"
+                stroke="#55b987"
+                strokeWidth="5"
+                strokeLinecap="round"
+              />
+
+              {/* Warehouse building */}
+              <rect
+                x="8"
+                y="42"
+                width="160"
+                height="112"
+                rx="3"
+                fill="#e2f0e7"
+              />
+
+              {/* Green horizontal trim */}
+              <rect
+                x="8"
+                y="45"
+                width="160"
+                height="7"
+                fill="#c5dfcf"
+              />
+
+              {/* Warehouse windows */}
+              <rect
+                x="28"
+                y="65"
+                width="25"
+                height="24"
+                rx="2"
+                fill="#f7fbf8"
+              />
+
+              <rect
+                x="61"
+                y="65"
+                width="25"
+                height="24"
+                rx="2"
+                fill="#f7fbf8"
+              />
+
+              {/* Main shutter */}
+              <rect
+                x="105"
+                y="73"
+                width="43"
+                height="81"
+                rx="2"
+                fill="#c8e1d1"
+              />
+
+              <path
+                d="M105 86H148M105 99H148M105 112H148M105 125H148M105 138H148"
+                stroke="#b2d4c0"
+                strokeWidth="2"
+              />
+
+              {/* Warehouse logo */}
+              <g transform="translate(28 27)">
+                <path
+                  d="M0 16C8 4 15 0 22 0C18 9 13 15 4 20"
+                  fill="#39a86f"
+                />
+
+                <path
+                  d="M9 20C18 13 25 11 32 12C28 20 19 25 10 26"
+                  fill="#58bd83"
+                />
+
+                <text
+                  x="39"
+                  y="20"
+                  fontSize="14"
+                  fontWeight="700"
+                  fill="#31956a"
+                  fontFamily="Arial, sans-serif"
+                >
+                  CafKart
+                </text>
+              </g>
+
+              {/* Boxes */}
+              <g transform="translate(157 122)">
+                <rect
+                  x="0"
+                  y="0"
+                  width="22"
+                  height="20"
+                  rx="2"
+                  fill="#d5b887"
+                />
+
+                <rect
+                  x="20"
+                  y="-10"
+                  width="22"
+                  height="30"
+                  rx="2"
+                  fill="#dfc99d"
+                />
+
+                <path
+                  d="M3 3H19M23 -7H39"
+                  stroke="#c39e62"
+                  strokeWidth="2"
+                />
+              </g>
+
+              {/* Small forklift */}
+              <g transform="translate(186 121)">
+                <rect
+                  x="0"
+                  y="12"
+                  width="25"
+                  height="16"
+                  rx="3"
+                  fill="#6bb78e"
+                />
+
+                <rect
+                  x="5"
+                  y="4"
+                  width="15"
+                  height="10"
+                  rx="2"
+                  fill="#8bc8a5"
+                />
+
+                <circle
+                  cx="7"
+                  cy="30"
+                  r="5"
+                  fill="#334155"
+                />
+
+                <circle
+                  cx="22"
+                  cy="30"
+                  r="5"
+                  fill="#334155"
+                />
+
+                <path
+                  d="M26 9V28M26 28H38"
+                  stroke="#334155"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+              </g>
+
+            </g>
+
+            {/* ========================================================
+                TREES
+            ======================================================== */}
+            <g opacity="0.72">
+
+              <g transform="translate(28 190)">
+                <rect
+                  x="15"
+                  y="26"
+                  width="5"
+                  height="22"
+                  rx="2"
+                  fill="#a9cdb6"
+                />
+
+                <circle
+                  cx="17"
+                  cy="20"
+                  r="15"
+                  fill="#c8e3d2"
+                />
+
+                <circle
+                  cx="8"
+                  cy="25"
+                  r="9"
+                  fill="#d3e9db"
+                />
+
+                <circle
+                  cx="26"
+                  cy="26"
+                  r="9"
+                  fill="#c3dfcd"
+                />
+              </g>
+
+              <g transform="translate(458 190)">
+                <rect
+                  x="15"
+                  y="26"
+                  width="5"
+                  height="22"
+                  rx="2"
+                  fill="#a9cdb6"
+                />
+
+                <circle
+                  cx="17"
+                  cy="20"
+                  r="15"
+                  fill="#c8e3d2"
+                />
+
+                <circle
+                  cx="8"
+                  cy="25"
+                  r="9"
+                  fill="#d3e9db"
+                />
+
+                <circle
+                  cx="26"
+                  cy="26"
+                  r="9"
+                  fill="#c3dfcd"
+                />
+              </g>
+
+            </g>
+
+            {/* ========================================================
+                GROUND
+            ======================================================== */}
+            <rect
+              x="0"
+              y="238"
+              width="740"
+              height="62"
+              fill="#f7fbf8"
+            />
+
+            <rect
+              x="0"
+              y="238"
+              width="740"
+              height="2"
+              fill="#d8ebe0"
+            />
+
+            <path
+              d="M0 256H740"
+              stroke="#e4f1e9"
+              strokeWidth="2"
+            />
+
+            <path
+              d="M0 276H740"
+              stroke="#edf6f0"
+              strokeWidth="3"
+            />
+          </svg>
+
+          {/* ============================================================
+              MOTION LINES — IN FRONT OF BACKGROUND, BEHIND TRUCK
+          ============================================================ */}
+          <svg
+            viewBox="0 0 370 300"
+            className="absolute inset-0 w-full h-full z-5 pointer-events-none"
+          >
+            <g className="animate-speed-lines">
+              <line
+                x1="22"
+                y1="194"
+                x2="92"
+                y2="194"
+                stroke="#45bc7d"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+
+              <line
+                x1="5"
+                y1="204"
+                x2="77"
+                y2="204"
+                stroke="#45bc7d"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+
+              <line
+                x1="32"
+                y1="214"
+                x2="87"
+                y2="214"
+                stroke="#45bc7d"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+
+              <line
+                x1="14"
+                y1="224"
+                x2="66"
+                y2="224"
+                stroke="#69c993"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+            </g>
+          </svg>
+
+          {/* ============================================================
+              TRUCK
+          ============================================================ */}
+          <svg
+            viewBox="0 0 520 280"
+            className="absolute left-[-75px] top-[24px] w-[520px] h-[280px] z-10 pointer-events-none overflow-visible"
             xmlns="http://www.w3.org/2000/svg"
           >
             <defs>
-              <radialGradient id="groundShadowMain" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#475569" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="#475569" stopOpacity="0" />
+
+              {/* Truck green */}
+              <linearGradient
+                id="truckGreen"
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="1"
+              >
+                <stop
+                  offset="0%"
+                  stopColor="#20c76a"
+                />
+                <stop
+                  offset="100%"
+                  stopColor="#12a957"
+                />
+              </linearGradient>
+
+              {/* Cabin gradient */}
+              <linearGradient
+                id="cabinGreen"
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="1"
+              >
+                <stop
+                  offset="0%"
+                  stopColor="#ffffff"
+                />
+                <stop
+                  offset="50%"
+                  stopColor="#f8fcfa"
+                />
+                <stop
+                  offset="100%"
+                  stopColor="#d9eee2"
+                />
+              </linearGradient>
+
+              {/* Glass */}
+              <linearGradient
+                id="glassGradient"
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="1"
+              >
+                <stop
+                  offset="0%"
+                  stopColor="#c8f2dc"
+                />
+                <stop
+                  offset="55%"
+                  stopColor="#9edfc0"
+                />
+                <stop
+                  offset="100%"
+                  stopColor="#68b998"
+                />
+              </linearGradient>
+
+              {/* Cargo highlight */}
+              <linearGradient
+                id="cargoHighlight"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop
+                  offset="0%"
+                  stopColor="#2fd475"
+                  stopOpacity="0.9"
+                />
+                <stop
+                  offset="100%"
+                  stopColor="#13ad5b"
+                  stopOpacity="0"
+                />
+              </linearGradient>
+
+              {/* Shadow */}
+              <radialGradient
+                id="truckGroundShadow"
+                cx="50%"
+                cy="50%"
+                r="50%"
+              >
+                <stop
+                  offset="0%"
+                  stopColor="#355e4d"
+                  stopOpacity="0.28"
+                />
+                <stop
+                  offset="100%"
+                  stopColor="#355e4d"
+                  stopOpacity="0"
+                />
               </radialGradient>
             </defs>
 
-            {/* Trailing Green Speed Streaks */}
-            <g className="animate-speed-lines">
-              <line x1="30" y1="138" x2="65" y2="138" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
-              <line x1="15" y1="146" x2="60" y2="146" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
-              <line x1="25" y1="154" x2="70" y2="154" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
-              <line x1="40" y1="162" x2="75" y2="162" stroke="#22c55e" strokeWidth="2.8" strokeLinecap="round" />
-            </g>
+            {/* ==========================================================
+                GROUND SHADOW
+            ========================================================== */}
+            <ellipse
+              cx="274"
+              cy="238"
+              rx="160"
+              ry="10"
+              fill="url(#truckGroundShadow)"
+            />
 
-            {/* Ground Shadow */}
-            <ellipse cx="172" cy="192" rx="100" ry="5.5" fill="url(#groundShadowMain)" />
-
-            {/* TEMPO BODY & LOADED GROCERIES */}
+            {/* ==========================================================
+                WHOLE TRUCK BODY
+            ========================================================== */}
             <g className="animate-truck-body">
-              {/* ORIGINAL FRESH BOUNTIFUL PRODUCE OVERFLOWING[span_0](start_span)[span_0](end_span) */}
+
+              {/* ========================================================
+                  CARGO BODY
+              ======================================================== */}
+              <path
+                d="M70 101
+                   Q70 95 76 95
+                   H330
+                   Q337 95 337 102
+                   V206
+                   H70
+                   Z"
+                fill="url(#truckGreen)"
+              />
+
+              {/* Top edge */}
+              <rect
+                x="70"
+                y="95"
+                width="267"
+                height="7"
+                rx="3"
+                fill="#0f9950"
+              />
+
+              {/* Bottom dark rail */}
+              <rect
+                x="70"
+                y="201"
+                width="267"
+                height="9"
+                rx="2"
+                fill="#078847"
+              />
+
+              {/* Cargo highlight */}
+              <rect
+                x="77"
+                y="106"
+                width="252"
+                height="65"
+                rx="5"
+                fill="url(#cargoHighlight)"
+              />
+
+              {/* Subtle side graphic */}
+              <path
+                d="M276 102
+                   C316 117 334 141 337 179
+                   C311 164 288 143 276 102Z"
+                fill="#0a974b"
+                opacity="0.42"
+              />
+
+              <path
+                d="M297 102
+                   C322 117 335 139 337 157
+                   C318 149 305 130 297 102Z"
+                fill="#62df93"
+                opacity="0.24"
+              />
+
+              {/* ========================================================
+                  CAFKART LOGO
+              ======================================================== */}
+              <g transform="translate(150 133)">
+
+                {/* Leaf icon */}
+                <g transform="translate(0 2)">
+                  <path
+                    d="M25 0
+                       C13 2 5 10 4 22
+                       C15 21 23 14 25 0Z"
+                    fill="#ffffff"
+                  />
+
+                  <path
+                    d="M5 25
+                       C11 17 17 11 25 6"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+
+                  <path
+                    d="M10 23
+                       C17 23 23 19 28 13
+                       C27 23 20 29 10 29Z"
+                    fill="#dff9e9"
+                    opacity="0.95"
+                  />
+                </g>
+
+                <text
+                  x="36"
+                  y="22"
+                  fontSize="25"
+                  fontWeight="800"
+                  fill="#ffffff"
+                  fontFamily="Arial, Helvetica, sans-serif"
+                  letterSpacing="-0.8"
+                >
+                  CafKart
+                </text>
+
+                <text
+                  x="38"
+                  y="40"
+                  fontSize="10"
+                  fontWeight="600"
+                  fill="#eafff2"
+                  fontFamily="Arial, Helvetica, sans-serif"
+                  letterSpacing="0.5"
+                >
+                  B2B GROCERY SOLUTIONS
+                </text>
+              </g>
+
+              {/* ========================================================
+                  GROCERIES — BACK ROW
+              ======================================================== */}
               <g className="animate-produce-jiggle">
-                {/* Baguette */}
-                <g transform="translate(138, 90) rotate(18)">
-                  <rect x="0" y="0" width="12" height="34" rx="6" fill="#d97706" />
-                  <line x1="2" y1="8" x2="9" y2="11" stroke="#fef3c7" strokeWidth="1.6" strokeLinecap="round" />
-                  <line x1="2" y1="16" x2="9" y2="19" stroke="#fef3c7" strokeWidth="1.6" strokeLinecap="round" />
-                  <line x1="2" y1="24" x2="9" y2="27" stroke="#fef3c7" strokeWidth="1.6" strokeLinecap="round" />
+
+                {/* Green grocery bag */}
+                <g transform="translate(105 71)">
+                  <path
+                    d="M0 14
+                       Q0 8 6 7
+                       H31
+                       Q37 8 37 14
+                       L34 39
+                       H3
+                       Z"
+                    fill="#159447"
+                  />
+
+                  <path
+                    d="M8 8
+                       C8 0 28 0 29 8"
+                    fill="none"
+                    stroke="#0b6f37"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+
+                  <path
+                    d="M8 21H29"
+                    stroke="#5bd98e"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
                 </g>
 
-                {/* Milk Bottle */}
-                <g transform="translate(154, 92) rotate(8)">
-                  <rect x="0" y="6" width="16" height="26" rx="3.5" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1" />
-                  <rect x="0" y="14" width="16" height="11" fill="#0284c7" />
-                  <circle cx="8" cy="19.5" r="3.2" fill="#ffffff" />
-                  <rect x="4" y="1.5" width="8" height="4.5" rx="1" fill="#38bdf8" />
+                {/* Cooking oil bottle */}
+                <g transform="translate(208 65)">
+                  <rect
+                    x="7"
+                    y="8"
+                    width="20"
+                    height="42"
+                    rx="5"
+                    fill="#f2c230"
+                  />
+
+                  <rect
+                    x="11"
+                    y="1"
+                    width="12"
+                    height="10"
+                    rx="2"
+                    fill="#d69e18"
+                  />
+
+                  <rect
+                    x="9"
+                    y="24"
+                    width="16"
+                    height="14"
+                    rx="2"
+                    fill="#fff7d6"
+                  />
+
+                  <circle
+                    cx="17"
+                    cy="31"
+                    r="4"
+                    fill="#e9b629"
+                  />
                 </g>
 
-                {/* Juice Carton */}
-                <g transform="translate(172, 96) rotate(14)">
-                  <rect x="0" y="5" width="17" height="24" rx="2" fill="#ea580c" />
-                  <circle cx="8.5" cy="16" r="3.8" fill="#ffedd5" />
-                  <polygon points="0,5 8.5,0 17,5" fill="#c2410c" />
-                  <circle cx="8.5" cy="16" r="1.8" fill="#ea580c" />
+                {/* Milk carton */}
+                <g transform="translate(238 72)">
+                  <path
+                    d="M2 10L12 2L29 8V47H2Z"
+                    fill="#ffffff"
+                    stroke="#d6e1dc"
+                    strokeWidth="1.2"
+                  />
+
+                  <path
+                    d="M2 10L12 2L29 8"
+                    fill="#3ca9d6"
+                  />
+
+                  <rect
+                    x="3"
+                    y="24"
+                    width="25"
+                    height="15"
+                    fill="#3ba8d3"
+                  />
+
+                  <text
+                    x="7"
+                    y="35"
+                    fontSize="8"
+                    fontWeight="800"
+                    fill="#ffffff"
+                    fontFamily="Arial, sans-serif"
+                  >
+                    MILK
+                  </text>
                 </g>
 
-                {/* Bushy Green Kale */}
-                <ellipse cx="118" cy="106" rx="14" ry="15" fill="#15803d" />
-                <ellipse cx="118" cy="106" rx="11" ry="12" fill="#16a34a" />
-                <circle cx="116" cy="103" r="7" fill="#22c55e" />
-                <path d="M112 99C115 104 120 106 124 104" stroke="#86efac" strokeWidth="1.2" strokeLinecap="round" />
+                {/* Orange/red packaged grocery */}
+                <g transform="translate(274 78)">
+                  <path
+                    d="M0 7L15 0L30 7V43H0Z"
+                    fill="#e76828"
+                  />
 
-                {/* Banana Bunch */}
-                <g transform="translate(80, 102) rotate(-14)">
-                  <path d="M8 29C16 32 30 30 38 18C40 13 40 8 38 4C37 4 34 8 30 12C22 21 14 24 8 29Z" fill="#eab308" />
-                  <path d="M2 26C10 29 23 27 30 16C32 12 32 7 30 3C29 3 27 7 23 10C16 18 8 21 2 26Z" fill="#fde047" />
-                  <path d="M30 16L34 13" stroke="#65a30d" strokeWidth="2.5" strokeLinecap="round" />
-                  <circle cx="2.5" cy="26.5" r="1.8" fill="#451a03" />
-                  <circle cx="8.5" cy="29.5" r="1.8" fill="#451a03" />
-                </g>
+                  <path
+                    d="M0 7L15 0L30 7"
+                    fill="#d84d18"
+                  />
 
-                {/* Shiny Red Apple */}
-                <g transform="translate(104, 108)">
-                  <path d="M12 4C8 1 2 3 1 9C0 16 5 23 12 24C19 23 24 16 23 9C22 3 16 1 12 4Z" fill="#dc2626" />
-                  <path d="M6 8C4 11 4 16 7 19" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
-                  <path d="M12 4C12 1 14 -1 16 -2" stroke="#78350f" strokeWidth="1.6" strokeLinecap="round" />
-                  <path d="M13 1C17 0 19 2 18 5C15 5 13 3 13 1Z" fill="#22c55e" />
-                </g>
+                  <circle
+                    cx="15"
+                    cy="23"
+                    r="6"
+                    fill="#fff0d7"
+                  />
 
-                {/* Glossy Green Capsicum */}
-                <g transform="translate(122, 106)">
-                  <path d="M4 8C2 12 2 20 6 23C9 25 15 25 18 23C22 20 22 12 20 8C18 5 15 5 12 7C9 5 6 5 4 8Z" fill="#16a34a" />
-                  <path d="M8 8C7 13 7 19 9 23" stroke="#15803d" strokeWidth="1.2" strokeLinecap="round" />
-                  <path d="M16 8C17 13 17 19 15 23" stroke="#15803d" strokeWidth="1.2" strokeLinecap="round" />
-                  <path d="M12 7V2" stroke="#14532d" strokeWidth="2.2" strokeLinecap="round" />
-                  <circle cx="12" cy="6" r="2.5" fill="#15803d" />
+                  <circle
+                    cx="15"
+                    cy="23"
+                    r="2.5"
+                    fill="#ea6826"
+                  />
                 </g>
 
-                {/* Plump Tomatoes */}
-                <g transform="translate(142, 113)">
-                  <circle cx="8" cy="8" r="7.5" fill="#ef4444" />
-                  <path d="M8 3L6 1M8 3L10 1M8 3L5 4M8 3L11 4M8 3V0.5" stroke="#166534" strokeWidth="1.4" strokeLinecap="round" />
-                  <circle cx="6" cy="6" r="1.5" fill="#fca5a5" opacity="0.7" />
+                {/* Green packaged grocery */}
+                <g transform="translate(308 76)">
+                  <path
+                    d="M0 8L12 1L25 8V44H0Z"
+                    fill="#38a96a"
+                  />
+
+                  <path
+                    d="M0 8L12 1L25 8"
+                    fill="#248c53"
+                  />
+
+                  <circle
+                    cx="12.5"
+                    cy="23"
+                    r="6"
+                    fill="#dff6e7"
+                  />
+
+                  <path
+                    d="M9 23C11 18 15 18 17 23"
+                    stroke="#37a866"
+                    strokeWidth="1.5"
+                    fill="none"
+                  />
                 </g>
-                <g transform="translate(133, 116)">
-                  <circle cx="6" cy="6" r="6" fill="#dc2626" />
-                  <path d="M6 2L4 0.5M6 2L8 0.5M6 2V0" stroke="#166534" strokeWidth="1.2" strokeLinecap="round" />
+
+                {/* ======================================================
+                    BANANAS
+                ====================================================== */}
+                <g transform="translate(90 83) rotate(-10)">
+
+                  <path
+                    d="M0 33
+                       C15 36 31 30 39 16
+                       C41 12 42 7 40 3
+                       C37 6 35 11 31 14
+                       C23 23 13 28 0 33Z"
+                    fill="#f4c928"
+                  />
+
+                  <path
+                    d="M5 29
+                       C18 31 30 24 36 12
+                       C37 9 38 5 36 1
+                       C33 5 31 9 27 12
+                       C19 20 11 24 5 29Z"
+                    fill="#ffe25b"
+                  />
+
+                  <path
+                    d="M39 5L42 2"
+                    stroke="#739c27"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+
+                  <circle
+                    cx="1"
+                    cy="33"
+                    r="2"
+                    fill="#68420b"
+                  />
                 </g>
+
+                {/* ======================================================
+                    LEAFY GREENS
+                ====================================================== */}
+                <g transform="translate(133 79)">
+
+                  <ellipse
+                    cx="18"
+                    cy="22"
+                    rx="19"
+                    ry="22"
+                    fill="#168d48"
+                  />
+
+                  <ellipse
+                    cx="8"
+                    cy="20"
+                    rx="12"
+                    ry="16"
+                    fill="#22a957"
+                  />
+
+                  <ellipse
+                    cx="28"
+                    cy="15"
+                    rx="12"
+                    ry="16"
+                    fill="#2db866"
+                  />
+
+                  <path
+                    d="M18 39C18 29 19 18 24 9"
+                    stroke="#8ee3ad"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+
+                  <path
+                    d="M17 30C11 27 7 22 5 17"
+                    stroke="#76d99d"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </g>
+
+                {/* ======================================================
+                    RED TOMATOES
+                ====================================================== */}
+                <g transform="translate(157 101)">
+
+                  <circle
+                    cx="10"
+                    cy="11"
+                    r="10"
+                    fill="#e83c3c"
+                  />
+
+                  <circle
+                    cx="28"
+                    cy="9"
+                    r="9"
+                    fill="#ef4b43"
+                  />
+
+                  <circle
+                    cx="44"
+                    cy="13"
+                    r="10"
+                    fill="#d92e35"
+                  />
+
+                  <path
+                    d="M10 2L7 0M10 2L13 0M28 1L25 0M28 1L31 0M44 4L41 1M44 4L47 1"
+                    stroke="#247b3e"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+
+                  <circle
+                    cx="7"
+                    cy="8"
+                    r="2"
+                    fill="#ffaaaa"
+                    opacity="0.7"
+                  />
+                </g>
+
+                {/* ======================================================
+                    BROCCOLI
+                ====================================================== */}
+                <g transform="translate(187 94)">
+
+                  <rect
+                    x="14"
+                    y="18"
+                    width="9"
+                    height="18"
+                    rx="3"
+                    fill="#77a948"
+                  />
+
+                  <circle
+                    cx="13"
+                    cy="14"
+                    r="10"
+                    fill="#178b4b"
+                  />
+
+                  <circle
+                    cx="23"
+                    cy="10"
+                    r="11"
+                    fill="#1c9b51"
+                  />
+
+                  <circle
+                    cx="32"
+                    cy="16"
+                    r="10"
+                    fill="#168345"
+                  />
+
+                  <circle
+                    cx="22"
+                    cy="20"
+                    r="10"
+                    fill="#249e56"
+                  />
+                </g>
+
+                {/* ======================================================
+                    RED PACKET
+                ====================================================== */}
+                <g transform="translate(122 64) rotate(-12)">
+
+                  <path
+                    d="M0 6L12 0L27 5L24 44H3Z"
+                    fill="#e95625"
+                  />
+
+                  <path
+                    d="M3 8L13 3L24 8"
+                    fill="#d7461c"
+                  />
+
+                  <circle
+                    cx="14"
+                    cy="24"
+                    r="6"
+                    fill="#fff0db"
+                  />
+
+                  <path
+                    d="M11 24C14 20 17 20 19 24"
+                    fill="none"
+                    stroke="#e95625"
+                    strokeWidth="1.5"
+                  />
+                </g>
+
               </g>
 
-              {/* ----------------- COLORFUL TEMPO CRATE BED ----------------- */}
-              <rect x="75" y="118" width="125" height="52" rx="3" fill="#0ea5e9" />
-              
-              {/* Crate Horizontal Planks */}
-              <path d="M 75 125 H 200 M 75 135 H 200 M 75 145 H 200 M 75 155 H 200 M 75 165 H 200" stroke="#0284c7" strokeWidth="1.5" />
-              
-              {/* Crate Vertical Supports */}
-              <path d="M 90 118 V 170 M 110 118 V 170 M 130 118 V 170 M 150 118 V 170 M 170 118 V 170 M 190 118 V 170" stroke="#0284c7" strokeWidth="1.5" />
-              
-              {/* Crate Top Railing */}
-              <rect x="72" y="115" width="130" height="6" rx="2" fill="#bae6fd" />
-              
-              {/* Chassis Base Connector */}
-              <rect x="70" y="168" width="190" height="6" rx="2" fill="#334155" />
+              {/* ========================================================
+                  REAR BODY DETAIL
+              ======================================================== */}
+              <rect
+                x="70"
+                y="179"
+                width="267"
+                height="22"
+                fill="#0da452"
+                opacity="0.55"
+              />
 
-              {/* ----------------- VIBRANT YELLOW TEMPO CABIN ----------------- */}
-              {/* Main Cabin Body */}
-              <path d="M198 95 H235 C245 95 252 105 254 118 L260 145 H272 C275 145 278 148 278 152 V170 H198 V95 Z" fill="#facc15" />
-              
-              {/* Side Window */}
-              <path d="M204 102 H232 C239 102 244 109 245 116 L248 132 H204 V102 Z" fill="#38bdf8" opacity="0.8" />
-              
-              {/* Cabin White Stripe Detail */}
-              <rect x="198" y="152" width="80" height="6" fill="#ffffff" />
-              
-              {/* Front Bumper & Headlight */}
-              <path d="M268 162 H 278 C 280 162 281 164 281 166 V 172 H 268 V 162 Z" fill="#475569" />
-              <rect x="274" y="164" width="6" height="6" rx="2" fill="#fef08a" />
-              
-              {/* Front Grill Lines */}
-              <path d="M 276 150 V 142 M 272 150 V 142" stroke="#475569" strokeWidth="1.5" />
+              {/* ========================================================
+                  CABIN
+              ======================================================== */}
+              <path
+                d="M337 111
+                   H381
+                   Q393 111 401 122
+                   L429 163
+                   Q434 170 430 181
+                   H337
+                   Z"
+                fill="url(#cabinGreen)"
+              />
 
-              {/* LOGO IN CABIN DOOR - Neatly placed in a white badge */}
-              <g transform="translate(0, 0)">
-                <circle cx="218" cy="144" r="12" fill="#ffffff" />
-                <g transform="translate(208, 134) scale(0.014)">
-                  <path d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z" fill="#16a34a" fillRule="evenodd" />
-                  <path d="M 169 1186 L 169 1199 170 1200 170 1203 171 1204 171 1205 173 1208 173 1210 176 1213 176 1214 177 1215 178 1215 179 1216 179 1217 180 1218 181 1218 184 1221 185 1221 187 1223 188 1223 191 1225 194 1225 195 1226 206 1226 207 1227 372 1227 373 1226 392 1226 393 1225 395 1225 396 1224 398 1224 399 1223 400 1223 402 1221 403 1221 405 1219 406 1219 411 1214 411 1213 412 1212 412 1211 414 1209 414 1208 416 1205 416 1203 417 1202 417 1200 418 1199 418 1186 417 1185 417 1183 416 1182 416 1180 415 1179 415 1178 414 1177 414 1176 413 1175 413 1174 411 1172 411 1171 407 1167 407 1166 406 1166 405 1165 404 1165 402 1163 401 1163 398 1161 396 1161 393 1159 194 1159 191 1161 189 1161 188 1162 187 1162 186 1163 185 1163 183 1165 182 1165 176 1171 176 1172 173 1175 173 1177 172 1178 172 1179 170 1182 170 1185 Z M 987 1142 L 986 1143 981 1143 980 1144 977 1144 976 1145 974 1145 973 1146 970 1146 969 1147 968 1147 967 1148 966 1148 965 1149 964 1149 963 1150 962 1150 961 1151 960 1151 959 1152 958 1152 956 1154 955 1154 953 1156 952 1156 949 1159 948 1159 935 1172 935 1173 933 1175 933 1176 931 1178 931 1179 930 1180 930 1181 929 1182 929 1183 928 1184 928 1185 927 1186 927 1188 925 1190 925 1192 924 1193 924 1196 923 1197 923 1199 922 1200 922 1203 921 1204 921 1231 922 1232 922 1235 923 1236 923 1238 924 1239 924 1242 925 1243 925 1245 927 1247 927 1249 928 1250 928 1251 930 1253 930 1254 931 1255 931 1256 934 1259 934 1260 939 1265 939 1266 949 1276 950 1276 953 1279 954 1279 955 1280 956 1280 958 1282 959 1282 960 1283 962 1283 964 1285 966 1285 967 1286 969 1286 970 1287 971 1287 972 1288 973 1288 974 1289 979 1289 980 1290 983 1290 984 1291 990 1291 991 1292 1002 1292 1003 1291 1007 1291 1008 1290 1012 1290 1013 1289 1017 1289 1018 1288 1020 1288 1021 1287 1023 1287 1024 1286 1026 1286 1027 1285 1028 1285 1029 1284 1030 1284 1031 1283 1033 1283 1034 1282 1035 1282 1037 1280 1038 1280 1041 1277 1042 1277 1046 1273 1047 1273 1055 1265 1055 1264 1056 1263 1057 1263 1057 1262 1060 1259 1060 1258 1062 1256 1062 1255 1064 1253 1064 1252 1065 1251 1065 1250 1066 1249 1066 1248 1067 1247 1067 1246 1068 1245 1068 1243 1069 1242 1069 1240 1070 1239 1070 1237 1071 1236 1071 1232 1072 1231 1072 1204 1071 1203 1071 1199 1070 1198 1070 1196 1069 1195 1069 1193 1068 1192 1068 1190 1067 1189 1067 1188 1066 1187 1066 1185 1065 1184 1065 1183 1064 1182 1064 1181 1063 1180 1063 1179 1061 1177 1061 1176 1058 1174 1058 1173 1055 1170 1055 1169 1044 1158 1043 1158 1040 1155 1039 1155 1038 1154 1037 1154 1035 1152 1034 1152 1033 1151 1032 1151 1031 1150 1030 1150 1029 1149 1028 1149 1027 1148 1025 1148 1024 1147 1023 1147 1022 1146 1018 1146 1017 1145 1015 1145 1014 1144 1011 1144 1010 1143 1006 1143 1005 1142 Z M 634 1142 L 633 1143 629 1143 628 1144 626 1144 625 1145 622 1145 621 1146 618 1146 617 1147 616 1147 615 1148 613 1148 612 1149 610 1149 609 1150 608 1150 606 1152 604 1152 601 1155 600 1155 597 1158 596 1158 582 1172 582 1173 580 1175 580 1176 578 1178 578 1179 577 1180 577 1181 576 1182 576 1183 575 1184 575 1185 574 1186 574 1188 573 1189 573 1190 572 1191 572 1193 571 1194 571 1197 570 1198 570 1200 569 1201 569 1204 568 1205 568 1231 569 1232 569 1234 570 1235 570 1238 571 1239 571 1241 572 1242 572 1244 573 1245 573 1246 574 1247 574 1248 575 1249 575 1250 576 1251 576 1252 578 1254 578 1255 580 1257 580 1258 583 1261 583 1262 587 1266 587 1267 593 1273 594 1273 598 1277 599 1277 602 1280 603 1280 605 1282 606 1282 607 1283 608 1283 609 1284 610 1284 611 1285 612 1285 613 1286 616 1286 617 1287 618 1287 619 1288 621 1288 622 1289 626 1289 627 1290 631 1290 632 1291 639 1291 640 1292 647 1292 648 1291 654 1291 655 1290 659 1290 660 1289 664 1289 665 1288 667 1288 668 1287 670 1287 671 1286 673 1286 674 1285 675 1285 676 1284 677 1284 678 1283 680 1283 681 1282 682 1282 684 1280 685 1280 686 1279 687 1279 693 1273 694 1273 695 1272 695 1271 697 1269 698 1269 698 1268 703 1263 703 1262 706 1259 706 1258 708 1256 708 1255 711 1252 711 1251 712 1250 712 1248 714 1246 714 1244 715 1243 715 1240 716 1239 716 1236 717 1235 717 1233 718 1232 718 1226 719 1225 719 1207 718 1206 718 1201 717 1200 717 1198 716 1197 716 1195 715 1194 715 1191 714 1190 714 1189 713 1188 713 1187 712 1186 712 1184 711 1183 711 1182 709 1180 709 1179 707 1177 707 1176 704 1173 704 1172 699 1167 699 1166 694 1161 693 1161 689 1157 688 1157 686 1155 685 1155 682 1152 680 1152 678 1150 677 1150 676 1149 674 1149 673 1148 672 1148 671 1147 670 1147 669 1146 666 1146 665 1145 663 1145 662 1144 660 1144 659 1143 655 1143 654 1142 Z M 48 1054 L 48 1068 49 1069 49 1072 50 1073 50 1074 52 1077 52 1079 54 1081 54 1082 55 1083 55 1084 61 1090 62 1090 63 1091 64 1091 66 1093 68 1093 69 1094 71 1094 72 1095 75 1095 76 1096 267 1096 268 1095 271 1095 272 1094 274 1094 275 1093 276 1093 277 1092 278 1092 280 1090 281 1090 286 1085 287 1085 287 1084 290 1081 290 1080 291 1079 291 1078 293 1076 293 1075 294 1074 294 1071 295 1070 295 1068 296 1067 296 1055 295 1054 295 1052 294 1051 294 1049 293 1048 293 1047 291 1045 291 1044 290 1043 290 1042 287 1039 287 1038 286 1038 282 1034 281 1034 279 1032 278 1032 275 1030 273 1030 270 1028 74 1028 73 1029 71 1029 68 1031 66 1031 65 1032 64 1032 61 1035 60 1035 54 1041 54 1042 52 1044 52 1045 51 1046 51 1048 50 1049 50 1050 49 1051 49 1053 Z M 1315 281 L 1292 287 1277 294 1248 318 856 713 846 730 843 745 849 768 855 776 1287 1207 1311 1220 1340 1227 1460 1227 1474 1224 1483 1219 1492 1210 1496 1202 1497 1185 1487 1165 1069 746 1072 739 1447 364 1453 355 1459 336 1459 324 1456 313 1450 303 1430 287 1402 280 Z" fill="#16a34a" fillRule="evenodd" />
+              {/* Green lower cabin */}
+              <path
+                d="M337 167
+                   H431
+                   L435 184
+                   H337
+                   Z"
+                fill="#087b45"
+              />
+
+              {/* Cabin roof green accent */}
+              <path
+                d="M337 111
+                   H381
+                   Q393 111 401 122
+                   L406 129
+                   H337Z"
+                fill="#0e9c51"
+              />
+
+              {/* Windshield */}
+              <path
+                d="M375 119
+                   H388
+                   Q393 120 397 126
+                   L414 151
+                   H375
+                   Z"
+                fill="url(#glassGradient)"
+              />
+
+              {/* Side window */}
+              <path
+                d="M344 119
+                   H371
+                   V151
+                   H344Z"
+                fill="url(#glassGradient)"
+              />
+
+              {/* Window divider */}
+              <line
+                x1="374"
+                y1="118"
+                x2="374"
+                y2="153"
+                stroke="#0b6040"
+                strokeWidth="3"
+              />
+
+              {/* Window shine */}
+              <path
+                d="M349 122H368"
+                stroke="#e8fff3"
+                strokeWidth="2"
+                strokeLinecap="round"
+                opacity="0.8"
+              />
+
+              {/* Door outline */}
+              <path
+                d="M341 154V198H397V154"
+                fill="none"
+                stroke="#087744"
+                strokeWidth="2"
+              />
+
+              {/* Door handle */}
+              <rect
+                x="381"
+                y="164"
+                width="10"
+                height="3"
+                rx="1.5"
+                fill="#064e36"
+              />
+
+              {/* Side mirror */}
+              <path
+                d="M406 135H419"
+                stroke="#0b3d2d"
+                strokeWidth="4"
+                strokeLinecap="round"
+              />
+
+              <rect
+                x="416"
+                y="130"
+                width="9"
+                height="13"
+                rx="3"
+                fill="#153d32"
+              />
+
+              {/* Front grille */}
+              <path
+                d="M421 169H438V181H421Z"
+                fill="#153d32"
+              />
+
+              <line
+                x1="424"
+                y1="172"
+                x2="435"
+                y2="172"
+                stroke="#9ce1bd"
+                strokeWidth="1"
+              />
+
+              <line
+                x1="424"
+                y1="176"
+                x2="435"
+                y2="176"
+                stroke="#9ce1bd"
+                strokeWidth="1"
+              />
+
+              {/* Headlight */}
+              <path
+                d="M427 157L436 159V168H427Z"
+                fill="#fff3ba"
+              />
+
+              <path
+                d="M429 159L435 160"
+                stroke="#ffffff"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+
+              {/* Bumper */}
+              <path
+                d="M418 181H439
+                   Q444 181 444 186
+                   H416Z"
+                fill="#172b27"
+              />
+
+              {/* ========================================================
+                  CHASSIS
+              ======================================================== */}
+              <rect
+                x="78"
+                y="200"
+                width="364"
+                height="14"
+                rx="4"
+                fill="#182d29"
+              />
+
+              <rect
+                x="105"
+                y="211"
+                width="275"
+                height="8"
+                rx="3"
+                fill="#253a35"
+              />
+
+              {/* Rear mudguard */}
+              <path
+                d="M91 211
+                   Q91 184 119 184
+                   Q147 184 147 211"
+                fill="#162b27"
+              />
+
+              {/* Front mudguard */}
+              <path
+                d="M347 211
+                   Q347 184 375 184
+                   Q403 184 403 211"
+                fill="#162b27"
+              />
+
+              {/* ========================================================
+                  REAR WHEEL
+              ======================================================== */}
+              <g
+                className="wheel-rear"
+                style={{
+                  transformOrigin: '119px 211px',
+                }}
+              >
+                <circle
+                  cx="119"
+                  cy="211"
+                  r="25"
+                  fill="#172b2c"
+                />
+
+                <circle
+                  cx="119"
+                  cy="211"
+                  r="18"
+                  fill="#334155"
+                />
+
+                <circle
+                  cx="119"
+                  cy="211"
+                  r="13"
+                  fill="#dce4e1"
+                />
+
+                {/* Alloy spokes */}
+                <g
+                  stroke="#64748b"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                >
+                  <line
+                    x1="119"
+                    y1="200"
+                    x2="119"
+                    y2="222"
+                  />
+                  <line
+                    x1="108"
+                    y1="211"
+                    x2="130"
+                    y2="211"
+                  />
+                  <line
+                    x1="111"
+                    y1="203"
+                    x2="127"
+                    y2="219"
+                  />
+                  <line
+                    x1="111"
+                    y1="219"
+                    x2="127"
+                    y2="203"
+                  />
                 </g>
+
+                <circle
+                  cx="119"
+                  cy="211"
+                  r="5"
+                  fill="#1c3030"
+                />
+
+                <circle
+                  cx="119"
+                  cy="211"
+                  r="2"
+                  fill="#94a3b8"
+                />
               </g>
-            </g>
 
-            {/* ========================================================= */}
-            {/* 4. VISIBLY SPINNING ALLOY WHEELS                          */}
-            {/* ========================================================= */}
-            
-            {/* Rear Wheel (Pivot at cx=110, cy=176) */}
-            <g className="wheel-rear" style={{ transformOrigin: '110px 176px' }}>
-              <circle cx="110" cy="176" r="15" fill="#1e293b" />
-              <circle cx="110" cy="176" r="9" fill="#e2e8f0" />
-              <line x1="110" y1="167" x2="110" y2="185" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="101" y1="176" x2="119" y2="176" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="104" y1="170" x2="116" y2="182" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <line x1="104" y1="182" x2="116" y2="170" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="110" cy="176" r="4" fill="#0f172a" />
-            </g>
+              {/* ========================================================
+                  FRONT WHEEL
+              ======================================================== */}
+              <g
+                className="wheel-front"
+                style={{
+                  transformOrigin: '375px 211px',
+                }}
+              >
+                <circle
+                  cx="375"
+                  cy="211"
+                  r="25"
+                  fill="#172b2c"
+                />
 
-            {/* Front Wheel (Pivot at cx=235, cy=176) */}
-            <g className="wheel-front" style={{ transformOrigin: '235px 176px' }}>
-              <circle cx="235" cy="176" r="15" fill="#1e293b" />
-              <circle cx="235" cy="176" r="9" fill="#e2e8f0" />
-              <line x1="235" y1="167" x2="235" y2="185" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="226" y1="176" x2="244" y2="176" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="229" y1="170" x2="241" y2="182" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <line x1="229" y1="182" x2="241" y2="170" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="235" cy="176" r="4" fill="#0f172a" />
+                <circle
+                  cx="375"
+                  cy="211"
+                  r="18"
+                  fill="#334155"
+                />
+
+                <circle
+                  cx="375"
+                  cy="211"
+                  r="13"
+                  fill="#dce4e1"
+                />
+
+                <g
+                  stroke="#64748b"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                >
+                  <line
+                    x1="375"
+                    y1="200"
+                    x2="375"
+                    y2="222"
+                  />
+                  <line
+                    x1="364"
+                    y1="211"
+                    x2="386"
+                    y2="211"
+                  />
+                  <line
+                    x1="367"
+                    y1="203"
+                    x2="383"
+                    y2="219"
+                  />
+                  <line
+                    x1="367"
+                    y1="219"
+                    x2="383"
+                    y2="203"
+                  />
+                </g>
+
+                <circle
+                  cx="375"
+                  cy="211"
+                  r="5"
+                  fill="#1c3030"
+                />
+
+                <circle
+                  cx="375"
+                  cy="211"
+                  r="2"
+                  fill="#94a3b8"
+                />
+              </g>
+
+              {/* ========================================================
+                  SMALL LIGHTS / DETAILS
+              ======================================================== */}
+              <rect
+                x="326"
+                y="188"
+                width="7"
+                height="4"
+                rx="1"
+                fill="#f4b740"
+              />
+
+              <rect
+                x="433"
+                y="175"
+                width="5"
+                height="5"
+                rx="1"
+                fill="#f5a623"
+              />
+
+              <circle
+                cx="339"
+                cy="214"
+                r="2"
+                fill="#64748b"
+              />
+
             </g>
           </svg>
         </div>
 
-        {/* ========================================================= */}
-        {/* 5. DYNAMIC 5-STEP STEPPER & ROTATING WHOLESALE STATUS     */}
-        {/* ========================================================= */}
+        {/* ============================================================
+            STATUS / STEP INDICATOR
+        ============================================================ */}
         {showStatus && (
           <div className="mt-1 flex flex-col items-center justify-center animate-fade-in">
-            {/* Dynamic 5-Step Stepper Line */}
-            <div className="relative flex items-center justify-between w-52 mb-3">
-              {/* Base Inactive Grey Track */}
-              <div className="absolute top-1/2 left-0 right-0 h-[2.5px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
 
-              {/* Dynamic Animated Green Progress Fill */}
+            <div className="relative flex items-center justify-between w-52 mb-3">
+
+              {/* Base track */}
               <div
-                className="absolute top-1/2 left-0 h-[2.5px] -translate-y-1/2 bg-[#22c55e] z-0 transition-all duration-500 ease-out"
-                style={{ width: `${progressPercent}%` }}
+                className="absolute top-1/2 left-0 right-0 h-[2.5px] -translate-y-1/2 bg-[#cbd5e1] z-0"
               />
 
-              {/* Dynamic Animated Progress Nodes */}
+              {/* Progress */}
+              <div
+                className="absolute top-1/2 left-0 h-[2.5px] -translate-y-1/2 bg-[#22c55e] z-0 transition-all duration-500 ease-out"
+                style={{
+                  width: `${progressPercent}%`,
+                }}
+              />
+
               {HOME_MESSAGES.map((_, idx) => {
                 const isCompleted = idx < msgIndex;
                 const isActive = idx === msgIndex;
 
                 return (
-                  <div key={idx} className="relative z-10 flex items-center justify-center w-5 h-5">
+                  <div
+                    key={idx}
+                    className="relative z-10 flex items-center justify-center w-5 h-5"
+                  >
                     {isActive ? (
                       <div className="flex items-center justify-center h-4.5 w-4.5 rounded-full border-2 border-[#22c55e] bg-white transition-all duration-300 scale-110 shadow-xs">
                         <div className="h-2 w-2 rounded-full bg-[#22c55e] animate-pulse" />
@@ -412,97 +1650,204 @@ export const AppLoader = React.memo(function AppLoader({
               })}
             </div>
 
-            {/* Dynamic Rotating Message Box */}
             <div className="h-6 flex items-center justify-center">
               <p
                 key={msgIndex}
                 className="flex items-center gap-1.5 text-xs font-bold text-slate-800 tracking-tight animate-text-fade"
               >
                 {HOME_MESSAGES[msgIndex]}
-                <span className="text-emerald-500 text-sm">🍃</span>
+                <span className="text-emerald-500 text-sm">
+                  🍃
+                </span>
               </p>
             </div>
           </div>
         )}
       </div>
 
-      {/* GPU Keyframe Animations */}
+      {/* ==============================================================
+          ANIMATIONS
+      ============================================================== */}
       <style>{`
-        /* Continuous pan for distinct tall buildings */
-        @keyframes skylineInfiniteScroll {
-          0% { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(-420px, 0, 0); }
-        }
-        .animate-skyline-scroll {
-          animation: skylineInfiniteScroll 5.6s linear infinite;
+
+        /* ------------------------------------------------------------
+           BACKGROUND PARALLAX
+           Moves the city/warehouse backwards continuously.
+        ------------------------------------------------------------ */
+        @keyframes loaderBackgroundScroll {
+          0% {
+            transform: translate3d(0, 0, 0);
+          }
+
+          100% {
+            transform: translate3d(-370px, 0, 0);
+          }
         }
 
-        /* Parallax cloud drift */
-        @keyframes cloudsDrift {
-          0% { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(-420px, 0, 0); }
-        }
-        .animate-clouds-scroll {
-          animation: cloudsDrift 10s linear infinite;
+        .animate-loader-background {
+          animation: loaderBackgroundScroll 9s linear infinite;
         }
 
-        /* 360-degree alloy wheel spin */
-        @keyframes spinWheelAnim {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .wheel-rear {
-          animation: spinWheelAnim 0.42s linear infinite;
-        }
-        .wheel-front {
-          animation: spinWheelAnim 0.42s linear infinite;
-        }
-
-        /* Truck body suspension bounce */
+        /* ------------------------------------------------------------
+           TRUCK SUSPENSION
+        ------------------------------------------------------------ */
         @keyframes truckBodyBounce {
-          0%, 100% { transform: translateY(0); }
-          30% { transform: translateY(-1.4px); }
-          65% { transform: translateY(0.4px); }
+          0%,
+          100% {
+            transform: translateY(0);
+          }
+
+          25% {
+            transform: translateY(-1px);
+          }
+
+          50% {
+            transform: translateY(-2px);
+          }
+
+          75% {
+            transform: translateY(-0.5px);
+          }
         }
+
         .animate-truck-body {
           animation: truckBodyBounce 0.65s ease-in-out infinite;
+          transform-box: fill-box;
+          transform-origin: center bottom;
         }
 
-        /* Produce stack bounce */
+        /* ------------------------------------------------------------
+           GROCERY LOAD MOVEMENT
+        ------------------------------------------------------------ */
         @keyframes produceJiggle {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-1.2px) rotate(-0.5deg); }
+          0%,
+          100% {
+            transform: translateY(0) rotate(0deg);
+          }
+
+          25% {
+            transform: translateY(-0.7px) rotate(-0.2deg);
+          }
+
+          50% {
+            transform: translateY(-1.4px) rotate(0.35deg);
+          }
+
+          75% {
+            transform: translateY(-0.5px) rotate(-0.15deg);
+          }
         }
+
         .animate-produce-jiggle {
-          animation: produceJiggle 0.65s ease-in-out infinite 0.08s;
+          animation: produceJiggle 0.65s ease-in-out infinite;
+          transform-box: fill-box;
+          transform-origin: center bottom;
         }
 
-        /* Speed wind streaks */
+        /* ------------------------------------------------------------
+           WHEELS
+        ------------------------------------------------------------ */
+        @keyframes spinWheelAnim {
+          from {
+            transform: rotate(0deg);
+          }
+
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        .wheel-rear,
+        .wheel-front {
+          animation: spinWheelAnim 0.42s linear infinite;
+          transform-box: fill-box;
+        }
+
+        /* ------------------------------------------------------------
+           MOTION LINES
+        ------------------------------------------------------------ */
         @keyframes speedLines {
-          0%, 100% { opacity: 0.85; transform: translateX(0); }
-          50% { opacity: 0.35; transform: translateX(-4px); }
-        }
-        .animate-speed-lines {
-          animation: speedLines 0.5s ease-in-out infinite;
+          0% {
+            opacity: 0.95;
+            transform: translateX(10px);
+          }
+
+          50% {
+            opacity: 0.45;
+            transform: translateX(-3px);
+          }
+
+          100% {
+            opacity: 0.95;
+            transform: translateX(10px);
+          }
         }
 
-        /* Message switch fade transition */
-        @keyframes textFade {
-          0% { opacity: 0; transform: translateY(3px); }
-          10% { opacity: 1; transform: translateY(0); }
-          90% { opacity: 1; transform: translateY(0); }
-          100% { opacity: 0; transform: translateY(-3px); }
+        .animate-speed-lines {
+          animation: speedLines 0.55s ease-in-out infinite;
         }
+
+        /* ------------------------------------------------------------
+           MESSAGE
+        ------------------------------------------------------------ */
+        @keyframes textFade {
+          0% {
+            opacity: 0;
+            transform: translateY(3px);
+          }
+
+          10% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+
+          90% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+
+          100% {
+            opacity: 0;
+            transform: translateY(-3px);
+          }
+        }
+
         .animate-text-fade {
           animation: textFade 1.8s ease-in-out infinite;
         }
 
+        /* ------------------------------------------------------------
+           LOADER ENTRANCE
+        ------------------------------------------------------------ */
         @keyframes fadeIn {
-          from { opacity: 0; transform: scale(0.98); }
-          to { opacity: 1; transform: scale(1); }
+          from {
+            opacity: 0;
+            transform: scale(0.98);
+          }
+
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
+
         .animate-fade-in {
           animation: fadeIn 0.15s ease-out forwards;
+        }
+
+        /* ------------------------------------------------------------
+           REDUCE MOTION ACCESSIBILITY
+        ------------------------------------------------------------ */
+        @media (prefers-reduced-motion: reduce) {
+          .animate-loader-background,
+          .animate-truck-body,
+          .animate-produce-jiggle,
+          .wheel-rear,
+          .wheel-front,
+          .animate-speed-lines,
+          .animate-text-fade {
+            animation: none !important;
+          }
         }
       `}</style>
     </div>

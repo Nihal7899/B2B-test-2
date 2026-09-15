@@ -50,24 +50,22 @@ export const AppLoader = React.memo(function AppLoader({
       } ${className}`}
     >
       <div className={`relative flex flex-col items-center justify-center ${scaleClass}`}>
-        {/* Main Stage Viewport */}
-        <div className="relative w-92 h-80 flex items-center justify-center overflow-hidden">
+        
+        {/* Main Stage Viewport (Widened for the new truck dimensions) */}
+        <div className="relative w-full max-w-[600px] h-72 sm:h-80 flex items-center justify-center overflow-hidden">
           
           {/* ========================================================= */}
-          {/* 1. SEAMLESS MOVING CLOUDS (DRIFTING ABOVE TALL BUILDINGS) */}
+          {/* 1. SEAMLESS MOVING CLOUDS                                 */}
           {/* ========================================================= */}
           <div className="absolute top-1 left-0 w-full h-16 overflow-hidden pointer-events-none z-0">
-            <div className="flex w-[840px] animate-clouds-scroll opacity-75">
-              <svg viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
-                <path d="M40 28C40 22 45 18 51 18C53 18 55 18.8 56.5 20C58.5 15.5 63 13 68 13C75 13 81 18.5 81 25.5C83 25.5 85 27.5 85 29.5C85 32 83 34 80.5 34H44C41.8 34 40 31.5 40 28Z" fill="#e2efe6" />
-                <path d="M190 22C190 16.5 194.5 12 200 12C201.8 12 203.5 12.6 205 13.8C207 9.8 211 7.5 215.5 7.5C222 7.5 227 12.5 227 19C229 19 231 21 231 23C231 25.5 229 27.5 226.5 27.5H194C191.8 27.5 190 25 190 22Z" fill="#d9ebdf" />
-                <path d="M330 25C330 20 334 16 339 16C340.5 16 342 16.5 343.5 17.5C345 14 349 12 353 12C359 12 364 16.5 364 22.5C365.5 22.5 367 24 367 26C367 28.5 365 30.5 363 30.5H334C331.8 30.5 330 28.2 330 25Z" fill="#e2efe6" />
-              </svg>
-              <svg viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
-                <path d="M40 28C40 22 45 18 51 18C53 18 55 18.8 56.5 20C58.5 15.5 63 13 68 13C75 13 81 18.5 81 25.5C83 25.5 85 27.5 85 29.5C85 32 83 34 80.5 34H44C41.8 34 40 31.5 40 28Z" fill="#e2efe6" />
-                <path d="M190 22C190 16.5 194.5 12 200 12C201.8 12 203.5 12.6 205 13.8C207 9.8 211 7.5 215.5 7.5C222 7.5 227 12.5 227 19C229 19 231 21 231 23C231 25.5 229 27.5 226.5 27.5H194C191.8 27.5 190 25 190 22Z" fill="#d9ebdf" />
-                <path d="M330 25C330 20 334 16 339 16C340.5 16 342 16.5 343.5 17.5C345 14 349 12 353 12C359 12 364 16.5 364 22.5C365.5 22.5 367 24 367 26C367 28.5 365 30.5 363 30.5H334C331.8 30.5 330 28.2 330 25Z" fill="#e2efe6" />
-              </svg>
+            <div className="flex w-[1260px] animate-clouds-scroll opacity-75">
+              {[1, 2, 3].map((key) => (
+                <svg key={key} viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
+                  <path d="M40 28C40 22 45 18 51 18C53 18 55 18.8 56.5 20C58.5 15.5 63 13 68 13C75 13 81 18.5 81 25.5C83 25.5 85 27.5 85 29.5C85 32 83 34 80.5 34H44C41.8 34 40 31.5 40 28Z" fill="#e2efe6" />
+                  <path d="M190 22C190 16.5 194.5 12 200 12C201.8 12 203.5 12.6 205 13.8C207 9.8 211 7.5 215.5 7.5C222 7.5 227 12.5 227 19C229 19 231 21 231 23C231 25.5 229 27.5 226.5 27.5H194C191.8 27.5 190 25 190 22Z" fill="#d9ebdf" />
+                  <path d="M330 25C330 20 334 16 339 16C340.5 16 342 16.5 343.5 17.5C345 14 349 12 353 12C359 12 364 16.5 364 22.5C365.5 22.5 367 24 367 26C367 28.5 365 30.5 363 30.5H334C331.8 30.5 330 28.2 330 25Z" fill="#e2efe6" />
+                </svg>
+              ))}
             </div>
           </div>
 
@@ -75,128 +73,68 @@ export const AppLoader = React.memo(function AppLoader({
           {/* 2. TALLER, WIDER, DISTINCT ARCHITECTURAL CITY BUILDINGS   */}
           {/* ========================================================= */}
           <div className="absolute top-6 left-0 w-full h-52 overflow-hidden pointer-events-none z-0">
-            <div className="flex w-[840px] animate-skyline-scroll opacity-85">
-              {/* Segment 1 */}
-              <svg viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
-                <rect x="0" y="52" width="60" height="138" rx="3" fill="#d9ebdf" />
-                <rect x="6" y="58" width="48" height="6" rx="1" fill="#c3decc" />
-                <line x1="12" y1="74" x2="48" y2="74" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="82" x2="48" y2="82" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="90" x2="48" y2="90" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="98" x2="48" y2="98" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <rect x="15" y="116" width="30" height="40" rx="1.5" fill="#cbe3d3" />
-                <line x1="15" y1="126" x2="45" y2="126" stroke="#d9ebdf" strokeWidth="1.5" />
-                <line x1="15" y1="136" x2="45" y2="136" stroke="#d9ebdf" strokeWidth="1.5" />
-                <rect x="68" y="22" width="56" height="168" rx="2" fill="#e2efe6" />
-                <rect x="74" y="26" width="44" height="4" fill="#cbe3d3" />
-                <line x1="78" y1="10" x2="78" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
-                <line x1="114" y1="10" x2="114" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
-                <rect x="76" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="76" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="76" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="132" y="68" width="66" height="122" rx="3" fill="#d9ebdf" />
-                <path d="M129 78H201L197 90H133L129 78Z" fill="#c3decc" />
-                <path d="M134 90C134 92.5 136.5 94 139 94C141.5 94 144 92.5 144 90H134Z" fill="#b1d3bc" />
-                <path d="M144 90C144 92.5 146.5 94 149 94C151.5 94 154 92.5 154 90H144Z" fill="#b1d3bc" />
-                <path d="M154 90C154 92.5 156.5 94 159 94C161.5 94 164 92.5 164 90H154Z" fill="#b1d3bc" />
-                <path d="M164 90C164 92.5 166.5 94 169 94C171.5 94 174 92.5 174 90H164Z" fill="#b1d3bc" />
-                <path d="M174 90C174 92.5 176.5 94 179 94C181.5 94 184 92.5 184 90H174Z" fill="#b1d3bc" />
-                <path d="M184 90C184 92.5 186.5 94 189 94C191.5 94 194 92.5 194 90H184Z" fill="#b1d3bc" />
-                <path d="M143 118V106C143 103 145 101 148 101C151 101 153 103 153 106V118H143Z" fill="#f0f7f2" />
-                <path d="M160 118V106C160 103 162 101 165 101C168 101 170 103 170 106V118H160Z" fill="#f0f7f2" />
-                <path d="M177 118V106C177 103 179 101 182 101C185 101 187 103 187 106V118H177Z" fill="#f0f7f2" />
-                <rect x="206" y="50" width="68" height="140" fill="#cbe3d3" />
-                <rect x="216" y="24" width="48" height="26" fill="#d9ebdf" />
-                <rect x="228" y="8" width="24" height="16" fill="#e2efe6" />
-                <line x1="240" y1="-4" x2="240" y2="8" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
-                <circle cx="224" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="224" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="224" cy="94" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="94" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="94" r="2.2" fill="#f0f7f2" />
-                <rect x="282" y="55" width="28" height="135" fill="#e2efe6" />
-                <ellipse cx="296" cy="55" rx="14" ry="7" fill="#d9ebdf" />
-                <rect x="314" y="45" width="30" height="145" fill="#d9ebdf" />
-                <ellipse cx="329" cy="45" rx="15" ry="8" fill="#cbe3d3" />
-                <rect x="296" y="68" width="33" height="4" fill="#b1d3bc" />
-                <rect x="352" y="40" width="60" height="150" rx="2" fill="#cbe3d3" />
-                <rect x="360" y="45" width="44" height="4" fill="#b1d3bc" />
-                <rect x="362" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="382" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="362" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="382" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
-              </svg>
-
-              {/* Segment 2 - Duplicated for Looping */}
-              <svg viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
-                <rect x="0" y="52" width="60" height="138" rx="3" fill="#d9ebdf" />
-                <rect x="6" y="58" width="48" height="6" rx="1" fill="#c3decc" />
-                <line x1="12" y1="74" x2="48" y2="74" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="82" x2="48" y2="82" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="90" x2="48" y2="90" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <line x1="12" y1="98" x2="48" y2="98" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                <rect x="15" y="116" width="30" height="40" rx="1.5" fill="#cbe3d3" />
-                <line x1="15" y1="126" x2="45" y2="126" stroke="#d9ebdf" strokeWidth="1.5" />
-                <line x1="15" y1="136" x2="45" y2="136" stroke="#d9ebdf" strokeWidth="1.5" />
-                <rect x="68" y="22" width="56" height="168" rx="2" fill="#e2efe6" />
-                <rect x="74" y="26" width="44" height="4" fill="#cbe3d3" />
-                <line x1="78" y1="10" x2="78" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
-                <line x1="114" y1="10" x2="114" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
-                <rect x="76" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="76" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="76" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="91" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="106" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                <rect x="132" y="68" width="66" height="122" rx="3" fill="#d9ebdf" />
-                <path d="M129 78H201L197 90H133L129 78Z" fill="#c3decc" />
-                <path d="M134 90C134 92.5 136.5 94 139 94C141.5 94 144 92.5 144 90H134Z" fill="#b1d3bc" />
-                <path d="M144 90C144 92.5 146.5 94 149 94C151.5 94 154 92.5 154 90H144Z" fill="#b1d3bc" />
-                <path d="M154 90C154 92.5 156.5 94 159 94C161.5 94 164 92.5 164 90H154Z" fill="#b1d3bc" />
-                <path d="M164 90C164 92.5 166.5 94 169 94C171.5 94 174 92.5 174 90H164Z" fill="#b1d3bc" />
-                <path d="M174 90C174 92.5 176.5 94 179 94C181.5 94 184 92.5 184 90H174Z" fill="#b1d3bc" />
-                <path d="M184 90C184 92.5 186.5 94 189 94C191.5 94 194 92.5 194 90H184Z" fill="#b1d3bc" />
-                <path d="M143 118V106C143 103 145 101 148 101C151 101 153 103 153 106V118H143Z" fill="#f0f7f2" />
-                <path d="M160 118V106C160 103 162 101 165 101C168 101 170 103 170 106V118H160Z" fill="#f0f7f2" />
-                <path d="M177 118V106C177 103 179 101 182 101C185 101 187 103 187 106V118H177Z" fill="#f0f7f2" />
-                <rect x="206" y="50" width="68" height="140" fill="#cbe3d3" />
-                <rect x="216" y="24" width="48" height="26" fill="#d9ebdf" />
-                <rect x="228" y="8" width="24" height="16" fill="#e2efe6" />
-                <line x1="240" y1="-4" x2="240" y2="8" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
-                <circle cx="224" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="62" r="2.2" fill="#f0f7f2" />
-                <circle cx="224" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="78" r="2.2" fill="#f0f7f2" />
-                <circle cx="224" cy="94" r="2.2" fill="#f0f7f2" />
-                <circle cx="240" cy="94" r="2.2" fill="#f0f7f2" />
-                <circle cx="256" cy="94" r="2.2" fill="#f0f7f2" />
-                <rect x="282" y="55" width="28" height="135" fill="#e2efe6" />
-                <ellipse cx="296" cy="55" rx="14" ry="7" fill="#d9ebdf" />
-                <rect x="314" y="45" width="30" height="145" fill="#d9ebdf" />
-                <ellipse cx="329" cy="45" rx="15" ry="8" fill="#cbe3d3" />
-                <rect x="296" y="68" width="33" height="4" fill="#b1d3bc" />
-                <rect x="352" y="40" width="60" height="150" rx="2" fill="#cbe3d3" />
-                <rect x="360" y="45" width="44" height="4" fill="#b1d3bc" />
-                <rect x="362" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="382" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="362" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
-                <rect x="382" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
-              </svg>
+            <div className="flex w-[1260px] animate-skyline-scroll opacity-85">
+              {[1, 2, 3].map((key) => (
+                <svg key={key} viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
+                  <rect x="0" y="52" width="60" height="138" rx="3" fill="#d9ebdf" />
+                  <rect x="6" y="58" width="48" height="6" rx="1" fill="#c3decc" />
+                  <line x1="12" y1="74" x2="48" y2="74" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                  <line x1="12" y1="82" x2="48" y2="82" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                  <line x1="12" y1="90" x2="48" y2="90" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                  <line x1="12" y1="98" x2="48" y2="98" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                  <rect x="15" y="116" width="30" height="40" rx="1.5" fill="#cbe3d3" />
+                  <line x1="15" y1="126" x2="45" y2="126" stroke="#d9ebdf" strokeWidth="1.5" />
+                  <line x1="15" y1="136" x2="45" y2="136" stroke="#d9ebdf" strokeWidth="1.5" />
+                  <rect x="68" y="22" width="56" height="168" rx="2" fill="#e2efe6" />
+                  <rect x="74" y="26" width="44" height="4" fill="#cbe3d3" />
+                  <line x1="78" y1="10" x2="78" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="114" y1="10" x2="114" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
+                  <rect x="76" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                  <rect x="91" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                  <rect x="106" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                  <rect x="76" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                  <rect x="91" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                  <rect x="106" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                  <rect x="76" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
+                  <rect x="91" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
+                  <rect x="106" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
+                  <rect x="132" y="68" width="66" height="122" rx="3" fill="#d9ebdf" />
+                  <path d="M129 78H201L197 90H133L129 78Z" fill="#c3decc" />
+                  <path d="M134 90C134 92.5 136.5 94 139 94C141.5 94 144 92.5 144 90H134Z" fill="#b1d3bc" />
+                  <path d="M144 90C144 92.5 146.5 94 149 94C151.5 94 154 92.5 154 90H144Z" fill="#b1d3bc" />
+                  <path d="M154 90C154 92.5 156.5 94 159 94C161.5 94 164 92.5 164 90H154Z" fill="#b1d3bc" />
+                  <path d="M164 90C164 92.5 166.5 94 169 94C171.5 94 174 92.5 174 90H164Z" fill="#b1d3bc" />
+                  <path d="M174 90C174 92.5 176.5 94 179 94C181.5 94 184 92.5 184 90H174Z" fill="#b1d3bc" />
+                  <path d="M184 90C184 92.5 186.5 94 189 94C191.5 94 194 92.5 194 90H184Z" fill="#b1d3bc" />
+                  <path d="M143 118V106C143 103 145 101 148 101C151 101 153 103 153 106V118H143Z" fill="#f0f7f2" />
+                  <path d="M160 118V106C160 103 162 101 165 101C168 101 170 103 170 106V118H160Z" fill="#f0f7f2" />
+                  <path d="M177 118V106C177 103 179 101 182 101C185 101 187 103 187 106V118H177Z" fill="#f0f7f2" />
+                  <rect x="206" y="50" width="68" height="140" fill="#cbe3d3" />
+                  <rect x="216" y="24" width="48" height="26" fill="#d9ebdf" />
+                  <rect x="228" y="8" width="24" height="16" fill="#e2efe6" />
+                  <line x1="240" y1="-4" x2="240" y2="8" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
+                  <circle cx="224" cy="62" r="2.2" fill="#f0f7f2" />
+                  <circle cx="240" cy="62" r="2.2" fill="#f0f7f2" />
+                  <circle cx="256" cy="62" r="2.2" fill="#f0f7f2" />
+                  <circle cx="224" cy="78" r="2.2" fill="#f0f7f2" />
+                  <circle cx="240" cy="78" r="2.2" fill="#f0f7f2" />
+                  <circle cx="256" cy="78" r="2.2" fill="#f0f7f2" />
+                  <circle cx="224" cy="94" r="2.2" fill="#f0f7f2" />
+                  <circle cx="240" cy="94" r="2.2" fill="#f0f7f2" />
+                  <circle cx="256" cy="94" r="2.2" fill="#f0f7f2" />
+                  <rect x="282" y="55" width="28" height="135" fill="#e2efe6" />
+                  <ellipse cx="296" cy="55" rx="14" ry="7" fill="#d9ebdf" />
+                  <rect x="314" y="45" width="30" height="145" fill="#d9ebdf" />
+                  <ellipse cx="329" cy="45" rx="15" ry="8" fill="#cbe3d3" />
+                  <rect x="296" y="68" width="33" height="4" fill="#b1d3bc" />
+                  <rect x="352" y="40" width="60" height="150" rx="2" fill="#cbe3d3" />
+                  <rect x="360" y="45" width="44" height="4" fill="#b1d3bc" />
+                  <rect x="362" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
+                  <rect x="382" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
+                  <rect x="362" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
+                  <rect x="382" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
+                </svg>
+              ))}
             </div>
           </div>
 
@@ -204,112 +142,51 @@ export const AppLoader = React.memo(function AppLoader({
           {/* 3. NEW TRUCK & FRESH BOUNTIFUL GROCERY LOAD               */}
           {/* ========================================================= */}
           <svg
-            viewBox="0 0 800 600"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 1400 720"
             className="w-full h-full z-10 pointer-events-none mt-[40px]"
             fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+            role="img"
+            aria-label="Modern dark green delivery truck with groceries"
           >
             <defs>
-              <linearGradient id="truckBoxGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#4CAF50" />
-                <stop offset="15%" stopColor="#38B554" />
-                <stop offset="85%" stopColor="#2E9E48" />
-                <stop offset="100%" stopColor="#1B632B" />
-              </linearGradient>
-
-              <linearGradient id="cabinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#1B5E20" />
-                <stop offset="20%" stopColor="#125E34" />
-                <stop offset="90%" stopColor="#0E4A28" />
-                <stop offset="100%" stopColor="#072B16" />
-              </linearGradient>
-
-              <linearGradient id="windowReflect" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#E0F2F1" />
-                <stop offset="30%" stopColor="#B2DFDB" />
-                <stop offset="35%" stopColor="#FFFFFF" />
-                <stop offset="45%" stopColor="#80CBC4" />
-                <stop offset="100%" stopColor="#4DB6AC" />
-              </linearGradient>
-
-              <radialGradient id="tireGrad" cx="50%" cy="50%" r="50%">
-                <stop offset="70%" stopColor="#1A1C1E" />
-                <stop offset="95%" stopColor="#2B2E33" />
-                <stop offset="100%" stopColor="#111111" />
-              </radialGradient>
-
-              <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#FFFFFF" />
-                <stop offset="40%" stopColor="#D9DFE3" />
-                <stop offset="60%" stopColor="#9E9E9E" />
-                <stop offset="100%" stopColor="#616161" />
-              </linearGradient>
-
-              <radialGradient id="dropShadow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="rgba(238,243,239,1)" />
-                <stop offset="100%" stopColor="rgba(238,243,239,0)" />
-              </radialGradient>
-
-              <radialGradient id="tomatoGrad" cx="30%" cy="30%" r="70%">
-                <stop offset="0%" stopColor="#FF8A80" />
-                <stop offset="40%" stopColor="#E53935" />
-                <stop offset="80%" stopColor="#C62828" />
-                <stop offset="100%" stopColor="#8E0000" />
-              </radialGradient>
-
-              <radialGradient id="pepperGrad" cx="35%" cy="30%" r="70%">
-                <stop offset="0%" stopColor="#FF5252" />
-                <stop offset="50%" stopColor="#D32F2F" />
-                <stop offset="100%" stopColor="#B71C1C" />
-              </radialGradient>
-
-              <linearGradient id="baguetteGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#FFCC80" />
-                <stop offset="40%" stopColor="#E68A00" />
-                <stop offset="80%" stopColor="#B35900" />
-                <stop offset="100%" stopColor="#663300" />
-              </linearGradient>
-
-              <linearGradient id="bagGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#D4A373" />
-                <stop offset="50%" stopColor="#FAEDCD" />
-                <stop offset="100%" stopColor="#CCD5AE" />
-              </linearGradient>
+              <linearGradient id="greenBody" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#48D18A"/><stop offset=".42" stopColor="#16A765"/><stop offset="1" stopColor="#075B3A"/></linearGradient>
+              <linearGradient id="greenCab" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#35C97D"/><stop offset=".55" stopColor="#0F9659"/><stop offset="1" stopColor="#064F34"/></linearGradient>
+              <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#EAFBFF"/><stop offset=".27" stopColor="#A8DBE9"/><stop offset=".72" stopColor="#4A89AC"/><stop offset="1" stopColor="#214C69"/></linearGradient>
+              <linearGradient id="glassDark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#D7F7FF"/><stop offset=".45" stopColor="#79B8D3"/><stop offset="1" stopColor="#244A67"/></linearGradient>
+              <linearGradient id="metal" x1="0" y1="0" x2=".9" y2="1"><stop offset="0" stopColor="#F7FAFD"/><stop offset=".35" stopColor="#B9C5D1"/><stop offset=".65" stopColor="#788697"/><stop offset="1" stopColor="#3D4856"/></linearGradient>
+              <linearGradient id="tire" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#273548"/><stop offset=".5" stopColor="#121C29"/><stop offset="1" stopColor="#070C13"/></linearGradient>
+              <linearGradient id="bumper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#324255"/><stop offset="1" stopColor="#172333"/></linearGradient>
+              <linearGradient id="lamp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#FFFFFF"/><stop offset=".58" stopColor="#FFF5BC"/><stop offset="1" stopColor="#F5CF63"/></linearGradient>
+              <filter id="softShadow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="13"/></filter>
               
-              <linearGradient id="milkGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#FFFFFF" />
-                <stop offset="80%" stopColor="#F0F8FF" />
-                <stop offset="100%" stopColor="#D0E4F5" />
-              </linearGradient>
-
-              <radialGradient id="lettuceGrad1" cx="40%" cy="40%" r="60%">
-                <stop offset="0%" stopColor="#81C784" />
-                <stop offset="70%" stopColor="#4CAF50" />
-                <stop offset="100%" stopColor="#2E7D32" />
-              </radialGradient>
-              
-              <radialGradient id="lettuceGrad2" cx="30%" cy="30%" r="60%">
-                <stop offset="0%" stopColor="#AED581" />
-                <stop offset="80%" stopColor="#689F38" />
-                <stop offset="100%" stopColor="#33691E" />
-              </radialGradient>
+              {/* Grocery Gradients */}
+              <radialGradient id="tomatoGrad" cx="30%" cy="30%" r="70%"><stop offset="0%" stopColor="#FF8A80" /><stop offset="40%" stopColor="#E53935" /><stop offset="80%" stopColor="#C62828" /><stop offset="100%" stopColor="#8E0000" /></radialGradient>
+              <radialGradient id="pepperGrad" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#FF5252" /><stop offset="50%" stopColor="#D32F2F" /><stop offset="100%" stopColor="#B71C1C" /></radialGradient>
+              <linearGradient id="baguetteGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#FFCC80" /><stop offset="40%" stopColor="#E68A00" /><stop offset="80%" stopColor="#B35900" /><stop offset="100%" stopColor="#663300" /></linearGradient>
+              <linearGradient id="milkGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#FFFFFF" /><stop offset="80%" stopColor="#F0F8FF" /><stop offset="100%" stopColor="#D0E4F5" /></linearGradient>
+              <radialGradient id="lettuceGrad1" cx="40%" cy="40%" r="60%"><stop offset="0%" stopColor="#81C784" /><stop offset="70%" stopColor="#4CAF50" /><stop offset="100%" stopColor="#2E7D32" /></radialGradient>
+              <radialGradient id="lettuceGrad2" cx="30%" cy="30%" r="60%"><stop offset="0%" stopColor="#AED581" /><stop offset="80%" stopColor="#689F38" /><stop offset="100%" stopColor="#33691E" /></radialGradient>
             </defs>
 
             {/* Speed Lines */}
-            <g className="animate-speed-lines" stroke="#38B554" strokeLinecap="round" strokeWidth="4" opacity="0.6">
-              <line x1="130" y1="410" x2="210" y2="410" />
-              <line x1="160" y1="435" x2="210" y2="435" />
-              <line x1="110" y1="460" x2="210" y2="460" />
-              <line x1="180" y1="485" x2="210" y2="485" />
+            <g id="speed-lines" className="animate-speed-lines" fill="none" strokeLinecap="round">
+              <path d="M80 300H240" stroke="#1AAF69" strokeWidth="14"/>
+              <path d="M45 347H265" stroke="#48D18A" strokeWidth="10"/>
+              <path d="M105 390H235" stroke="#0B7C4B" strokeWidth="9"/>
+              <path d="M145 430H220" stroke="#68E5A2" strokeWidth="7"/>
             </g>
 
             {/* Ground Shadow */}
-            <ellipse cx="420" cy="535" rx="220" ry="8" fill="#475569" opacity="0.15" />
+            <g id="ground-shadow" opacity=".16" filter="url(#softShadow)">
+              <ellipse cx="730" cy="636" rx="530" ry="24" fill="#0B3021"/>
+            </g>
 
-            {/* ENTIRE TRUCK AND CARGO - with Bounce Animation */}
+            {/* TRUCK SUSPENSION BODY (Bouncing Base) */}
             <g className="animate-truck-body">
-              {/* GROCERIES - with Independent Jiggle */}
-              <g className="animate-produce-jiggle">
+              
+              {/* GROCERIES: Scaled and placed securely *behind* the front wall of the cargo container */}
+              <g transform="translate(-200, -660) scale(2.2)" className="animate-produce-jiggle">
                 {/* Lettuce */}
                 <circle cx="280" cy="350" r="35" fill="url(#lettuceGrad1)" />
                 <circle cx="315" cy="330" r="40" fill="url(#lettuceGrad2)" />
@@ -367,19 +244,19 @@ export const AppLoader = React.memo(function AppLoader({
                 </g>
               </g>
 
-              {/* TRUCK BODY */}
-              {/* Main Green Box */}
-              <rect x="230" y="380" width="250" height="145" rx="6" fill="url(#truckBoxGrad)" />
-              <rect x="230" y="380" width="250" height="4" rx="2" fill="#FFFFFF" opacity="0.4" />
-              <rect x="230" y="515" width="250" height="10" rx="3" fill="#000000" opacity="0.3" />
-              
-              <line x1="313" y1="385" x2="313" y2="510" stroke="#1B632B" strokeWidth="2" />
-              <line x1="315" y1="385" x2="315" y2="510" stroke="#66BB6A" strokeWidth="1" />
-              <line x1="396" y1="385" x2="396" y2="510" stroke="#1B632B" strokeWidth="2" />
-              <line x1="398" y1="385" x2="398" y2="510" stroke="#66BB6A" strokeWidth="1" />
+              {/* Box Cargo Container */}
+              <g id="cargo-container">
+                <path d="M252 154Q252 132 274 132H850Q872 132 872 155V517Q872 538 850 538H272Q248 538 248 515V178Q248 154 252 154Z" fill="url(#greenBody)" stroke="#064F34" strokeWidth="8"/>
+                <path d="M269 159H850" stroke="#B7F4D2" strokeWidth="6" strokeLinecap="round" opacity=".58"/>
+                <path d="M270 182V485" stroke="#D6F8E5" strokeWidth="3" opacity=".12"/>
+                <path d="M250 447C415 415 604 385 752 419C809 432 843 407 871 367V516H250Z" fill="#0B7648" opacity=".28"/>
+                <path d="M267 208H516" stroke="#E4FFF0" strokeWidth="5" strokeLinecap="round" opacity=".1"/>
+                <path d="M272 500Q440 464 622 482Q754 495 855 455" fill="none" stroke="#6CE6A6" strokeWidth="5" opacity=".32"/>
+                <path d="M838 168V505" stroke="#064F34" strokeWidth="5" opacity=".34"/>
+              </g>
 
-              {/* Existing Cafkart Logo placed onto the new larger green truck box */}
-              <g transform="translate(315, 410) scale(0.05)">
+              {/* Cafkart Logo overlay perfectly centered on new truck box */}
+              <g transform="translate(438, 245) scale(0.15)">
                 <path
                   d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
                   fill="#FFFFFF"
@@ -392,66 +269,98 @@ export const AppLoader = React.memo(function AppLoader({
                 />
               </g>
 
-              {/* Truck Cabin */}
-              <path d="M 478 400 L 530 400 Q 545 400 555 415 L 590 470 Q 595 480 610 480 L 620 480 Q 625 480 625 485 L 625 520 Q 625 525 620 525 L 478 525 Z" fill="url(#cabinGrad)" />
-              <rect x="478" y="515" width="147" height="10" fill="#000000" opacity="0.4" />
-              <path d="M 478 400 L 530 400 Q 545 400 555 415 L 590 470 L 590 525" fill="none" stroke="#072B16" strokeWidth="3" />
-              <path d="M 478 400 L 530 400 Q 545 400 555 415 L 590 470 L 590 525" fill="none" stroke="#2E7D32" strokeWidth="1" transform="translate(1, 0)" />
-              
-              {/* Cabin Details (Window, Bumper, Lights) */}
-              <path d="M 488 410 L 525 410 Q 532 410 538 420 L 568 465 L 488 465 Z" fill="url(#windowReflect)" stroke="#1B5E20" strokeWidth="3" strokeLinejoin="round" />
-              <path d="M 495 415 L 515 415 L 525 460 L 505 460 Z" fill="#FFFFFF" opacity="0.3" />
-              <rect x="495" y="475" width="22" height="6" rx="3" fill="#111111" />
-              <rect x="495" y="475" width="22" height="3" rx="1.5" fill="#424242" />
-              <rect x="616" y="505" width="12" height="18" rx="4" fill="#212121" />
-              <rect x="616" y="505" width="12" height="5" rx="2" fill="#424242" />
-              <rect x="618" y="482" width="10" height="16" rx="3" fill="#FFF59D" />
-              <rect x="620" y="484" width="6" height="12" rx="2" fill="#FFFFFF" />
-              <circle cx="625" cy="490" r="15" fill="#FFF59D" opacity="0.4" />
-              <rect x="226" y="500" width="8" height="15" rx="2" fill="#212121" />
-              <rect x="226" y="490" width="6" height="12" rx="2" fill="#D32F2F" />
+              {/* Chassis */}
+              <g id="chassis">
+                <path d="M238 514H919Q942 514 960 533L978 559H220L229 534Q232 514 238 514Z" fill="#142233" stroke="#0B1725" strokeWidth="6"/>
+                <path d="M236 531H947" stroke="#5C6C7E" strokeWidth="7" opacity=".6"/>
+              </g>
 
-              {/* Wheel Wells */}
-              <path d="M 255 525 A 38 38 0 0 1 335 525 Z" fill="#0A0A0A" />
-              <path d="M 260 525 A 33 33 0 0 1 330 525 Z" fill="#1A1C1E" />
-              <path d="M 505 525 A 38 38 0 0 1 585 525 Z" fill="#0A0A0A" />
-              <path d="M 510 525 A 33 33 0 0 1 580 525 Z" fill="#1A1C1E" />
-            </g>
+              {/* Driver Cabin */}
+              <g id="driver-cabin">
+                <path d="M850 164Q850 134 880 134H1000Q1066 134 1100 187L1198 345Q1208 361 1208 382V511Q1208 538 1181 538H850Z" fill="url(#greenCab)" stroke="#064F34" strokeWidth="8"/>
+                <path d="M880 154H992Q1034 154 1059 193L1099 258H878Z" fill="url(#glass)" stroke="#172C3E" strokeWidth="9"/>
+                <path d="M890 165H977Q1009 165 1028 193L1052 228" fill="none" stroke="#FFFFFF" strokeWidth="10" strokeLinecap="round" opacity=".28"/>
+                <path d="M1110 218L1175 323Q1181 333 1183 347H1107Z" fill="url(#glassDark)" stroke="#172C3E" strokeWidth="9"/>
+                <path d="M1099 258V373" stroke="#0E5B3E" strokeWidth="11"/>
+                <path d="M862 392Q995 375 1172 406" fill="none" stroke="#8FEABA" strokeWidth="5" opacity=".28"/>
+                <path d="M866 264V501Q866 518 883 522H1060V263" fill="none" stroke="#075B3C" strokeWidth="5" opacity=".48"/>
+                <path d="M895 320H959" stroke="#102232" strokeWidth="12" strokeLinecap="round"/>
+                <path d="M900 320H950" stroke="#88D8B0" strokeWidth="3" strokeLinecap="round" opacity=".35"/>
+                
+                <g id="mirror">
+                  <rect x="1054" y="267" width="30" height="69" rx="12" fill="#182637"/>
+                  <rect x="1078" y="276" width="45" height="24" rx="10" fill="#182637"/>
+                  <rect x="1085" y="281" width="31" height="14" rx="7" fill="#5A6D82"/>
+                  <path d="M1086 285H1110" stroke="#CBE9F2" strokeWidth="2" opacity=".4"/>
+                </g>
 
-            {/* ========================================================= */}
-            {/* 4. VISIBLY SPINNING ALLOY WHEELS                          */}
-            {/* ========================================================= */}
-            
-            {/* Rear Wheel */}
-            <g transform="translate(295, 525)">
-              <g className="wheel-rear" style={{ transformOrigin: '0px 0px' }}>
-                <circle cx="0" cy="0" r="30" fill="url(#tireGrad)" />
-                <circle cx="0" cy="0" r="23" fill="#000000" />
-                <circle cx="0" cy="0" r="18" fill="url(#rimGrad)" />
-                <circle cx="0" cy="0" r="12" fill="#424242" />
-                <circle cx="0" cy="0" r="8" fill="#E0E0E0" />
-                <circle cx="0" cy="-4" r="1.5" fill="#212121" />
-                <circle cx="3.8" cy="-1.2" r="1.5" fill="#212121" />
-                <circle cx="2.4" cy="3.2" r="1.5" fill="#212121" />
-                <circle cx="-2.4" cy="3.2" r="1.5" fill="#212121" />
-                <circle cx="-3.8" cy="-1.2" r="1.5" fill="#212121" />
+                <path d="M1125 424H1174" stroke="#0A5238" strokeWidth="9" strokeLinecap="round"/>
+                <path d="M1134 440H1160" stroke="#9FF0BE" strokeWidth="3" opacity=".32" strokeLinecap="round"/>
+
+                <g id="headlights">
+                  <path d="M1158 353Q1158 340 1170 343L1192 349Q1202 351 1203 362V399Q1203 410 1191 410L1169 405Q1158 402 1158 390Z" fill="url(#lamp)" stroke="#253547" strokeWidth="7"/>
+                  <path d="M1167 355L1192 362V393L1167 387Z" fill="#FFF9CF" opacity=".8"/>
+                  <rect x="1167" y="421" width="32" height="19" rx="6" fill="#FFAD28" stroke="#A35A12" strokeWidth="4"/>
+                </g>
+
+                <path d="M1128 475Q1165 462 1202 475V518H1128Z" fill="#132231"/>
+                <path d="M1141 490H1192" stroke="#526275" strokeWidth="5" strokeLinecap="round" opacity=".65"/>
+                <path d="M1141 502H1179" stroke="#526275" strokeWidth="5" strokeLinecap="round" opacity=".4"/>
+              </g>
+
+              {/* Wheel Arches */}
+              <g id="wheel-arches" fill="#172535">
+                <path d="M277 545Q277 431 385 431Q493 431 493 545H459Q453 470 385 470Q317 470 311 545Z"/>
+                <path d="M913 545Q913 431 1021 431Q1129 431 1129 545H1095Q1089 470 1021 470Q953 470 947 545Z"/>
+              </g>
+
+              {/* Bumpers */}
+              <g id="bumpers">
+                <path d="M1124 510H1220V550H1115Q1104 550 1104 537V525Q1104 510 1124 510Z" fill="url(#bumper)" stroke="#0C1826" strokeWidth="5"/>
+                <path d="M1131 527H1204" stroke="#6C7C8D" strokeWidth="6" strokeLinecap="round" opacity=".65"/>
+                <path d="M193 510H286V548H187Q176 548 176 536V524Q176 510 193 510Z" fill="url(#bumper)" stroke="#0C1826" strokeWidth="5"/>
+              </g>
+
+              {/* UI Highlights */}
+              <g id="ui-highlights" fill="none" strokeLinecap="round">
+                <path d="M277 147H836" stroke="#D7FFE7" strokeWidth="3" opacity=".22"/>
+                <path d="M861 147H996" stroke="#D7FFE7" strokeWidth="3" opacity=".18"/>
               </g>
             </g>
 
-            {/* Front Wheel */}
-            <g transform="translate(545, 525)">
-              <g className="wheel-front" style={{ transformOrigin: '0px 0px' }}>
-                <circle cx="0" cy="0" r="30" fill="url(#tireGrad)" />
-                <circle cx="0" cy="0" r="23" fill="#000000" />
-                <circle cx="0" cy="0" r="18" fill="url(#rimGrad)" />
-                <circle cx="0" cy="0" r="12" fill="#424242" />
-                <circle cx="0" cy="0" r="8" fill="#E0E0E0" />
-                <circle cx="0" cy="-4" r="1.5" fill="#212121" />
-                <circle cx="3.8" cy="-1.2" r="1.5" fill="#212121" />
-                <circle cx="2.4" cy="3.2" r="1.5" fill="#212121" />
-                <circle cx="-2.4" cy="3.2" r="1.5" fill="#212121" />
-                <circle cx="-3.8" cy="-1.2" r="1.5" fill="#212121" />
+            {/* ========================================================= */}
+            {/* 4. VISIBLY SPINNING ALLOY WHEELS (Outside bounce group)   */}
+            {/* ========================================================= */}
+            {/* Rear Wheel (Pivot strictly fixed at cx=385, cy=541) */}
+            <g id="rear-wheel" className="wheel-rear" style={{ transformOrigin: '385px 541px' }}>
+              <circle cx="385" cy="541" r="95" fill="#0D1520" stroke="#293A4E" strokeWidth="13"/>
+              <circle cx="385" cy="541" r="72" fill="url(#tire)" stroke="#3A4B5E" strokeWidth="7"/>
+              <circle cx="385" cy="541" r="50" fill="url(#metal)" stroke="#6E7C8C" strokeWidth="4"/>
+              <g fill="#2C3B4C">
+                <path d="M376 494L385 541L394 494Q385 489 376 494Z"/>
+                <path d="M428 515L385 541L426 548Q432 530 428 515Z"/>
+                <path d="M418 580L385 541L378 586Q399 590 418 580Z"/>
+                <path d="M342 578L385 541L344 534Q338 557 342 578Z"/>
+                <path d="M343 504L385 541L392 496Q367 495 343 504Z"/>
               </g>
+              <circle cx="385" cy="541" r="19" fill="#18B66A" stroke="#E4EBF1" strokeWidth="5"/>
+              <circle cx="385" cy="541" r="7" fill="#075B3A"/>
+            </g>
+
+            {/* Front Wheel (Pivot strictly fixed at cx=1021, cy=541) */}
+            <g id="front-wheel" className="wheel-front" style={{ transformOrigin: '1021px 541px' }}>
+              <circle cx="1021" cy="541" r="95" fill="#0D1520" stroke="#293A4E" strokeWidth="13"/>
+              <circle cx="1021" cy="541" r="72" fill="url(#tire)" stroke="#3A4B5E" strokeWidth="7"/>
+              <circle cx="1021" cy="541" r="50" fill="url(#metal)" stroke="#6E7C8C" strokeWidth="4"/>
+              <g fill="#2C3B4C">
+                <path d="M1012 494L1021 541L1030 494Q1021 489 1012 494Z"/>
+                <path d="M1064 515L1021 541L1062 548Q1068 530 1064 515Z"/>
+                <path d="M1054 580L1021 541L1014 586Q1035 590 1054 580Z"/>
+                <path d="M978 578L1021 541L980 534Q974 557 978 578Z"/>
+                <path d="M979 504L1021 541L1028 496Q1003 495 979 504Z"/>
+              </g>
+              <circle cx="1021" cy="541" r="19" fill="#18B66A" stroke="#E4EBF1" strokeWidth="5"/>
+              <circle cx="1021" cy="541" r="7" fill="#075B3A"/>
             </g>
           </svg>
         </div>
@@ -534,11 +443,11 @@ export const AppLoader = React.memo(function AppLoader({
           animation: spinWheelAnim 0.35s linear infinite;
         }
 
-        /* Truck body suspension bounce */
+        /* Truck body suspension bounce (wheels stay grounded) */
         @keyframes truckBodyBounce {
           0%, 100% { transform: translateY(0); }
-          30% { transform: translateY(-1.8px); }
-          65% { transform: translateY(0.8px); }
+          30% { transform: translateY(-4px); }
+          65% { transform: translateY(2px); }
         }
         .animate-truck-body {
           animation: truckBodyBounce 0.65s ease-in-out infinite;
@@ -547,7 +456,7 @@ export const AppLoader = React.memo(function AppLoader({
         /* Produce stack slight independent bounce */
         @keyframes produceJiggle {
           0%, 100% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-1.6px) rotate(-1deg); }
+          50% { transform: translateY(-3px) rotate(-1.5deg); }
         }
         .animate-produce-jiggle {
           animation: produceJiggle 0.65s ease-in-out infinite 0.1s;
@@ -556,7 +465,7 @@ export const AppLoader = React.memo(function AppLoader({
         /* Speed wind streaks */
         @keyframes speedLines {
           0%, 100% { opacity: 0.85; transform: translateX(0); }
-          50% { opacity: 0.35; transform: translateX(-8px); }
+          50% { opacity: 0.2; transform: translateX(-16px); }
         }
         .animate-speed-lines {
           animation: speedLines 0.4s ease-in-out infinite;

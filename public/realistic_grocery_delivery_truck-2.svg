@@ -1,0 +1,201 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="800" viewBox="0 0 1500 800" fill="none">
+  <defs>
+    <linearGradient id="cabPaint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#35C878"/>
+      <stop offset="0.55" stop-color="#1DAA5B"/>
+      <stop offset="1" stop-color="#087944"/>
+    </linearGradient>
+    <linearGradient id="containerPaint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2BB96A"/>
+      <stop offset="0.52" stop-color="#149653"/>
+      <stop offset="1" stop-color="#08713F"/>
+    </linearGradient>
+    <linearGradient id="lowerGreen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#15884C"/>
+      <stop offset="1" stop-color="#0A5D36"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#BFE9FF"/>
+      <stop offset="0.35" stop-color="#74BDE5"/>
+      <stop offset="0.72" stop-color="#2C6790"/>
+      <stop offset="1" stop-color="#173D57"/>
+    </linearGradient>
+    <linearGradient id="tire" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#313B49"/>
+      <stop offset="0.46" stop-color="#151A24"/>
+      <stop offset="1" stop-color="#080B10"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F6FAFC"/>
+      <stop offset="0.5" stop-color="#C9D0D7"/>
+      <stop offset="1" stop-color="#858E98"/>
+    </linearGradient>
+    <linearGradient id="bumper" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2A3542"/>
+      <stop offset="0.5" stop-color="#101822"/>
+      <stop offset="1" stop-color="#344152"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#000" flood-opacity="0.22"/>
+    </filter>
+    <clipPath id="containerClip">
+      <rect x="205" y="188" width="760" height="380" rx="28"/>
+    </clipPath>
+    <clipPath id="cabClip">
+      <path d="M950 215H1130C1175 215 1208 238 1230 274L1362 485C1379 513 1387 544 1387 576V589H950V215Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- GROUP: whole truck -->
+  <g id="truck">
+    <!-- GROUP: underbody / chassis -->
+    <g id="chassis">
+      <path d="M175 553H1292C1325 553 1344 568 1352 598L1357 619H156L160 592C163 569 168 558 175 553Z" fill="url(#bumper)"/>
+      <path d="M194 613H1328L1318 647H197L194 613Z" fill="#0A0F16"/>
+      <path d="M375 581H1054" stroke="#556170" stroke-width="10" stroke-linecap="round" opacity=".5"/>
+      <path d="M687 599H1044" stroke="#070B10" stroke-width="26" stroke-linecap="round" opacity=".8"/>
+    </g>
+
+    <!-- GROUP: back container -->
+    <g id="back-container" filter="url(#softShadow)">
+      <rect x="205" y="188" width="760" height="380" rx="28" fill="url(#containerPaint)" stroke="#0B6338" stroke-width="8"/>
+      <g clip-path="url(#containerClip)">
+        <path d="M192 194H963V303C889 349 830 392 749 425C655 463 532 487 390 493C316 496 256 494 192 487V194Z" fill="#45D47C" opacity=".18"/>
+        <path d="M192 501C352 548 546 553 709 519C818 496 903 449 989 360V601H192V501Z" fill="#69EA92" opacity=".16"/>
+        <rect x="228" y="221" width="704" height="7" rx="3.5" fill="#8AF0AE" opacity=".18"/>
+        <path d="M920 188L968 231V554L924 568L904 534V242L920 188Z" fill="#0A7440" opacity=".42"/>
+      </g>
+      <path d="M230 211H930" stroke="#83F3AB" stroke-width="3" opacity=".22"/>
+      <path d="M947 221V540" stroke="#0A5934" stroke-width="6" opacity=".6"/>
+      <path d="M223 555H933" stroke="#074B2C" stroke-width="8" opacity=".7"/>
+    </g>
+
+    <!-- GROUP: driver cabin -->
+    <g id="driver-cabin" filter="url(#shadow)">
+      <path d="M948 214H1129C1173 214 1207 236 1230 272L1360 481C1378 510 1388 544 1388 578V592H947L948 214Z" fill="url(#cabPaint)" stroke="#0A6037" stroke-width="8"/>
+
+      <!-- cabin upper highlight -->
+      <path d="M970 230H1124C1156 230 1182 247 1200 274L1249 353C1217 334 1184 323 1148 322H972L970 230Z" fill="#5BE497" opacity=".16"/>
+
+      <!-- windshield -->
+      <path d="M1092 250H1130C1151 250 1172 264 1183 282L1244 382H1087L1077 278C1076 263 1081 253 1092 250Z" fill="url(#glass)" stroke="#172636" stroke-width="10"/>
+      <path d="M1195 287L1254 382H1279L1221 282L1195 287Z" fill="#D7F6FF" opacity=".3"/>
+      <path d="M1216 290L1249 348" stroke="#E6F9FF" stroke-width="10" stroke-linecap="round" opacity=".25"/>
+
+      <!-- side window -->
+      <path d="M977 250H1063C1075 250 1081 258 1082 272L1092 382H984L977 250Z" fill="url(#glass)" stroke="#172636" stroke-width="10"/>
+      <path d="M991 268L1034 268L1075 382H1006L991 268Z" fill="#E7FAFF" opacity=".18"/>
+      <path d="M987 300L1048 375" stroke="#E9FBFF" stroke-width="11" stroke-linecap="round" opacity=".16"/>
+
+      <!-- window divider -->
+      <path d="M1088 248L1087 385" stroke="#0E2431" stroke-width="11"/>
+
+      <!-- side mirror -->
+      <path d="M1067 375H1105V421H1067C1057 421 1049 413 1049 403V393C1049 383 1057 375 1067 375Z" fill="#1C2734"/>
+      <rect x="1055" y="383" width="23" height="31" rx="9" fill="#344556"/>
+      <path d="M1058 390H1077" stroke="#7E90A2" stroke-width="4" opacity=".7"/>
+
+      <!-- door -->
+      <path d="M986 392H1100V577H986V392Z" fill="#188C50" opacity=".66"/>
+      <path d="M989 393V578" stroke="#0B6339" stroke-width="7"/>
+      <path d="M1007 440H1053" stroke="#13212A" stroke-width="15" stroke-linecap="round"/>
+      <path d="M1009 437H1052" stroke="#3D4A56" stroke-width="4" stroke-linecap="round" opacity=".85"/>
+      <path d="M1088 405V576" stroke="#2FD57C" stroke-width="5" opacity=".28"/>
+
+      <!-- front nose contour -->
+      <path d="M1208 382H1265C1284 382 1303 391 1313 407L1362 483C1378 509 1387 539 1388 567H1273C1254 567 1238 553 1234 534L1208 382Z" fill="#2BBE69" opacity=".55"/>
+      <path d="M1210 391L1242 559" stroke="#77EAA0" stroke-width="6" opacity=".14"/>
+
+      <!-- headlight -->
+      <path d="M1297 427C1314 428 1332 433 1343 442L1361 461C1367 467 1367 476 1360 480L1315 483C1308 483 1303 477 1301 469L1291 441C1288 434 1291 428 1297 427Z" fill="#182531"/>
+      <path d="M1301 434C1316 435 1330 439 1340 447L1350 458C1354 462 1351 469 1345 470L1316 471C1312 470 1309 467 1308 463L1299 441C1297 438 1298 435 1301 434Z" fill="#FFF2BF"/>
+      <path d="M1306 440L1341 459" stroke="#FFFDF2" stroke-width="6" stroke-linecap="round" opacity=".9"/>
+
+      <!-- indicator -->
+      <rect x="1344" y="493" width="29" height="24" rx="7" fill="#FFAE22" stroke="#7B4814" stroke-width="5"/>
+      <path d="M1352 500H1365" stroke="#FFE6A6" stroke-width="4" stroke-linecap="round"/>
+
+      <!-- front bumper -->
+      <path d="M1254 563H1393V604C1393 616 1383 625 1371 625H1283C1265 625 1253 611 1254 594V563Z" fill="url(#bumper)"/>
+      <path d="M1320 576H1378" stroke="#586573" stroke-width="8" stroke-linecap="round" opacity=".55"/>
+
+      <!-- cabin roof seam -->
+      <path d="M953 215H1127" stroke="#71E39B" stroke-width="5" opacity=".5"/>
+      <path d="M962 223H1114" stroke="#E2FFEB" stroke-width="2" opacity=".25"/>
+    </g>
+
+    <!-- GROUP: rear mudguard -->
+    <g id="rear-wheel-arch">
+      <path d="M328 591C329 516 384 458 451 458C519 458 575 516 576 591H646V624H258V591H328Z" fill="#0B1119" opacity=".96"/>
+      <path d="M349 590C350 528 394 478 451 478C509 478 554 528 555 590H575C574 513 520 450 451 450C382 450 328 513 327 590H349Z" fill="#28313F"/>
+    </g>
+
+    <!-- GROUP: front wheel arch -->
+    <g id="front-wheel-arch">
+      <path d="M1080 591C1082 515 1135 458 1203 458C1270 458 1324 515 1326 591H1388V624H1010V591H1080Z" fill="#0B1119" opacity=".96"/>
+      <path d="M1101 590C1103 527 1146 478 1203 478C1260 478 1304 527 1306 590H1326C1324 513 1271 450 1203 450C1135 450 1081 513 1080 590H1101Z" fill="#28313F"/>
+    </g>
+
+    <!-- GROUP: rear wheel -->
+    <g id="rear-wheel" filter="url(#softShadow)">
+      <circle cx="451" cy="604" r="118" fill="#0A0D12"/>
+      <circle cx="451" cy="604" r="103" fill="url(#tire)" stroke="#3B4655" stroke-width="7"/>
+      <circle cx="451" cy="604" r="76" fill="#111722" stroke="#596574" stroke-width="4"/>
+      <circle cx="451" cy="604" r="66" fill="url(#rim)"/>
+      <circle cx="451" cy="604" r="28" fill="#8C96A2"/>
+      <circle cx="451" cy="604" r="15" fill="#15844B" stroke="#0D5E36" stroke-width="4"/>
+      <g fill="#3E4853">
+        <path d="M442 545L459 545L473 587L453 596Z"/>
+        <path d="M503 570L514 582L478 608L468 589Z"/>
+        <path d="M501 635L491 648L463 616L481 606Z"/>
+        <path d="M460 663L443 663L432 621L451 612Z"/>
+        <path d="M399 638L388 626L424 602L434 620Z"/>
+        <path d="M398 574L408 561L438 592L420 602Z"/>
+      </g>
+      <circle cx="451" cy="604" r="48" fill="none" stroke="#F2F6FA" stroke-width="3" opacity=".45"/>
+      <circle cx="451" cy="604" r="90" fill="none" stroke="#687383" stroke-width="4" opacity=".28"/>
+    </g>
+
+    <!-- GROUP: front wheel -->
+    <g id="front-wheel" filter="url(#softShadow)">
+      <circle cx="1203" cy="604" r="118" fill="#0A0D12"/>
+      <circle cx="1203" cy="604" r="103" fill="url(#tire)" stroke="#3B4655" stroke-width="7"/>
+      <circle cx="1203" cy="604" r="76" fill="#111722" stroke="#596574" stroke-width="4"/>
+      <circle cx="1203" cy="604" r="66" fill="url(#rim)"/>
+      <circle cx="1203" cy="604" r="28" fill="#8C96A2"/>
+      <circle cx="1203" cy="604" r="15" fill="#15844B" stroke="#0D5E36" stroke-width="4"/>
+      <g fill="#3E4853">
+        <path d="M1194 545L1211 545L1225 587L1205 596Z"/>
+        <path d="M1256 570L1266 582L1230 608L1220 589Z"/>
+        <path d="M1253 635L1243 648L1215 616L1233 606Z"/>
+        <path d="M1212 663L1195 663L1184 621L1203 612Z"/>
+        <path d="M1151 638L1140 626L1176 602L1186 620Z"/>
+        <path d="M1150 574L1160 561L1190 592L1172 602Z"/>
+      </g>
+      <circle cx="1203" cy="604" r="48" fill="none" stroke="#F2F6FA" stroke-width="3" opacity=".45"/>
+      <circle cx="1203" cy="604" r="90" fill="none" stroke="#687383" stroke-width="4" opacity=".28"/>
+    </g>
+
+    <!-- subtle wheel highlight -->
+    <path d="M367 557C384 523 414 501 449 497" stroke="#7B8794" stroke-width="5" stroke-linecap="round" opacity=".24"/>
+    <path d="M1119 557C1136 523 1166 501 1201 497" stroke="#7B8794" stroke-width="5" stroke-linecap="round" opacity=".24"/>
+
+    <!-- front lower step -->
+    <path d="M939 582H1031V624H926C915 624 908 616 908 605V598C908 589 921 582 939 582Z" fill="#1A2530"/>
+    <path d="M931 592H1002" stroke="#475361" stroke-width="5" stroke-linecap="round"/>
+
+    <!-- rear lower step -->
+    <path d="M183 578H299V624H165C154 624 147 616 147 606V598C147 587 160 578 183 578Z" fill="#1A2530"/>
+    <path d="M175 590H269" stroke="#475361" stroke-width="5" stroke-linecap="round"/>
+
+    <!-- optional speed lines group for future animation -->
+    <g id="speed-lines" opacity="0">
+      <rect x="35" y="300" width="145" height="15" rx="7.5" fill="#2BC66C"/>
+      <rect x="72" y="336" width="205" height="15" rx="7.5" fill="#48D77D"/>
+      <rect x="22" y="372" width="160" height="15" rx="7.5" fill="#2BC66C"/>
+    </g>
+  </g>
+</svg>

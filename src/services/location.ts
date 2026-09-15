@@ -14,9 +14,9 @@ interface LocationOptions {
 export async function getFastCurrentPosition(
   options: LocationOptions = {}
 ): Promise<LocationCoords> {
-  const { timeoutMs = 30000 } = options;
+  // Enforce 30-second timeout strictly as requested
+  const { timeoutMs = 30000 } = options; 
 
-  // 1. Verify permissions (Native only to prevent web crash)
   if (Capacitor.isNativePlatform()) {
     try {
       let permStatus = await Geolocation.checkPermissions();
@@ -31,8 +31,7 @@ export async function getFastCurrentPosition(
     }
   }
 
-  // 2. Location Refinement Polling
-  return new Promise<LocationCoords>(async (resolve, reject) => {
+  return new Promise<LocationCoords>((resolve, reject) => {
     let watchId: string | null = null;
     let bestPosition: Position | null = null;
     let isSettled = false;
@@ -53,45 +52,43 @@ export async function getFastCurrentPosition(
         resolve({
           latitude: bestPosition.coords.latitude,
           longitude: bestPosition.coords.longitude,
-          accuracy: bestPosition.coords.accuracy, // Lower number = better accuracy
+          accuracy: bestPosition.coords.accuracy,
         });
       } else {
-        reject(new Error('Location request timed out. Please step outside for a clearer signal.'));
+        reject(new Error('Location request timed out (30s). Please step outside for a clearer signal.'));
       }
     };
 
-    // Give the device a maximum of 12 seconds to collect and refine coordinates
+    // 30-second absolute timeout ceiling
     fallbackTimer = setTimeout(() => {
       cleanupAndResolve();
-    }, 12000); 
+    }, timeoutMs); 
 
-    try {
-      watchId = await Geolocation.watchPosition(
-        {
-          enableHighAccuracy: true,
-          timeout: timeoutMs,
-          maximumAge: 0, 
-        },
-        (position: Position | null, err: any) => {
-          if (err || !position?.coords) return;
+    Geolocation.watchPosition(
+      {
+        enableHighAccuracy: true,
+        timeout: timeoutMs,
+        maximumAge: 0, 
+      },
+      (position: Position | null, err: any) => {
+        if (isSettled) return;
+        if (err || !position?.coords) return;
 
-          // Compare the new accuracy against the best one we have seen so far
-          // The accuracy value is in meters. (e.g., 10 is much better than 100)
-          if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
-            bestPosition = position;
-          }
-
-          // If we achieve a highly accurate indoor/outdoor lock (20 meters or tighter), 
-          // stop polling immediately to save time and battery.
-          if (bestPosition.coords.accuracy <= 20) {
-            cleanupAndResolve();
-          }
+        if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
+          bestPosition = position;
         }
-      );
-    } catch (err: any) {
-      if (!isSettled) {
-        reject(new Error(err?.message || 'Failed to start GPS service.'));
+
+        // Early exit if we get an excellent reading (< 20 meters)
+        if (bestPosition.coords.accuracy <= 20) {
+          cleanupAndResolve();
+        }
       }
-    }
+    ).then(id => {
+      watchId = id;
+      // Just in case it settled before the promise resolved
+      if (isSettled) Geolocation.clearWatch({ id: watchId }).catch(() => {});
+    }).catch(() => {
+      // Ignore initial setup errors and let the 30s timer handle the timeout rejection
+    });
   });
 }

@@ -38,10 +38,13 @@ import {
   Wifi,
   SlidersHorizontal,
   ArrowUpDown,
-  AlertOctagon
+  AlertOctagon,
+  Layers
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
+import { fetchCategories } from '@/services/catalog';
+import type { Category } from '@/types';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
 import { buildGstBillHtml } from '@/services/gstBill';
 import { printHtml } from '@/utils/printHtml';
@@ -73,6 +76,7 @@ interface ProductInventory {
   image_url: string;
   image_urls?: string[];
   is_available: boolean;
+  category_id?: string;
 }
 
 interface PaymentRecord {
@@ -271,6 +275,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     newStock?: number;
   }>({ isOpen: false });
 
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<string>('all');
   const [products, setProducts] = useState<ProductInventory[]>([]);
   const [stockEdits, setStockEdits] = useState<Record<string, number>>({});
   const [savingStockId, setSavingStockId] = useState<string | null>(null);
@@ -291,6 +297,15 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     try {
       const { data } = await supabase.rpc('get_delivery_partners');
       setDrivers(data || []);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const loadCategories = useCallback(async () => {
+    try {
+      const { categories: fetchedCats } = await fetchCategories();
+      if (fetchedCats) setCategories(fetchedCats);
     } catch {
       // ignore
     }
@@ -408,7 +423,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     try {
       const { data } = await supabase
         .from('products')
-        .select('id, name, brand, pack_size, stock_quantity, stock_threshold, wholesale_price, mrp, image_url, image_urls, is_available')
+        .select('id, name, brand, pack_size, stock_quantity, stock_threshold, wholesale_price, mrp, image_url, image_urls, is_available, category_id')
         .order('name', { ascending: true });
       setProducts((data as ProductInventory[]) || []);
     } catch {
@@ -418,10 +433,10 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadDrivers(), loadOrders(), loadInventory(), loadStats()]);
+    await Promise.all([loadDrivers(), loadOrders(), loadInventory(), loadStats(), loadCategories()]);
     setLoading(false);
     setRefreshing(false);
-  }, [loadDrivers, loadOrders, loadInventory, loadStats]);
+  }, [loadDrivers, loadOrders, loadInventory, loadStats, loadCategories]);
 
   useEffect(() => {
     void loadAll();
@@ -808,23 +823,27 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      return (
+      const matchesSearch =
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.brand.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+        p.brand.toLowerCase().includes(searchQuery.toLowerCase());
+        
+      const matchesCategory = activeCategoryId === 'all' || p.category_id === activeCategoryId;
+      
+      return matchesSearch && matchesCategory;
     });
-  }, [products, searchQuery]);
+  }, [products, searchQuery, activeCategoryId]);
 
   const lowStockProducts = useMemo(() => {
     return products.filter((p) => {
       const isLow = p.stock_quantity <= (p.stock_threshold || 10);
-      return (
-        isLow &&
-        (p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.brand.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
+      const matchesSearch =
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.brand.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = activeCategoryId === 'all' || p.category_id === activeCategoryId;
+      
+      return isLow && matchesSearch && matchesCategory;
     });
-  }, [products, searchQuery]);
+  }, [products, searchQuery, activeCategoryId]);
 
   const metrics = useMemo(() => {
     if (serverStats) {
@@ -982,6 +1001,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     onClick={() => {
                       setActiveTab(tab.id as any);
                       setSearchQuery('');
+                      if (tab.id === 'inventory' || tab.id === 'low_stock') {
+                        setActiveCategoryId('all');
+                      }
                     }}
                     className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                       isActive ? 'bg-[#0a382c] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
@@ -999,7 +1021,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               })}
             </div>
 
-            {activeTab !== 'dashboard' && (
+            {activeTab !== 'dashboard' && activeTab !== 'inventory' && activeTab !== 'low_stock' && (
               <div className="relative w-full md:w-84 group">
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-teal-400/15 to-[#59D9B6]/20 rounded-2xl blur-xs -z-10 group-focus-within:opacity-100 opacity-60 transition-opacity" />
                 <div className="relative flex items-center bg-white/95 backdrop-blur-sm border border-emerald-900/15 rounded-2xl shadow-[0_2px_12px_rgba(10,56,44,0.06)] focus-within:border-[#0a382c] focus-within:ring-2 focus-within:ring-[#59D9B6]/40 transition-all">
@@ -1011,7 +1033,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     placeholder={
                       activeTab === 'orders' || activeTab === 'invoices' || activeTab === 'refunds'
                         ? 'Search order # or recipient...'
-                        : 'Search brand or inventory product...'
+                        : 'Search...'
                     }
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -1919,151 +1941,216 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           )}
 
           {(activeTab === 'inventory' || activeTab === 'low_stock') && (
-            <div>
-              {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
-                <div className="bg-white border border-slate-200/80 rounded-[26px] p-12 text-center text-slate-400 space-y-2">
-                  <Boxes size={40} className="mx-auto text-slate-300" />
-                  <p className="font-bold text-sm text-slate-700">No items found</p>
-                  <p className="text-xs">
-                    {activeTab === 'low_stock'
-                      ? 'All products are comfortably above their minimum threshold.'
-                      : 'No inventory products match your search.'}
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                  {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).map((prod) => {
-                    const currentStock = prod.stock_quantity ?? 0;
-                    const threshold = prod.stock_threshold || 10;
-                    const isModified = stockEdits[prod.id] !== undefined;
-                    const displayStock = isModified ? stockEdits[prod.id] : currentStock;
-                    const isSaving = savingStockId === prod.id;
-                    const isLow = currentStock <= threshold && currentStock > 0;
-                    const isOut = currentStock <= 0;
+            <div className={`flex flex-col md:flex-row gap-4 ${activeTab === 'inventory' ? 'h-[calc(100vh-180px)]' : ''}`}>
+              
+              {/* SIDEBAR: Category List */}
+              {activeTab === 'inventory' && (
+                <aside className="w-full md:w-24 shrink-0 flex md:flex-col overflow-x-auto md:overflow-y-auto border-b md:border-b-0 md:border-r border-slate-200/80 bg-transparent py-2 md:py-0 scrollbar-none md:pr-2">
+                  <button
+                    onClick={() => setActiveCategoryId('all')}
+                    className={`relative flex md:w-full flex-col items-center gap-1.5 px-3 md:px-1 py-2.5 transition shrink-0 rounded-xl md:mb-2 ${activeCategoryId === 'all' ? 'bg-white shadow-sm' : 'hover:bg-white/60'}`}
+                  >
+                    <div className={`relative flex h-12 w-12 items-center justify-center rounded-2xl border-2 transition ${activeCategoryId === 'all' ? 'border-[#0a382c] shadow-sm bg-[#0a382c]/5' : 'border-slate-100 bg-white'}`}>
+                      <Layers size={20} className={activeCategoryId === 'all' ? 'text-[#0a382c]' : 'text-slate-400'} />
+                    </div>
+                    <span className={`text-center text-[10px] leading-tight ${activeCategoryId === 'all' ? 'font-black text-[#0a382c]' : 'font-semibold text-slate-500'}`}>
+                      All Items
+                    </span>
+                  </button>
 
-                    const primaryImage = prod.image_url || (prod.image_urls && prod.image_urls.length > 0 ? prod.image_urls[0] : '');
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setActiveCategoryId(cat.id)}
+                      className={`relative flex md:w-full flex-col items-center gap-1.5 px-3 md:px-1 py-2.5 transition shrink-0 rounded-xl md:mb-2 ${activeCategoryId === cat.id ? 'bg-white shadow-sm' : 'hover:bg-white/60'}`}
+                    >
+                      <div className={`relative h-12 w-12 overflow-hidden rounded-2xl border-2 transition ${activeCategoryId === cat.id ? 'border-[#0a382c] shadow-sm' : 'border-slate-100 bg-white'}`}>
+                        <CachedImage src={cat.image} alt={cat.name} className="h-full w-full object-cover p-1" />
+                      </div>
+                      <span className={`line-clamp-2 text-center text-[10px] leading-tight ${activeCategoryId === cat.id ? 'font-black text-[#0a382c]' : 'font-semibold text-slate-500'}`}>
+                        {cat.name}
+                      </span>
+                    </button>
+                  ))}
+                </aside>
+              )}
 
-                    return (
-                      <div
-                        key={prod.id}
-                        className={`bg-white border rounded-[24px] p-4 shadow-sm space-y-3 flex flex-col justify-between transition-all ${
-                          isOut
-                            ? 'border-red-300 ring-2 ring-red-100'
-                            : isLow
-                            ? 'border-amber-300 ring-2 ring-amber-100'
-                            : 'border-slate-200/80 hover:border-emerald-200'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="h-14 w-14 rounded-2xl bg-slate-100 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center">
-                            {primaryImage ? (
-                              <CachedImage
-                                src={primaryImage}
-                                alt={prod.name}
-                                className="h-full w-full object-cover"
+              {/* MAIN CONTENT: Search & Products */}
+              <div className="flex-1 overflow-y-auto pb-24 pr-1 scrollbar-none flex flex-col gap-4">
+                
+                {/* Localized Search Bar */}
+                {activeTab === 'inventory' && (
+                  <div className="relative w-full group shrink-0">
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-teal-400/15 to-[#59D9B6]/20 rounded-2xl blur-xs -z-10 group-focus-within:opacity-100 opacity-60 transition-opacity" />
+                    <div className="relative flex items-center bg-white/95 backdrop-blur-sm border border-emerald-900/15 rounded-2xl shadow-sm focus-within:border-[#0a382c] focus-within:ring-2 focus-within:ring-[#59D9B6]/40 transition-all">
+                      <div className="pl-3.5 pr-2 flex items-center justify-center text-[#0a382c]">
+                        <Search size={16} strokeWidth={2.5} />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder={`Search ${activeCategoryId === 'all' ? 'all inventory' : categories.find(c => c.id === activeCategoryId)?.name}...`}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full h-11 py-2 pr-2 bg-transparent text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-medium outline-none"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="mr-3 h-6 w-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition active:scale-90"
+                        >
+                          <X size={12} strokeWidth={2.5} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Product Grid */}
+                {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
+                  <div className="bg-white border border-slate-200/80 rounded-[26px] p-12 text-center text-slate-400 space-y-2 mt-4">
+                    <Boxes size={40} className="mx-auto text-slate-300" />
+                    <p className="font-bold text-sm text-slate-700">No items found</p>
+                    <p className="text-xs">
+                      {activeTab === 'low_stock'
+                        ? 'All products are comfortably above their minimum threshold.'
+                        : 'No inventory products match your search or category filter.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5 items-start">
+                    {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).map((prod) => {
+                      const currentStock = prod.stock_quantity ?? 0;
+                      const threshold = prod.stock_threshold || 10;
+                      const isModified = stockEdits[prod.id] !== undefined;
+                      const displayStock = isModified ? stockEdits[prod.id] : currentStock;
+                      const isSaving = savingStockId === prod.id;
+                      const isLow = currentStock <= threshold && currentStock > 0;
+                      const isOut = currentStock <= 0;
+
+                      const primaryImage = prod.image_url || (prod.image_urls && prod.image_urls.length > 0 ? prod.image_urls[0] : '');
+
+                      return (
+                        <div
+                          key={prod.id}
+                          className={`bg-white border rounded-[24px] p-4 shadow-sm space-y-3 flex flex-col justify-between transition-all ${
+                            isOut
+                              ? 'border-red-300 ring-2 ring-red-100'
+                              : isLow
+                              ? 'border-amber-300 ring-2 ring-amber-100'
+                              : 'border-slate-200/80 hover:border-emerald-200'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="h-14 w-14 rounded-2xl bg-slate-100 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center">
+                              {primaryImage ? (
+                                <CachedImage
+                                  src={primaryImage}
+                                  alt={prod.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <Package size={22} className="text-slate-400" />
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-1">
+                                <span className="text-xs font-black text-slate-900 truncate block">
+                                  {prod.brand} {prod.name}
+                                </span>
+                                <span
+                                  className={`text-[8.5px] font-black uppercase rounded-full px-2 py-0.5 shrink-0 ${
+                                    isOut
+                                      ? 'bg-red-100 text-red-800'
+                                      : isLow
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-emerald-100 text-emerald-800'
+                                  }`}
+                                >
+                                  {isOut ? 'Out' : isLow ? 'Low' : 'In Stock'}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
+                                Pack: {prod.pack_size} · Wholesale: ₹{Number(prod.wholesale_price).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-slate-400 font-bold mr-1">Qty:</span>
+                              <button
+                                onClick={() => handleStockDelta(prod.id, currentStock, -1)}
+                                className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
+                              >
+                                <Minus size={13} />
+                              </button>
+
+                              <input
+                                type="number"
+                                value={displayStock}
+                                onChange={(e) => handleStockInputChange(prod.id, e.target.value)}
+                                className={`w-16 h-8 text-center text-xs font-black rounded-xl border outline-none ${
+                                  isModified
+                                    ? 'border-[#0a382c] bg-emerald-50/50 text-emerald-900 ring-1 ring-emerald-300'
+                                    : 'border-slate-200 bg-white text-slate-900'
+                                }`}
                               />
-                            ) : (
-                              <Package size={22} className="text-slate-400" />
+
+                              <button
+                                onClick={() => handleStockDelta(prod.id, currentStock, 1)}
+                                className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
+                              >
+                                <Plus size={13} />
+                              </button>
+
+                              <div className="flex items-center gap-1 ml-1">
+                                {[5, 10, 25].map((amt) => (
+                                  <button
+                                    key={amt}
+                                    onClick={() => handleStockDelta(prod.id, currentStock, amt)}
+                                    className="h-8 px-2 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-black text-[10px] border border-slate-200 active:scale-95 transition"
+                                  >
+                                    +{amt}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {isModified && (
+                              <div className="flex items-center gap-1.5 ml-auto">
+                                <button
+                                  onClick={() => handleCancelStockEdit(prod.id)}
+                                  className="h-8 px-3 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-black text-xs flex items-center gap-1 active:scale-95 transition"
+                                >
+                                  <RotateCcw size={12} />
+                                  Cancel
+                                </button>
+                                <button
+                                  disabled={isSaving}
+                                  onClick={() => {
+                                    setStockConfirmDialog({
+                                      isOpen: true,
+                                      productId: prod.id,
+                                      productName: `${prod.brand} ${prod.name}`,
+                                      oldStock: currentStock,
+                                      newStock: displayStock,
+                                    });
+                                  }}
+                                  className="h-8 px-3 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white font-black text-xs flex items-center gap-1 shadow-xs active:scale-95 transition disabled:opacity-50"
+                                >
+                                  {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                                  Update
+                                </button>
+                              </div>
                             )}
                           </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-1">
-                              <span className="text-xs font-black text-slate-900 truncate block">
-                                {prod.brand} {prod.name}
-                              </span>
-                              <span
-                                className={`text-[8.5px] font-black uppercase rounded-full px-2 py-0.5 shrink-0 ${
-                                  isOut
-                                    ? 'bg-red-100 text-red-800'
-                                    : isLow
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-emerald-100 text-emerald-800'
-                                }`}
-                              >
-                                {isOut ? 'Out' : isLow ? 'Low' : 'In Stock'}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                              Pack: {prod.pack_size} · Wholesale: ₹{Number(prod.wholesale_price).toFixed(2)}
-                            </p>
-                          </div>
                         </div>
-
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-slate-400 font-bold mr-1">Qty:</span>
-                            <button
-                              onClick={() => handleStockDelta(prod.id, currentStock, -1)}
-                              className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
-                            >
-                              <Minus size={13} />
-                            </button>
-
-                            <input
-                              type="number"
-                              value={displayStock}
-                              onChange={(e) => handleStockInputChange(prod.id, e.target.value)}
-                              className={`w-16 h-8 text-center text-xs font-black rounded-xl border outline-none ${
-                                isModified
-                                  ? 'border-[#0a382c] bg-emerald-50/50 text-emerald-900 ring-1 ring-emerald-300'
-                                  : 'border-slate-200 bg-white text-slate-900'
-                              }`}
-                            />
-
-                            <button
-                              onClick={() => handleStockDelta(prod.id, currentStock, 1)}
-                              className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
-                            >
-                              <Plus size={13} />
-                            </button>
-
-                            <div className="flex items-center gap-1 ml-1">
-                              {[5, 10, 25].map((amt) => (
-                                <button
-                                  key={amt}
-                                  onClick={() => handleStockDelta(prod.id, currentStock, amt)}
-                                  className="h-8 px-2 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-black text-[10px] border border-slate-200 active:scale-95 transition"
-                                >
-                                  +{amt}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          {isModified && (
-                            <div className="flex items-center gap-1.5 ml-auto">
-                              <button
-                                onClick={() => handleCancelStockEdit(prod.id)}
-                                className="h-8 px-3 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-black text-xs flex items-center gap-1 active:scale-95 transition"
-                              >
-                                <RotateCcw size={12} />
-                                Cancel
-                              </button>
-                              <button
-                                disabled={isSaving}
-                                onClick={() => {
-                                  setStockConfirmDialog({
-                                    isOpen: true,
-                                    productId: prod.id,
-                                    productName: `${prod.brand} ${prod.name}`,
-                                    oldStock: currentStock,
-                                    newStock: displayStock,
-                                  });
-                                }}
-                                className="h-8 px-3 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white font-black text-xs flex items-center gap-1 shadow-xs active:scale-95 transition disabled:opacity-50"
-                              >
-                                {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                                Update
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </main>
@@ -2143,6 +2230,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             onClick={() => {
               setActiveTab('inventory');
               setSearchQuery('');
+              setActiveCategoryId('all');
             }}
             className={`flex flex-col items-center justify-center flex-1 min-w-[70px] h-full gap-1 relative transition-colors ${
               activeTab === 'inventory' ? 'text-[#0a382c]' : 'text-slate-400 hover:text-slate-700'
@@ -2157,6 +2245,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             onClick={() => {
               setActiveTab('low_stock');
               setSearchQuery('');
+              setActiveCategoryId('all');
             }}
             className={`flex flex-col items-center justify-center flex-1 min-w-[70px] h-full gap-1 relative transition-colors ${
               activeTab === 'low_stock' ? 'text-red-600' : 'text-slate-400 hover:text-slate-700'

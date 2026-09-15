@@ -168,19 +168,43 @@ export function HomeScreen({
   }, []);
 
   // --- GPS WARMUP & PERMISSIONS LOGIC ---
+    // --- GPS WARMUP & PERMISSIONS LOGIC ---
   const warmUpGps = async () => {
     try {
-      console.log('🌍 Warming up hardware GPS in background...');
-      await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 15000, 
-        maximumAge: 0
-      });
-      console.log('✅ GPS Warm-up complete. Cache is hot.');
+      console.log('🌍 Warming up and refining GPS in background...');
+      let watchId: string | null = null;
+      let bestAccuracy = Infinity;
+
+      // 30-second background ceiling
+      const timer = setTimeout(async () => {
+        if (watchId) {
+          await Geolocation.clearWatch({ id: watchId });
+          console.log('✅ Background GPS refinement finished (30s timeout reached).');
+        }
+      }, 30000); 
+
+      watchId = await Geolocation.watchPosition(
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 },
+        async (position, err) => {
+          if (err || !position?.coords) return;
+          
+          if (position.coords.accuracy < bestAccuracy) {
+            bestAccuracy = position.coords.accuracy;
+          }
+
+          // If we get an excellent lock (20m), stop the background drain early
+          if (bestAccuracy <= 20) {
+            clearTimeout(timer);
+            await Geolocation.clearWatch({ id: watchId as string });
+            console.log('✅ Background GPS locked with high accuracy.');
+          }
+        }
+      );
     } catch (error) {
-      console.warn('GPS warm-up bypassed or failed:', error);
+      console.warn('GPS background warm-up bypassed or failed:', error);
     }
   };
+
 
   const handleAllowLocation = async () => {
     localStorage.setItem('hasSeenLocationPrompt', 'true');

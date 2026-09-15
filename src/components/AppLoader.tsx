@@ -40,7 +40,6 @@ export const AppLoader = React.memo(function AppLoader({
   const scaleClass =
     size === 'sm' ? 'scale-75' : size === 'lg' ? 'scale-105' : 'scale-95 sm:scale-100';
 
-  // Dynamic percentage for progress line based on current message step
   const progressPercent = (msgIndex / (HOME_MESSAGES.length - 1)) * 100;
 
   return (
@@ -51,14 +50,14 @@ export const AppLoader = React.memo(function AppLoader({
     >
       <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass}`}>
         
-        {/* Main Stage Viewport - Redesigned Layering System */}
-        <div className="relative w-full max-w-[800px] h-[360px] flex items-end justify-center overflow-hidden pb-8">
+        {/* Main Stage Viewport */}
+        <div className="relative w-full max-w-[800px] h-[400px] flex items-end justify-center overflow-hidden pb-12">
           
           {/* ========================================================= */}
           {/* 1. SEAMLESS MOVING CLOUDS                                 */}
           {/* ========================================================= */}
-          <div className="absolute top-2 left-0 w-full h-24 overflow-hidden pointer-events-none z-0">
-            <div className="flex w-[1260px] animate-clouds-scroll opacity-60">
+          <div className="absolute top-4 left-0 w-full h-32 overflow-hidden pointer-events-none z-0">
+            <div className="flex w-[1260px] animate-clouds-scroll opacity-60" style={{ transform: 'scale(1.2)' }}>
               {[1, 2, 3].map((key) => (
                 <svg key={key} viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
                   <path d="M40 28C40 22 45 18 51 18C53 18 55 18.8 56.5 20C58.5 15.5 63 13 68 13C75 13 81 18.5 81 25.5C83 25.5 85 27.5 85 29.5C85 32 83 34 80.5 34H44C41.8 34 40 31.5 40 28Z" fill="#e2efe6" />
@@ -72,11 +71,10 @@ export const AppLoader = React.memo(function AppLoader({
           {/* ========================================================= */}
           {/* 2. TALLER, WIDER ARCHITECTURAL CITY BUILDINGS             */}
           {/* ========================================================= */}
-          <div className="absolute bottom-16 left-0 w-full h-[220px] overflow-hidden pointer-events-none z-0 flex items-end">
-            {/* Explicitly scaled up to make buildings visibly taller */}
+          <div className="absolute bottom-12 left-0 w-full h-[350px] overflow-hidden pointer-events-none z-0 flex items-end">
             <div 
               className="flex w-[1260px] animate-skyline-scroll opacity-85" 
-              style={{ transform: 'scale(1.5)', transformOrigin: 'bottom left' }}
+              style={{ transform: 'scale(2.2)', transformOrigin: 'bottom left' }}
             >
               {[1, 2, 3].map((key) => (
                 <svg key={key} viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
@@ -143,17 +141,17 @@ export const AppLoader = React.memo(function AppLoader({
           </div>
 
           {/* ========================================================= */}
-          {/* 3. NEW TRUCK & FRESH BOUNTIFUL GROCERY LOAD               */}
+          {/* 3. SHRUNKEN TRUCK & PROMINENT GROCERY LOAD                */}
           {/* ========================================================= */}
-          {/* Reduced width container shrinks the truck relative to everything else */}
-          <div className="relative z-10 w-[380px] sm:w-[420px] pointer-events-none">
+          {/* Padded viewBox shrinks the truck significantly relative to the screen */}
+          <div className="relative z-10 w-full pointer-events-none">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 1400 720"
-              className="w-full h-auto"
+              viewBox="-300 -350 2000 1200"
+              className="w-full h-auto drop-shadow-xl"
               fill="none"
               role="img"
-              aria-label="Modern dark green delivery truck with groceries"
+              aria-label="Modern dark green delivery truck with groceries overflowing"
             >
               <defs>
                 <linearGradient id="greenBody" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#48D18A"/><stop offset=".42" stopColor="#16A765"/><stop offset="1" stopColor="#075B3A"/></linearGradient>
@@ -192,12 +190,12 @@ export const AppLoader = React.memo(function AppLoader({
               <g className="animate-truck-body">
                 
                 {/* 
-                  GROCERIES
-                  Precisely scaled (3.2x) and positioned to sit inside the new truck box.
-                  Rendered BEFORE the cargo-container in the DOM so the front cargo wall covers their bottom half,
-                  making them look realistically packed inside and overflowing the top edge (Y=132).
+                  GROCERIES - BURSTING OUT
+                  Massively scaled (3.0) and shifted upwards (-1050) so they peek highly above Y=132.
+                  Because they are rendered FIRST, the cargo-container overlaps their bottom edge,
+                  making them securely packed inside the truck bed.
                 */}
-                <g transform="translate(-570, -1040) scale(3.2)" className="animate-produce-jiggle">
+                <g transform="translate(-500, -1050) scale(3.0)" className="animate-produce-jiggle">
                   {/* Lettuce */}
                   <circle cx="280" cy="350" r="35" fill="url(#lettuceGrad1)" />
                   <circle cx="315" cy="330" r="40" fill="url(#lettuceGrad2)" />
@@ -239,7 +237,7 @@ export const AppLoader = React.memo(function AppLoader({
                     <ellipse cx="328" cy="368" rx="3" ry="8" fill="#FFFFFF" opacity="0.5" transform="rotate(-15 328 368)" />
                   </g>
 
-                  {/* Tomato (Intentionally lower so it's partially hidden behind the truck wall) */}
+                  {/* Tomato */}
                   <g>
                     <circle cx="365" cy="390" r="24" fill="url(#tomatoGrad)" />
                     <path d="M 365 366 L 358 373 M 365 366 L 372 373 M 365 366 L 365 375 M 365 366 L 360 361" stroke="#1B5E20" strokeWidth="3" strokeLinecap="round" />
@@ -255,7 +253,7 @@ export const AppLoader = React.memo(function AppLoader({
                   </g>
                 </g>
 
-                {/* Box Cargo Container (Renders in front of the lower half of groceries) */}
+                {/* Box Cargo Container */}
                 <g id="cargo-container">
                   <path d="M252 154Q252 132 274 132H850Q872 132 872 155V517Q872 538 850 538H272Q248 538 248 515V178Q248 154 252 154Z" fill="url(#greenBody)" stroke="#064F34" strokeWidth="8"/>
                   <path d="M269 159H850" stroke="#B7F4D2" strokeWidth="6" strokeLinecap="round" opacity=".58"/>
@@ -266,8 +264,8 @@ export const AppLoader = React.memo(function AppLoader({
                   <path d="M838 168V505" stroke="#064F34" strokeWidth="5" opacity=".34"/>
                 </g>
 
-                {/* Cafkart Logo overlay perfectly centered on new truck box */}
-                <g transform="translate(460, 270) scale(0.18)">
+                {/* Cafkart Logo precisely centered on green box */}
+                <g transform="translate(440, 225) scale(0.18)">
                   <path
                     d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
                     fill="#FFFFFF"
@@ -384,7 +382,7 @@ export const AppLoader = React.memo(function AppLoader({
         {/* ========================================================= */}
         {showStatus && (
           <div className="mt-4 flex flex-col items-center justify-center animate-fade-in">
-            <div className="relative flex items-center justify-between w-52 mb-3">
+            <div className="relative flex items-center justify-between w-64 mb-3">
               <div className="absolute top-1/2 left-0 right-0 h-[2.5px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
 
               <div
@@ -399,13 +397,13 @@ export const AppLoader = React.memo(function AppLoader({
                 return (
                   <div key={idx} className="relative z-10 flex items-center justify-center w-5 h-5">
                     {isActive ? (
-                      <div className="flex items-center justify-center h-4.5 w-4.5 rounded-full border-2 border-[#22c55e] bg-white transition-all duration-300 scale-110 shadow-xs">
-                        <div className="h-2 w-2 rounded-full bg-[#22c55e] animate-pulse" />
+                      <div className="flex items-center justify-center h-5 w-5 rounded-full border-2 border-[#22c55e] bg-white transition-all duration-300 scale-110 shadow-xs">
+                        <div className="h-2.5 w-2.5 rounded-full bg-[#22c55e] animate-pulse" />
                       </div>
                     ) : isCompleted ? (
-                      <div className="h-3 w-3 rounded-full bg-[#22c55e] transition-all duration-300" />
+                      <div className="h-3.5 w-3.5 rounded-full bg-[#22c55e] transition-all duration-300" />
                     ) : (
-                      <div className="h-3 w-3 rounded-full bg-[#cbd5e1] transition-all duration-300" />
+                      <div className="h-3.5 w-3.5 rounded-full bg-[#cbd5e1] transition-all duration-300" />
                     )}
                   </div>
                 );
@@ -415,10 +413,10 @@ export const AppLoader = React.memo(function AppLoader({
             <div className="h-6 flex items-center justify-center">
               <p
                 key={msgIndex}
-                className="flex items-center gap-1.5 text-xs font-bold text-slate-800 tracking-tight animate-text-fade"
+                className="flex items-center gap-1.5 text-sm font-bold text-slate-800 tracking-tight animate-text-fade"
               >
                 {HOME_MESSAGES[msgIndex]}
-                <span className="text-emerald-500 text-sm">🍃</span>
+                <span className="text-emerald-500 text-base">🍃</span>
               </p>
             </div>
           </div>
@@ -479,7 +477,7 @@ export const AppLoader = React.memo(function AppLoader({
         /* Speed wind streaks */
         @keyframes speedLines {
           0%, 100% { opacity: 0.85; transform: translateX(0); }
-          50% { opacity: 0.15; transform: translateX(-24px); }
+          50% { opacity: 0.15; transform: translateX(-32px); }
         }
         .animate-speed-lines {
           animation: speedLines 0.4s ease-in-out infinite;

@@ -51,13 +51,13 @@ export const AppLoader = React.memo(function AppLoader({
     >
       <div className={`relative flex flex-col items-center justify-center ${scaleClass}`}>
         
-        {/* Main Stage Viewport (Widened for the new truck dimensions) */}
+        {/* Main Stage Viewport */}
         <div className="relative w-full max-w-[600px] h-72 sm:h-80 flex items-center justify-center overflow-hidden">
           
           {/* ========================================================= */}
           {/* 1. SEAMLESS MOVING CLOUDS                                 */}
           {/* ========================================================= */}
-          <div className="absolute top-1 left-0 w-full h-16 overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-0 left-0 w-full h-16 overflow-hidden pointer-events-none z-0">
             <div className="flex w-[1260px] animate-clouds-scroll opacity-75">
               {[1, 2, 3].map((key) => (
                 <svg key={key} viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
@@ -72,8 +72,9 @@ export const AppLoader = React.memo(function AppLoader({
           {/* ========================================================= */}
           {/* 2. TALLER, WIDER, DISTINCT ARCHITECTURAL CITY BUILDINGS   */}
           {/* ========================================================= */}
-          <div className="absolute top-6 left-0 w-full h-52 overflow-hidden pointer-events-none z-0">
-            <div className="flex w-[1260px] animate-skyline-scroll opacity-85">
+          <div className="absolute top-2 left-0 w-full h-64 overflow-hidden pointer-events-none z-0">
+            {/* scale-y-[1.4] origin-bottom makes the buildings significantly taller visually */}
+            <div className="flex w-[1260px] animate-skyline-scroll opacity-85 scale-y-[1.4] origin-bottom">
               {[1, 2, 3].map((key) => (
                 <svg key={key} viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
                   <rect x="0" y="52" width="60" height="138" rx="3" fill="#d9ebdf" />
@@ -141,10 +142,11 @@ export const AppLoader = React.memo(function AppLoader({
           {/* ========================================================= */}
           {/* 3. NEW TRUCK & FRESH BOUNTIFUL GROCERY LOAD               */}
           {/* ========================================================= */}
+          {/* viewBox expanded (-50 -250 1500 1000) to shrink truck visually and give headroom to the groceries */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 1400 720"
-            className="w-full h-full z-10 pointer-events-none mt-[40px]"
+            viewBox="-50 -250 1500 1000"
+            className="w-full h-full z-10 pointer-events-none mt-[20px]"
             fill="none"
             role="img"
             aria-label="Modern dark green delivery truck with groceries"
@@ -185,8 +187,8 @@ export const AppLoader = React.memo(function AppLoader({
             {/* TRUCK SUSPENSION BODY (Bouncing Base) */}
             <g className="animate-truck-body">
               
-              {/* GROCERIES: Scaled and placed securely *behind* the front wall of the cargo container */}
-              <g transform="translate(-200, -660) scale(2.2)" className="animate-produce-jiggle">
+              {/* GROCERIES: Scaled & Placed securely *behind* the front wall of the cargo container. Scale and translation are precisely mapped to the truck's chassis size. */}
+              <g transform="translate(-240, -780) scale(2.3)" className="animate-produce-jiggle">
                 {/* Lettuce */}
                 <circle cx="280" cy="350" r="35" fill="url(#lettuceGrad1)" />
                 <circle cx="315" cy="330" r="40" fill="url(#lettuceGrad2)" />
@@ -256,7 +258,7 @@ export const AppLoader = React.memo(function AppLoader({
               </g>
 
               {/* Cafkart Logo overlay perfectly centered on new truck box */}
-              <g transform="translate(438, 245) scale(0.15)">
+              <g transform="translate(439, 238) scale(0.15)">
                 <path
                   d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
                   fill="#FFFFFF"

@@ -50,14 +50,13 @@ export const AppLoader = React.memo(function AppLoader({
     >
       <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass}`}>
         
-        {/* Main Stage Viewport - Increased height to prevent ANY clipping */}
-        <div className="relative w-full max-w-[800px] h-[460px] sm:h-[500px] flex items-end justify-center overflow-hidden pb-4">
+        {/* Main Stage Viewport - Height significantly expanded to prevent ANY building trimming */}
+        <div className="relative w-full max-w-[800px] h-[560px] sm:h-[600px] flex items-end justify-center overflow-hidden pb-6">
           
           {/* ========================================================= */}
-          {/* 1. SEAMLESS MOVING CLOUDS                                 */}
+          {/* 1. SEAMLESS MOVING CLOUDS (Now safely above buildings)    */}
           {/* ========================================================= */}
-          <div className="absolute top-4 left-0 w-full h-32 overflow-hidden pointer-events-none z-0">
-            {/* Wrapper added to protect scale from being overwritten by translate animation */}
+          <div className="absolute top-2 left-0 w-full h-32 overflow-hidden pointer-events-none z-0">
             <div style={{ transform: 'scale(1.2)', transformOrigin: 'top left', width: '100%' }}>
               <div className="flex w-[1260px] animate-clouds-scroll opacity-60">
                 {[1, 2, 3].map((key) => (
@@ -72,10 +71,9 @@ export const AppLoader = React.memo(function AppLoader({
           </div>
 
           {/* ========================================================= */}
-          {/* 2. TALLER, WIDER ARCHITECTURAL CITY BUILDINGS (FIXED)     */}
+          {/* 2. TALLER, WIDER ARCHITECTURAL CITY BUILDINGS             */}
           {/* ========================================================= */}
-          <div className="absolute bottom-[60px] sm:bottom-[80px] left-0 w-full h-[380px] overflow-hidden pointer-events-none z-0 flex items-end">
-            {/* The scale is now on a parent div so the scroll animation doesn't kill it! */}
+          <div className="absolute bottom-[70px] left-0 w-full h-[500px] overflow-hidden pointer-events-none z-0 flex items-end">
             <div style={{ transform: 'scale(2.6)', transformOrigin: 'bottom left', width: '100%' }}>
               <div className="flex w-[1260px] animate-skyline-scroll opacity-85">
                 {[1, 2, 3].map((key) => (
@@ -149,7 +147,7 @@ export const AppLoader = React.memo(function AppLoader({
           <div className="relative z-10 w-[380px] sm:w-[450px] pointer-events-none translate-y-6">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              /* Expanded viewBox gives 400px of padding on top and 300px on bottom so NOTHING gets cut off */
+              /* Enormous viewBox padding ensures absolutely nothing gets cut off during animations */
               viewBox="-50 -350 1500 1100"
               className="w-full h-auto drop-shadow-xl"
               fill="none"
@@ -158,7 +156,14 @@ export const AppLoader = React.memo(function AppLoader({
             >
               <defs>
                 <linearGradient id="greenBody" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#48D18A"/><stop offset=".42" stopColor="#16A765"/><stop offset="1" stopColor="#075B3A"/></linearGradient>
-                <linearGradient id="greenCab" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#35C97D"/><stop offset=".55" stopColor="#0F9659"/><stop offset="1" stopColor="#064F34"/></linearGradient>
+                
+                {/* NEW DARK GREEN CABIN GRADIENT */}
+                <linearGradient id="greenCab" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stopColor="#1E8B54"/>
+                  <stop offset=".55" stopColor="#0B5F36"/>
+                  <stop offset="1" stopColor="#04381F"/>
+                </linearGradient>
+
                 <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#EAFBFF"/><stop offset=".27" stopColor="#A8DBE9"/><stop offset=".72" stopColor="#4A89AC"/><stop offset="1" stopColor="#214C69"/></linearGradient>
                 <linearGradient id="glassDark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#D7F7FF"/><stop offset=".45" stopColor="#79B8D3"/><stop offset="1" stopColor="#244A67"/></linearGradient>
                 <linearGradient id="metal" x1="0" y1="0" x2=".9" y2="1"><stop offset="0" stopColor="#F7FAFD"/><stop offset=".35" stopColor="#B9C5D1"/><stop offset=".65" stopColor="#788697"/><stop offset="1" stopColor="#3D4856"/></linearGradient>
@@ -194,10 +199,10 @@ export const AppLoader = React.memo(function AppLoader({
                 
                 {/* 
                   GROCERIES - BURSTING OUT
-                  1. The parent <g> handles the static positioning. Pushed HIGH (-950) and scaled (2.8).
-                  2. The child <g> safely runs the jiggle animation relative to this new position.
+                  1. Reduced by 5% (scale 2.66 down from 2.8)
+                  2. Safely translated upwards so they boldly clear the new taller cargo chassis.
                 */}
-                <g transform="translate(-350, -950) scale(2.8)">
+                <g transform="translate(-300, -980) scale(2.66)">
                   <g className="animate-produce-jiggle">
                     {/* Lettuce */}
                     <circle cx="280" cy="350" r="35" fill="url(#lettuceGrad1)" />
@@ -257,19 +262,19 @@ export const AppLoader = React.memo(function AppLoader({
                   </g>
                 </g>
 
-                {/* Box Cargo Container (Covers the bottom half of groceries) */}
+                {/* Box Cargo Container (TALLER - Top edges shifted UP by 60 pixels) */}
                 <g id="cargo-container">
-                  <path d="M252 154Q252 132 274 132H850Q872 132 872 155V517Q872 538 850 538H272Q248 538 248 515V178Q248 154 252 154Z" fill="url(#greenBody)" stroke="#064F34" strokeWidth="8"/>
-                  <path d="M269 159H850" stroke="#B7F4D2" strokeWidth="6" strokeLinecap="round" opacity=".58"/>
-                  <path d="M270 182V485" stroke="#D6F8E5" strokeWidth="3" opacity=".12"/>
+                  <path d="M252 94Q252 72 274 72H850Q872 72 872 95V517Q872 538 850 538H272Q248 538 248 515V118Q248 94 252 94Z" fill="url(#greenBody)" stroke="#064F34" strokeWidth="8"/>
+                  <path d="M269 99H850" stroke="#B7F4D2" strokeWidth="6" strokeLinecap="round" opacity=".58"/>
+                  <path d="M270 122V485" stroke="#D6F8E5" strokeWidth="3" opacity=".12"/>
                   <path d="M250 447C415 415 604 385 752 419C809 432 843 407 871 367V516H250Z" fill="#0B7648" opacity=".28"/>
-                  <path d="M267 208H516" stroke="#E4FFF0" strokeWidth="5" strokeLinecap="round" opacity=".1"/>
+                  <path d="M267 148H516" stroke="#E4FFF0" strokeWidth="5" strokeLinecap="round" opacity=".1"/>
                   <path d="M272 500Q440 464 622 482Q754 495 855 455" fill="none" stroke="#6CE6A6" strokeWidth="5" opacity=".32"/>
-                  <path d="M838 168V505" stroke="#064F34" strokeWidth="5" opacity=".34"/>
+                  <path d="M838 108V505" stroke="#064F34" strokeWidth="5" opacity=".34"/>
                 </g>
 
-                {/* Cafkart Logo precisely centered on green box */}
-                <g transform="translate(440, 225) scale(0.18)">
+                {/* Cafkart Logo precisely shifted up to stay centered on taller green box */}
+                <g transform="translate(440, 195) scale(0.18)">
                   <path
                     d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
                     fill="#FFFFFF"
@@ -470,7 +475,7 @@ export const AppLoader = React.memo(function AppLoader({
         }
 
         /* Produce stack slight independent bounce */
-        /* Note: Safe relative translation via translateY to preserve base static coordinates */
+        /* Safely translates up and down without breaking base coordinates */
         @keyframes produceJiggle {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-4px) rotate(-1.5deg); }

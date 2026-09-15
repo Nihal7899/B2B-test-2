@@ -200,9 +200,9 @@ export const AppLoader = React.memo(function AppLoader({
                 {/* 
                   GROCERIES - BURSTING OUT
                   1. Reduced by 5% (scale 2.66 down from 2.8)
-                  2. Safely translated upwards so they boldly clear the new taller cargo chassis.
+                  2. Safely translated left by 25px and down by 20px (-300 - 25 = -325, -980 + 20 = -960)
                 */}
-                <g transform="translate(-300, -980) scale(2.66)">
+                <g transform="translate(-325, -960) scale(2.66)">
                   <g className="animate-produce-jiggle">
                     {/* Lettuce */}
                     <circle cx="280" cy="350" r="35" fill="url(#lettuceGrad1)" />

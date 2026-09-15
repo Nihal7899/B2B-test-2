@@ -50,14 +50,14 @@ export const AppLoader = React.memo(function AppLoader({
     >
       <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass}`}>
         
-        {/* Main Stage Viewport - Height significantly expanded to prevent ANY building trimming */}
-        <div className="relative w-full max-w-[800px] h-[560px] sm:h-[600px] flex items-end justify-center overflow-hidden pb-6">
+        {/* Main Stage Viewport - Scaled down by 20% */}
+        <div className="relative w-full max-w-[800px] h-[448px] sm:h-[480px] flex items-end justify-center overflow-hidden pb-5">
           
           {/* ========================================================= */}
-          {/* 1. SEAMLESS MOVING CLOUDS (Now safely above buildings)    */}
+          {/* 1. SEAMLESS MOVING CLOUDS (Scaled by 20%)                 */}
           {/* ========================================================= */}
-          <div className="absolute top-2 left-0 w-full h-32 overflow-hidden pointer-events-none z-0">
-            <div style={{ transform: 'scale(1.2)', transformOrigin: 'top left', width: '100%' }}>
+          <div className="absolute top-[6px] left-0 w-full h-[100px] overflow-hidden pointer-events-none z-0">
+            <div style={{ transform: 'scale(0.96)', transformOrigin: 'top left', width: '100%' }}>
               <div className="flex w-[1260px] animate-clouds-scroll opacity-60">
                 {[1, 2, 3].map((key) => (
                   <svg key={key} viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
@@ -71,10 +71,10 @@ export const AppLoader = React.memo(function AppLoader({
           </div>
 
           {/* ========================================================= */}
-          {/* 2. TALLER, WIDER ARCHITECTURAL CITY BUILDINGS             */}
+          {/* 2. ARCHITECTURAL CITY BUILDINGS (Scaled by 20%)           */}
           {/* ========================================================= */}
-          <div className="absolute bottom-[70px] left-0 w-full h-[500px] overflow-hidden pointer-events-none z-0 flex items-end">
-            <div style={{ transform: 'scale(2.6)', transformOrigin: 'bottom left', width: '100%' }}>
+          <div className="absolute bottom-[56px] left-0 w-full h-[400px] overflow-hidden pointer-events-none z-0 flex items-end">
+            <div style={{ transform: 'scale(2.08)', transformOrigin: 'bottom left', width: '100%' }}>
               <div className="flex w-[1260px] animate-skyline-scroll opacity-85">
                 {[1, 2, 3].map((key) => (
                   <svg key={key} viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
@@ -142,12 +142,11 @@ export const AppLoader = React.memo(function AppLoader({
           </div>
 
           {/* ========================================================= */}
-          {/* 3. TRUCK & OVERFLOWING GROCERIES                          */}
+          {/* 3. TRUCK & OVERFLOWING GROCERIES (Scaled by 20%)          */}
           {/* ========================================================= */}
-          <div className="relative z-10 w-[380px] sm:w-[450px] pointer-events-none translate-y-6">
+          <div className="relative z-10 w-[304px] sm:w-[360px] pointer-events-none translate-y-5">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              /* Enormous viewBox padding ensures absolutely nothing gets cut off during animations */
               viewBox="-50 -350 1500 1100"
               className="w-full h-auto drop-shadow-xl"
               fill="none"
@@ -157,7 +156,6 @@ export const AppLoader = React.memo(function AppLoader({
               <defs>
                 <linearGradient id="greenBody" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#48D18A"/><stop offset=".42" stopColor="#16A765"/><stop offset="1" stopColor="#075B3A"/></linearGradient>
                 
-                {/* NEW DARK GREEN CABIN GRADIENT */}
                 <linearGradient id="greenCab" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0" stopColor="#1E8B54"/>
                   <stop offset=".55" stopColor="#0B5F36"/>
@@ -172,7 +170,6 @@ export const AppLoader = React.memo(function AppLoader({
                 <linearGradient id="lamp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#FFFFFF"/><stop offset=".58" stopColor="#FFF5BC"/><stop offset="1" stopColor="#F5CF63"/></linearGradient>
                 <filter id="softShadow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="13"/></filter>
                 
-                {/* Grocery Gradients */}
                 <radialGradient id="tomatoGrad" cx="30%" cy="30%" r="70%"><stop offset="0%" stopColor="#FF8A80" /><stop offset="40%" stopColor="#E53935" /><stop offset="80%" stopColor="#C62828" /><stop offset="100%" stopColor="#8E0000" /></radialGradient>
                 <radialGradient id="pepperGrad" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#FF5252" /><stop offset="50%" stopColor="#D32F2F" /><stop offset="100%" stopColor="#B71C1C" /></radialGradient>
                 <linearGradient id="baguetteGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#FFCC80" /><stop offset="40%" stopColor="#E68A00" /><stop offset="80%" stopColor="#B35900" /><stop offset="100%" stopColor="#663300" /></linearGradient>
@@ -181,7 +178,6 @@ export const AppLoader = React.memo(function AppLoader({
                 <radialGradient id="lettuceGrad2" cx="30%" cy="30%" r="60%"><stop offset="0%" stopColor="#AED581" /><stop offset="80%" stopColor="#689F38" /><stop offset="100%" stopColor="#33691E" /></radialGradient>
               </defs>
 
-              {/* Speed Lines */}
               <g id="speed-lines" className="animate-speed-lines" fill="none" strokeLinecap="round">
                 <path d="M80 300H240" stroke="#1AAF69" strokeWidth="14"/>
                 <path d="M45 347H265" stroke="#48D18A" strokeWidth="10"/>
@@ -189,33 +185,22 @@ export const AppLoader = React.memo(function AppLoader({
                 <path d="M145 430H220" stroke="#68E5A2" strokeWidth="7"/>
               </g>
 
-              {/* Ground Shadow */}
               <g id="ground-shadow" opacity=".16" filter="url(#softShadow)">
                 <ellipse cx="730" cy="636" rx="530" ry="24" fill="#0B3021"/>
               </g>
 
-              {/* TRUCK SUSPENSION BODY (Bouncing Base) */}
               <g className="animate-truck-body">
-                
-                {/* 
-                  GROCERIES - BURSTING OUT
-                  1. Reduced by 5% (scale 2.66 down from 2.8)
-                  2. Safely translated left by 25px and down by 20px (-300 - 25 = -325, -980 + 20 = -960)
-                */}
                 <g transform="translate(-360, -920) scale(2.66)">
                   <g className="animate-produce-jiggle">
-                    {/* Lettuce */}
                     <circle cx="280" cy="350" r="35" fill="url(#lettuceGrad1)" />
                     <circle cx="315" cy="330" r="40" fill="url(#lettuceGrad2)" />
                     <circle cx="355" cy="350" r="35" fill="url(#lettuceGrad1)" />
 
-                    {/* Paper Bag */}
                     <path d="M 400 400 L 450 400 L 465 300 L 415 315 Z" fill="#D4A373" />
                     <path d="M 410 295 L 460 280 L 465 300 L 415 315 Z" fill="#BC8A5F" />
                     <ellipse cx="430" cy="350" rx="12" ry="12" fill="#E76F51" transform="rotate(-15 430 350)" />
                     <ellipse cx="430" cy="350" rx="5" ry="5" fill="#F4A261" transform="rotate(-15 430 350)" />
 
-                    {/* Milk Bottle */}
                     <g transform="translate(385, 360) rotate(12)">
                       <rect x="-18" y="-60" width="36" height="100" rx="6" fill="url(#milkGrad)" />
                       <rect x="-18" y="-20" width="36" height="35" fill="#2196F3" />
@@ -226,7 +211,6 @@ export const AppLoader = React.memo(function AppLoader({
                       <path d="M -12 -50 L -12 30" stroke="#FFFFFF" strokeWidth="3" opacity="0.6" strokeLinecap="round" />
                     </g>
 
-                    {/* Baguette */}
                     <g transform="translate(350, 345) rotate(25)">
                       <ellipse cx="0" cy="0" rx="20" ry="70" fill="url(#baguetteGrad)" />
                       <path d="M -10 -40 Q 0 -35 12 -25" fill="none" stroke="#5D4037" strokeWidth="4" strokeLinecap="round" />
@@ -235,7 +219,6 @@ export const AppLoader = React.memo(function AppLoader({
                       <ellipse cx="-8" cy="0" rx="4" ry="55" fill="#FFFFFF" opacity="0.3" />
                     </g>
 
-                    {/* Red Peppers */}
                     <g>
                       <ellipse cx="315" cy="375" rx="20" ry="28" fill="url(#pepperGrad)" />
                       <ellipse cx="295" cy="385" rx="18" ry="25" fill="url(#pepperGrad)" />
@@ -245,14 +228,12 @@ export const AppLoader = React.memo(function AppLoader({
                       <ellipse cx="328" cy="368" rx="3" ry="8" fill="#FFFFFF" opacity="0.5" transform="rotate(-15 328 368)" />
                     </g>
 
-                    {/* Tomato */}
                     <g>
                       <circle cx="365" cy="390" r="24" fill="url(#tomatoGrad)" />
                       <path d="M 365 366 L 358 373 M 365 366 L 372 373 M 365 366 L 365 375 M 365 366 L 360 361" stroke="#1B5E20" strokeWidth="3" strokeLinecap="round" />
                       <ellipse cx="355" cy="378" rx="6" ry="4" fill="#FFFFFF" opacity="0.5" transform="rotate(-30 355 378)" />
                     </g>
 
-                    {/* Bananas */}
                     <g>
                       <path d="M 235 340 C 240 390 270 405 295 395 C 290 365 260 350 235 340 Z" fill="#FBC02D" />
                       <path d="M 245 330 C 255 380 285 395 310 385 C 305 355 275 340 245 330 Z" fill="#FFF176" />
@@ -262,7 +243,6 @@ export const AppLoader = React.memo(function AppLoader({
                   </g>
                 </g>
 
-                {/* Box Cargo Container (TALLER - Top edges shifted UP by 60 pixels) */}
                 <g id="cargo-container">
                   <path d="M252 94Q252 72 274 72H850Q872 72 872 95V517Q872 538 850 538H272Q248 538 248 515V118Q248 94 252 94Z" fill="url(#greenBody)" stroke="#064F34" strokeWidth="8"/>
                   <path d="M269 99H850" stroke="#B7F4D2" strokeWidth="6" strokeLinecap="round" opacity=".58"/>
@@ -273,7 +253,6 @@ export const AppLoader = React.memo(function AppLoader({
                   <path d="M838 108V505" stroke="#064F34" strokeWidth="5" opacity=".34"/>
                 </g>
 
-                {/* Cafkart Logo precisely shifted up to stay centered on taller green box */}
                 <g transform="translate(440, 195) scale(0.18)">
                   <path
                     d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
@@ -287,13 +266,11 @@ export const AppLoader = React.memo(function AppLoader({
                   />
                 </g>
 
-                {/* Chassis */}
                 <g id="chassis">
                   <path d="M238 514H919Q942 514 960 533L978 559H220L229 534Q232 514 238 514Z" fill="#142233" stroke="#0B1725" strokeWidth="6"/>
                   <path d="M236 531H947" stroke="#5C6C7E" strokeWidth="7" opacity=".6"/>
                 </g>
 
-                {/* Driver Cabin */}
                 <g id="driver-cabin">
                   <path d="M850 164Q850 134 880 134H1000Q1066 134 1100 187L1198 345Q1208 361 1208 382V511Q1208 538 1181 538H850Z" fill="url(#greenCab)" stroke="#064F34" strokeWidth="8"/>
                   <path d="M880 154H992Q1034 154 1059 193L1099 258H878Z" fill="url(#glass)" stroke="#172C3E" strokeWidth="9"/>
@@ -326,32 +303,23 @@ export const AppLoader = React.memo(function AppLoader({
                   <path d="M1141 502H1179" stroke="#526275" strokeWidth="5" strokeLinecap="round" opacity=".4"/>
                 </g>
 
-                {/* Wheel Arches (moves with suspension bounce) */}
                 <g id="wheel-arches" fill="#172535">
                   <path d="M277 545Q277 431 385 431Q493 431 493 545H459Q453 470 385 470Q317 470 311 545Z"/>
                   <path d="M913 545Q913 431 1021 431Q1129 431 1129 545H1095Q1089 470 1021 470Q953 470 947 545Z"/>
                 </g>
 
-                {/* Bumpers */}
                 <g id="bumpers">
                   <path d="M1124 510H1220V550H1115Q1104 550 1104 537V525Q1104 510 1124 510Z" fill="url(#bumper)" stroke="#0C1826" strokeWidth="5"/>
                   <path d="M1131 527H1204" stroke="#6C7C8D" strokeWidth="6" strokeLinecap="round" opacity=".65"/>
                   <path d="M193 510H286V548H187Q176 548 176 536V524Q176 510 193 510Z" fill="url(#bumper)" stroke="#0C1826" strokeWidth="5"/>
                 </g>
 
-                {/* UI Highlights */}
                 <g id="ui-highlights" fill="none" strokeLinecap="round">
                   <path d="M277 147H836" stroke="#D7FFE7" strokeWidth="3" opacity=".22"/>
                   <path d="M861 147H996" stroke="#D7FFE7" strokeWidth="3" opacity=".18"/>
                 </g>
               </g>
 
-              {/* ========================================================= */}
-              {/* 4. VISIBLY SPINNING ALLOY WHEELS                          */}
-              {/* Note: Outside the bounce group to stay glued to the road  */}
-              {/* ========================================================= */}
-              
-              {/* Rear Wheel (Pivot strictly fixed at cx=385, cy=541) */}
               <g id="rear-wheel" className="wheel-rear" style={{ transformOrigin: '385px 541px' }}>
                 <circle cx="385" cy="541" r="95" fill="#0D1520" stroke="#293A4E" strokeWidth="13"/>
                 <circle cx="385" cy="541" r="72" fill="url(#tire)" stroke="#3A4B5E" strokeWidth="7"/>
@@ -367,7 +335,6 @@ export const AppLoader = React.memo(function AppLoader({
                 <circle cx="385" cy="541" r="7" fill="#075B3A"/>
               </g>
 
-              {/* Front Wheel (Pivot strictly fixed at cx=1021, cy=541) */}
               <g id="front-wheel" className="wheel-front" style={{ transformOrigin: '1021px 541px' }}>
                 <circle cx="1021" cy="541" r="95" fill="#0D1520" stroke="#293A4E" strokeWidth="13"/>
                 <circle cx="1021" cy="541" r="72" fill="url(#tire)" stroke="#3A4B5E" strokeWidth="7"/>
@@ -475,7 +442,6 @@ export const AppLoader = React.memo(function AppLoader({
         }
 
         /* Produce stack slight independent bounce */
-        /* Safely translates up and down without breaking base coordinates */
         @keyframes produceJiggle {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-4px) rotate(-1.5deg); }

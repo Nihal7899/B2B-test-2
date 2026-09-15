@@ -233,9 +233,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'refunds' | 'invoices' | 'inventory' | 'low_stock'>('dashboard');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
 
+  // NEW: State to track if we are viewing the category list or the drilled-down products grid
+  const [inventoryViewMode, setInventoryViewMode] = useState<'categories' | 'products'>('categories');
+
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-  }, [activeTab]);
+  }, [activeTab, inventoryViewMode]);
 
   const [toastNotification, setToastNotification] = useState<ToastNotification | null>(null);
   const showToast = (message: string, type: ToastNotification['type'] = 'info') => {
@@ -1001,7 +1004,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     onClick={() => {
                       setActiveTab(tab.id as any);
                       setSearchQuery('');
-                      if (tab.id === 'inventory' || tab.id === 'low_stock') {
+                      if (tab.id === 'inventory') {
+                        setInventoryViewMode('categories');
+                        setActiveCategoryId('all');
+                      }
+                      if (tab.id === 'low_stock') {
+                        setInventoryViewMode('products');
                         setActiveCategoryId('all');
                       }
                     }}
@@ -1941,45 +1949,83 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           )}
 
           {(activeTab === 'inventory' || activeTab === 'low_stock') && (
-            <div className={`flex flex-col md:flex-row gap-4 ${activeTab === 'inventory' ? 'h-[calc(100vh-180px)]' : ''}`}>
+            <div className="flex flex-col gap-4">
               
-              {/* SIDEBAR: Category List */}
-              {activeTab === 'inventory' && (
-                <aside className="w-full md:w-24 shrink-0 flex md:flex-col overflow-x-auto md:overflow-y-auto border-b md:border-b-0 md:border-r border-slate-200/80 bg-transparent py-2 md:py-0 scrollbar-none md:pr-2">
+              {activeTab === 'inventory' && inventoryViewMode === 'categories' ? (
+                // =========================================
+                // CATEGORY LIST VIEW
+                // =========================================
+                <div className="mx-auto w-full max-w-2xl space-y-2.5 pb-10">
                   <button
-                    onClick={() => setActiveCategoryId('all')}
-                    className={`relative flex md:w-full flex-col items-center gap-1.5 px-3 md:px-1 py-2.5 transition shrink-0 rounded-xl md:mb-2 ${activeCategoryId === 'all' ? 'bg-white shadow-sm' : 'hover:bg-white/60'}`}
+                    onClick={() => {
+                      setActiveCategoryId('all');
+                      setInventoryViewMode('products');
+                    }}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-emerald-200 hover:shadow active:scale-[0.99]"
                   >
-                    <div className={`relative flex h-12 w-12 items-center justify-center rounded-2xl border-2 transition ${activeCategoryId === 'all' ? 'border-[#0a382c] shadow-sm bg-[#0a382c]/5' : 'border-slate-100 bg-white'}`}>
-                      <Layers size={20} className={activeCategoryId === 'all' ? 'text-[#0a382c]' : 'text-slate-400'} />
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl p-0.5 bg-slate-100 flex items-center justify-center">
+                      <Layers size={24} className="text-slate-500" />
                     </div>
-                    <span className={`text-center text-[10px] leading-tight ${activeCategoryId === 'all' ? 'font-black text-[#0a382c]' : 'font-semibold text-slate-500'}`}>
-                      All Items
-                    </span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-slate-800">All Products</p>
+                      <p className="text-xs text-slate-400">View entire inventory catalog</p>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-300" />
                   </button>
 
-                  {categories.map((cat) => (
+                  {categories.map((c) => (
                     <button
-                      key={cat.id}
-                      onClick={() => setActiveCategoryId(cat.id)}
-                      className={`relative flex md:w-full flex-col items-center gap-1.5 px-3 md:px-1 py-2.5 transition shrink-0 rounded-xl md:mb-2 ${activeCategoryId === cat.id ? 'bg-white shadow-sm' : 'hover:bg-white/60'}`}
+                      key={c.id}
+                      onClick={() => {
+                        setActiveCategoryId(c.id);
+                        setInventoryViewMode('products');
+                      }}
+                      className="flex w-full items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-emerald-200 hover:shadow active:scale-[0.99]"
                     >
-                      <div className={`relative h-12 w-12 overflow-hidden rounded-2xl border-2 transition ${activeCategoryId === cat.id ? 'border-[#0a382c] shadow-sm' : 'border-slate-100 bg-white'}`}>
-                        <CachedImage src={cat.image} alt={cat.name} className="h-full w-full object-cover p-1" />
+                      <div
+                        className="h-14 w-14 shrink-0 overflow-hidden rounded-xl p-0.5"
+                        style={{ background: c.gradient || '#10b981' }}
+                      >
+                        <CachedImage
+                          src={c.image}
+                          alt={c.name}
+                          className="h-full w-full rounded-xl object-cover"
+                        />
                       </div>
-                      <span className={`line-clamp-2 text-center text-[10px] leading-tight ${activeCategoryId === cat.id ? 'font-black text-[#0a382c]' : 'font-semibold text-slate-500'}`}>
-                        {cat.name}
-                      </span>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-slate-800">{c.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {products.filter((p) => p.category_id === c.id).length} items
+                        </p>
+                      </div>
+                      <ChevronRight size={16} className="text-slate-300" />
                     </button>
                   ))}
-                </aside>
-              )}
+                </div>
+              ) : (
+                // =========================================
+                // PRODUCTS GRID VIEW (Inventory & Low Stock)
+                // =========================================
+                <div className="flex flex-col gap-4 pb-10">
+                  
+                  {activeTab === 'inventory' && (
+                    <div className="flex items-center gap-3 mb-1">
+                      <button
+                        onClick={() => {
+                          setInventoryViewMode('categories');
+                          setSearchQuery('');
+                        }}
+                        className="h-9 w-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition shadow-sm active:scale-95"
+                      >
+                        <ArrowLeft size={18} />
+                      </button>
+                      <h2 className="text-lg font-black text-slate-900">
+                        {activeCategoryId === 'all' ? 'All Products' : categories.find(c => c.id === activeCategoryId)?.name}
+                      </h2>
+                    </div>
+                  )}
 
-              {/* MAIN CONTENT: Search & Products */}
-              <div className="flex-1 overflow-y-auto pb-24 pr-1 scrollbar-none flex flex-col gap-4">
-                
-                {/* Localized Search Bar */}
-                {activeTab === 'inventory' && (
+                  {/* Localized Search Bar */}
                   <div className="relative w-full group shrink-0">
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-teal-400/15 to-[#59D9B6]/20 rounded-2xl blur-xs -z-10 group-focus-within:opacity-100 opacity-60 transition-opacity" />
                     <div className="relative flex items-center bg-white/95 backdrop-blur-sm border border-emerald-900/15 rounded-2xl shadow-sm focus-within:border-[#0a382c] focus-within:ring-2 focus-within:ring-[#59D9B6]/40 transition-all">
@@ -1988,7 +2034,11 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                       </div>
                       <input
                         type="text"
-                        placeholder={`Search ${activeCategoryId === 'all' ? 'all inventory' : categories.find(c => c.id === activeCategoryId)?.name}...`}
+                        placeholder={
+                          activeTab === 'inventory'
+                            ? `Search ${activeCategoryId === 'all' ? 'all inventory' : categories.find(c => c.id === activeCategoryId)?.name}...`
+                            : 'Search low stock items...'
+                        }
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full h-11 py-2 pr-2 bg-transparent text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-medium outline-none"
@@ -2003,154 +2053,154 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                       )}
                     </div>
                   </div>
-                )}
 
-                {/* Product Grid */}
-                {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
-                  <div className="bg-white border border-slate-200/80 rounded-[26px] p-12 text-center text-slate-400 space-y-2 mt-4">
-                    <Boxes size={40} className="mx-auto text-slate-300" />
-                    <p className="font-bold text-sm text-slate-700">No items found</p>
-                    <p className="text-xs">
-                      {activeTab === 'low_stock'
-                        ? 'All products are comfortably above their minimum threshold.'
-                        : 'No inventory products match your search or category filter.'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5 items-start">
-                    {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).map((prod) => {
-                      const currentStock = prod.stock_quantity ?? 0;
-                      const threshold = prod.stock_threshold || 10;
-                      const isModified = stockEdits[prod.id] !== undefined;
-                      const displayStock = isModified ? stockEdits[prod.id] : currentStock;
-                      const isSaving = savingStockId === prod.id;
-                      const isLow = currentStock <= threshold && currentStock > 0;
-                      const isOut = currentStock <= 0;
+                  {/* Product Grid */}
+                  {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
+                    <div className="bg-white border border-slate-200/80 rounded-[26px] p-12 text-center text-slate-400 space-y-2 mt-2">
+                      <Boxes size={40} className="mx-auto text-slate-300" />
+                      <p className="font-bold text-sm text-slate-700">No items found</p>
+                      <p className="text-xs">
+                        {activeTab === 'low_stock'
+                          ? 'All products are comfortably above their minimum threshold.'
+                          : 'No inventory products match your search or category filter.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 items-start">
+                      {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).map((prod) => {
+                        const currentStock = prod.stock_quantity ?? 0;
+                        const threshold = prod.stock_threshold || 10;
+                        const isModified = stockEdits[prod.id] !== undefined;
+                        const displayStock = isModified ? stockEdits[prod.id] : currentStock;
+                        const isSaving = savingStockId === prod.id;
+                        const isLow = currentStock <= threshold && currentStock > 0;
+                        const isOut = currentStock <= 0;
 
-                      const primaryImage = prod.image_url || (prod.image_urls && prod.image_urls.length > 0 ? prod.image_urls[0] : '');
+                        const primaryImage = prod.image_url || (prod.image_urls && prod.image_urls.length > 0 ? prod.image_urls[0] : '');
 
-                      return (
-                        <div
-                          key={prod.id}
-                          className={`bg-white border rounded-[24px] p-4 shadow-sm space-y-3 flex flex-col justify-between transition-all ${
-                            isOut
-                              ? 'border-red-300 ring-2 ring-red-100'
-                              : isLow
-                              ? 'border-amber-300 ring-2 ring-amber-100'
-                              : 'border-slate-200/80 hover:border-emerald-200'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="h-14 w-14 rounded-2xl bg-slate-100 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center">
-                              {primaryImage ? (
-                                <CachedImage
-                                  src={primaryImage}
-                                  alt={prod.name}
-                                  className="h-full w-full object-cover"
+                        return (
+                          <div
+                            key={prod.id}
+                            className={`bg-white border rounded-[24px] p-4 shadow-sm space-y-3 flex flex-col justify-between transition-all ${
+                              isOut
+                                ? 'border-red-300 ring-2 ring-red-100'
+                                : isLow
+                                ? 'border-amber-300 ring-2 ring-amber-100'
+                                : 'border-slate-200/80 hover:border-emerald-200'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="h-14 w-14 rounded-2xl bg-slate-100 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center">
+                                {primaryImage ? (
+                                  <CachedImage
+                                    src={primaryImage}
+                                    alt={prod.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <Package size={22} className="text-slate-400" />
+                                )}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-1">
+                                  <span className="text-xs font-black text-slate-900 truncate block">
+                                    {prod.brand} {prod.name}
+                                  </span>
+                                  <span
+                                    className={`text-[8.5px] font-black uppercase rounded-full px-2 py-0.5 shrink-0 ${
+                                      isOut
+                                        ? 'bg-red-100 text-red-800'
+                                        : isLow
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-emerald-100 text-emerald-800'
+                                    }`}
+                                  >
+                                    {isOut ? 'Out' : isLow ? 'Low' : 'In Stock'}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
+                                  Pack: {prod.pack_size} · Wholesale: ₹{Number(prod.wholesale_price).toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-slate-400 font-bold mr-1">Qty:</span>
+                                <button
+                                  onClick={() => handleStockDelta(prod.id, currentStock, -1)}
+                                  className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
+                                >
+                                  <Minus size={13} />
+                                </button>
+
+                                <input
+                                  type="number"
+                                  value={displayStock}
+                                  onChange={(e) => handleStockInputChange(prod.id, e.target.value)}
+                                  className={`w-16 h-8 text-center text-xs font-black rounded-xl border outline-none ${
+                                    isModified
+                                      ? 'border-[#0a382c] bg-emerald-50/50 text-emerald-900 ring-1 ring-emerald-300'
+                                      : 'border-slate-200 bg-white text-slate-900'
+                                  }`}
                                 />
-                              ) : (
-                                <Package size={22} className="text-slate-400" />
+
+                                <button
+                                  onClick={() => handleStockDelta(prod.id, currentStock, 1)}
+                                  className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
+                                >
+                                  <Plus size={13} />
+                                </button>
+
+                                <div className="flex items-center gap-1 ml-1">
+                                  {[5, 10, 25].map((amt) => (
+                                    <button
+                                      key={amt}
+                                      onClick={() => handleStockDelta(prod.id, currentStock, amt)}
+                                      className="h-8 px-2 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-black text-[10px] border border-slate-200 active:scale-95 transition"
+                                    >
+                                      +{amt}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {isModified && (
+                                <div className="flex items-center gap-1.5 ml-auto">
+                                  <button
+                                    onClick={() => handleCancelStockEdit(prod.id)}
+                                    className="h-8 px-3 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-black text-xs flex items-center gap-1 active:scale-95 transition"
+                                  >
+                                    <RotateCcw size={12} />
+                                    Cancel
+                                  </button>
+                                  <button
+                                    disabled={isSaving}
+                                    onClick={() => {
+                                      setStockConfirmDialog({
+                                        isOpen: true,
+                                        productId: prod.id,
+                                        productName: `${prod.brand} ${prod.name}`,
+                                        oldStock: currentStock,
+                                        newStock: displayStock,
+                                      });
+                                    }}
+                                    className="h-8 px-3 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white font-black text-xs flex items-center gap-1 shadow-xs active:scale-95 transition disabled:opacity-50"
+                                  >
+                                    {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                                    Update
+                                  </button>
+                                </div>
                               )}
                             </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-1">
-                                <span className="text-xs font-black text-slate-900 truncate block">
-                                  {prod.brand} {prod.name}
-                                </span>
-                                <span
-                                  className={`text-[8.5px] font-black uppercase rounded-full px-2 py-0.5 shrink-0 ${
-                                    isOut
-                                      ? 'bg-red-100 text-red-800'
-                                      : isLow
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : 'bg-emerald-100 text-emerald-800'
-                                  }`}
-                                >
-                                  {isOut ? 'Out' : isLow ? 'Low' : 'In Stock'}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                                Pack: {prod.pack_size} · Wholesale: ₹{Number(prod.wholesale_price).toFixed(2)}
-                              </p>
-                            </div>
                           </div>
-
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs text-slate-400 font-bold mr-1">Qty:</span>
-                              <button
-                                onClick={() => handleStockDelta(prod.id, currentStock, -1)}
-                                className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
-                              >
-                                <Minus size={13} />
-                              </button>
-
-                              <input
-                                type="number"
-                                value={displayStock}
-                                onChange={(e) => handleStockInputChange(prod.id, e.target.value)}
-                                className={`w-16 h-8 text-center text-xs font-black rounded-xl border outline-none ${
-                                  isModified
-                                    ? 'border-[#0a382c] bg-emerald-50/50 text-emerald-900 ring-1 ring-emerald-300'
-                                    : 'border-slate-200 bg-white text-slate-900'
-                                }`}
-                              />
-
-                              <button
-                                onClick={() => handleStockDelta(prod.id, currentStock, 1)}
-                                className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
-                              >
-                                <Plus size={13} />
-                              </button>
-
-                              <div className="flex items-center gap-1 ml-1">
-                                {[5, 10, 25].map((amt) => (
-                                  <button
-                                    key={amt}
-                                    onClick={() => handleStockDelta(prod.id, currentStock, amt)}
-                                    className="h-8 px-2 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-black text-[10px] border border-slate-200 active:scale-95 transition"
-                                  >
-                                    +{amt}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            {isModified && (
-                              <div className="flex items-center gap-1.5 ml-auto">
-                                <button
-                                  onClick={() => handleCancelStockEdit(prod.id)}
-                                  className="h-8 px-3 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-black text-xs flex items-center gap-1 active:scale-95 transition"
-                                >
-                                  <RotateCcw size={12} />
-                                  Cancel
-                                </button>
-                                <button
-                                  disabled={isSaving}
-                                  onClick={() => {
-                                    setStockConfirmDialog({
-                                      isOpen: true,
-                                      productId: prod.id,
-                                      productName: `${prod.brand} ${prod.name}`,
-                                      oldStock: currentStock,
-                                      newStock: displayStock,
-                                    });
-                                  }}
-                                  className="h-8 px-3 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white font-black text-xs flex items-center gap-1 shadow-xs active:scale-95 transition disabled:opacity-50"
-                                >
-                                  {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                                  Update
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </main>
@@ -2230,6 +2280,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             onClick={() => {
               setActiveTab('inventory');
               setSearchQuery('');
+              setInventoryViewMode('categories');
               setActiveCategoryId('all');
             }}
             className={`flex flex-col items-center justify-center flex-1 min-w-[70px] h-full gap-1 relative transition-colors ${
@@ -2245,6 +2296,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             onClick={() => {
               setActiveTab('low_stock');
               setSearchQuery('');
+              setInventoryViewMode('products');
               setActiveCategoryId('all');
             }}
             className={`flex flex-col items-center justify-center flex-1 min-w-[70px] h-full gap-1 relative transition-colors ${

@@ -154,17 +154,18 @@ export const AppLoader = React.memo(function AppLoader({
               aria-label="Modern dark green delivery truck with groceries overflowing"
             >
               <defs>
-                {/* NEW LIGHT GREEN CARGO CONTAINER GRADIENT */}
+                {/* NEW USER REQUESTED COLOR: #39BA53 FOR BACK CHASSIS */}
                 <linearGradient id="greenBody" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stopColor="#6CE6A6"/>
-                  <stop offset=".42" stopColor="#48D18A"/>
-                  <stop offset="1" stopColor="#1AAF69"/>
+                  <stop offset="0" stopColor="#55D16D"/>
+                  <stop offset=".42" stopColor="#39BA53"/>
+                  <stop offset="1" stopColor="#258E3C"/>
                 </linearGradient>
                 
+                {/* NEW USER REQUESTED COLOR: #04572F FOR DRIVER CABIN */}
                 <linearGradient id="greenCab" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stopColor="#1E8B54"/>
-                  <stop offset=".55" stopColor="#0B5F36"/>
-                  <stop offset="1" stopColor="#04381F"/>
+                  <stop offset="0" stopColor="#097C44"/>
+                  <stop offset=".55" stopColor="#04572F"/>
+                  <stop offset="1" stopColor="#023D20"/>
                 </linearGradient>
 
                 <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#EAFBFF"/><stop offset=".27" stopColor="#A8DBE9"/><stop offset=".72" stopColor="#4A89AC"/><stop offset="1" stopColor="#214C69"/></linearGradient>
@@ -195,7 +196,7 @@ export const AppLoader = React.memo(function AppLoader({
               </g>
 
               <g className="animate-truck-body">
-                <g transform="translate(-325, -960) scale(2.66)">
+                <g transform="translate(-360, -920) scale(2.66)">
                   <g className="animate-produce-jiggle">
                     <circle cx="280" cy="350" r="35" fill="url(#lettuceGrad1)" />
                     <circle cx="315" cy="330" r="40" fill="url(#lettuceGrad2)" />
@@ -447,6 +448,7 @@ export const AppLoader = React.memo(function AppLoader({
         }
 
         /* Produce stack slight independent bounce */
+        /* Safely translates up and down without breaking base coordinates */
         @keyframes produceJiggle {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-4px) rotate(-1.5deg); }

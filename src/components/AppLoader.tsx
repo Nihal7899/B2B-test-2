@@ -106,7 +106,7 @@ export const AppLoader = React.memo(function AppLoader({
                 <line x1="76" y1="165" x2="106" y2="165" stroke="#b1d3bc" strokeWidth="2" />
                 <line x1="76" y1="180" x2="106" y2="180" stroke="#b1d3bc" strokeWidth="2" />
                 
-                {/* Warehouse Signage (Replaced Text with SVG Logo) */}
+                {/* Warehouse Signage (SVG Logo) */}
                 <rect x="25" y="94" width="80" height="20" rx="2" fill="#ffffff" />
                 <g transform="translate(56, 96.5) scale(0.012)" className="text-green-600">
                   {CAFKART_LOGO_PATHS}
@@ -276,9 +276,9 @@ export const AppLoader = React.memo(function AppLoader({
 
             <g className="animate-truck-body">
               {/* ------------------------------------------------------------- */}
-              {/* 1. FRESH PRODUCE OVERFLOW (Placed before chassis to render behind) */}
+              {/* 1. FRESH PRODUCE OVERFLOW (Shifted slightly up to peek over the box roof) */}
               {/* ------------------------------------------------------------- */}
-              <g className="animate-produce-jiggle">
+              <g className="animate-produce-jiggle" transform="translate(-10, -15)">
                 {/* Baguette */}
                 <g transform="translate(138, 90) rotate(18)">
                   <rect x="0" y="0" width="12" height="34" rx="6" fill="#d97706" />
@@ -348,71 +348,23 @@ export const AppLoader = React.memo(function AppLoader({
               </g>
 
               {/* ------------------------------------------------------------- */}
-              {/* 2. INLINE TRUCK BODY (Replaces Image, wraps perfectly around wheels) */}
+              {/* 2. EXTERNAL TRUCK SVG WITH TIRES (Sits perfectly on the shadow) */}
               {/* ------------------------------------------------------------- */}
-              
-              {/* Underbody / Chassis integrating wheel arches */}
-              <path d="M 66 168 H 282 V 182 H 271 A 22 22 0 0 0 227 182 H 143 A 22 22 0 0 0 99 182 H 66 Z" fill="#1e293b" />
-              <rect x="62" y="160" width="8" height="12" rx="2" fill="#0f172a" />
-
-              {/* Main Cargo Box */}
-              <path d="M 68 100 H 193 A 5 5 0 0 1 198 105 V 168 H 68 Z" fill="#22c55e" />
-              <path d="M 68 150 Q 133 170 198 110 V 168 H 68 Z" fill="#16a34a" opacity="0.4" />
-              <rect x="90" y="115" width="45" height="4" rx="2" fill="#4ade80" opacity="0.6" />
-
-              {/* Cabin */}
-              <path d="M 197 100 H 230 Q 248 100 256 118 L 274 145 Q 280 152 282 158 V 168 H 197 Z" fill="#22c55e" />
-              
-              {/* Window & Glare */}
-              <path d="M 205 110 H 232 Q 240 110 245 118 L 260 142 Q 262 145 258 145 H 205 Z" fill="#0f172a" />
-              <path d="M 208 113 H 229 Q 235 113 239 120 L 252 142 H 208 Z" fill="#38bdf8" />
-              <polygon points="208,113 218,113 228,142 208,142" fill="#bae6fd" opacity="0.4" />
-
-              {/* Cabin Doors & Detailing */}
-              <path d="M 197 100 V 168" stroke="#15803d" strokeWidth="2" />
-              <path d="M 205 168 V 148 H 262" stroke="#15803d" strokeWidth="1.5" fill="none" />
-              <rect x="206" y="150" width="12" height="3" rx="1.5" fill="#15803d" />
-              <path d="M 265 145 V 168" stroke="#15803d" strokeWidth="1.5" fill="none" opacity="0.5" />
-
-              {/* Headlight */}
-              <rect x="268" y="148" width="15" height="12" rx="4" fill="#fef08a" />
-              <path d="M 276 148 H 279 A 4 4 0 0 1 283 152 V 156 A 4 4 0 0 1 279 160 H 276 Z" fill="#fde047" />
-
-              {/* Front Bumper & Turn Signal */}
-              <path d="M 272 162 H 284 V 168 H 272 Z" fill="#0f172a" />
-              <rect x="278" y="164" width="5" height="3" rx="1" fill="#f59e0b" />
+              <image 
+                href="realistic_grocery_delivery_truck-2.svg" 
+                x="30" 
+                y="75" 
+                width="270" 
+                height="135" 
+                preserveAspectRatio="xMidYMid meet" 
+              />
 
               {/* ------------------------------------------------------------- */}
               {/* 3. CAFKART LOGO (Rendered cleanly using the extracted const)  */}
               {/* ------------------------------------------------------------- */}
-              <g transform="translate(115, 120) scale(0.024)" className="text-white">
+              <g transform="translate(85, 125) scale(0.022)" className="text-white">
                 {CAFKART_LOGO_PATHS}
               </g>
-            </g>
-
-            {/* ========================================================= */}
-            {/* 4. VISIBLY SPINNING ALLOY WHEELS                          */}
-            {/* ========================================================= */}
-            {/* Rear Wheel (Pivot exactly mapped to cx=121, cy=182) */}
-            <g className="wheel-rear" style={{ transformOrigin: '121px 182px' }}>
-              <circle cx="121" cy="182" r="17" fill="#1e293b" />
-              <circle cx="121" cy="182" r="10.5" fill="#e2e8f0" />
-              <line x1="121" y1="172" x2="121" y2="192" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="111" y1="182" x2="131" y2="182" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="114" y1="175" x2="128" y2="189" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <line x1="114" y1="189" x2="128" y2="175" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="121" cy="182" r="4.5" fill="#0f172a" />
-            </g>
-
-            {/* Front Wheel (Pivot exactly mapped to cx=249, cy=182) */}
-            <g className="wheel-front" style={{ transformOrigin: '249px 182px' }}>
-              <circle cx="249" cy="182" r="17" fill="#1e293b" />
-              <circle cx="249" cy="182" r="10.5" fill="#e2e8f0" />
-              <line x1="249" y1="172" x2="249" y2="192" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="239" y1="182" x2="259" y2="182" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="242" y1="175" x2="256" y2="189" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <line x1="242" y1="189" x2="256" y2="175" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="249" cy="182" r="4.5" fill="#0f172a" />
             </g>
           </svg>
         </div>
@@ -488,19 +440,7 @@ export const AppLoader = React.memo(function AppLoader({
           animation: cloudsDrift 10s linear infinite;
         }
 
-        /* 360-degree alloy wheel spin */
-        @keyframes spinWheelAnim {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .wheel-rear {
-          animation: spinWheelAnim 0.42s linear infinite;
-        }
-        .wheel-front {
-          animation: spinWheelAnim 0.42s linear infinite;
-        }
-
-        /* Truck body suspension bounce */
+        /* Truck body suspension bounce (whole SVG file bounces slightly to feel alive) */
         @keyframes truckBodyBounce {
           0%, 100% { transform: translateY(0); }
           30% { transform: translateY(-1.4px); }

@@ -50,103 +50,107 @@ export const AppLoader = React.memo(function AppLoader({
     >
       <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass}`}>
         
-        {/* Main Stage Viewport */}
-        <div className="relative w-full max-w-[800px] h-[400px] flex items-end justify-center overflow-hidden">
+        {/* Main Stage Viewport - Increased height to prevent ANY clipping */}
+        <div className="relative w-full max-w-[800px] h-[460px] sm:h-[500px] flex items-end justify-center overflow-hidden pb-4">
           
           {/* ========================================================= */}
           {/* 1. SEAMLESS MOVING CLOUDS                                 */}
           {/* ========================================================= */}
           <div className="absolute top-4 left-0 w-full h-32 overflow-hidden pointer-events-none z-0">
-            <div className="flex w-[1260px] animate-clouds-scroll opacity-60" style={{ transform: 'scale(1.2)' }}>
-              {[1, 2, 3].map((key) => (
-                <svg key={key} viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
-                  <path d="M40 28C40 22 45 18 51 18C53 18 55 18.8 56.5 20C58.5 15.5 63 13 68 13C75 13 81 18.5 81 25.5C83 25.5 85 27.5 85 29.5C85 32 83 34 80.5 34H44C41.8 34 40 31.5 40 28Z" fill="#e2efe6" />
-                  <path d="M190 22C190 16.5 194.5 12 200 12C201.8 12 203.5 12.6 205 13.8C207 9.8 211 7.5 215.5 7.5C222 7.5 227 12.5 227 19C229 19 231 21 231 23C231 25.5 229 27.5 226.5 27.5H194C191.8 27.5 190 25 190 22Z" fill="#d9ebdf" />
-                  <path d="M330 25C330 20 334 16 339 16C340.5 16 342 16.5 343.5 17.5C345 14 349 12 353 12C359 12 364 16.5 364 22.5C365.5 22.5 367 24 367 26C367 28.5 365 30.5 363 30.5H334C331.8 30.5 330 28.2 330 25Z" fill="#e2efe6" />
-                </svg>
-              ))}
+            {/* Wrapper added to protect scale from being overwritten by translate animation */}
+            <div style={{ transform: 'scale(1.2)', transformOrigin: 'top left', width: '100%' }}>
+              <div className="flex w-[1260px] animate-clouds-scroll opacity-60">
+                {[1, 2, 3].map((key) => (
+                  <svg key={key} viewBox="0 0 420 50" className="w-[420px] h-[50px] shrink-0" fill="none">
+                    <path d="M40 28C40 22 45 18 51 18C53 18 55 18.8 56.5 20C58.5 15.5 63 13 68 13C75 13 81 18.5 81 25.5C83 25.5 85 27.5 85 29.5C85 32 83 34 80.5 34H44C41.8 34 40 31.5 40 28Z" fill="#e2efe6" />
+                    <path d="M190 22C190 16.5 194.5 12 200 12C201.8 12 203.5 12.6 205 13.8C207 9.8 211 7.5 215.5 7.5C222 7.5 227 12.5 227 19C229 19 231 21 231 23C231 25.5 229 27.5 226.5 27.5H194C191.8 27.5 190 25 190 22Z" fill="#d9ebdf" />
+                    <path d="M330 25C330 20 334 16 339 16C340.5 16 342 16.5 343.5 17.5C345 14 349 12 353 12C359 12 364 16.5 364 22.5C365.5 22.5 367 24 367 26C367 28.5 365 30.5 363 30.5H334C331.8 30.5 330 28.2 330 25Z" fill="#e2efe6" />
+                  </svg>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* ========================================================= */}
-          {/* 2. TALLER, WIDER ARCHITECTURAL CITY BUILDINGS (Moved UP)  */}
+          {/* 2. TALLER, WIDER ARCHITECTURAL CITY BUILDINGS (FIXED)     */}
           {/* ========================================================= */}
-          <div className="absolute bottom-[90px] left-0 w-full h-[250px] overflow-hidden pointer-events-none z-0 flex items-end">
-            <div 
-              className="flex w-[1260px] animate-skyline-scroll opacity-85" 
-              style={{ transform: 'scale(2.2)', transformOrigin: 'bottom left' }}
-            >
-              {[1, 2, 3].map((key) => (
-                <svg key={key} viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
-                  <rect x="0" y="52" width="60" height="138" rx="3" fill="#d9ebdf" />
-                  <rect x="6" y="58" width="48" height="6" rx="1" fill="#c3decc" />
-                  <line x1="12" y1="74" x2="48" y2="74" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                  <line x1="12" y1="82" x2="48" y2="82" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                  <line x1="12" y1="90" x2="48" y2="90" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                  <line x1="12" y1="98" x2="48" y2="98" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
-                  <rect x="15" y="116" width="30" height="40" rx="1.5" fill="#cbe3d3" />
-                  <line x1="15" y1="126" x2="45" y2="126" stroke="#d9ebdf" strokeWidth="1.5" />
-                  <line x1="15" y1="136" x2="45" y2="136" stroke="#d9ebdf" strokeWidth="1.5" />
-                  <rect x="68" y="22" width="56" height="168" rx="2" fill="#e2efe6" />
-                  <rect x="74" y="26" width="44" height="4" fill="#cbe3d3" />
-                  <line x1="78" y1="10" x2="78" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
-                  <line x1="114" y1="10" x2="114" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
-                  <rect x="76" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                  <rect x="91" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                  <rect x="106" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
-                  <rect x="76" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                  <rect x="91" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
-                  <rect x="106" y="60" width="10" height="15" fill="#f0f7f2" />
-                  <rect x="76" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                  <rect x="91" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                  <rect x="106" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
-                  <rect x="132" y="68" width="66" height="122" rx="3" fill="#d9ebdf" />
-                  <path d="M129 78H201L197 90H133L129 78Z" fill="#c3decc" />
-                  <path d="M134 90C134 92.5 136.5 94 139 94C141.5 94 144 92.5 144 90H134Z" fill="#b1d3bc" />
-                  <path d="M144 90C144 92.5 146.5 94 149 94C151.5 94 154 92.5 154 90H144Z" fill="#b1d3bc" />
-                  <path d="M154 90C154 92.5 156.5 94 159 94C161.5 94 164 92.5 164 90H154Z" fill="#b1d3bc" />
-                  <path d="M164 90C164 92.5 166.5 94 169 94C171.5 94 174 92.5 174 90H164Z" fill="#b1d3bc" />
-                  <path d="M174 90C174 92.5 176.5 94 179 94C181.5 94 184 92.5 184 90H174Z" fill="#b1d3bc" />
-                  <path d="M184 90C184 92.5 186.5 94 189 94C191.5 94 194 92.5 194 90H184Z" fill="#b1d3bc" />
-                  <path d="M143 118V106C143 103 145 101 148 101C151 101 153 103 153 106V118H143Z" fill="#f0f7f2" />
-                  <path d="M160 118V106C160 103 162 101 165 101C168 101 170 103 170 106V118H160Z" fill="#f0f7f2" />
-                  <path d="M177 118V106C177 103 179 101 182 101C185 101 187 103 187 106V118H177Z" fill="#f0f7f2" />
-                  <rect x="206" y="50" width="68" height="140" fill="#cbe3d3" />
-                  <rect x="216" y="24" width="48" height="26" fill="#d9ebdf" />
-                  <rect x="228" y="8" width="24" height="16" fill="#e2efe6" />
-                  <line x1="240" y1="-4" x2="240" y2="8" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
-                  <circle cx="224" cy="62" r="2.2" fill="#f0f7f2" />
-                  <circle cx="240" cy="62" r="2.2" fill="#f0f7f2" />
-                  <circle cx="256" cy="62" r="2.2" fill="#f0f7f2" />
-                  <circle cx="224" cy="78" r="2.2" fill="#f0f7f2" />
-                  <circle cx="240" cy="78" r="2.2" fill="#f0f7f2" />
-                  <circle cx="256" cy="78" r="2.2" fill="#f0f7f2" />
-                  <circle cx="224" cy="94" r="2.2" fill="#f0f7f2" />
-                  <circle cx="240" cy="94" r="2.2" fill="#f0f7f2" />
-                  <circle cx="256" cy="94" r="2.2" fill="#f0f7f2" />
-                  <rect x="282" y="55" width="28" height="135" fill="#e2efe6" />
-                  <ellipse cx="296" cy="55" rx="14" ry="7" fill="#d9ebdf" />
-                  <rect x="314" y="45" width="30" height="145" fill="#d9ebdf" />
-                  <ellipse cx="329" cy="45" rx="15" ry="8" fill="#cbe3d3" />
-                  <rect x="296" y="68" width="33" height="4" fill="#b1d3bc" />
-                  <rect x="352" y="40" width="60" height="150" rx="2" fill="#cbe3d3" />
-                  <rect x="360" y="45" width="44" height="4" fill="#b1d3bc" />
-                  <rect x="362" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
-                  <rect x="382" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
-                  <rect x="362" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
-                  <rect x="382" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
-                </svg>
-              ))}
+          <div className="absolute bottom-[60px] sm:bottom-[80px] left-0 w-full h-[380px] overflow-hidden pointer-events-none z-0 flex items-end">
+            {/* The scale is now on a parent div so the scroll animation doesn't kill it! */}
+            <div style={{ transform: 'scale(2.6)', transformOrigin: 'bottom left', width: '100%' }}>
+              <div className="flex w-[1260px] animate-skyline-scroll opacity-85">
+                {[1, 2, 3].map((key) => (
+                  <svg key={key} viewBox="0 0 420 190" className="w-[420px] h-[190px] shrink-0" fill="none">
+                    <rect x="0" y="52" width="60" height="138" rx="3" fill="#d9ebdf" />
+                    <rect x="6" y="58" width="48" height="6" rx="1" fill="#c3decc" />
+                    <line x1="12" y1="74" x2="48" y2="74" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                    <line x1="12" y1="82" x2="48" y2="82" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                    <line x1="12" y1="90" x2="48" y2="90" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                    <line x1="12" y1="98" x2="48" y2="98" stroke="#f0f7f2" strokeWidth="2.2" strokeLinecap="round" />
+                    <rect x="15" y="116" width="30" height="40" rx="1.5" fill="#cbe3d3" />
+                    <line x1="15" y1="126" x2="45" y2="126" stroke="#d9ebdf" strokeWidth="1.5" />
+                    <line x1="15" y1="136" x2="45" y2="136" stroke="#d9ebdf" strokeWidth="1.5" />
+                    <rect x="68" y="22" width="56" height="168" rx="2" fill="#e2efe6" />
+                    <rect x="74" y="26" width="44" height="4" fill="#cbe3d3" />
+                    <line x1="78" y1="10" x2="78" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="114" y1="10" x2="114" y2="22" stroke="#b1d3bc" strokeWidth="2" strokeLinecap="round" />
+                    <rect x="76" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                    <rect x="91" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                    <rect x="106" y="38" width="10" height="15" rx="1" fill="#f0f7f2" />
+                    <rect x="76" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                    <rect x="91" y="60" width="10" height="15" rx="1" fill="#f0f7f2" />
+                    <rect x="106" y="60" width="10" height="15" fill="#f0f7f2" />
+                    <rect x="76" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
+                    <rect x="91" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
+                    <rect x="106" y="82" width="10" height="15" rx="1" fill="#f0f7f2" />
+                    <rect x="132" y="68" width="66" height="122" rx="3" fill="#d9ebdf" />
+                    <path d="M129 78H201L197 90H133L129 78Z" fill="#c3decc" />
+                    <path d="M134 90C134 92.5 136.5 94 139 94C141.5 94 144 92.5 144 90H134Z" fill="#b1d3bc" />
+                    <path d="M144 90C144 92.5 146.5 94 149 94C151.5 94 154 92.5 154 90H144Z" fill="#b1d3bc" />
+                    <path d="M154 90C154 92.5 156.5 94 159 94C161.5 94 164 92.5 164 90H154Z" fill="#b1d3bc" />
+                    <path d="M164 90C164 92.5 166.5 94 169 94C171.5 94 174 92.5 174 90H164Z" fill="#b1d3bc" />
+                    <path d="M174 90C174 92.5 176.5 94 179 94C181.5 94 184 92.5 184 90H174Z" fill="#b1d3bc" />
+                    <path d="M184 90C184 92.5 186.5 94 189 94C191.5 94 194 92.5 194 90H184Z" fill="#b1d3bc" />
+                    <path d="M143 118V106C143 103 145 101 148 101C151 101 153 103 153 106V118H143Z" fill="#f0f7f2" />
+                    <path d="M160 118V106C160 103 162 101 165 101C168 101 170 103 170 106V118H160Z" fill="#f0f7f2" />
+                    <path d="M177 118V106C177 103 179 101 182 101C185 101 187 103 187 106V118H177Z" fill="#f0f7f2" />
+                    <rect x="206" y="50" width="68" height="140" fill="#cbe3d3" />
+                    <rect x="216" y="24" width="48" height="26" fill="#d9ebdf" />
+                    <rect x="228" y="8" width="24" height="16" fill="#e2efe6" />
+                    <line x1="240" y1="-4" x2="240" y2="8" stroke="#b1d3bc" strokeWidth="2.5" strokeLinecap="round" />
+                    <circle cx="224" cy="62" r="2.2" fill="#f0f7f2" />
+                    <circle cx="240" cy="62" r="2.2" fill="#f0f7f2" />
+                    <circle cx="256" cy="62" r="2.2" fill="#f0f7f2" />
+                    <circle cx="224" cy="78" r="2.2" fill="#f0f7f2" />
+                    <circle cx="240" cy="78" r="2.2" fill="#f0f7f2" />
+                    <circle cx="256" cy="78" r="2.2" fill="#f0f7f2" />
+                    <circle cx="224" cy="94" r="2.2" fill="#f0f7f2" />
+                    <circle cx="240" cy="94" r="2.2" fill="#f0f7f2" />
+                    <circle cx="256" cy="94" r="2.2" fill="#f0f7f2" />
+                    <rect x="282" y="55" width="28" height="135" fill="#e2efe6" />
+                    <ellipse cx="296" cy="55" rx="14" ry="7" fill="#d9ebdf" />
+                    <rect x="314" y="45" width="30" height="145" fill="#d9ebdf" />
+                    <ellipse cx="329" cy="45" rx="15" ry="8" fill="#cbe3d3" />
+                    <rect x="296" y="68" width="33" height="4" fill="#b1d3bc" />
+                    <rect x="352" y="40" width="60" height="150" rx="2" fill="#cbe3d3" />
+                    <rect x="360" y="45" width="44" height="4" fill="#b1d3bc" />
+                    <rect x="362" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
+                    <rect x="382" y="56" width="10" height="16" rx="1" fill="#f0f7f2" />
+                    <rect x="362" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
+                    <rect x="382" y="80" width="10" height="16" rx="1" fill="#f0f7f2" />
+                  </svg>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* ========================================================= */}
-          {/* 3. SHRUNKEN TRUCK & PROMINENT GROCERY LOAD (Moved DOWN)   */}
+          {/* 3. TRUCK & OVERFLOWING GROCERIES                          */}
           {/* ========================================================= */}
-          <div className="relative z-10 w-[380px] sm:w-[420px] pointer-events-none translate-y-8">
+          <div className="relative z-10 w-[380px] sm:w-[450px] pointer-events-none translate-y-6">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 1400 720"
+              /* Expanded viewBox gives 400px of padding on top and 300px on bottom so NOTHING gets cut off */
+              viewBox="-50 -350 1500 1100"
               className="w-full h-auto drop-shadow-xl"
               fill="none"
               role="img"
@@ -190,11 +194,10 @@ export const AppLoader = React.memo(function AppLoader({
                 
                 {/* 
                   GROCERIES - BURSTING OUT
-                  1. The parent `<g>` applies the absolute scale and translate coordinates. 
-                     This protects the layout from being overwritten by CSS.
-                  2. The child `<g>` handles the jiggle animation.
+                  1. The parent <g> handles the static positioning. Pushed HIGH (-950) and scaled (2.8).
+                  2. The child <g> safely runs the jiggle animation relative to this new position.
                 */}
-                <g transform="translate(-150, -600) scale(2.2)">
+                <g transform="translate(-350, -950) scale(2.8)">
                   <g className="animate-produce-jiggle">
                     {/* Lettuce */}
                     <circle cx="280" cy="350" r="35" fill="url(#lettuceGrad1)" />
@@ -254,7 +257,7 @@ export const AppLoader = React.memo(function AppLoader({
                   </g>
                 </g>
 
-                {/* Box Cargo Container */}
+                {/* Box Cargo Container (Covers the bottom half of groceries) */}
                 <g id="cargo-container">
                   <path d="M252 154Q252 132 274 132H850Q872 132 872 155V517Q872 538 850 538H272Q248 538 248 515V178Q248 154 252 154Z" fill="url(#greenBody)" stroke="#064F34" strokeWidth="8"/>
                   <path d="M269 159H850" stroke="#B7F4D2" strokeWidth="6" strokeLinecap="round" opacity=".58"/>
@@ -467,7 +470,7 @@ export const AppLoader = React.memo(function AppLoader({
         }
 
         /* Produce stack slight independent bounce */
-        /* It safely uses translateY relative to the isolated static transform */
+        /* Note: Safe relative translation via translateY to preserve base static coordinates */
         @keyframes produceJiggle {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-4px) rotate(-1.5deg); }

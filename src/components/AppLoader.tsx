@@ -32,9 +32,9 @@ const GROCERY_QUOTES = [
   "Taste the difference of farm-fresh produce..."
 ];
 
-// Reusable Cityscape Component - Locked to exactly 1200px for flawless math
+// Reusable Cityscape Component with fully integrated Sidewalk & Road
 const CityscapeBackground = () => (
-  <svg viewBox="0 0 1200 650" className="h-[650px] w-[1200px] shrink-0">
+  <svg viewBox="0 0 1200 650" className="h-full w-auto shrink-0">
     <defs>
       <g id="map-pin">
         <path d="M15,0 C6.7,0 0,6.7 0,15 C0,26.2 15,42 15,42 C15,42 30,26.2 30,15 C30,6.7 23.3,0 15,0 Z" fill="#65B874" />
@@ -312,17 +312,19 @@ export const AppLoader = React.memo(function AppLoader({
         fullScreen ? 'fixed inset-0 z-50 animate-fade-in' : 'w-full py-8'
       } ${className}`}
     >
+      {/* SHIFTED EVERYTHING 20PX UP using -translate-y-[20px] */}
       <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass} -translate-y-[20px]`}>
         
         {/* Main Stage Viewport */}
         <div className="relative w-full h-[550px] sm:h-[600px] flex items-center justify-center overflow-hidden">
           
           {/* ========================================================= */}
-          {/* 1. SEAMLESS CITY BACKGROUND (3 Copies for Zero-Gap Math)    */}
+          {/* 1. SEAMLESS CITY & ROAD BACKGROUND                          */}
+          {/* Added 2 extra SVGs to fix loop gap on ultra-wide screens  */}
           {/* ========================================================= */}
-          <div className="absolute inset-0 flex items-center justify-start overflow-hidden pointer-events-none z-0">
-            {/* The wrapper is 3600px wide. Animating to exactly -1200px guarantees a mathematically perfect loop on ultra-wide screens */}
-            <div className="flex h-full w-[3600px] animate-city-scroll opacity-90">
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none z-0">
+            <div className="flex h-full w-max animate-city-scroll opacity-90">
+              <CityscapeBackground />
               <CityscapeBackground />
               <CityscapeBackground />
               <CityscapeBackground />
@@ -330,12 +332,13 @@ export const AppLoader = React.memo(function AppLoader({
           </div>
 
           {/* ========================================================= */}
-          {/* 2. TRUCK & OVERFLOWING GROCERIES                            */}
+          {/* 2. TRUCK & OVERFLOWING GROCERIES                          */}
           {/* ========================================================= */}
           <div className="absolute z-20 w-[280px] sm:w-[340px] pointer-events-none bottom-[14%] sm:bottom-[15%]">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="-50 -350 1500 1100"
+              /* ADDED OVERFLOW-VISIBLE to prevent the truck box from clipping the leaves */
               className="w-full h-auto drop-shadow-xl overflow-visible"
               fill="none"
             >
@@ -383,13 +386,19 @@ export const AppLoader = React.memo(function AppLoader({
                   const startX = 400 + Math.random() * 400; 
                   const startY = 20 + Math.random() * 60;   
                   const duration = 1.8 + Math.random() * 1.5; 
+                  
+                  // NEGATIVE DELAY forces the animation to already be running on load
                   const delay = -(Math.random() * 5); 
+                  
                   const scale = 2.0 + Math.random() * 2.0; 
                   const colors = ["#75C282", "#98D2A4", "#48D18A"];
                   const color = colors[i % colors.length];
 
                   return (
-                    <g key={i} style={{ transform: `translate(${startX}px, ${startY}px) scale(${scale})` }}>
+                    <g 
+                      key={i}
+                      style={{ transform: `translate(${startX}px, ${startY}px) scale(${scale})` }}
+                    >
                       <g 
                         className="animate-leaf-fly"
                         style={{
@@ -466,11 +475,14 @@ export const AppLoader = React.memo(function AppLoader({
                 </g>
 
                 {/* ========================================================= */}
-                {/* ORIGINAL CAFKART LOGO RESTORED (With Dot and Dashes)      */}
+                {/* FIXED LOGO WITH MISSING DOT INSERTED HERE                 */}
                 {/* ========================================================= */}
-                <g transform="translate(440, 195) scale(0.18)">
-                  <path d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z" fill="#FFFFFF" fillRule="evenodd" />
-                  <path d="M 169 1186 L 169 1199 170 1200 170 1203 171 1204 171 1205 173 1208 173 1210 176 1213 176 1214 177 1215 178 1215 179 1216 179 1217 180 1218 181 1218 184 1221 185 1221 187 1223 188 1223 191 1225 194 1225 195 1226 206 1226 207 1227 372 1227 373 1226 392 1226 393 1225 395 1225 396 1224 398 1224 399 1223 400 1223 402 1221 403 1221 405 1219 406 1219 411 1214 411 1213 412 1212 412 1211 414 1209 414 1208 416 1205 416 1203 417 1202 417 1200 418 1199 418 1186 417 1185 417 1183 416 1182 416 1180 415 1179 415 1178 414 1177 414 1176 413 1175 413 1174 411 1172 411 1171 407 1167 407 1166 406 1166 405 1165 404 1165 402 1163 401 1163 398 1161 396 1161 393 1159 194 1159 191 1161 189 1161 188 1162 187 1162 186 1163 185 1163 183 1165 182 1165 176 1171 176 1172 173 1175 173 1177 172 1178 172 1179 170 1182 170 1185 Z M 987 1142 L 986 1143 981 1143 980 1144 977 1144 976 1145 974 1145 973 1146 970 1146 969 1147 968 1147 967 1148 966 1148 965 1149 964 1149 963 1150 962 1150 961 1151 960 1151 959 1152 958 1152 956 1154 955 1154 953 1156 952 1156 949 1159 948 1159 935 1172 935 1173 933 1175 933 1176 931 1178 931 1179 930 1180 930 1181 929 1182 929 1183 928 1184 928 1185 927 1186 927 1188 925 1190 925 1192 924 1193 924 1196 923 1197 923 1199 922 1200 922 1203 921 1204 921 1231 922 1232 922 1235 923 1236 923 1238 924 1239 924 1242 925 1243 925 1245 927 1247 927 1249 928 1250 928 1251 930 1253 930 1254 931 1255 931 1256 934 1259 934 1260 939 1265 939 1266 949 1276 950 1276 953 1279 954 1279 955 1280 956 1280 958 1282 959 1282 960 1283 962 1283 964 1285 966 1285 967 1286 969 1286 970 1287 971 1287 972 1288 973 1288 974 1289 979 1289 980 1290 983 1290 984 1291 990 1291 991 1292 1002 1292 1003 1291 1007 1291 1008 1290 1012 1290 1013 1289 1017 1289 1018 1288 1020 1288 1021 1287 1023 1287 1024 1286 1026 1286 1027 1285 1028 1285 1029 1284 1030 1284 1031 1283 1033 1283 1034 1282 1035 1282 1037 1280 1038 1280 1041 1277 1042 1277 1046 1273 1047 1273 1055 1265 1055 1264 1056 1263 1057 1263 1057 1262 1060 1259 1060 1258 1062 1256 1062 1255 1064 1253 1064 1252 1065 1251 1065 1250 1066 1249 1066 1248 1067 1247 1067 1246 1068 1245 1068 1243 1069 1242 1069 1240 1070 1239 1070 1237 1071 1236 1071 1232 1072 1231 1072 1204 1071 1203 1071 1199 1070 1198 1070 1196 1069 1195 1069 1193 1068 1192 1068 1190 1067 1189 1067 1188 1066 1187 1066 1185 1065 1184 1065 1183 1064 1182 1064 1181 1063 1180 1063 1179 1061 1177 1061 1176 1058 1174 1058 1173 1055 1170 1055 1169 1044 1158 1043 1158 1040 1155 1039 1155 1038 1154 1037 1154 1035 1152 1034 1152 1033 1151 1032 1151 1031 1150 1030 1150 1029 1149 1028 1149 1027 1148 1025 1148 1024 1147 1023 1147 1022 1146 1018 1146 1017 1145 1015 1145 1014 1144 1011 1144 1010 1143 1006 1143 1005 1142 Z M 48 1054 L 48 1068 49 1069 49 1072 50 1073 50 1074 52 1077 52 1079 54 1081 54 1082 55 1083 55 1084 61 1090 62 1090 63 1091 64 1091 66 1093 68 1093 69 1094 71 1094 72 1095 75 1095 76 1096 267 1096 268 1095 271 1095 272 1094 274 1094 275 1093 276 1093 277 1092 278 1092 280 1090 281 1090 286 1085 287 1085 287 1084 290 1081 290 1080 291 1079 291 1078 293 1076 293 1075 294 1074 294 1071 295 1070 295 1068 296 1067 296 1055 295 1054 295 1052 294 1051 294 1049 293 1048 293 1047 291 1045 291 1044 290 1043 290 1042 287 1039 287 1038 286 1038 282 1034 281 1034 279 1032 278 1032 275 1030 273 1030 270 1028 74 1028 73 1029 71 1029 68 1031 66 1031 65 1032 64 1032 61 1035 60 1035 54 1041 54 1042 52 1044 52 1045 51 1046 51 1048 50 1049 50 1050 49 1051 49 1053 Z M 1315 281 L 1292 287 1277 294 1248 318 856 713 846 730 843 745 849 768 855 776 1287 1207 1311 1220 1340 1227 1460 1227 1474 1224 1483 1219 1492 1210 1496 1202 1497 1185 1487 1165 1069 746 1072 739 1447 364 1453 355 1459 336 1459 324 1456 313 1450 303 1430 287 1402 280 Z" fill="#FFFFFF" fillRule="evenodd" />
+                <g id="truck-logo" transform="translate(147, 150)">
+                  <path d="M-6,-10 C-16,-10 -20,-5 -20,2 C-20,9 -16,14 -6,14" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" fill="none"/>
+                  <path d="M8,-10 L-4,2 L8,14" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                  <circle cx="10" cy="12" r="2.5" fill="#FFFFFF" />
+                  <line x1="-28" y1="6" x2="-24" y2="6" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" />
+                  <line x1="-32" y1="-2" x2="-26" y2="-2" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" />
                 </g>
 
                 <g id="chassis">
@@ -513,7 +525,12 @@ export const AppLoader = React.memo(function AppLoader({
                   <path d="M1131 527H1204" stroke="#6C7C8D" strokeWidth="6" strokeLinecap="round" opacity=".65"/>
                   <path d="M193 510H286V548H187Q176 548 176 536V524Q176 510 193 510Z" fill="url(#bumper)" stroke="#0C1826" strokeWidth="5"/>
                 </g>
+                <g id="ui-highlights" fill="none" strokeLinecap="round">
+                  <path d="M277 147H836" stroke="#D7FFE7" strokeWidth="3" opacity=".22"/>
+                  <path d="M861 147H996" stroke="#D7FFE7" strokeWidth="3" opacity=".18"/>
+                </g>
               </g>
+
               <g id="rear-wheel" className="wheel-rear" style={{ transformOrigin: '385px 541px' }}>
                 <circle cx="385" cy="541" r="95" fill="#0D1520" stroke="#293A4E" strokeWidth="13"/>
                 <circle cx="385" cy="541" r="72" fill="url(#tire)" stroke="#3A4B5E" strokeWidth="7"/>
@@ -547,14 +564,12 @@ export const AppLoader = React.memo(function AppLoader({
         </div>
 
         {/* ========================================================= */}
-        {/* 3. DYNAMIC STEPPER / GROCERY QUOTES                       */}
+        {/* 3. BEAUTIFUL QUOTES UI                                    */}
         {/* ========================================================= */}
         {showStatus && (
-          <div className="mt-8 flex flex-col items-center justify-center animate-fade-in">
-            
-            {/* If Type = HOME, show timeline progress stepper */}
+          <div className="mt-8 sm:mt-12 w-full max-w-lg px-6 flex flex-col items-center justify-center animate-fade-in z-20">
             {type === 'home' && (
-              <div className="relative flex items-center justify-between w-64 mb-3">
+              <div className="relative flex items-center justify-between w-64 mb-6">
                 <div className="absolute top-1/2 left-0 right-0 h-[2.5px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
                 <div
                   className="absolute top-1/2 left-0 h-[2.5px] -translate-y-1/2 bg-[#22c55e] z-0 transition-all duration-500 ease-out"
@@ -580,41 +595,46 @@ export const AppLoader = React.memo(function AppLoader({
               </div>
             )}
             
-            {/* Conditional text (Timeline or Quote UI) */}
-            {type === 'home' ? (
-              <div className="h-6 flex items-center justify-center">
-                <p key={msgIndex} className="flex items-center gap-1.5 text-sm font-bold text-slate-800 tracking-tight animate-text-fade">
-                  {HOME_MESSAGES[msgIndex]}
-                  <span className="text-emerald-500 text-base">🍃</span>
+            <div className="relative w-full p-5 sm:p-6 rounded-[28px] bg-emerald-50/70 border border-emerald-100 shadow-sm text-center">
+              <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-5xl text-emerald-300/80 font-serif leading-none select-none">
+                “
+              </span>
+              
+              <div className="h-10 sm:h-12 flex items-center justify-center pt-2">
+                <p
+                  key={msgIndex}
+                  className="text-base sm:text-lg font-medium italic text-emerald-900 tracking-tight leading-snug animate-quote-fade"
+                >
+                  {messagesList[msgIndex]}
                 </p>
               </div>
-            ) : (
-              <div className="relative w-full max-w-lg px-6 p-5 sm:p-6 rounded-[28px] bg-emerald-50/70 border border-emerald-100 shadow-sm text-center">
-                <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-5xl text-emerald-300/80 font-serif leading-none select-none">
-                  “
-                </span>
-                <div className="h-10 sm:h-12 flex items-center justify-center pt-2">
-                  <p key={msgIndex} className="text-base sm:text-lg font-medium italic text-emerald-900 tracking-tight leading-snug animate-quote-fade">
-                    {GROCERY_QUOTES[msgIndex]}
-                  </p>
-                </div>
-                <div className="mt-4 flex justify-center gap-1.5">
-                  {GROCERY_QUOTES.slice(0, 5).map((_, i) => (
-                    <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${ (msgIndex % 5) === i ? 'w-4 bg-emerald-500' : 'w-1.5 bg-emerald-200/80'}`} />
-                  ))}
-                </div>
+              
+              <div className="mt-4 flex justify-center gap-1.5">
+                {messagesList.slice(0, 5).map((_, i) => {
+                  const isActive = (msgIndex % 5) === i;
+                  return (
+                    <div 
+                      key={i} 
+                      className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
+                        isActive ? 'w-4 bg-emerald-500' : 'w-1.5 bg-emerald-200/80'
+                      }`} 
+                    />
+                  );
+                })}
               </div>
-            )}
-
+            </div>
           </div>
         )}
       </div>
 
       <style>{`
-        /* Mathematical perfection: 1 SVG = 1200px. Moving exactly -1200px creates a flawless endless loop */
+        /* ========================================================= */
+        /* FIXED: 4 SVGs moving exactly 25% ensures mathematical     */
+        /* perfection for the infinite loop on ultra-wide screens.   */
+        /* ========================================================= */
         @keyframes cityInfiniteScroll {
           0% { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(-1200px, 0, 0); } 
+          100% { transform: translate3d(-25%, 0, 0); } 
         }
         .animate-city-scroll {
           animation: cityInfiniteScroll 12s linear infinite;
@@ -646,7 +666,6 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-speed-lines { animation: speedLines 0.25s ease-in-out infinite; }
 
-        /* Smooth Leaf Animation CSS Keyframes */
         @keyframes leafFlyOff {
           0% { 
             transform: translate3d(0, 0, 0) rotate(0deg); 
@@ -674,14 +693,6 @@ export const AppLoader = React.memo(function AppLoader({
         .animate-quote-fade { 
           animation: quoteFade ${type === 'home' ? '1.8s' : '3.5s'} ease-in-out infinite; 
         }
-
-        @keyframes textFade {
-          0% { opacity: 0; transform: translateY(3px); }
-          10% { opacity: 1; transform: translateY(0); }
-          90% { opacity: 1; transform: translateY(0); }
-          100% { opacity: 0; transform: translateY(-3px); }
-        }
-        .animate-text-fade { animation: textFade 1.8s ease-in-out infinite; }
 
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.98); }

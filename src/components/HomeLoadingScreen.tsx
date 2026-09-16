@@ -7,6 +7,7 @@ export function HomeLoadingScreen() {
       size="lg"
       showStatus={true}
       subtext="Setting up live catalog & mandi rates"
+      type="home"
     />
   );
 }

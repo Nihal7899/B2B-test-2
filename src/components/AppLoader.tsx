@@ -333,37 +333,7 @@ export const AppLoader = React.memo(function AppLoader({
           </div>
 
           {/* ========================================================= */}
-          {/* 2. FALLING LEAVES (NEW VISUAL ADDITION)                   */}
-          {/* ========================================================= */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
-            {[...Array(12)].map((_, i) => {
-              // Creating varied fall trajectories, sizes, and speeds
-              const leftPos = Math.random() * 100;
-              const duration = 3.5 + Math.random() * 4;
-              const delay = Math.random() * 5;
-              const scale = 0.6 + Math.random() * 0.7;
-              
-              return (
-                <div 
-                  key={i}
-                  className="absolute -top-10 opacity-0 animate-leaf drop-shadow-sm"
-                  style={{ 
-                    left: `${leftPos}%`, 
-                    animationDuration: `${duration}s`,
-                    animationDelay: `${delay}s`,
-                    transform: `scale(${scale})`
-                  }}
-                >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill={i % 2 === 0 ? "#75C282" : "#98D2A4"}>
-                    <path d="M21.4,1.9C21.4,1.9,15.2-1.3,7.6,4.6C0,10.6,2.6,21.1,2.6,21.1C2.6,21.1,10.9,23.3,18.4,17.4C26,11.5,21.4,1.9,21.4,1.9z"/>
-                  </svg>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* ========================================================= */}
-          {/* 3. TRUCK & OVERFLOWING GROCERIES                          */}
+          {/* 2. TRUCK & OVERFLOWING GROCERIES                          */}
           {/* ========================================================= */}
           <div className="absolute z-20 w-[280px] sm:w-[340px] pointer-events-none bottom-[14%] sm:bottom-[15%]">
             <svg
@@ -513,6 +483,45 @@ export const AppLoader = React.memo(function AppLoader({
                   <path d="M861 147H996" stroke="#D7FFE7" strokeWidth="3" opacity=".18"/>
                 </g>
               </g>
+
+              {/* ========================================================= */}
+              {/* LEAVES BLOWING OFF THE TRUCK'S CARGO BOX                    */}
+              {/* ========================================================= */}
+              <g id="flying-leaves">
+                {[...Array(10)].map((_, i) => {
+                  // Position relative to the top of the cargo box
+                  const startX = 300 + Math.random() * 550; // Random X along the cargo roof
+                  const startY = 30 + Math.random() * 40;   // Random Y near the top edge
+                  const duration = 1.0 + Math.random() * 1.5; // Fast wind speed
+                  const delay = Math.random() * 2.5; // Staggered delays
+                  const scale = 0.4 + Math.random() * 0.4; // Scaled down "smaller" leaves
+                  
+                  const colors = ["#75C282", "#98D2A4", "#48D18A"];
+                  const color = colors[i % colors.length];
+
+                  return (
+                    <g 
+                      key={i}
+                      style={{ transform: `translate(${startX}px, ${startY}px) scale(${scale})` }}
+                    >
+                      <g 
+                        className="animate-leaf-fly"
+                        style={{
+                          animationDuration: `${duration}s`,
+                          animationDelay: `${delay}s`,
+                          transformOrigin: '12px 12px'
+                        }}
+                      >
+                        <path 
+                          d="M21.4,1.9C21.4,1.9,15.2-1.3,7.6,4.6C0,10.6,2.6,21.1,2.6,21.1C2.6,21.1,10.9,23.3,18.4,17.4C26,11.5,21.4,1.9,21.4,1.9z" 
+                          fill={color}
+                        />
+                      </g>
+                    </g>
+                  )
+                })}
+              </g>
+
               <g id="rear-wheel" className="wheel-rear" style={{ transformOrigin: '385px 541px' }}>
                 <circle cx="385" cy="541" r="95" fill="#0D1520" stroke="#293A4E" strokeWidth="13"/>
                 <circle cx="385" cy="541" r="72" fill="url(#tire)" stroke="#3A4B5E" strokeWidth="7"/>
@@ -546,7 +555,7 @@ export const AppLoader = React.memo(function AppLoader({
         </div>
 
         {/* ========================================================= */}
-        {/* 4. BEAUTIFUL QUOTES UI                                    */}
+        {/* 3. BEAUTIFUL QUOTES UI                                    */}
         {/* ========================================================= */}
         {showStatus && (
           <div className="mt-8 sm:mt-12 w-full max-w-lg px-6 flex flex-col items-center justify-center animate-fade-in z-20">
@@ -649,22 +658,22 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-speed-lines { animation: speedLines 0.25s ease-in-out infinite; }
 
-        /* NEW VISUAL: Elegant falling leaf animation */
-        @keyframes leafFall {
+        /* NEW VISUAL: Leaves blow backward and downward out of the frame */
+        @keyframes leafFlyOff {
           0% { 
             transform: translate3d(0, 0, 0) rotate(0deg); 
             opacity: 0; 
           }
           10% { opacity: 1; }
-          80% { opacity: 1; }
+          70% { opacity: 1; }
           100% { 
-            transform: translate3d(-120px, 650px, 0) rotate(270deg); 
+            transform: translate3d(-1000px, 450px, 0) rotate(-720deg); 
             opacity: 0; 
           }
         }
-        .animate-leaf { 
-          animation-name: leafFall; 
-          animation-timing-function: linear; 
+        .animate-leaf-fly { 
+          animation-name: leafFlyOff; 
+          animation-timing-function: ease-in; 
           animation-iteration-count: infinite; 
         }
 

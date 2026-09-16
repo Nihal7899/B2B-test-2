@@ -10,24 +10,21 @@ export function HomeLoadingScreen({ isReady = false, onFinish }: HomeLoadingScre
   const [exiting, setExiting] = useState(false);
   const onFinishRef = useRef(onFinish);
 
-  // Keep ref up to date to avoid dependency issues inside setTimeout
   useEffect(() => {
     onFinishRef.current = onFinish;
   }, [onFinish]);
 
   useEffect(() => {
-    // Wait until the app signals it's ready, and ensure we only trigger this once
-    if (!isReady || exiting) return;
+    if (!isReady) return;
 
     setExiting(true);
     
-    // Give the CSS transition time to complete before unmounting (300ms)
     const doneTimer = setTimeout(() => {
       if (onFinishRef.current) onFinishRef.current();
     }, 300);
 
     return () => clearTimeout(doneTimer);
-  }, [isReady, exiting]);
+  }, [isReady]); // <-- FIX: Removed 'exiting' from the dependency array so it doesn't cancel the timeout
 
   return (
     <AppLoader
@@ -35,9 +32,9 @@ export function HomeLoadingScreen({ isReady = false, onFinish }: HomeLoadingScre
       size="lg"
       showStatus={true}
       type="home"
-      // Merge the fade-out classes cleanly with the AppLoader's root div
+      // FIX: Added `!opacity-0` (important modifier) to override the `animate-fade-in` forwards property
       className={`transition-opacity duration-300 ease-out ${
-        exiting ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        exiting ? '!opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     />
   );

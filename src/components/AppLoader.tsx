@@ -8,18 +8,13 @@ interface AppLoaderProps {
   className?: string;
 }
 
+// Reduced to exactly 5 messages
 const HOME_MESSAGES = [
   'Dispatching wholesale catalog...',
   'Verifying mandi rates & cold-chain stock...',
   'Loading bulk crates & staples...',
   'Optimizing supply chain routes...',
   'Sourcing farm-fresh produce...',
-  'Palletizing B2B inventory...',
-  'Routing your express store delivery...',
-  'Quality checking fresh harvests...',
-  'Securing fleet for transit...',
-  'Syncing warehouse logistics...',
-  'Finalizing wholesale dispatch...',
 ];
 
 const GROCERY_QUOTES = [
@@ -317,7 +312,8 @@ export const AppLoader = React.memo(function AppLoader({
         fullScreen ? 'fixed inset-0 z-50 animate-fade-in' : 'w-full py-8'
       } ${className}`}
     >
-      <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass}`}>
+      {/* SHIFTED EVERYTHING 20PX UP using -translate-y-[20px] */}
+      <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass} -translate-y-[20px]`}>
         
         {/* Main Stage Viewport */}
         <div className="relative w-full h-[550px] sm:h-[600px] flex items-center justify-center overflow-hidden">
@@ -339,7 +335,8 @@ export const AppLoader = React.memo(function AppLoader({
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="-50 -350 1500 1100"
-              className="w-full h-auto drop-shadow-xl"
+              /* ADDED OVERFLOW-VISIBLE to prevent the truck box from clipping the leaves */
+              className="w-full h-auto drop-shadow-xl overflow-visible"
               fill="none"
             >
               <defs>
@@ -383,11 +380,12 @@ export const AppLoader = React.memo(function AppLoader({
               {/* ========================================================= */}
               <g id="flying-leaves">
                 {[...Array(12)].map((_, i) => {
-                  // Placed deeply behind the cargo box coordinates so starting point is invisible
                   const startX = 400 + Math.random() * 400; 
                   const startY = 20 + Math.random() * 60;   
                   const duration = 1.8 + Math.random() * 1.5; 
-                  const delay = Math.random() * 3; 
+                  
+                  // NEGATIVE DELAY forces the animation to already be running on load
+                  const delay = -(Math.random() * 5); 
                   
                   const scale = 2.0 + Math.random() * 2.0; 
                   const colors = ["#75C282", "#98D2A4", "#48D18A"];
@@ -619,7 +617,6 @@ export const AppLoader = React.memo(function AppLoader({
       </div>
 
       <style>{`
-        /* SPEEDED UP: Changed from 20s to 12s */
         @keyframes cityInfiniteScroll {
           0% { transform: translate3d(0, 0, 0); }
           100% { transform: translate3d(-50%, 0, 0); } 
@@ -628,7 +625,6 @@ export const AppLoader = React.memo(function AppLoader({
           animation: cityInfiniteScroll 12s linear infinite;
         }
 
-        /* SPEEDED UP: Wheels spinning much faster to match */
         @keyframes spinWheelAnim {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
@@ -636,7 +632,6 @@ export const AppLoader = React.memo(function AppLoader({
         .wheel-rear { animation: spinWheelAnim 0.2s linear infinite; }
         .wheel-front { animation: spinWheelAnim 0.2s linear infinite; }
 
-        /* SPEEDED UP: Truck body bounces more rapidly */
         @keyframes truckBodyBounce {
           0%, 100% { transform: translateY(0); }
           30% { transform: translateY(-4px); }
@@ -644,31 +639,26 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-truck-body { animation: truckBodyBounce 0.4s ease-in-out infinite; }
 
-        /* SPEEDED UP: Produce jiggle syncs with the faster bounce */
         @keyframes produceJiggle {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-4px) rotate(-1.5deg); }
         }
         .animate-produce-jiggle { animation: produceJiggle 0.4s ease-in-out infinite 0.1s; }
 
-        /* SPEEDED UP: Speed lines flash faster */
         @keyframes speedLines {
           0%, 100% { opacity: 0.85; transform: translateX(0); }
           50% { opacity: 0.15; transform: translateX(-32px); }
         }
         .animate-speed-lines { animation: speedLines 0.25s ease-in-out infinite; }
 
-        /* NEW VISUAL: Leaves now forcefully blow backwards down to touch the road */
+        /* FIXED: Removed initial opacity: 0 to prevent the "trimming" visual bug */
         @keyframes leafFlyOff {
           0% { 
             transform: translate3d(0, 0, 0) rotate(0deg); 
-            opacity: 0; 
+            opacity: 1; 
           }
-          10% { opacity: 1; }
           85% { opacity: 1; }
           100% { 
-            /* Huge negative X pushes it straight to the left (backwards) */
-            /* Exact +600px drops it directly to the road level where the wheels are */
             transform: translate3d(-1400px, 600px, 0) rotate(-720deg); 
             opacity: 0; 
           }
@@ -677,6 +667,8 @@ export const AppLoader = React.memo(function AppLoader({
           animation-name: leafFlyOff; 
           animation-timing-function: ease-in; 
           animation-iteration-count: infinite; 
+          /* Required for negative delays to render perfectly */
+          animation-fill-mode: both; 
         }
 
         @keyframes quoteFade {

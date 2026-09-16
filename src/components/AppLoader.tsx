@@ -37,28 +37,33 @@ const GROCERY_QUOTES = [
   "Taste the difference of farm-fresh produce..."
 ];
 
-// Reusable Cityscape Component
+// Reusable Cityscape Component with fully integrated Sidewalk & Road
 const CityscapeBackground = () => (
-  <svg viewBox="0 0 1200 500" className="w-[1200px] h-[500px] shrink-0">
+  <svg viewBox="0 0 1200 650" className="h-full w-auto shrink-0">
     <defs>
-      <linearGradient id="groundFade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#70BA7E" stopOpacity="0.3" />
-        <stop offset="30%" stopColor="#E2F1E5" stopOpacity="0.8" />
-        <stop offset="100%" stopColor="#FFFFFF" stopOpacity="1" />
-      </linearGradient>
-
       <g id="map-pin">
         <path d="M15,0 C6.7,0 0,6.7 0,15 C0,26.2 15,42 15,42 C15,42 30,26.2 30,15 C30,6.7 23.3,0 15,0 Z" fill="#65B874" />
         <circle cx="15" cy="14" r="6" fill="#DFF0E2" />
       </g>
-
       <rect id="win-sm" width="12" height="15" fill="#E8F4EA" />
       <rect id="win-md" width="18" height="22" fill="#E8F4EA" />
       <rect id="win-wide" width="60" height="15" fill="#E8F4EA" />
       <rect id="win-wide-dark" width="60" height="15" fill="#9CD4A8" />
+      
+      {/* Reusable Fire Hydrant */}
+      <g id="fire-hydrant">
+        <rect x="-6" y="0" width="12" height="25" fill="#E53935" rx="3" />
+        <path d="M-8,3 Q0,-4 8,3 Z" fill="#D32F2F" />
+        <rect x="-8" y="5" width="16" height="4" fill="#B71C1C" rx="1" />
+        <rect x="-10" y="21" width="20" height="4" fill="#B71C1C" rx="1" />
+        <circle cx="0" cy="11" r="5" fill="#D32F2F" />
+        <circle cx="0" cy="11" r="2.5" fill="#FFCDD2" />
+        <circle cx="-7" cy="11" r="2.5" fill="#C62828" />
+        <circle cx="7" cy="11" r="2.5" fill="#C62828" />
+      </g>
     </defs>
 
-    {/* BACKGROUND LAYER */}
+    {/* BACKGROUND SKY/CLOUDS LAYER */}
     <g fill="#E4F2E7">
       <path d="M290,130 a20,20 0 0,1 40,-10 a25,25 0 0,1 45,5 a18,18 0 0,1 15,20 h-100 z" />
       <path d="M850,140 a15,15 0 0,1 30,-5 a20,20 0 0,1 40,5 a15,15 0 0,1 10,15 h-80 z" />
@@ -78,7 +83,7 @@ const CityscapeBackground = () => (
       <ellipse cx="1090" cy="185" rx="10" ry="2" />
     </g>
 
-    {/* MIDGROUND LAYER */}
+    {/* MIDGROUND BUILDINGS LAYER */}
     <g fill="#C0E2C6">
       <polygon points="410,430 410,170 510,130 510,430" />
       <g fill="#A3D7AB">
@@ -218,18 +223,17 @@ const CityscapeBackground = () => (
       <circle cx="141" cy="40" r="6" fill="#F4FAF5" />
     </g>
 
-    {/* FOLIAGE & TREES */}
-    <g fill="#70B87C">
-      <rect x="80" y="400" width="4" height="30" />
-      <rect x="280" y="400" width="4" height="30" />
-      <rect x="360" y="380" width="5" height="50" />
-      <rect x="510" y="400" width="4" height="30" />
-      <rect x="698" y="380" width="4" height="50" />
-      <rect x="855" y="380" width="5" height="50" />
-      <rect x="1133" y="390" width="4" height="40" />
-    </g>
-
+    {/* BACKGROUND GRASS/TREES (Behind Sidewalk) */}
     <g>
+      <g fill="#70B87C">
+        <rect x="80" y="400" width="4" height="30" />
+        <rect x="280" y="400" width="4" height="30" />
+        <rect x="360" y="380" width="5" height="50" />
+        <rect x="510" y="400" width="4" height="30" />
+        <rect x="698" y="380" width="4" height="50" />
+        <rect x="855" y="380" width="5" height="50" />
+        <rect x="1133" y="390" width="4" height="40" />
+      </g>
       <circle cx="120" cy="410" r="25" fill="#A8D6B1" />
       <circle cx="300" cy="410" r="20" fill="#A8D6B1" />
       <circle cx="490" cy="415" r="15" fill="#A8D6B1" />
@@ -245,26 +249,52 @@ const CityscapeBackground = () => (
       <rect x="699" y="340" width="2" height="30" fill="#75C282" />
       <rect x="856" y="330" width="3" height="35" fill="#75C282" />
       <rect x="1134" y="355" width="2" height="25" fill="#75C282" />
-      <circle cx="60" cy="425" r="15" fill="#98D2A4" />
-      <circle cx="100" cy="425" r="12" fill="#98D2A4" />
-      <ellipse cx="280" cy="420" rx="15" ry="20" fill="#98D2A4" />
-      <circle cx="330" cy="425" r="12" fill="#98D2A4" />
-      <circle cx="380" cy="425" r="14" fill="#98D2A4" />
-      <circle cx="410" cy="425" r="18" fill="#98D2A4" />
-      <circle cx="510" cy="420" r="14" fill="#98D2A4" />
-      <circle cx="670" cy="425" r="15" fill="#98D2A4" />
-      <circle cx="710" cy="420" r="18" fill="#98D2A4" />
-      <circle cx="760" cy="415" r="35" fill="#98D2A4" />
-      <circle cx="810" cy="425" r="15" fill="#98D2A4" />
-      <circle cx="890" cy="425" r="18" fill="#98D2A4" />
-      <circle cx="970" cy="425" r="14" fill="#98D2A4" />
-      <circle cx="1110" cy="425" r="12" fill="#98D2A4" />
-      <circle cx="1150" cy="425" r="15" fill="#98D2A4" />
     </g>
 
-    {/* GROUND BASE & FADE */}
-    <rect x="40" y="430" width="1120" height="4" fill="#98D2A4" rx="2" />
-    <rect x="0" y="420" width="1200" height="80" fill="url(#groundFade)" />
+    {/* ============================================== */}
+    {/* NEW SECTION: SIDEWALK, BUSHES, HYDRANTS & ROAD */}
+    {/* ============================================== */}
+    
+    {/* Grass padding base */}
+    <rect x="0" y="420" width="1200" height="20" fill="#E4F2E7" />
+    
+    {/* Raised Sidewalk */}
+    <rect x="0" y="430" width="1200" height="25" fill="#D6EED9" />
+    <rect x="0" y="455" width="1200" height="6" fill="#A3D7AB" />
+    
+    {/* Sidewalk Tiles / Cracks */}
+    <path d="M50,430 v25 M150,430 v25 M250,430 v25 M350,430 v25 M450,430 v25 M550,430 v25 M650,430 v25 M750,430 v25 M850,430 v25 M950,430 v25 M1050,430 v25 M1150,430 v25" stroke="#C0E2C6" strokeWidth="2" />
+
+    {/* Fire Hydrants on the sidewalk */}
+    <use href="#fire-hydrant" x="250" y="430" />
+    <use href="#fire-hydrant" x="850" y="430" />
+
+    {/* Overlapping Sidewalk Bushes (creates beautiful depth) */}
+    <g>
+      <circle cx="60" cy="425" r="15" fill="#98D2A4" />
+      <circle cx="100" cy="428" r="18" fill="#75C282" />
+      <ellipse cx="280" cy="425" rx="15" ry="20" fill="#98D2A4" />
+      <circle cx="330" cy="428" r="14" fill="#75C282" />
+      <circle cx="380" cy="425" r="14" fill="#98D2A4" />
+      <circle cx="420" cy="432" r="18" fill="#75C282" />
+      <circle cx="510" cy="425" r="16" fill="#98D2A4" />
+      <circle cx="670" cy="428" r="18" fill="#75C282" />
+      <circle cx="710" cy="425" r="20" fill="#98D2A4" />
+      <circle cx="770" cy="420" r="30" fill="#98D2A4" />
+      <circle cx="810" cy="428" r="15" fill="#75C282" />
+      <circle cx="890" cy="425" r="18" fill="#98D2A4" />
+      <circle cx="970" cy="430" r="16" fill="#75C282" />
+      <circle cx="1110" cy="425" r="14" fill="#98D2A4" />
+      <circle cx="1150" cy="430" r="20" fill="#75C282" />
+    </g>
+
+    {/* The Seamless Pale Green Road */}
+    <rect x="0" y="461" width="1200" height="189" fill="#E4F2E7" />
+    
+    {/* Road Lane Dividers (Dashed lines) */}
+    <line x1="0" y1="550" x2="1200" y2="550" stroke="#FFFFFF" strokeOpacity="0.7" strokeWidth="6" strokeDasharray="50 40" />
+    {/* Bottom Road Edge Fade */}
+    <rect x="0" y="620" width="1200" height="30" fill="#C0E2C6" opacity="0.3" />
   </svg>
 );
 
@@ -277,7 +307,6 @@ export const AppLoader = React.memo(function AppLoader({
 }: AppLoaderProps) {
   const messagesList = type === 'home' ? HOME_MESSAGES : GROCERY_QUOTES;
   
-  // If general loading, start from a random quote for variety
   const [msgIndex, setMsgIndex] = useState(() => 
     type === 'home' ? 0 : Math.floor(Math.random() * messagesList.length)
   );
@@ -286,7 +315,7 @@ export const AppLoader = React.memo(function AppLoader({
     if (!showStatus) return;
     const interval = setInterval(() => {
       setMsgIndex((prev) => (prev + 1) % messagesList.length);
-    }, type === 'home' ? 1800 : 2800); // Give users a bit more time to read general quotes
+    }, type === 'home' ? 1800 : 3500);
     return () => clearInterval(interval);
   }, [showStatus, messagesList.length, type]);
 
@@ -298,32 +327,34 @@ export const AppLoader = React.memo(function AppLoader({
   return (
     <div
       className={`flex flex-col items-center justify-center bg-white select-none ${
-        fullScreen ? 'fixed inset-0 z-50 animate-fade-in px-4' : 'w-full py-8'
+        fullScreen ? 'fixed inset-0 z-50 animate-fade-in' : 'w-full py-8'
       } ${className}`}
     >
       <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass}`}>
         
-        {/* Main Stage Viewport - Updated classes to center content and remove harsh clipping */}
-        <div className="relative w-full max-w-[800px] h-[400px] sm:h-[480px] flex items-center justify-center overflow-hidden">
+        {/* Main Stage Viewport - Expanded height prevents building cutoffs */}
+        <div className="relative w-full max-w-[900px] h-[550px] sm:h-[600px] flex items-center justify-center overflow-hidden">
           
           {/* ========================================================= */}
-          {/* 1. SEAMLESS CITY BACKGROUND                                 */}
+          {/* 1. SEAMLESS CITY & ROAD BACKGROUND                          */}
           {/* ========================================================= */}
-          <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0 flex items-center justify-center">
-            {/* Reduced scale from 1.2 to 1.05 to zoom out ~12.5% */}
-            <div style={{ transform: 'scale(1.05)', transformOrigin: 'center', width: '100%' }}>
-              <div className="flex w-[2400px] animate-city-scroll opacity-85">
-                <CityscapeBackground />
-                <CityscapeBackground />
-              </div>
+          {/* Placed at the absolute bounds so the 100% height matches our container exactly */}
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none z-0">
+            {/* The flex container auto-sizes to wrap 2 SVGs precisely, making percentage transforms flawless */}
+            <div className="flex h-full w-max animate-city-scroll opacity-90">
+              <CityscapeBackground />
+              <CityscapeBackground />
             </div>
           </div>
 
           {/* ========================================================= */}
           {/* 2. TRUCK & OVERFLOWING GROCERIES                          */}
           {/* ========================================================= */}
-          {/* Swapped relative push down with exact absolute bottom anchoring */}
-          <div className="absolute z-10 w-[304px] sm:w-[360px] pointer-events-none bottom-[5%] sm:bottom-[10%]">
+          {/* 
+            Since the SVG height is identically matched to the container, 
+            bottom-[14%] perfectly drops the truck tires onto the road dash line on ALL screen sizes! 
+          */}
+          <div className="absolute z-10 w-[280px] sm:w-[340px] pointer-events-none bottom-[14%] sm:bottom-[15%]">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="-50 -350 1500 1100"
@@ -504,12 +535,12 @@ export const AppLoader = React.memo(function AppLoader({
         </div>
 
         {/* ========================================================= */}
-        {/* 3. DYNAMIC STEPPER & QUOTES                               */}
+        {/* 3. BEAUTIFUL QUOTES UI                                    */}
         {/* ========================================================= */}
         {showStatus && (
-          <div className="mt-8 flex flex-col items-center justify-center animate-fade-in">
+          <div className="mt-8 sm:mt-12 w-full max-w-lg px-6 flex flex-col items-center justify-center animate-fade-in z-20">
             {type === 'home' && (
-              <div className="relative flex items-center justify-between w-64 mb-3">
+              <div className="relative flex items-center justify-between w-64 mb-6">
                 <div className="absolute top-1/2 left-0 right-0 h-[2.5px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
                 <div
                   className="absolute top-1/2 left-0 h-[2.5px] -translate-y-1/2 bg-[#22c55e] z-0 transition-all duration-500 ease-out"
@@ -535,26 +566,49 @@ export const AppLoader = React.memo(function AppLoader({
               </div>
             )}
             
-            <div className="h-6 flex items-center justify-center">
-              <p
-                key={msgIndex}
-                className="flex items-center gap-1.5 text-sm font-bold text-slate-800 tracking-tight animate-text-fade"
-              >
-                {messagesList[msgIndex]}
-                <span className="text-emerald-500 text-base">🍃</span>
-              </p>
+            {/* Redesigned Decorative Quote Block */}
+            <div className="relative w-full p-5 sm:p-6 rounded-[28px] bg-emerald-50/70 border border-emerald-100 shadow-sm text-center">
+              <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-5xl text-emerald-300/80 font-serif leading-none select-none">
+                “
+              </span>
+              
+              <div className="h-10 sm:h-12 flex items-center justify-center pt-2">
+                <p
+                  key={msgIndex}
+                  className="text-base sm:text-lg font-medium italic text-emerald-900 tracking-tight leading-snug animate-quote-fade"
+                >
+                  {messagesList[msgIndex]}
+                </p>
+              </div>
+              
+              {/* Animated Progress Dots for Quotes */}
+              <div className="mt-4 flex justify-center gap-1.5">
+                {messagesList.slice(0, 5).map((_, i) => {
+                  // Simplify the dots logic just for aesthetics so it loops smoothly
+                  const isActive = (msgIndex % 5) === i;
+                  return (
+                    <div 
+                      key={i} 
+                      className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
+                        isActive ? 'w-4 bg-emerald-500' : 'w-1.5 bg-emerald-200/80'
+                      }`} 
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
       </div>
 
       <style>{`
+        /* Perfectly translates exactly ONE SVGs width so it loops seamlessly */
         @keyframes cityInfiniteScroll {
           0% { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(-1200px, 0, 0); }
+          100% { transform: translate3d(-50%, 0, 0); } 
         }
         .animate-city-scroll {
-          animation: cityInfiniteScroll 16s linear infinite;
+          animation: cityInfiniteScroll 20s linear infinite;
         }
 
         @keyframes spinWheelAnim {
@@ -583,19 +637,22 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-speed-lines { animation: speedLines 0.4s ease-in-out infinite; }
 
-        @keyframes textFade {
-          0% { opacity: 0; transform: translateY(3px); }
-          10% { opacity: 1; transform: translateY(0); }
-          90% { opacity: 1; transform: translateY(0); }
-          100% { opacity: 0; transform: translateY(-3px); }
+        /* Smoother fade transition for the beautiful quotes */
+        @keyframes quoteFade {
+          0% { opacity: 0; transform: translateY(6px); }
+          15% { opacity: 1; transform: translateY(0); }
+          85% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-6px); }
         }
-        .animate-text-fade { animation: textFade 1.8s ease-in-out infinite; }
+        .animate-quote-fade { 
+          animation: quoteFade ${type === 'home' ? '1.8s' : '3.5s'} ease-in-out infinite; 
+        }
 
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.98); }
           to { opacity: 1; transform: scale(1); }
         }
-        .animate-fade-in { animation: fadeIn 0.15s ease-out forwards; }
+        .animate-fade-in { animation: fadeIn 0.25s ease-out forwards; }
       `}</style>
     </div>
   );

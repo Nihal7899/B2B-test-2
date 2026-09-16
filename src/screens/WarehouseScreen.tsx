@@ -230,7 +230,7 @@ function WarehouseFacilityGraphic({ className = '' }: { className?: string }) {
 
 export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseScreenProps) {
   const { logout, profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'refunds' | 'invoices' | 'inventory' | 'low_stock'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'invoices' | 'inventory' | 'low_stock'>('dashboard');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
 
   // NEW: State to track if we are viewing the category list or the drilled-down products grid
@@ -585,26 +585,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   };
 
-  const handleRetryRefund = async (orderId: string) => {
-    setActionOrderId(orderId);
-    try {
-      const { data, error } = await supabase.functions.invoke('razorpay', {
-        body: { action: 'refund_razorpay_payment', order_id: orderId }
-      });
-      
-      if (error || data?.error) {
-        showToast(data?.error || 'Retry failed. Check Razorpay dashboard.', 'error');
-      } else {
-        showToast('Refund retry processed successfully', 'success');
-      }
-      await loadOrders();
-    } catch {
-      showToast('Network error during refund retry', 'error');
-    } finally {
-      setActionOrderId(null);
-    }
-  };
-
   const handleAssignDriver = async (orderId: string, driverId: string) => {
     if (!driverId) {
       showToast('Please choose a delivery partner to dispatch.', 'warning');
@@ -730,8 +710,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     { id: 'cancelled', label: 'Cancelled' },
   ];
 
-  const failedRefundsCount = orders.filter((o) => paymentsMap[o.id]?.needsRefundRetry).length;
-
   useEffect(() => {
     setOrdersPage(1);
   }, [searchQuery, orderStatusPill, orderSortField, orderSortDirection]);
@@ -747,10 +725,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       const matchesSearch =
         orderNum.toLowerCase().includes(searchQuery.toLowerCase()) ||
         recipient.toLowerCase().includes(searchQuery.toLowerCase());
-
-      if (activeTab === 'refunds') {
-        return matchesSearch && (paymentsMap[o.id]?.needsRefundRetry || paymentsMap[o.id]?.isProcessingRefund);
-      }
 
       let matchesStatus = true;
       if (orderStatusPill === 'assign_partner') {
@@ -769,7 +743,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     });
 
     return list;
-  }, [orders, addressMap, searchQuery, orderStatusPill, orderSortField, orderSortDirection, activeTab, paymentsMap]);
+  }, [orders, addressMap, searchQuery, orderStatusPill, orderSortField, orderSortDirection]);
 
   const totalOrderPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE) || 1;
   const paginatedOrders = useMemo(() => {
@@ -991,7 +965,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
                 { id: 'orders', label: `Orders (${orders.length})`, icon: Package },
-                { id: 'refunds', label: 'Refunds', icon: CreditCard, count: failedRefundsCount },
                 { id: 'invoices', label: 'Invoices', icon: FileText },
                 { id: 'inventory', label: `Inventory (${products.length})`, icon: Boxes },
                 { id: 'low_stock', label: 'Low Stock', icon: AlertTriangle, count: lowStockProducts.length },
@@ -1039,7 +1012,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   <input
                     type="text"
                     placeholder={
-                      activeTab === 'orders' || activeTab === 'invoices' || activeTab === 'refunds'
+                      activeTab === 'orders' || activeTab === 'invoices'
                         ? 'Search order # or recipient...'
                         : 'Search...'
                     }
@@ -1189,28 +1162,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               </div>
 
-              {failedRefundsCount > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3">
-                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
-                        <AlertOctagon size={16} />
-                      </div>
-                      <span className="text-xs font-black text-red-900">Failed Financial Refunds</span>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('refunds')}
-                      className="text-xs font-bold text-red-700 hover:underline flex items-center gap-0.5"
-                    >
-                      Resolve Issues ({failedRefundsCount}) <ChevronRight size={14} />
-                    </button>
-                  </div>
-                  <p className="text-xs text-red-700 font-medium">
-                    Automated Razorpay refunds failed for {failedRefundsCount} cancelled order(s). Review and retry the refund manually.
-                  </p>
-                </div>
-              )}
-
               <div className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-sm space-y-3.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1252,7 +1203,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   {isPending ? 'Needs Confirm' : 'Needs Driver'}
                                 </span>
                               </div>
-                              <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                              <p className="text-[11px] text-slate-50 truncate mt-0.5">
                                 {addr?.recipient_name} · ₹{Number(ord.total).toFixed(2)}
                               </p>
                             </div>
@@ -1310,7 +1261,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             </div>
           )}
 
-          {(activeTab === 'orders' || activeTab === 'refunds') && (
+          {activeTab === 'orders' && (
             <div className="space-y-4">
               {activeTab === 'orders' && (
                 <div className="flex md:hidden items-center gap-2 mb-2">
@@ -1479,9 +1430,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 <div className="bg-white border border-slate-200/80 rounded-[26px] p-12 text-center text-slate-400 space-y-2">
                   <Package size={40} className="mx-auto text-slate-300" />
                   <p className="font-bold text-sm text-slate-700">No orders matching filter</p>
-                  {activeTab !== 'refunds' && (
-                    <p className="text-xs">Adjust your search query or status filter pill above.</p>
-                  )}
+                  <p className="text-xs">Adjust your search query or status filter pill above.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1559,38 +1508,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                {isPacked ? 'PACKED (AWAITING DRIVER)' : ord.status.replace(/_/g, ' ')}
                             </span>
                           </div>
-
-                          {isCancelled && (pay.needsRefundRetry || pay.isProcessingRefund) && (
-                            <div className={`p-3 rounded-2xl border ${pay.needsRefundRetry ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-                              <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                  {pay.isProcessingRefund ? (
-                                    <Loader2 size={16} className="text-amber-600 animate-spin" />
-                                  ) : (
-                                    <AlertOctagon size={16} className="text-red-600" />
-                                  )}
-                                  <div>
-                                    <p className={`text-xs font-black ${pay.needsRefundRetry ? 'text-red-900' : 'text-amber-900'}`}>
-                                      {pay.needsRefundRetry ? 'Refund Required' : 'Processing Refund'}
-                                    </p>
-                                    <p className={`text-[10px] font-medium ${pay.needsRefundRetry ? 'text-red-700' : 'text-amber-700'}`}>
-                                      {pay.needsRefundRetry ? 'Razorpay payment is still captured. Manual retry needed.' : 'Communicating with gateway...'}
-                                    </p>
-                                  </div>
-                                </div>
-                                {pay.needsRefundRetry && (
-                                  <button 
-                                    onClick={() => void handleRetryRefund(ord.id)}
-                                    disabled={isProcessing}
-                                    className="h-8 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[11px] font-black shadow-xs disabled:opacity-50 flex items-center gap-1 transition"
-                                  >
-                                    {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
-                                    Retry
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )}
 
                           <div className="relative overflow-hidden rounded-2xl p-3.5 bg-gradient-to-r from-[#0a4d3a] to-[#0e634b] text-white shadow-sm border border-emerald-600/30">
                             <div className="flex items-center justify-between relative z-10">
@@ -2239,25 +2156,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             {orders.length > 0 && (
               <span className="absolute top-1.5 right-3.5 bg-slate-900 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center shadow-xs">
                 {orders.length}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveTab('refunds');
-              setSearchQuery('');
-            }}
-            className={`flex flex-col items-center justify-center flex-1 min-w-[70px] h-full gap-1 relative transition-colors ${
-              activeTab === 'refunds' ? 'text-red-600' : 'text-slate-400 hover:text-slate-700'
-            }`}
-          >
-            <CreditCard size={19} strokeWidth={activeTab === 'refunds' ? 2.5 : 2} />
-            <span className="text-[10px] font-black tracking-tight">Refunds</span>
-            {activeTab === 'refunds' && <span className="h-1 w-5 rounded-full bg-red-600 -mb-1" />}
-            {failedRefundsCount > 0 && (
-              <span className="absolute top-1.5 right-3.5 bg-red-500 text-white text-[9px] font-black rounded-full h-4 min-w-4 px-1 flex items-center justify-center shadow-xs animate-pulse">
-                {failedRefundsCount}
               </span>
             )}
           </button>

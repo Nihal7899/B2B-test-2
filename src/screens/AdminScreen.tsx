@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import { 
   ArrowLeft, 
   LayoutDashboard, 
@@ -20,6 +21,7 @@ import {
   MessageSquare,
   Banknote,
   BookOpen,
+  CreditCard
 } from 'lucide-react';
 import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import InvoiceSettings from '@/components/InvoiceSettings';
@@ -46,6 +48,7 @@ import CompressionSettings from '@/components/Admin/CompressionSettings';
 import SectionsManager from '@/components/Admin/SectionsManager';
 import CodSettlementManager from '@/components/Admin/CodSettlementManager';
 import SynonymsManager from '@/components/Admin/SynonymsManager';
+import RefundManager from '@/components/Admin/RefundManager';
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -75,10 +78,54 @@ type Tab =
   | 'whatsapp'
   | 'reports'
   | 'compression'
-  | 'synonyms';
+  | 'synonyms'
+  | 'refunds';
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [criticalRefundsCount, setCriticalRefundsCount] = useState(0);
+
+  useEffect(() => {
+    const fetchRefundsCount = async () => {
+      try {
+        const { data: cancelledOrders } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('status', 'cancelled');
+
+        if (!cancelledOrders?.length) return;
+
+        const orderIds = cancelledOrders.map(o => o.id);
+        const { data: payments } = await supabase
+          .from('payments')
+          .select('order_id, provider, status')
+          .in('order_id', orderIds);
+
+        if (!payments) return;
+
+        let count = 0;
+        const processed = new Set();
+
+        payments.forEach(p => {
+          if (processed.has(p.order_id)) return;
+          const status = (p.status || '').toLowerCase();
+          const provider = (p.provider || '').toLowerCase();
+
+          if (status === 'refund_failed' || (provider === 'razorpay' && (status === 'paid' || status === 'completed'))) {
+            count++;
+            processed.add(p.order_id);
+          }
+        });
+        setCriticalRefundsCount(count);
+      } catch (err) {
+        console.error("Failed to fetch refund notifications", err);
+      }
+    };
+
+    fetchRefundsCount();
+    const interval = setInterval(fetchRefundsCount, 30000); 
+    return () => clearInterval(interval);
+  }, []);
 
   const tabs: { id: Tab; label: string; icon: any }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -105,24 +152,43 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'reports', label: 'Reports', icon: BarChart2 },
     { id: 'compression', label: 'Compression', icon: Settings },
     { id: 'synonyms', label: 'Search Synonyms', icon: BookOpen },
+    { id: 'refunds', label: 'Refunds', icon: CreditCard },
   ];
 
   return (
     <div className="safe-top flex flex-col md:flex-row gap-4 px-4 pb-6">
       {/* Sidebar */}
       <div className="md:w-52 shrink-0">
-        <div className="flex items-center gap-3 mb-4 md:hidden">
-          <button onClick={onBack} className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center">
-            <ArrowLeft size={18} />
-          </button>
-          <h1 className="text-xl font-extrabold text-ink-900">Admin</h1>
+        <div className="flex items-center justify-between mb-4 md:mb-6">
+           <div className="flex items-center gap-3">
+             <button onClick={onBack} className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center">
+               <ArrowLeft size={18} />
+             </button>
+             <h1 className="text-xl font-extrabold text-ink-900">Admin</h1>
+           </div>
+           
+           <button 
+             onClick={() => setTab('refunds')} 
+             className="relative p-2 rounded-full hover:bg-ink-100 transition md:hidden"
+           >
+             <Bell size={20} className="text-ink-600" />
+             {criticalRefundsCount > 0 && (
+               <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-red-500 rounded-full border border-white animate-pulse" />
+             )}
+           </button>
         </div>
-        <div className="hidden md:flex items-center gap-3 mb-6">
-          <button onClick={onBack} className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center">
-            <ArrowLeft size={18} />
-          </button>
-          <h1 className="text-xl font-extrabold text-ink-900">Admin</h1>
+
+        <div className="hidden md:flex items-center justify-between bg-white border border-ink-200 rounded-xl px-4 py-2 mb-4 cursor-pointer hover:bg-ink-50 transition" onClick={() => setTab('refunds')}>
+           <div className="flex items-center gap-2 text-sm font-bold text-ink-700">
+             <Bell size={16} /> Alerts
+           </div>
+           {criticalRefundsCount > 0 && (
+             <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
+               {criticalRefundsCount}
+             </span>
+           )}
         </div>
+
         <div className="flex md:flex-col gap-1.5 overflow-x-auto no-scrollbar">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
@@ -134,7 +200,13 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
                   : 'bg-white border border-ink-200 text-ink-600 hover:bg-ink-50'
               }`}
             >
-              <Icon size={18} /> {label}
+              <Icon size={18} /> 
+              {label}
+              {id === 'refunds' && criticalRefundsCount > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                  {criticalRefundsCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -166,7 +238,9 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'compression' && <CompressionSettings />}
         {tab === 'reports' && <Reports />}
         {tab === 'synonyms' && <SynonymsManager />}
+        {tab === 'refunds' && <RefundManager />}
       </div>
     </div>
   );
 }
+

@@ -86,7 +86,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
           </button>
         </div>
         <div className="flex-1 flex items-center justify-center -mt-16">
-          <AppLoader fullScreen={false} size="md" />
+          <AppLoader fullScreen="{false}" showStatus="{true}" size="md" type="general"/>
         </div>
       </div>
     );

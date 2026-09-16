@@ -319,7 +319,7 @@ export const AppLoader = React.memo(function AppLoader({
     >
       <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass}`}>
         
-        {/* Main Stage Viewport - Fully expanded width (removed max-w) */}
+        {/* Main Stage Viewport */}
         <div className="relative w-full h-[550px] sm:h-[600px] flex items-center justify-center overflow-hidden">
           
           {/* ========================================================= */}
@@ -489,12 +489,14 @@ export const AppLoader = React.memo(function AppLoader({
               {/* ========================================================= */}
               <g id="flying-leaves">
                 {[...Array(10)].map((_, i) => {
-                  // Position relative to the top of the cargo box
-                  const startX = 300 + Math.random() * 550; // Random X along the cargo roof
-                  const startY = 30 + Math.random() * 40;   // Random Y near the top edge
-                  const duration = 1.0 + Math.random() * 1.5; // Fast wind speed
-                  const delay = Math.random() * 2.5; // Staggered delays
-                  const scale = 0.4 + Math.random() * 0.4; // Scaled down "smaller" leaves
+                  const startX = 300 + Math.random() * 550; 
+                  const startY = 30 + Math.random() * 40;   
+                  const duration = 1.5 + Math.random() * 2.0; // Slightly longer duration to be seen
+                  const delay = Math.random() * 2.5; 
+                  
+                  // Massively scaled up! 
+                  // 24x24 path is tiny inside a 1500 unit viewBox, so scale needs to be strong.
+                  const scale = 2.5 + Math.random() * 2.5; 
                   
                   const colors = ["#75C282", "#98D2A4", "#48D18A"];
                   const color = colors[i % colors.length];
@@ -658,16 +660,18 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-speed-lines { animation: speedLines 0.25s ease-in-out infinite; }
 
-        /* NEW VISUAL: Leaves blow backward and downward out of the frame */
+        /* NEW VISUAL: Leaves now forcefully blow completely backwards (left) */
         @keyframes leafFlyOff {
           0% { 
             transform: translate3d(0, 0, 0) rotate(0deg); 
             opacity: 0; 
           }
-          10% { opacity: 1; }
-          70% { opacity: 1; }
+          5% { opacity: 1; }
+          80% { opacity: 1; }
           100% { 
-            transform: translate3d(-1000px, 450px, 0) rotate(-720deg); 
+            /* Huge negative X pushes it straight to the left (backwards relative to truck) */
+            /* Slight positive Y drops it a little towards the road as it flies off */
+            transform: translate3d(-1200px, 150px, 0) rotate(-720deg); 
             opacity: 0; 
           }
         }

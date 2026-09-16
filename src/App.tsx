@@ -204,6 +204,11 @@ function App() {
     const cache = getHomeDataSync();
     return Boolean(cache && cache._userId);
   });
+  
+  const [showHomeLoader, setShowHomeLoader] = useState(() => {
+    const cache = getHomeDataSync();
+    return !Boolean(cache && cache._userId);
+  });
 
   useEffect(() => {
     let active = true;
@@ -213,6 +218,7 @@ function App() {
     if (!user) {
       setShowSplash(false);
       setIsHomeReady(false);
+      setShowHomeLoader(true);
       return;
     }
 
@@ -711,14 +717,20 @@ function App() {
       >
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
           <BackButtonHandler disableBack={isDedicatedStaff} />
-          {isHomeReady ? (
+          
+          {isHomeReady && (
             <KeepAliveRenderer
               currentKey={key}
               render={renderScreen}
               excludeKeys={['/wallet', '/account', '/order', '/investor', '/cart']}
             />
-          ) : (
-            <HomeLoadingScreen />
+          )}
+
+          {showHomeLoader && (
+            <HomeLoadingScreen 
+              isReady={isHomeReady} 
+              onFinish={() => setShowHomeLoader(false)} 
+            />
           )}
         </main>
 

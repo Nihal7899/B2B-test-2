@@ -378,6 +378,44 @@ export const AppLoader = React.memo(function AppLoader({
                 <ellipse cx="730" cy="636" rx="530" ry="24" fill="#0B3021"/>
               </g>
 
+              {/* ========================================================= */}
+              {/* LEAVES PLACED HERE: Behind the truck body, above shadow   */}
+              {/* ========================================================= */}
+              <g id="flying-leaves">
+                {[...Array(12)].map((_, i) => {
+                  // Placed deeply behind the cargo box coordinates so starting point is invisible
+                  const startX = 400 + Math.random() * 400; 
+                  const startY = 20 + Math.random() * 60;   
+                  const duration = 1.8 + Math.random() * 1.5; 
+                  const delay = Math.random() * 3; 
+                  
+                  const scale = 2.0 + Math.random() * 2.0; 
+                  const colors = ["#75C282", "#98D2A4", "#48D18A"];
+                  const color = colors[i % colors.length];
+
+                  return (
+                    <g 
+                      key={i}
+                      style={{ transform: `translate(${startX}px, ${startY}px) scale(${scale})` }}
+                    >
+                      <g 
+                        className="animate-leaf-fly"
+                        style={{
+                          animationDuration: `${duration}s`,
+                          animationDelay: `${delay}s`,
+                          transformOrigin: '12px 12px'
+                        }}
+                      >
+                        <path 
+                          d="M21.4,1.9C21.4,1.9,15.2-1.3,7.6,4.6C0,10.6,2.6,21.1,2.6,21.1C2.6,21.1,10.9,23.3,18.4,17.4C26,11.5,21.4,1.9,21.4,1.9z" 
+                          fill={color}
+                        />
+                      </g>
+                    </g>
+                  )
+                })}
+              </g>
+
               <g className="animate-truck-body">
                 <g transform="translate(-360, -920) scale(2.66)">
                   <g className="animate-produce-jiggle">
@@ -482,46 +520,6 @@ export const AppLoader = React.memo(function AppLoader({
                   <path d="M277 147H836" stroke="#D7FFE7" strokeWidth="3" opacity=".22"/>
                   <path d="M861 147H996" stroke="#D7FFE7" strokeWidth="3" opacity=".18"/>
                 </g>
-              </g>
-
-              {/* ========================================================= */}
-              {/* LEAVES BLOWING OFF THE TRUCK'S CARGO BOX                    */}
-              {/* ========================================================= */}
-              <g id="flying-leaves">
-                {[...Array(10)].map((_, i) => {
-                  const startX = 300 + Math.random() * 550; 
-                  const startY = 30 + Math.random() * 40;   
-                  const duration = 1.5 + Math.random() * 2.0; // Slightly longer duration to be seen
-                  const delay = Math.random() * 2.5; 
-                  
-                  // Massively scaled up! 
-                  // 24x24 path is tiny inside a 1500 unit viewBox, so scale needs to be strong.
-                  const scale = 2.5 + Math.random() * 2.5; 
-                  
-                  const colors = ["#75C282", "#98D2A4", "#48D18A"];
-                  const color = colors[i % colors.length];
-
-                  return (
-                    <g 
-                      key={i}
-                      style={{ transform: `translate(${startX}px, ${startY}px) scale(${scale})` }}
-                    >
-                      <g 
-                        className="animate-leaf-fly"
-                        style={{
-                          animationDuration: `${duration}s`,
-                          animationDelay: `${delay}s`,
-                          transformOrigin: '12px 12px'
-                        }}
-                      >
-                        <path 
-                          d="M21.4,1.9C21.4,1.9,15.2-1.3,7.6,4.6C0,10.6,2.6,21.1,2.6,21.1C2.6,21.1,10.9,23.3,18.4,17.4C26,11.5,21.4,1.9,21.4,1.9z" 
-                          fill={color}
-                        />
-                      </g>
-                    </g>
-                  )
-                })}
               </g>
 
               <g id="rear-wheel" className="wheel-rear" style={{ transformOrigin: '385px 541px' }}>
@@ -660,18 +658,18 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-speed-lines { animation: speedLines 0.25s ease-in-out infinite; }
 
-        /* NEW VISUAL: Leaves now forcefully blow completely backwards (left) */
+        /* NEW VISUAL: Leaves now forcefully blow backwards down to touch the road */
         @keyframes leafFlyOff {
           0% { 
             transform: translate3d(0, 0, 0) rotate(0deg); 
             opacity: 0; 
           }
-          5% { opacity: 1; }
-          80% { opacity: 1; }
+          10% { opacity: 1; }
+          85% { opacity: 1; }
           100% { 
-            /* Huge negative X pushes it straight to the left (backwards relative to truck) */
-            /* Slight positive Y drops it a little towards the road as it flies off */
-            transform: translate3d(-1200px, 150px, 0) rotate(-720deg); 
+            /* Huge negative X pushes it straight to the left (backwards) */
+            /* Exact +600px drops it directly to the road level where the wheels are */
+            transform: translate3d(-1400px, 600px, 0) rotate(-720deg); 
             opacity: 0; 
           }
         }

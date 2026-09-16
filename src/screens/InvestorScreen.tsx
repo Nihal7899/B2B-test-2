@@ -427,15 +427,6 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
       <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#070C14]/85 backdrop-blur-2xl lg:hidden">
         <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <div className="flex min-w-0 items-center gap-2">
-            {onBack && (
-              <button
-                onClick={onBack}
-                aria-label="Go back"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-300 transition active:scale-95"
-              >
-                <ArrowLeft size={15} />
-              </button>
-            )}
             <CafKartLogo className="h-8 w-8 shrink-0 drop-shadow-[0_0_10px_rgba(89,217,182,0.35)]" gradId="mobile-ck-logo" />
             <div className="flex items-baseline leading-none">
               <span className="text-lg font-black tracking-tight text-white">Caf</span>

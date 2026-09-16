@@ -103,14 +103,10 @@ const CityscapeBackground = () => (
       <rect x="15" y="160" width="80" height="20" fill="#C4E6C9" />
     </g>
 
-    {/* ========================================================= */}
-    {/* NEW: CENTRAL CK LOGISTICS WAREHOUSE                       */}
-    {/* ========================================================= */}
+    {/* CENTRAL CK LOGISTICS WAREHOUSE */}
     <g transform="translate(460, 210)">
       <rect x="-10" y="0" width="280" height="220" fill="#98D2A4" />
       <polygon points="-20,0 280,0 270,18 -10,18" fill="#75C282" />
-      
-      {/* Loading Dock Doors */}
       <g fill="#C4E6C9">
         <rect x="25" y="110" width="60" height="110" />
         <rect x="100" y="110" width="60" height="110" />
@@ -121,16 +117,11 @@ const CityscapeBackground = () => (
         <rect x="100" y="125" width="60" height="4" /> <rect x="100" y="145" width="60" height="4" /> <rect x="100" y="165" width="60" height="4" /> <rect x="100" y="185" width="60" height="4" />
         <rect x="175" y="125" width="60" height="4" /> <rect x="175" y="145" width="60" height="4" /> <rect x="175" y="165" width="60" height="4" /> <rect x="175" y="185" width="60" height="4" />
       </g>
-      
-      {/* Beautiful CK Logo Mounted on Warehouse */}
       <rect x="80" y="35" width="100" height="48" rx="8" fill="#E4F2E7" />
-      {/* 'C' */}
       <path d="M120,44 C108,44 104,50 104,59 C104,68 108,74 120,74" stroke="#258E3C" strokeWidth="5.5" strokeLinecap="round" fill="none"/>
-      {/* '<' */}
       <path d="M142,44 L127,59 L142,74" stroke="#258E3C" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
       <circle cx="146" cy="71" r="3.5" fill="#258E3C" />
     </g>
-    {/* ========================================================= */}
 
     {/* FOREGROUND BUILDINGS (Right side) */}
     <g transform="translate(760, 230)">
@@ -142,7 +133,7 @@ const CityscapeBackground = () => (
       <use href="#win-md" x="25" y="160" /> <use href="#win-md" x="65" y="160" />
     </g>
 
-    {/* SHOPS (Background Layer Behind Parallax Truck) */}
+    {/* SHOPS */}
     <g transform="translate(80, 310)">
       <use href="#map-pin" x="100" y="-40" />
       <rect x="15" y="40" width="140" height="80" fill="#F4FAF5" />
@@ -156,7 +147,34 @@ const CityscapeBackground = () => (
       <polygon points="140,10 155,10 165,40 152,40" fill="#F4FAF5" />
     </g>
 
-    {/* BACKGROUND TREES/BUSHES (Attached to buildings layer) */}
+    <g transform="translate(950, 315)">
+      <use href="#map-pin" x="35" y="-60" />
+      <rect x="25" y="40" width="115" height="75" fill="#F4FAF5" />
+      <rect x="35" y="55" width="30" height="40" fill="#A8D6B1" />
+      <rect x="75" y="55" width="55" height="40" fill="#A8D6B1" />
+      <circle cx="85" cy="85" r="4" fill="#FFFFFF" opacity="0.6" />
+      <circle cx="95" cy="85" r="4" fill="#FFFFFF" opacity="0.6" />
+      <circle cx="105" cy="85" r="4" fill="#FFFFFF" opacity="0.6" />
+      <circle cx="115" cy="85" r="4" fill="#FFFFFF" opacity="0.6" />
+      <path d="M15,40 L25,10 L135,10 L145,40 Z" fill="#75C282" />
+      <polygon points="30,10 45,10 42,40 21,40" fill="#F4FAF5" />
+      <polygon points="60,10 75,10 78,40 54,40" fill="#F4FAF5" />
+      <polygon points="90,10 105,10 114,40 90,40" fill="#F4FAF5" />
+      <polygon points="120,10 135,10 145,40 126,40" fill="#F4FAF5" />
+      <circle cx="21" cy="40" r="6" fill="#F4FAF5" />
+      <circle cx="33" cy="40" r="6" fill="#75C282" />
+      <circle cx="45" cy="40" r="6" fill="#F4FAF5" />
+      <circle cx="57" cy="40" r="6" fill="#75C282" />
+      <circle cx="69" cy="40" r="6" fill="#F4FAF5" />
+      <circle cx="81" cy="40" r="6" fill="#75C282" />
+      <circle cx="93" cy="40" r="6" fill="#F4FAF5" />
+      <circle cx="105" cy="40" r="6" fill="#75C282" />
+      <circle cx="117" cy="40" r="6" fill="#F4FAF5" />
+      <circle cx="129" cy="40" r="6" fill="#75C282" />
+      <circle cx="141" cy="40" r="6" fill="#F4FAF5" />
+    </g>
+
+    {/* BACKGROUND TREES/BUSHES */}
     <g>
       <circle cx="120" cy="410" r="25" fill="#A8D6B1" />
       <circle cx="300" cy="410" r="20" fill="#A8D6B1" />
@@ -172,13 +190,11 @@ const CityscapeBackground = () => (
 
     {/* SEAMLESS ROAD LAYER */}
     <rect x="0" y="420" width="1200" height="230" fill="#E4F2E7" />
-    
-    {/* Dashed Lane Markers (Exactly where the truck tires sit) */}
     <line x1="0" y1="500" x2="1200" y2="500" stroke="#FFFFFF" strokeOpacity="0.8" strokeWidth="7" strokeDasharray="60 50" strokeLinecap="round" />
   </svg>
 );
 
-// 2. FOREGROUND SVG (Sidewalk, Bushes, Hydrants that cover the truck wheels)
+// 2. FOREGROUND SVG
 const CityscapeForeground = () => (
   <svg viewBox="0 0 1200 650" className="h-full w-auto shrink-0 drop-shadow-sm">
     <defs>
@@ -196,13 +212,10 @@ const CityscapeForeground = () => (
 
     {/* Raised Foreground Sidewalk */}
     <rect x="0" y="555" width="1200" height="95" fill="#D6EED9" />
-    {/* Curb edge drop */}
     <rect x="0" y="555" width="1200" height="9" fill="#A3D7AB" />
-    
-    {/* Pavement cracks for realism */}
     <path d="M80,564 v95 M280,564 v95 M480,564 v95 M680,564 v95 M880,564 v95 M1080,564 v95" stroke="#C0E2C6" strokeWidth="2.5" />
 
-    {/* Overlapping Lush Foreground Bushes (Creates intense parallax depth over truck tires) */}
+    {/* Overlapping Lush Foreground Bushes */}
     <g>
        <circle cx="50" cy="565" r="30" fill="#75C282" />
        <circle cx="110" cy="575" r="35" fill="#98D2A4" />
@@ -218,7 +231,7 @@ const CityscapeForeground = () => (
        <circle cx="1180" cy="570" r="35" fill="#98D2A4" />
     </g>
 
-    {/* Fire Hydrants anchored in the foreground */}
+    {/* Fire Hydrants */}
     <use href="#fire-hydrant" x="190" y="525" />
     <use href="#fire-hydrant" x="800" y="525" />
   </svg>
@@ -252,17 +265,17 @@ export const AppLoader = React.memo(function AppLoader({
 
   return (
     <div
-      className={`flex flex-col items-center justify-center bg-white select-none ${
+      className={`flex flex-col items-center justify-center bg-white select-none overflow-hidden ${
         fullScreen ? 'fixed inset-0 z-50 animate-fade-in' : 'w-full py-8'
       } ${className}`}
     >
       <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass}`}>
         
-        {/* Main Stage Viewport */}
-        <div className="relative w-full max-w-[900px] h-[550px] sm:h-[600px] flex items-center justify-center overflow-hidden bg-white">
+        {/* Main Stage Viewport - 100% width, no left/right padding restrictions */}
+        <div className="relative w-full h-[550px] sm:h-[600px] flex items-center justify-center overflow-hidden bg-white">
           
           {/* ========================================================= */}
-          {/* LAYER 1: BACKGROUND (Scrolls fast at 10s to match wheels) */}
+          {/* LAYER 1: BACKGROUND (Scrolls at 12s)                        */}
           {/* ========================================================= */}
           <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none z-0">
             <div className="flex h-full w-max animate-bg-scroll opacity-90">
@@ -272,7 +285,7 @@ export const AppLoader = React.memo(function AppLoader({
           </div>
 
           {/* ========================================================= */}
-          {/* LAYER 2: TRUCK & GROCERIES (Tires touch the road dashes)  */}
+          {/* LAYER 2: TRUCK, GROCERIES & FALLING LEAVES                  */}
           {/* ========================================================= */}
           <div className="absolute z-10 w-[280px] sm:w-[340px] pointer-events-none bottom-[20%] sm:bottom-[22%] drop-shadow-xl">
             <svg
@@ -324,6 +337,8 @@ export const AppLoader = React.memo(function AppLoader({
                 <use href="#leaf-shape" fill="#8BC34A" className="animate-leaf-2" />
                 <use href="#leaf-shape" fill="#FFB300" className="animate-leaf-3" />
                 <use href="#leaf-shape" fill="#388E3C" className="animate-leaf-4" />
+                <use href="#leaf-shape" fill="#F57F17" className="animate-leaf-5" />
+                <use href="#leaf-shape" fill="#689F38" className="animate-leaf-6" />
               </g>
 
               <g id="ground-shadow" opacity=".16" filter="url(#softShadow)">
@@ -463,8 +478,7 @@ export const AppLoader = React.memo(function AppLoader({
           </div>
 
           {/* ========================================================= */}
-          {/* LAYER 3: FOREGROUND (Scrolls super fast at 7s for depth)  */}
-          {/* Sidewalk & Hydrants overlap truck tires for extreme realism */}
+          {/* LAYER 3: FOREGROUND (Scrolls super fast at 6s for depth)  */}
           {/* ========================================================= */}
           <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none z-20">
             <div className="flex h-full w-max animate-fg-scroll">
@@ -526,22 +540,22 @@ export const AppLoader = React.memo(function AppLoader({
       </div>
 
       <style>{`
-        /* Background scrolls at 10s (increased speed to match wheels) */
+        /* Background scrolls at 12s */
         @keyframes bgScroll {
           0% { transform: translate3d(0, 0, 0); }
           100% { transform: translate3d(-50%, 0, 0); } 
         }
         .animate-bg-scroll {
-          animation: bgScroll 10s linear infinite;
+          animation: bgScroll 12s linear infinite;
         }
 
-        /* Foreground scrolls at 7s (faster than bg, creating immense 3D depth) */
+        /* Foreground scrolls at 6s (faster than bg, creating immense 3D depth) */
         @keyframes fgScroll {
           0% { transform: translate3d(0, 0, 0); }
           100% { transform: translate3d(-50%, 0, 0); } 
         }
         .animate-fg-scroll {
-          animation: fgScroll 7s linear infinite;
+          animation: fgScroll 6s linear infinite;
         }
 
         @keyframes spinWheelAnim {
@@ -564,32 +578,44 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-produce-jiggle { animation: produceJiggle 0.65s ease-in-out infinite 0.1s; }
 
-        /* Magical Falling Leaves CSS Keyframes */
+        /* Magical Falling Leaves CSS Keyframes - Upgraded visibility and spread */
         @keyframes leafFly1 {
-          0% { transform: translate(300px, -110px) rotate(0deg) scale(1); opacity: 0; }
+          0% { transform: translate(300px, -110px) rotate(0deg) scale(1.5); opacity: 0; }
           10% { opacity: 1; }
-          100% { transform: translate(-100px, 150px) rotate(-360deg) scale(0.6); opacity: 0; }
+          100% { transform: translate(-200px, 150px) rotate(-360deg) scale(0.8); opacity: 0; }
         }
         @keyframes leafFly2 {
-          0% { transform: translate(320px, -130px) rotate(45deg) scale(1); opacity: 0; }
+          0% { transform: translate(320px, -140px) rotate(45deg) scale(1.2); opacity: 0; }
           15% { opacity: 0.9; }
-          100% { transform: translate(-50px, 180px) rotate(-270deg) scale(0.7); opacity: 0; }
+          100% { transform: translate(-100px, 200px) rotate(-270deg) scale(0.6); opacity: 0; }
         }
         @keyframes leafFly3 {
-          0% { transform: translate(310px, -90px) rotate(-20deg) scale(0.8); opacity: 0; }
+          0% { transform: translate(310px, -80px) rotate(-20deg) scale(1.8); opacity: 0; }
           10% { opacity: 1; }
-          100% { transform: translate(20px, 250px) rotate(-300deg) scale(0.5); opacity: 0; }
+          100% { transform: translate(-300px, 100px) rotate(-300deg) scale(1); opacity: 0; }
         }
         @keyframes leafFly4 {
-          0% { transform: translate(280px, -100px) rotate(90deg) scale(1.1); opacity: 0; }
+          0% { transform: translate(280px, -100px) rotate(90deg) scale(1.4); opacity: 0; }
           20% { opacity: 0.8; }
-          100% { transform: translate(-150px, 120px) rotate(-180deg) scale(0.5); opacity: 0; }
+          100% { transform: translate(-250px, 180px) rotate(-180deg) scale(0.7); opacity: 0; }
+        }
+        @keyframes leafFly5 {
+          0% { transform: translate(290px, -120px) rotate(15deg) scale(1.6); opacity: 0; }
+          10% { opacity: 1; }
+          100% { transform: translate(-150px, 220px) rotate(-400deg) scale(0.9); opacity: 0; }
+        }
+        @keyframes leafFly6 {
+          0% { transform: translate(330px, -70px) rotate(-45deg) scale(1.3); opacity: 0; }
+          15% { opacity: 0.9; }
+          100% { transform: translate(-400px, 50px) rotate(-200deg) scale(0.6); opacity: 0; }
         }
 
         .animate-leaf-1 { animation: leafFly1 2s linear infinite; }
         .animate-leaf-2 { animation: leafFly2 2.5s linear infinite 0.5s; opacity: 0; }
         .animate-leaf-3 { animation: leafFly3 2.2s linear infinite 1.2s; opacity: 0; }
         .animate-leaf-4 { animation: leafFly4 1.8s linear infinite 1.7s; opacity: 0; }
+        .animate-leaf-5 { animation: leafFly5 2.8s linear infinite 0.8s; opacity: 0; }
+        .animate-leaf-6 { animation: leafFly6 2.3s linear infinite 1.5s; opacity: 0; }
 
         @keyframes speedLines {
           0%, 100% { opacity: 0.85; transform: translateX(0); }

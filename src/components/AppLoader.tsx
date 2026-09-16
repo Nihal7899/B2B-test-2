@@ -37,7 +37,7 @@ const GROCERY_QUOTES = [
   "Taste the difference of farm-fresh produce..."
 ];
 
-// Reusable Cityscape Component with fully integrated Sidewalk & Road
+// 1. BACKGROUND SVG (Sky, Buildings, Road Surface)
 const CityscapeBackground = () => (
   <svg viewBox="0 0 1200 650" className="h-full w-auto shrink-0">
     <defs>
@@ -48,19 +48,6 @@ const CityscapeBackground = () => (
       <rect id="win-sm" width="12" height="15" fill="#E8F4EA" />
       <rect id="win-md" width="18" height="22" fill="#E8F4EA" />
       <rect id="win-wide" width="60" height="15" fill="#E8F4EA" />
-      <rect id="win-wide-dark" width="60" height="15" fill="#9CD4A8" />
-      
-      {/* Reusable Fire Hydrant */}
-      <g id="fire-hydrant">
-        <rect x="-6" y="0" width="12" height="25" fill="#E53935" rx="3" />
-        <path d="M-8,3 Q0,-4 8,3 Z" fill="#D32F2F" />
-        <rect x="-8" y="5" width="16" height="4" fill="#B71C1C" rx="1" />
-        <rect x="-10" y="21" width="20" height="4" fill="#B71C1C" rx="1" />
-        <circle cx="0" cy="11" r="5" fill="#D32F2F" />
-        <circle cx="0" cy="11" r="2.5" fill="#FFCDD2" />
-        <circle cx="-7" cy="11" r="2.5" fill="#C62828" />
-        <circle cx="7" cy="11" r="2.5" fill="#C62828" />
-      </g>
     </defs>
 
     {/* BACKGROUND SKY/CLOUDS LAYER */}
@@ -80,10 +67,9 @@ const CityscapeBackground = () => (
       <ellipse cx="730" cy="150" rx="12" ry="3" />
       <ellipse cx="760" cy="150" rx="8" ry="2" />
       <ellipse cx="1060" cy="190" rx="18" ry="4" />
-      <ellipse cx="1090" cy="185" rx="10" ry="2" />
     </g>
 
-    {/* MIDGROUND BUILDINGS LAYER */}
+    {/* MIDGROUND LAYER */}
     <g fill="#C0E2C6">
       <polygon points="410,430 410,170 510,130 510,430" />
       <g fill="#A3D7AB">
@@ -96,7 +82,6 @@ const CityscapeBackground = () => (
         <polygon points="430,325 450,317 450,337 430,345" />
         <polygon points="465,311 485,303 485,323 465,331" />
         <polygon points="430,365 450,357 450,377 430,385" />
-        <polygon points="465,351 485,343 485,363 465,371" />
       </g>
       <rect x="830" y="250" width="100" height="180" />
       <g fill="#A3D7AB">
@@ -105,22 +90,9 @@ const CityscapeBackground = () => (
         <use href="#win-md" x="845" y="340" /> <use href="#win-md" x="870" y="340" /> <use href="#win-md" x="895" y="340" />
         <use href="#win-md" x="845" y="375" /> <use href="#win-md" x="870" y="375" /> <use href="#win-md" x="895" y="375" />
       </g>
-      <rect x="220" y="270" width="60" height="160" />
-      <g fill="#A3D7AB">
-        <use href="#win-sm" x="230" y="290" /> <use href="#win-sm" x="252" y="290" />
-        <use href="#win-sm" x="230" y="320" /> <use href="#win-sm" x="252" y="320" />
-        <use href="#win-sm" x="230" y="350" /> <use href="#win-sm" x="252" y="350" />
-      </g>
-      <rect x="710" y="170" width="40" height="260" />
-      <g fill="#A3D7AB">
-        <use href="#win-sm" x="724" y="200" />
-        <use href="#win-sm" x="724" y="230" />
-        <use href="#win-sm" x="724" y="260" />
-        <use href="#win-sm" x="724" y="290" />
-      </g>
     </g>
 
-    {/* FOREGROUND BUILDINGS */}
+    {/* FOREGROUND BUILDINGS (Left side) */}
     <g transform="translate(280, 230)">
       <rect width="110" height="200" fill="#98D2A4" />
       <rect x="80" y="-20" width="2" height="20" fill="#70B87C" />
@@ -131,31 +103,37 @@ const CityscapeBackground = () => (
       <rect x="15" y="160" width="80" height="20" fill="#C4E6C9" />
     </g>
 
-    <g transform="translate(390, 290)">
-      <rect width="90" height="140" fill="#98D2A4" />
-      <use href="#win-md" x="15" y="20" /> <use href="#win-md" x="55" y="20" />
-      <use href="#win-md" x="15" y="55" /> <use href="#win-md" x="55" y="55" />
-      <rect x="10" y="90" width="70" height="5" fill="#75C282" />
-      <rect x="15" y="95" width="25" height="45" fill="#C4E6C9" />
-      <rect x="50" y="95" width="25" height="45" fill="#C4E6C9" />
+    {/* ========================================================= */}
+    {/* NEW: CENTRAL CK LOGISTICS WAREHOUSE                       */}
+    {/* ========================================================= */}
+    <g transform="translate(460, 210)">
+      <rect x="-10" y="0" width="280" height="220" fill="#98D2A4" />
+      <polygon points="-20,0 280,0 270,18 -10,18" fill="#75C282" />
+      
+      {/* Loading Dock Doors */}
+      <g fill="#C4E6C9">
+        <rect x="25" y="110" width="60" height="110" />
+        <rect x="100" y="110" width="60" height="110" />
+        <rect x="175" y="110" width="60" height="110" />
+      </g>
+      <g fill="#A3D7AB">
+        <rect x="25" y="125" width="60" height="4" /> <rect x="25" y="145" width="60" height="4" /> <rect x="25" y="165" width="60" height="4" /> <rect x="25" y="185" width="60" height="4" />
+        <rect x="100" y="125" width="60" height="4" /> <rect x="100" y="145" width="60" height="4" /> <rect x="100" y="165" width="60" height="4" /> <rect x="100" y="185" width="60" height="4" />
+        <rect x="175" y="125" width="60" height="4" /> <rect x="175" y="145" width="60" height="4" /> <rect x="175" y="165" width="60" height="4" /> <rect x="175" y="185" width="60" height="4" />
+      </g>
+      
+      {/* Beautiful CK Logo Mounted on Warehouse */}
+      <rect x="80" y="35" width="100" height="48" rx="8" fill="#E4F2E7" />
+      {/* 'C' */}
+      <path d="M120,44 C108,44 104,50 104,59 C104,68 108,74 120,74" stroke="#258E3C" strokeWidth="5.5" strokeLinecap="round" fill="none"/>
+      {/* '<' */}
+      <path d="M142,44 L127,59 L142,74" stroke="#258E3C" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <circle cx="146" cy="71" r="3.5" fill="#258E3C" />
     </g>
+    {/* ========================================================= */}
 
-    <g transform="translate(510, 110)">
-      <rect x="75" y="0" width="20" height="50" fill="#98D2A4" />
-      <rect x="30" y="50" width="110" height="60" fill="#98D2A4" />
-      <use href="#win-md" x="50" y="70" />
-      <use href="#win-md" x="95" y="70" />
-      <rect x="0" y="110" width="170" height="220" fill="#98D2A4" />
-      <use href="#win-md" x="25" y="130" /> <use href="#win-md" x="60" y="130" /> <use href="#win-md" x="95" y="130" /> <use href="#win-md" x="130" y="130" />
-      <use href="#win-md" x="25" y="170" /> <use href="#win-md" x="60" y="170" /> <use href="#win-md" x="95" y="170" /> <use href="#win-md" x="130" y="170" />
-      <use href="#win-md" x="25" y="210" /> <use href="#win-md" x="60" y="210" /> <use href="#win-md" x="95" y="210" /> <use href="#win-md" x="130" y="210" />
-      <use href="#win-md" x="25" y="250" /> <use href="#win-md" x="60" y="250" /> <use href="#win-md" x="95" y="250" /> <use href="#win-md" x="130" y="250" />
-      <rect x="30" y="295" width="110" height="15" fill="#75C282" />
-      <rect x="50" y="310" width="30" height="40" fill="#C4E6C9" />
-      <rect x="85" y="310" width="30" height="40" fill="#C4E6C9" />
-    </g>
-
-    <g transform="translate(710, 230)">
+    {/* FOREGROUND BUILDINGS (Right side) */}
+    <g transform="translate(760, 230)">
       <rect x="40" y="0" width="45" height="20" fill="#98D2A4" />
       <rect x="0" y="20" width="105" height="180" fill="#98D2A4" />
       <use href="#win-md" x="25" y="40" /> <use href="#win-md" x="65" y="40" />
@@ -164,137 +142,85 @@ const CityscapeBackground = () => (
       <use href="#win-md" x="25" y="160" /> <use href="#win-md" x="65" y="160" />
     </g>
 
-    {/* FOREGROUND SHOPS */}
+    {/* SHOPS (Background Layer Behind Parallax Truck) */}
     <g transform="translate(80, 310)">
       <use href="#map-pin" x="100" y="-40" />
       <rect x="15" y="40" width="140" height="80" fill="#F4FAF5" />
       <rect x="30" y="55" width="60" height="40" fill="#A8D6B1" />
       <rect x="110" y="55" width="30" height="40" fill="#A8D6B1" />
-      <circle cx="45" cy="85" r="5" fill="#FFFFFF" opacity="0.6" />
-      <circle cx="55" cy="85" r="5" fill="#FFFFFF" opacity="0.6" />
-      <circle cx="65" cy="85" r="5" fill="#FFFFFF" opacity="0.6" />
-      <circle cx="75" cy="85" r="5" fill="#FFFFFF" opacity="0.6" />
-      <rect x="115" y="80" width="20" height="10" fill="#FFFFFF" opacity="0.6" />
       <path d="M5,40 L15,10 L155,10 L165,40 Z" fill="#75C282" />
       <polygon points="20,10 35,10 32,40 11,40" fill="#F4FAF5" />
       <polygon points="50,10 65,10 68,40 44,40" fill="#F4FAF5" />
       <polygon points="80,10 95,10 104,40 80,40" fill="#F4FAF5" />
       <polygon points="110,10 125,10 140,40 116,40" fill="#F4FAF5" />
       <polygon points="140,10 155,10 165,40 152,40" fill="#F4FAF5" />
-      <circle cx="11" cy="40" r="6" fill="#F4FAF5" />
-      <circle cx="23" cy="40" r="6" fill="#75C282" />
-      <circle cx="35" cy="40" r="6" fill="#F4FAF5" />
-      <circle cx="47" cy="40" r="6" fill="#75C282" />
-      <circle cx="59" cy="40" r="6" fill="#F4FAF5" />
-      <circle cx="71" cy="40" r="6" fill="#75C282" />
-      <circle cx="83" cy="40" r="6" fill="#F4FAF5" />
-      <circle cx="95" cy="40" r="6" fill="#75C282" />
-      <circle cx="107" cy="40" r="6" fill="#F4FAF5" />
-      <circle cx="119" cy="40" r="6" fill="#75C282" />
-      <circle cx="131" cy="40" r="6" fill="#F4FAF5" />
-      <circle cx="143" cy="40" r="6" fill="#75C282" />
-      <circle cx="155" cy="40" r="6" fill="#F4FAF5" />
     </g>
 
-    <g transform="translate(950, 315)">
-      <use href="#map-pin" x="35" y="-60" />
-      <rect x="25" y="40" width="115" height="75" fill="#F4FAF5" />
-      <rect x="35" y="55" width="30" height="40" fill="#A8D6B1" />
-      <rect x="75" y="55" width="55" height="40" fill="#A8D6B1" />
-      <circle cx="85" cy="85" r="4" fill="#FFFFFF" opacity="0.6" />
-      <circle cx="95" cy="85" r="4" fill="#FFFFFF" opacity="0.6" />
-      <circle cx="105" cy="85" r="4" fill="#FFFFFF" opacity="0.6" />
-      <circle cx="115" cy="85" r="4" fill="#FFFFFF" opacity="0.6" />
-      <path d="M15,40 L25,10 L135,10 L145,40 Z" fill="#75C282" />
-      <polygon points="30,10 45,10 42,40 21,40" fill="#F4FAF5" />
-      <polygon points="60,10 75,10 78,40 54,40" fill="#F4FAF5" />
-      <polygon points="90,10 105,10 114,40 90,40" fill="#F4FAF5" />
-      <polygon points="120,10 135,10 145,40 126,40" fill="#F4FAF5" />
-      <circle cx="21" cy="40" r="6" fill="#F4FAF5" />
-      <circle cx="33" cy="40" r="6" fill="#75C282" />
-      <circle cx="45" cy="40" r="6" fill="#F4FAF5" />
-      <circle cx="57" cy="40" r="6" fill="#75C282" />
-      <circle cx="69" cy="40" r="6" fill="#F4FAF5" />
-      <circle cx="81" cy="40" r="6" fill="#75C282" />
-      <circle cx="93" cy="40" r="6" fill="#F4FAF5" />
-      <circle cx="105" cy="40" r="6" fill="#75C282" />
-      <circle cx="117" cy="40" r="6" fill="#F4FAF5" />
-      <circle cx="129" cy="40" r="6" fill="#75C282" />
-      <circle cx="141" cy="40" r="6" fill="#F4FAF5" />
-    </g>
-
-    {/* BACKGROUND GRASS/TREES (Behind Sidewalk) */}
+    {/* BACKGROUND TREES/BUSHES (Attached to buildings layer) */}
     <g>
-      <g fill="#70B87C">
-        <rect x="80" y="400" width="4" height="30" />
-        <rect x="280" y="400" width="4" height="30" />
-        <rect x="360" y="380" width="5" height="50" />
-        <rect x="510" y="400" width="4" height="30" />
-        <rect x="698" y="380" width="4" height="50" />
-        <rect x="855" y="380" width="5" height="50" />
-        <rect x="1133" y="390" width="4" height="40" />
-      </g>
       <circle cx="120" cy="410" r="25" fill="#A8D6B1" />
       <circle cx="300" cy="410" r="20" fill="#A8D6B1" />
-      <circle cx="490" cy="415" r="15" fill="#A8D6B1" />
       <circle cx="650" cy="410" r="30" fill="#A8D6B1" />
-      <circle cx="940" cy="405" r="25" fill="#A8D6B1" />
       <ellipse cx="82" cy="380" rx="20" ry="30" fill="#98D2A4" />
       <ellipse cx="362" cy="360" rx="25" ry="35" fill="#98D2A4" />
       <ellipse cx="700" cy="360" rx="22" ry="35" fill="#98D2A4" />
       <ellipse cx="857" cy="355" rx="30" ry="40" fill="#98D2A4" />
-      <ellipse cx="1135" cy="375" rx="22" ry="30" fill="#98D2A4" />
       <rect x="81" y="360" width="2" height="25" fill="#75C282" />
       <rect x="361" y="340" width="3" height="30" fill="#75C282" />
       <rect x="699" y="340" width="2" height="30" fill="#75C282" />
-      <rect x="856" y="330" width="3" height="35" fill="#75C282" />
-      <rect x="1134" y="355" width="2" height="25" fill="#75C282" />
     </g>
 
-    {/* ============================================== */}
-    {/* NEW SECTION: SIDEWALK, BUSHES, HYDRANTS & ROAD */}
-    {/* ============================================== */}
+    {/* SEAMLESS ROAD LAYER */}
+    <rect x="0" y="420" width="1200" height="230" fill="#E4F2E7" />
     
-    {/* Grass padding base */}
-    <rect x="0" y="420" width="1200" height="20" fill="#E4F2E7" />
-    
-    {/* Raised Sidewalk */}
-    <rect x="0" y="430" width="1200" height="25" fill="#D6EED9" />
-    <rect x="0" y="455" width="1200" height="6" fill="#A3D7AB" />
-    
-    {/* Sidewalk Tiles / Cracks */}
-    <path d="M50,430 v25 M150,430 v25 M250,430 v25 M350,430 v25 M450,430 v25 M550,430 v25 M650,430 v25 M750,430 v25 M850,430 v25 M950,430 v25 M1050,430 v25 M1150,430 v25" stroke="#C0E2C6" strokeWidth="2" />
+    {/* Dashed Lane Markers (Exactly where the truck tires sit) */}
+    <line x1="0" y1="500" x2="1200" y2="500" stroke="#FFFFFF" strokeOpacity="0.8" strokeWidth="7" strokeDasharray="60 50" strokeLinecap="round" />
+  </svg>
+);
 
-    {/* Fire Hydrants on the sidewalk */}
-    <use href="#fire-hydrant" x="250" y="430" />
-    <use href="#fire-hydrant" x="850" y="430" />
+// 2. FOREGROUND SVG (Sidewalk, Bushes, Hydrants that cover the truck wheels)
+const CityscapeForeground = () => (
+  <svg viewBox="0 0 1200 650" className="h-full w-auto shrink-0 drop-shadow-sm">
+    <defs>
+      <g id="fire-hydrant">
+        <rect x="-8" y="0" width="16" height="32" fill="#E53935" rx="4" />
+        <path d="M-10,4 Q0,-6 10,4 Z" fill="#D32F2F" />
+        <rect x="-10" y="6" width="20" height="5" fill="#B71C1C" rx="1.5" />
+        <rect x="-12" y="26" width="24" height="6" fill="#B71C1C" rx="2" />
+        <circle cx="0" cy="15" r="7" fill="#D32F2F" />
+        <circle cx="0" cy="15" r="3.5" fill="#FFCDD2" />
+        <circle cx="-9" cy="15" r="3.5" fill="#C62828" />
+        <circle cx="9" cy="15" r="3.5" fill="#C62828" />
+      </g>
+    </defs>
 
-    {/* Overlapping Sidewalk Bushes (creates beautiful depth) */}
+    {/* Raised Foreground Sidewalk */}
+    <rect x="0" y="555" width="1200" height="95" fill="#D6EED9" />
+    {/* Curb edge drop */}
+    <rect x="0" y="555" width="1200" height="9" fill="#A3D7AB" />
+    
+    {/* Pavement cracks for realism */}
+    <path d="M80,564 v95 M280,564 v95 M480,564 v95 M680,564 v95 M880,564 v95 M1080,564 v95" stroke="#C0E2C6" strokeWidth="2.5" />
+
+    {/* Overlapping Lush Foreground Bushes (Creates intense parallax depth over truck tires) */}
     <g>
-      <circle cx="60" cy="425" r="15" fill="#98D2A4" />
-      <circle cx="100" cy="428" r="18" fill="#75C282" />
-      <ellipse cx="280" cy="425" rx="15" ry="20" fill="#98D2A4" />
-      <circle cx="330" cy="428" r="14" fill="#75C282" />
-      <circle cx="380" cy="425" r="14" fill="#98D2A4" />
-      <circle cx="420" cy="432" r="18" fill="#75C282" />
-      <circle cx="510" cy="425" r="16" fill="#98D2A4" />
-      <circle cx="670" cy="428" r="18" fill="#75C282" />
-      <circle cx="710" cy="425" r="20" fill="#98D2A4" />
-      <circle cx="770" cy="420" r="30" fill="#98D2A4" />
-      <circle cx="810" cy="428" r="15" fill="#75C282" />
-      <circle cx="890" cy="425" r="18" fill="#98D2A4" />
-      <circle cx="970" cy="430" r="16" fill="#75C282" />
-      <circle cx="1110" cy="425" r="14" fill="#98D2A4" />
-      <circle cx="1150" cy="430" r="20" fill="#75C282" />
+       <circle cx="50" cy="565" r="30" fill="#75C282" />
+       <circle cx="110" cy="575" r="35" fill="#98D2A4" />
+       <circle cx="280" cy="560" r="25" fill="#75C282" />
+       <circle cx="350" cy="570" r="38" fill="#98D2A4" />
+       <circle cx="410" cy="565" r="28" fill="#75C282" />
+       <circle cx="530" cy="570" r="25" fill="#98D2A4" />
+       <circle cx="590" cy="555" r="35" fill="#75C282" />
+       <circle cx="720" cy="570" r="30" fill="#98D2A4" />
+       <circle cx="890" cy="565" r="25" fill="#75C282" />
+       <circle cx="960" cy="575" r="40" fill="#98D2A4" />
+       <circle cx="1120" cy="560" r="30" fill="#75C282" />
+       <circle cx="1180" cy="570" r="35" fill="#98D2A4" />
     </g>
 
-    {/* The Seamless Pale Green Road */}
-    <rect x="0" y="461" width="1200" height="189" fill="#E4F2E7" />
-    
-    {/* Road Lane Dividers (Dashed lines) */}
-    <line x1="0" y1="550" x2="1200" y2="550" stroke="#FFFFFF" strokeOpacity="0.7" strokeWidth="6" strokeDasharray="50 40" />
-    {/* Bottom Road Edge Fade */}
-    <rect x="0" y="620" width="1200" height="30" fill="#C0E2C6" opacity="0.3" />
+    {/* Fire Hydrants anchored in the foreground */}
+    <use href="#fire-hydrant" x="190" y="525" />
+    <use href="#fire-hydrant" x="800" y="525" />
   </svg>
 );
 
@@ -332,33 +258,27 @@ export const AppLoader = React.memo(function AppLoader({
     >
       <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass}`}>
         
-        {/* Main Stage Viewport - Expanded height prevents building cutoffs */}
-        <div className="relative w-full max-w-[900px] h-[550px] sm:h-[600px] flex items-center justify-center overflow-hidden">
+        {/* Main Stage Viewport */}
+        <div className="relative w-full max-w-[900px] h-[550px] sm:h-[600px] flex items-center justify-center overflow-hidden bg-white">
           
           {/* ========================================================= */}
-          {/* 1. SEAMLESS CITY & ROAD BACKGROUND                          */}
+          {/* LAYER 1: BACKGROUND (Scrolls fast at 10s to match wheels) */}
           {/* ========================================================= */}
-          {/* Placed at the absolute bounds so the 100% height matches our container exactly */}
           <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none z-0">
-            {/* The flex container auto-sizes to wrap 2 SVGs precisely, making percentage transforms flawless */}
-            <div className="flex h-full w-max animate-city-scroll opacity-90">
+            <div className="flex h-full w-max animate-bg-scroll opacity-90">
               <CityscapeBackground />
               <CityscapeBackground />
             </div>
           </div>
 
           {/* ========================================================= */}
-          {/* 2. TRUCK & OVERFLOWING GROCERIES                          */}
+          {/* LAYER 2: TRUCK & GROCERIES (Tires touch the road dashes)  */}
           {/* ========================================================= */}
-          {/* 
-            Since the SVG height is identically matched to the container, 
-            bottom-[14%] perfectly drops the truck tires onto the road dash line on ALL screen sizes! 
-          */}
-          <div className="absolute z-10 w-[280px] sm:w-[340px] pointer-events-none bottom-[14%] sm:bottom-[15%]">
+          <div className="absolute z-10 w-[280px] sm:w-[340px] pointer-events-none bottom-[20%] sm:bottom-[22%] drop-shadow-xl">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="-50 -350 1500 1100"
-              className="w-full h-auto drop-shadow-xl"
+              className="w-full h-auto"
               fill="none"
             >
               <defs>
@@ -379,12 +299,16 @@ export const AppLoader = React.memo(function AppLoader({
                 <linearGradient id="bumper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#324255"/><stop offset="1" stopColor="#172333"/></linearGradient>
                 <linearGradient id="lamp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#FFFFFF"/><stop offset=".58" stopColor="#FFF5BC"/><stop offset="1" stopColor="#F5CF63"/></linearGradient>
                 <filter id="softShadow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="13"/></filter>
+                
                 <radialGradient id="tomatoGrad" cx="30%" cy="30%" r="70%"><stop offset="0%" stopColor="#FF8A80" /><stop offset="40%" stopColor="#E53935" /><stop offset="80%" stopColor="#C62828" /><stop offset="100%" stopColor="#8E0000" /></radialGradient>
                 <radialGradient id="pepperGrad" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#FF5252" /><stop offset="50%" stopColor="#D32F2F" /><stop offset="100%" stopColor="#B71C1C" /></radialGradient>
                 <linearGradient id="baguetteGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#FFCC80" /><stop offset="40%" stopColor="#E68A00" /><stop offset="80%" stopColor="#B35900" /><stop offset="100%" stopColor="#663300" /></linearGradient>
                 <linearGradient id="milkGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#FFFFFF" /><stop offset="80%" stopColor="#F0F8FF" /><stop offset="100%" stopColor="#D0E4F5" /></linearGradient>
                 <radialGradient id="lettuceGrad1" cx="40%" cy="40%" r="60%"><stop offset="0%" stopColor="#81C784" /><stop offset="70%" stopColor="#4CAF50" /><stop offset="100%" stopColor="#2E7D32" /></radialGradient>
                 <radialGradient id="lettuceGrad2" cx="30%" cy="30%" r="60%"><stop offset="0%" stopColor="#AED581" /><stop offset="80%" stopColor="#689F38" /><stop offset="100%" stopColor="#33691E" /></radialGradient>
+
+                {/* Leaf Shape Template */}
+                <path id="leaf-shape" d="M0,0 C-8,-12 -20,-15 -25,0 C-20,15 -8,12 0,0 Z" />
               </defs>
 
               <g id="speed-lines" className="animate-speed-lines" fill="none" strokeLinecap="round">
@@ -393,6 +317,15 @@ export const AppLoader = React.memo(function AppLoader({
                 <path d="M105 390H235" stroke="#0B7C4B" strokeWidth="9"/>
                 <path d="M145 430H220" stroke="#68E5A2" strokeWidth="7"/>
               </g>
+
+              {/* Magical Falling Leaves from Cargo */}
+              <g id="falling-leaves" className="animate-produce-jiggle">
+                <use href="#leaf-shape" fill="#4CAF50" className="animate-leaf-1" />
+                <use href="#leaf-shape" fill="#8BC34A" className="animate-leaf-2" />
+                <use href="#leaf-shape" fill="#FFB300" className="animate-leaf-3" />
+                <use href="#leaf-shape" fill="#388E3C" className="animate-leaf-4" />
+              </g>
+
               <g id="ground-shadow" opacity=".16" filter="url(#softShadow)">
                 <ellipse cx="730" cy="636" rx="530" ry="24" fill="#0B3021"/>
               </g>
@@ -497,10 +430,6 @@ export const AppLoader = React.memo(function AppLoader({
                   <path d="M1131 527H1204" stroke="#6C7C8D" strokeWidth="6" strokeLinecap="round" opacity=".65"/>
                   <path d="M193 510H286V548H187Q176 548 176 536V524Q176 510 193 510Z" fill="url(#bumper)" stroke="#0C1826" strokeWidth="5"/>
                 </g>
-                <g id="ui-highlights" fill="none" strokeLinecap="round">
-                  <path d="M277 147H836" stroke="#D7FFE7" strokeWidth="3" opacity=".22"/>
-                  <path d="M861 147H996" stroke="#D7FFE7" strokeWidth="3" opacity=".18"/>
-                </g>
               </g>
               <g id="rear-wheel" className="wheel-rear" style={{ transformOrigin: '385px 541px' }}>
                 <circle cx="385" cy="541" r="95" fill="#0D1520" stroke="#293A4E" strokeWidth="13"/>
@@ -532,13 +461,24 @@ export const AppLoader = React.memo(function AppLoader({
               </g>
             </svg>
           </div>
+
+          {/* ========================================================= */}
+          {/* LAYER 3: FOREGROUND (Scrolls super fast at 7s for depth)  */}
+          {/* Sidewalk & Hydrants overlap truck tires for extreme realism */}
+          {/* ========================================================= */}
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none z-20">
+            <div className="flex h-full w-max animate-fg-scroll">
+              <CityscapeForeground />
+              <CityscapeForeground />
+            </div>
+          </div>
         </div>
 
         {/* ========================================================= */}
-        {/* 3. BEAUTIFUL QUOTES UI                                    */}
+        {/* DYNAMIC QUOTES UI                                         */}
         {/* ========================================================= */}
         {showStatus && (
-          <div className="mt-8 sm:mt-12 w-full max-w-lg px-6 flex flex-col items-center justify-center animate-fade-in z-20">
+          <div className="mt-8 sm:mt-12 w-full max-w-lg px-6 flex flex-col items-center justify-center animate-fade-in z-30">
             {type === 'home' && (
               <div className="relative flex items-center justify-between w-64 mb-6">
                 <div className="absolute top-1/2 left-0 right-0 h-[2.5px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
@@ -566,35 +506,19 @@ export const AppLoader = React.memo(function AppLoader({
               </div>
             )}
             
-            {/* Redesigned Decorative Quote Block */}
             <div className="relative w-full p-5 sm:p-6 rounded-[28px] bg-emerald-50/70 border border-emerald-100 shadow-sm text-center">
               <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-5xl text-emerald-300/80 font-serif leading-none select-none">
                 “
               </span>
-              
               <div className="h-10 sm:h-12 flex items-center justify-center pt-2">
-                <p
-                  key={msgIndex}
-                  className="text-base sm:text-lg font-medium italic text-emerald-900 tracking-tight leading-snug animate-quote-fade"
-                >
+                <p key={msgIndex} className="text-base sm:text-lg font-medium italic text-emerald-900 tracking-tight leading-snug animate-quote-fade">
                   {messagesList[msgIndex]}
                 </p>
               </div>
-              
-              {/* Animated Progress Dots for Quotes */}
               <div className="mt-4 flex justify-center gap-1.5">
-                {messagesList.slice(0, 5).map((_, i) => {
-                  // Simplify the dots logic just for aesthetics so it loops smoothly
-                  const isActive = (msgIndex % 5) === i;
-                  return (
-                    <div 
-                      key={i} 
-                      className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
-                        isActive ? 'w-4 bg-emerald-500' : 'w-1.5 bg-emerald-200/80'
-                      }`} 
-                    />
-                  );
-                })}
+                {messagesList.slice(0, 5).map((_, i) => (
+                  <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${ (msgIndex % 5) === i ? 'w-4 bg-emerald-500' : 'w-1.5 bg-emerald-200/80'}`} />
+                ))}
               </div>
             </div>
           </div>
@@ -602,13 +526,22 @@ export const AppLoader = React.memo(function AppLoader({
       </div>
 
       <style>{`
-        /* Perfectly translates exactly ONE SVGs width so it loops seamlessly */
-        @keyframes cityInfiniteScroll {
+        /* Background scrolls at 10s (increased speed to match wheels) */
+        @keyframes bgScroll {
           0% { transform: translate3d(0, 0, 0); }
           100% { transform: translate3d(-50%, 0, 0); } 
         }
-        .animate-city-scroll {
-          animation: cityInfiniteScroll 20s linear infinite;
+        .animate-bg-scroll {
+          animation: bgScroll 10s linear infinite;
+        }
+
+        /* Foreground scrolls at 7s (faster than bg, creating immense 3D depth) */
+        @keyframes fgScroll {
+          0% { transform: translate3d(0, 0, 0); }
+          100% { transform: translate3d(-50%, 0, 0); } 
+        }
+        .animate-fg-scroll {
+          animation: fgScroll 7s linear infinite;
         }
 
         @keyframes spinWheelAnim {
@@ -631,13 +564,39 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-produce-jiggle { animation: produceJiggle 0.65s ease-in-out infinite 0.1s; }
 
+        /* Magical Falling Leaves CSS Keyframes */
+        @keyframes leafFly1 {
+          0% { transform: translate(300px, -110px) rotate(0deg) scale(1); opacity: 0; }
+          10% { opacity: 1; }
+          100% { transform: translate(-100px, 150px) rotate(-360deg) scale(0.6); opacity: 0; }
+        }
+        @keyframes leafFly2 {
+          0% { transform: translate(320px, -130px) rotate(45deg) scale(1); opacity: 0; }
+          15% { opacity: 0.9; }
+          100% { transform: translate(-50px, 180px) rotate(-270deg) scale(0.7); opacity: 0; }
+        }
+        @keyframes leafFly3 {
+          0% { transform: translate(310px, -90px) rotate(-20deg) scale(0.8); opacity: 0; }
+          10% { opacity: 1; }
+          100% { transform: translate(20px, 250px) rotate(-300deg) scale(0.5); opacity: 0; }
+        }
+        @keyframes leafFly4 {
+          0% { transform: translate(280px, -100px) rotate(90deg) scale(1.1); opacity: 0; }
+          20% { opacity: 0.8; }
+          100% { transform: translate(-150px, 120px) rotate(-180deg) scale(0.5); opacity: 0; }
+        }
+
+        .animate-leaf-1 { animation: leafFly1 2s linear infinite; }
+        .animate-leaf-2 { animation: leafFly2 2.5s linear infinite 0.5s; opacity: 0; }
+        .animate-leaf-3 { animation: leafFly3 2.2s linear infinite 1.2s; opacity: 0; }
+        .animate-leaf-4 { animation: leafFly4 1.8s linear infinite 1.7s; opacity: 0; }
+
         @keyframes speedLines {
           0%, 100% { opacity: 0.85; transform: translateX(0); }
           50% { opacity: 0.15; transform: translateX(-32px); }
         }
         .animate-speed-lines { animation: speedLines 0.4s ease-in-out infinite; }
 
-        /* Smoother fade transition for the beautiful quotes */
         @keyframes quoteFade {
           0% { opacity: 0; transform: translateY(6px); }
           15% { opacity: 1; transform: translateY(0); }

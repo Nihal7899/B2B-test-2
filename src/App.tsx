@@ -249,7 +249,8 @@ function App() {
   const isDeliveryPartner = role === 'delivery_partner';
   const isWarehouseManager = role === 'warehouse_manager';
   const isInvestor = role === 'investor';
-  const isDedicatedStaff = isDeliveryPartner || isWarehouseManager || isInvestor;
+  const isDedicatedStaff = isDeliveryPartner || isWarehouseManager; 
+
 
   const deliveryTab = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -514,9 +515,6 @@ function App() {
       return <WarehouseScreen isDedicatedRole={true} />;
     }
 
-    if (isInvestor) {
-      return <InvestorScreen />; 
-    }
 
     switch (screen) {
       case 'home':

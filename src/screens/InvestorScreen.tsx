@@ -414,11 +414,12 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
             </p>
           </div>
           <button
-            onClick={() => void logout({ scope: 'local' })}
+            onClick={onBack}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-400 transition-all hover:bg-rose-500/10 hover:text-rose-300"
           >
-            <LogOut size={16} /> Sign out
+            <LogOut size={16} /> Exit
           </button>
+
         </div>
       </aside>
 
@@ -454,12 +455,13 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
               <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
             </button>
             <button
-              onClick={() => void logout({ scope: 'local' })}
+              onClick={onBack}
               aria-label="Exit"
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-400/25 bg-rose-500/10 text-rose-300 transition active:scale-95"
             >
               <LogOut size={14} />
             </button>
+
           </div>
         </div>
       </header>

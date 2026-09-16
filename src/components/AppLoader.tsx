@@ -4,6 +4,7 @@ interface AppLoaderProps {
   fullScreen?: boolean;
   size?: 'sm' | 'md' | 'lg';
   showStatus?: boolean;
+  type?: 'home' | 'general';
   className?: string;
 }
 
@@ -21,7 +22,22 @@ const HOME_MESSAGES = [
   'Finalizing wholesale dispatch...',
 ];
 
-// Reusable Cityscape Component (Converted to valid JSX & missing windows added)
+const GROCERY_QUOTES = [
+  "Freshness you can taste, quality you can trust...",
+  "Good food brings people together...",
+  "Eat fresh, live better...",
+  "Your daily dose of farm-fresh goodness...",
+  "Quality groceries, delivered with care...",
+  "Healthy eating starts with healthy shopping...",
+  "From farm to table, just for you...",
+  "Bringing the best of nature to your kitchen...",
+  "Nourishing your family with every delivery...",
+  "Wholesome ingredients for delicious meals...",
+  "Stocking up your pantry with happiness...",
+  "Taste the difference of farm-fresh produce..."
+];
+
+// Reusable Cityscape Component
 const CityscapeBackground = () => (
   <svg viewBox="0 0 1200 500" className="w-[1200px] h-[500px] shrink-0">
     <defs>
@@ -42,7 +58,7 @@ const CityscapeBackground = () => (
       <rect id="win-wide-dark" width="60" height="15" fill="#9CD4A8" />
     </defs>
 
-    {/* BACKGROUND LAYER (Lightest) */}
+    {/* BACKGROUND LAYER */}
     <g fill="#E4F2E7">
       <path d="M290,130 a20,20 0 0,1 40,-10 a25,25 0 0,1 45,5 a18,18 0 0,1 15,20 h-100 z" />
       <path d="M850,140 a15,15 0 0,1 30,-5 a20,20 0 0,1 40,5 a15,15 0 0,1 10,15 h-80 z" />
@@ -62,11 +78,10 @@ const CityscapeBackground = () => (
       <ellipse cx="1090" cy="185" rx="10" ry="2" />
     </g>
 
-    {/* MIDGROUND LAYER (Added windows to previously bare buildings) */}
+    {/* MIDGROUND LAYER */}
     <g fill="#C0E2C6">
       <polygon points="410,430 410,170 510,130 510,430" />
       <g fill="#A3D7AB">
-        {/* Added proper windows to slanted building */}
         <polygon points="430,205 450,197 450,217 430,225" />
         <polygon points="465,191 485,183 485,203 465,211" />
         <polygon points="430,245 450,237 450,257 430,265" />
@@ -78,17 +93,13 @@ const CityscapeBackground = () => (
         <polygon points="430,365 450,357 450,377 430,385" />
         <polygon points="465,351 485,343 485,363 465,371" />
       </g>
-
       <rect x="830" y="250" width="100" height="180" />
       <g fill="#A3D7AB">
-        {/* Added actual window grids to blocky building instead of stripes */}
         <use href="#win-md" x="845" y="270" /> <use href="#win-md" x="870" y="270" /> <use href="#win-md" x="895" y="270" />
         <use href="#win-md" x="845" y="305" /> <use href="#win-md" x="870" y="305" /> <use href="#win-md" x="895" y="305" />
         <use href="#win-md" x="845" y="340" /> <use href="#win-md" x="870" y="340" /> <use href="#win-md" x="895" y="340" />
         <use href="#win-md" x="845" y="375" /> <use href="#win-md" x="870" y="375" /> <use href="#win-md" x="895" y="375" />
       </g>
-
-      {/* Added windows to minor accents */}
       <rect x="220" y="270" width="60" height="160" />
       <g fill="#A3D7AB">
         <use href="#win-sm" x="230" y="290" /> <use href="#win-sm" x="252" y="290" />
@@ -261,17 +272,23 @@ export const AppLoader = React.memo(function AppLoader({
   fullScreen = true,
   size = 'md',
   showStatus = false,
+  type = 'home',
   className = '',
 }: AppLoaderProps) {
-  const [msgIndex, setMsgIndex] = useState(0);
+  const messagesList = type === 'home' ? HOME_MESSAGES : GROCERY_QUOTES;
+  
+  // If general loading, start from a random quote for variety
+  const [msgIndex, setMsgIndex] = useState(() => 
+    type === 'home' ? 0 : Math.floor(Math.random() * messagesList.length)
+  );
 
   useEffect(() => {
     if (!showStatus) return;
     const interval = setInterval(() => {
-      setMsgIndex((prev) => (prev + 1) % HOME_MESSAGES.length);
-    }, 1800);
+      setMsgIndex((prev) => (prev + 1) % messagesList.length);
+    }, type === 'home' ? 1800 : 2800); // Give users a bit more time to read general quotes
     return () => clearInterval(interval);
-  }, [showStatus]);
+  }, [showStatus, messagesList.length, type]);
 
   const scaleClass =
     size === 'sm' ? 'scale-75' : size === 'lg' ? 'scale-105' : 'scale-95 sm:scale-100';
@@ -286,14 +303,15 @@ export const AppLoader = React.memo(function AppLoader({
     >
       <div className={`relative flex flex-col items-center justify-center w-full ${scaleClass}`}>
         
-        {/* Main Stage Viewport */}
-        <div className="relative w-full max-w-[800px] h-[448px] sm:h-[480px] flex items-end justify-center overflow-hidden pb-5">
+        {/* Main Stage Viewport - Updated classes to center content and remove harsh clipping */}
+        <div className="relative w-full max-w-[800px] h-[400px] sm:h-[480px] flex items-center justify-center overflow-hidden">
           
           {/* ========================================================= */}
-          {/* 1. SEAMLESS CITY BACKGROUND (Using generated SVG)           */}
+          {/* 1. SEAMLESS CITY BACKGROUND                                 */}
           {/* ========================================================= */}
-          <div className="absolute bottom-[40px] left-0 w-full h-[320px] overflow-hidden pointer-events-none z-0 flex items-end">
-            <div style={{ transform: 'scale(1.2)', transformOrigin: 'bottom left', width: '100%' }}>
+          <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0 flex items-center justify-center">
+            {/* Reduced scale from 1.2 to 1.05 to zoom out ~12.5% */}
+            <div style={{ transform: 'scale(1.05)', transformOrigin: 'center', width: '100%' }}>
               <div className="flex w-[2400px] animate-city-scroll opacity-85">
                 <CityscapeBackground />
                 <CityscapeBackground />
@@ -304,14 +322,14 @@ export const AppLoader = React.memo(function AppLoader({
           {/* ========================================================= */}
           {/* 2. TRUCK & OVERFLOWING GROCERIES                          */}
           {/* ========================================================= */}
-          <div className="relative z-10 w-[304px] sm:w-[360px] pointer-events-none translate-y-[28px]">
+          {/* Swapped relative push down with exact absolute bottom anchoring */}
+          <div className="absolute z-10 w-[304px] sm:w-[360px] pointer-events-none bottom-[5%] sm:bottom-[10%]">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="-50 -350 1500 1100"
               className="w-full h-auto drop-shadow-xl"
               fill="none"
             >
-              {/* NOTE: Kept the truck implementation untouched to protect animations */}
               <defs>
                 <linearGradient id="greenBody" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0" stopColor="#55D16D"/>
@@ -486,40 +504,43 @@ export const AppLoader = React.memo(function AppLoader({
         </div>
 
         {/* ========================================================= */}
-        {/* 3. DYNAMIC STEPPER & ROTATING WHOLESALE STATUS            */}
+        {/* 3. DYNAMIC STEPPER & QUOTES                               */}
         {/* ========================================================= */}
         {showStatus && (
           <div className="mt-8 flex flex-col items-center justify-center animate-fade-in">
-            <div className="relative flex items-center justify-between w-64 mb-3">
-              <div className="absolute top-1/2 left-0 right-0 h-[2.5px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
-              <div
-                className="absolute top-1/2 left-0 h-[2.5px] -translate-y-1/2 bg-[#22c55e] z-0 transition-all duration-500 ease-out"
-                style={{ width: `${progressPercent}%` }}
-              />
-              {HOME_MESSAGES.map((_, idx) => {
-                const isCompleted = idx < msgIndex;
-                const isActive = idx === msgIndex;
-                return (
-                  <div key={idx} className="relative z-10 flex items-center justify-center w-5 h-5">
-                    {isActive ? (
-                      <div className="flex items-center justify-center h-5 w-5 rounded-full border-2 border-[#22c55e] bg-white transition-all duration-300 scale-110 shadow-xs">
-                        <div className="h-2.5 w-2.5 rounded-full bg-[#22c55e] animate-pulse" />
-                      </div>
-                    ) : isCompleted ? (
-                      <div className="h-3.5 w-3.5 rounded-full bg-[#22c55e] transition-all duration-300" />
-                    ) : (
-                      <div className="h-3.5 w-3.5 rounded-full bg-[#cbd5e1] transition-all duration-300" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            {type === 'home' && (
+              <div className="relative flex items-center justify-between w-64 mb-3">
+                <div className="absolute top-1/2 left-0 right-0 h-[2.5px] -translate-y-1/2 bg-[#cbd5e1] z-0" />
+                <div
+                  className="absolute top-1/2 left-0 h-[2.5px] -translate-y-1/2 bg-[#22c55e] z-0 transition-all duration-500 ease-out"
+                  style={{ width: `${progressPercent}%` }}
+                />
+                {HOME_MESSAGES.map((_, idx) => {
+                  const isCompleted = idx < msgIndex;
+                  const isActive = idx === msgIndex;
+                  return (
+                    <div key={idx} className="relative z-10 flex items-center justify-center w-5 h-5">
+                      {isActive ? (
+                        <div className="flex items-center justify-center h-5 w-5 rounded-full border-2 border-[#22c55e] bg-white transition-all duration-300 scale-110 shadow-xs">
+                          <div className="h-2.5 w-2.5 rounded-full bg-[#22c55e] animate-pulse" />
+                        </div>
+                      ) : isCompleted ? (
+                        <div className="h-3.5 w-3.5 rounded-full bg-[#22c55e] transition-all duration-300" />
+                      ) : (
+                        <div className="h-3.5 w-3.5 rounded-full bg-[#cbd5e1] transition-all duration-300" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            
             <div className="h-6 flex items-center justify-center">
               <p
                 key={msgIndex}
                 className="flex items-center gap-1.5 text-sm font-bold text-slate-800 tracking-tight animate-text-fade"
               >
-                {HOME_MESSAGES[msgIndex]}
+                {messagesList[msgIndex]}
                 <span className="text-emerald-500 text-base">🍃</span>
               </p>
             </div>
@@ -528,7 +549,6 @@ export const AppLoader = React.memo(function AppLoader({
       </div>
 
       <style>{`
-        /* NEW: Continuous pan for the 1200px wide seamless city block */
         @keyframes cityInfiniteScroll {
           0% { transform: translate3d(0, 0, 0); }
           100% { transform: translate3d(-1200px, 0, 0); }
@@ -537,7 +557,6 @@ export const AppLoader = React.memo(function AppLoader({
           animation: cityInfiniteScroll 16s linear infinite;
         }
 
-        /* Legacy Truck/Wheel Animations Kept Below */
         @keyframes spinWheelAnim {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }

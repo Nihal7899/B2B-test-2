@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { SplashScreen as CapSplash } from '@capacitor/splash-screen';
 import { Capacitor } from '@capacitor/core';
+// 1. Add these imports at the top
+import { NavigationBar } from '@capawesome/capacitor-navigation-bar';
+import { HomeIndicator } from '@capawesome/capacitor-home-indicator';
+
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -15,6 +19,33 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
   useEffect(() => {
     onFinishRef.current = onFinish;
   }, [onFinish]);
+  
+
+// ... inside SplashScreen component
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      CapSplash.hide();
+      
+      // 2. Hide system navigation bar immediately on app launch
+      const hideSystemNav = async () => {
+        try {
+          if (Capacitor.getPlatform() === 'android') await NavigationBar.hide();
+          if (Capacitor.getPlatform() === 'ios') await HomeIndicator.hide();
+        } catch (e) {
+          console.warn(e);
+        }
+      };
+      hideSystemNav();
+    }
+    
+    const bridge = document.getElementById('splash-bridge');
+    if (bridge) bridge.remove();
+
+    const textTimer = setTimeout(() => setShowText(true), 150);
+    // Notice there is no cleanup function for the NavigationBar here!
+    return () => clearTimeout(textTimer);
+  }, []);
+
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {

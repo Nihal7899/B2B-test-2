@@ -26,6 +26,9 @@ import { StoreCarousel } from '@/components/StoreCard';
 import { BrandCarousel } from '@/components/BrandCard';
 import { ModernPopupBanner } from '@/components/ModernPopupBanner';
 import { CachedImage } from '@/components/CachedImage';
+import { NavigationBar } from '@capawesome/capacitor-navigation-bar';
+import { HomeIndicator } from '@capawesome/capacitor-home-indicator';
+
 import {
   fetchHomeSections,
   fetchHomeBanners,
@@ -237,6 +240,31 @@ export function HomeScreen({
     };
   }, []);
 
+  // 2. Add this useEffect to restore system nav if the popup won't show
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const restoreSystemNav = async () => {
+      try {
+        if (Capacitor.getPlatform() === 'android') await NavigationBar.show();
+        if (Capacitor.getPlatform() === 'ios') await HomeIndicator.show();
+      } catch (e) {
+        console.warn(e);
+      }
+    };
+
+    // Only run this logic after location checks are resolved
+    if (locationCheckComplete) {
+      // Determine if the popup is scheduled to render
+      const willShowPopup = bottomPopupBanner && showPopup && !showLocationPrompt;
+      
+      if (!willShowPopup) {
+        // If no popup is showing, restore the navigation bar immediately
+        restoreSystemNav();
+      }
+    }
+  }, [locationCheckComplete, bottomPopupBanner, showPopup, showLocationPrompt]);
+  
   const handleAllowLocation = async () => {
     setShowLocationPrompt(false);
 

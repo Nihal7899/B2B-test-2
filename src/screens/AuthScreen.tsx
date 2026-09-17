@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { ArrowLeft, Delete, Loader2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { SmsRetriever } from '@byteowls/capacitor-sms-retriever';
+import { AndroidSmsRetriever } from '@capgo/capacitor-android-sms-retriever';
 import { useAuth } from '@/auth';
 import { getOrFetchHomeData } from '@/services/homePreload';
 import heroImage from './hero.jpg';
@@ -81,7 +81,7 @@ function OtpVerificationView({
     [onVerify]
   );
 
-  // WebOTP API (Mobile Web Browsers like Android Chrome)
+  // 1. WebOTP API (Mobile Web Browsers like Android Chrome)
   useEffect(() => {
     if (Capacitor.isNativePlatform()) return;
 
@@ -103,25 +103,34 @@ function OtpVerificationView({
     }
   }, [fillAndSubmitOtp]);
 
-  // Capacitor Android SMS Retriever
+  // 2. Capgo Capacitor Android SMS Retriever
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
 
-    let isSubscribed = true;
-    
-    SmsRetriever.startWatching()
-      .then((res: { message: string }) => {
-        if (!isSubscribed) return;
-        const matched = res.message.match(/\b\d{6}\b/);
-        if (matched) {
-          fillAndSubmitOtp(matched[0]);
-        }
-      })
-      .catch((err: any) => console.warn('SMS Retriever failed:', err));
+    let smsListener: any = null;
+
+    const setupSmsListener = async () => {
+      try {
+        smsListener = await AndroidSmsRetriever.addListener('smsReceived', ({ message }) => {
+          if (message) {
+            const matched = message.match(/\b\d{6}\b/);
+            if (matched) {
+              fillAndSubmitOtp(matched[0]);
+            }
+          }
+        });
+      } catch (err: any) {
+        console.warn('SMS Retriever listener failed:', err);
+      }
+    };
+
+    setupSmsListener();
 
     return () => {
-      isSubscribed = false;
-      SmsRetriever.removeWatcher();
+      if (smsListener) {
+        smsListener.remove().catch(() => {});
+      }
+      AndroidSmsRetriever.stopWatch().catch(() => {});
     };
   }, [fillAndSubmitOtp]);
 
@@ -288,7 +297,7 @@ export function AuthScreen() {
 
   const handleGetHash = async () => {
     try {
-      const { hash } = await SmsRetriever.getAppHash();
+      const { hash } = await AndroidSmsRetriever.getHashString();
       alert(`My App Hash: ${hash}\n\nPut this in Supabase!`);
     } catch (e) {
       alert("Failed to get hash. Are you running the Android native app?");
@@ -314,7 +323,7 @@ export function AuthScreen() {
       setVerifyStatus('idle');
       
       if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
-        SmsRetriever.startWatching().catch(() => {});
+        AndroidSmsRetriever.startWatch().catch(() => {});
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to send OTP. Please check your number.');
@@ -361,7 +370,7 @@ export function AuthScreen() {
       setVerifyStatus('idle');
       
       if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
-        SmsRetriever.startWatching().catch(() => {});
+        AndroidSmsRetriever.startWatch().catch(() => {});
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to resend OTP.');

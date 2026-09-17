@@ -309,7 +309,7 @@ export const AppLoader = React.memo(function AppLoader({
   return (
     <div
       className={`flex flex-col items-center justify-center bg-white select-none ${
-        fullScreen ? 'fixed inset-0 z-50 animate-fade-in' : 'w-full py-8'
+        fullScreen ? 'fixed inset-0 z-[999] animate-fade-in' : 'w-full py-8'
       } ${className}`}
     >
       {/* SHIFTED EVERYTHING 20PX UP using -translate-y-[20px] */}

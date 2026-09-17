@@ -382,14 +382,27 @@ export async function toggleWishlist(productId: string, isWishlisted: boolean): 
 
 // ----- ADDRESSES -----
 export async function fetchAddresses(): Promise<DbAddress[]> {
+  // 1. Get the current authenticated user
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // If no user is logged in, return an empty array
+  if (!user) return [];
+
   const { data, error } = await supabase
     .from('addresses')
     .select('*')
+    .eq('user_id', user.id) // Explicitly filter by the logged-in admin's ID
     .order('is_default', { ascending: false })
     .order('created_at', { ascending: false });
-  if (error) return [];
+    
+  if (error) {
+    console.error('Error fetching addresses:', error);
+    return [];
+  }
+  
   return data as DbAddress[];
 }
+
 
 export async function deleteAddress(id: string): Promise<void> {
   await supabase.from('addresses').delete().eq('id', id);

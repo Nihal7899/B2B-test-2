@@ -67,29 +67,35 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
   let totalPaid = 0;
   const providers: string[] = [];
 
+  // Provider values observed in DB: 'wallet' | 'razorpay' | 'cod'
+  // payment_status enum: pending, authorized, paid, failed, refunded, cancelled, processing_refund, refund_failed
   payments.forEach((p) => {
     const amt = Number(p.amount) || 0;
     if (!providers.includes(p.provider)) providers.push(p.provider);
 
-    if (p.provider === 'wallet' && (p.status === 'paid' || p.status === 'completed')) {
+    if (p.provider === 'wallet' && p.status === 'paid') {
       walletPaid += amt;
       totalPaid += amt;
-    } else if (p.provider === 'razorpay' && (p.status === 'paid' || p.status === 'completed')) {
+    } else if (p.provider === 'razorpay' && p.status === 'paid') {
       onlinePaid += amt;
       totalPaid += amt;
     } else if (p.provider === 'cod') {
-      if (p.status === 'paid' || p.status === 'completed') {
+      if (p.status === 'paid') {
         codPaid += amt;
         totalPaid += amt;
-      } else {
+      } else if (p.status === 'pending') {
         codPending += amt;
       }
+      // 'cancelled' | 'refunded' | 'failed' | 'processing_refund' | 'refund_failed' → ignore
     }
   });
 
   const orderTotal = Number(order.total) || 0;
   const isDelivered = order.status === 'delivered';
-  const amountToCollect = isDelivered ? 0 : Math.max(0, codPending > 0 ? codPending : (orderTotal - totalPaid));
+  const isCancelled = order.status === 'cancelled';
+  const amountToCollect = (isDelivered || isCancelled)
+    ? 0
+    : Math.max(0, codPending > 0 ? codPending : (orderTotal - totalPaid));
   const isSplit = providers.length > 1;
 
   let paymentStatusText = 'PAID';
@@ -561,7 +567,7 @@ function buildA4InvoiceHtml(
             </div>
             ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Paid via Wallet:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
             ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#1d4ed8;font-weight:600;"><span>Paid Online (Razorpay):</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
-            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Paid on Delivery:</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
+            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Paid on Delivery (COD):</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
             ${amountToCollect > 0 ? `
               <div style="display:flex;justify-content:space-between;font-weight:900;font-size:13px;color:#b45309;background:#fef3c7;padding:4px 8px;border-radius:6px;margin-top:4px;">
                 <span>COLLECT COD:</span><span>₹${amountToCollect.toFixed(2)}</span>
@@ -673,6 +679,7 @@ function buildA4InvoiceHtml(
             </div>
             ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;"><span>Paid via Wallet:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
             ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#2563eb;"><span>Paid Online:</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
+            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;"><span>Paid on Delivery (COD):</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
             ${amountToCollect > 0 ? `
               <div style="display:flex;justify-content:space-between;font-weight:800;font-size:13px;color:#b45309;border-top:1px solid #0f172a;padding-top:4px;margin-top:4px;">
                 <span>BALANCE DUE (COD):</span><span>₹${amountToCollect.toFixed(2)}</span>
@@ -797,6 +804,7 @@ function buildA4InvoiceHtml(
             </div>
             ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Wallet Deduction:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
             ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#1d4ed8;font-weight:600;"><span>Online Payment:</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
+            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Paid on Delivery (COD):</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
             ${amountToCollect > 0 ? `
               <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.15em;border-top:2px solid #b45309;padding-top:4px;margin-top:4px;color:#b45309;">
                 <span>COLLECT ON DELIVERY:</span><span>₹${amountToCollect.toFixed(2)}</span>
@@ -895,6 +903,7 @@ function buildA4InvoiceHtml(
             </div>
             ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;"><span>Wallet Paid:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
             ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#1d4ed8;"><span>Online Paid:</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
+            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;"><span>COD Paid:</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
             ${amountToCollect > 0 ? `
               <div style="display:flex;justify-content:space-between;font-weight:900;color:#b45309;border-top:1px dashed #cbd5e1;margin-top:2px;padding-top:2px;">
                 <span>DUE (COD):</span><span>₹${amountToCollect.toFixed(2)}</span>

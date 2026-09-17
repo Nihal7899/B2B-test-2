@@ -81,7 +81,7 @@ function OtpVerificationView({
     [onVerify]
   );
 
-  // 1. WebOTP API (Mobile Web Browsers like Android Chrome)
+  // 1. WebOTP API (Mobile Web Browsers)
   useEffect(() => {
     if (Capacitor.isNativePlatform()) return;
 
@@ -130,7 +130,9 @@ function OtpVerificationView({
       if (smsListener) {
         smsListener.remove().catch(() => {});
       }
-      AndroidSmsRetriever.stopWatch().catch(() => {});
+      // CRITICAL FIX: Do NOT call stopWatch() here. 
+      // It was killing the OS listener every time the countdown timer ticked.
+      // Let Google Play Services handle the natural 5-minute timeout.
     };
   }, [fillAndSubmitOtp]);
 
@@ -304,35 +306,8 @@ export function AuthScreen() {
     }
   };
 
-  const handleSendOtp = async () => {
-    if (!isPhoneValid) {
-      setError('Enter a valid 10-digit mobile number.');
-      return;
-    }
-    setBusy(true);
-    setError('');
-
-    try {
-      const result = await sendOtp(`+91${phone}`);
-      if (result?.error) {
-        setError(typeof result.error === 'string' ? result.error : result.error.message || 'Failed to send OTP.');
-        return;
-      }
-      setStep('otp');
-      setSeconds(30);
-      setVerifyStatus('idle');
-      
-      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
-        AndroidSmsRetriever.startWatch().catch(() => {});
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Failed to send OTP. Please check your number.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleVerifyOtp = async (codeToVerify: string) => {
+  // MEMOIZED to prevent unnecessary re-renders cascading to the child
+  const handleVerifyOtp = useCallback(async (codeToVerify: string) => {
     setBusy(true);
     setVerifyStatus('verifying');
     setError('');
@@ -353,6 +328,35 @@ export function AuthScreen() {
       setError(err?.message || 'Verification failed. Please try again.');
       setBusy(false);
     }
+  }, [phone, verifyOtp]);
+
+  const handleSendOtp = async () => {
+    if (!isPhoneValid) {
+      setError('Enter a valid 10-digit mobile number.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+
+    try {
+      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+        await AndroidSmsRetriever.startWatch();
+      }
+
+      const result = await sendOtp(`+91${phone}`);
+      if (result?.error) {
+        setError(typeof result.error === 'string' ? result.error : result.error.message || 'Failed to send OTP.');
+        return;
+      }
+      
+      setStep('otp');
+      setSeconds(30);
+      setVerifyStatus('idle');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to send OTP. Please check your number.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleResend = async () => {
@@ -361,6 +365,10 @@ export function AuthScreen() {
     setError('');
 
     try {
+      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+        await AndroidSmsRetriever.startWatch();
+      }
+
       const result = await resendOtp(`+91${phone}`);
       if (result?.error) {
         setError(typeof result.error === 'string' ? result.error : result.error.message || 'Failed to resend code');
@@ -368,10 +376,6 @@ export function AuthScreen() {
       }
       setSeconds(30);
       setVerifyStatus('idle');
-      
-      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
-        AndroidSmsRetriever.startWatch().catch(() => {});
-      }
     } catch (err: any) {
       setError(err?.message || 'Failed to resend OTP.');
     } finally {

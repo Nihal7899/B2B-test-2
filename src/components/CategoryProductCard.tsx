@@ -48,25 +48,25 @@ export const CategoryProductCard = React.memo(function CategoryProductCard({
   return (
     <div
       onClick={() => onClick(product)}
-      className="flex flex-row p-3 bg-white rounded-xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] cursor-pointer"
+      className={`flex flex-row p-3 bg-white rounded-xl border shadow-[0_1px_3px_rgba(0,0,0,0.02)] cursor-pointer ${!product.inStock ? 'border-slate-100 opacity-95' : 'border-slate-100'}`}
     >
       {/* Left Column: Info & Pricing */}
       <div className="flex flex-col flex-1 pr-3 justify-center">
-        <h3 className="text-[13px] font-bold text-slate-800 leading-tight">
+        <h3 className={`text-[13px] font-bold leading-tight ${!product.inStock ? 'text-slate-600' : 'text-slate-800'}`}>
           {product.brand ? `${product.brand} - ` : ''}{product.name}
         </h3>
         <p className="text-xs text-slate-500 mt-1">{product.packSize}</p>
         
         <div className="flex items-center gap-1 mt-2">
-          <div className="flex items-center gap-0.5 rounded px-1 py-0.5 bg-green-50 border border-green-100">
-            <Star size={10} className="fill-green-600 text-green-600" />
-            <span className="text-[10px] font-bold text-green-700">{product.rating || '4.0'}</span>
+          <div className={`flex items-center gap-0.5 rounded px-1 py-0.5 border ${!product.inStock ? 'bg-slate-50 border-slate-100' : 'bg-green-50 border-green-100'}`}>
+            <Star size={10} className={!product.inStock ? 'fill-slate-400 text-slate-400' : 'fill-green-600 text-green-600'} />
+            <span className={`text-[10px] font-bold ${!product.inStock ? 'text-slate-500' : 'text-green-700'}`}>{product.rating || '4.0'}</span>
           </div>
           <span className="text-[10px] text-slate-400">({Math.floor(Math.random() * 800 + 100)})</span>
         </div>
 
         <div className="mt-4 flex items-baseline gap-1.5">
-          <span className="text-sm font-black text-slate-900">₹{product.price}</span>
+          <span className={`text-sm font-black ${!product.inStock ? 'text-slate-600' : 'text-slate-900'}`}>₹{product.price}</span>
           {discount > 0 && (
             <span className="text-xs text-slate-400 line-through">₹{product.mrp}</span>
           )}
@@ -76,8 +76,8 @@ export const CategoryProductCard = React.memo(function CategoryProductCard({
       {/* Right Column: Image, Discount Badge & Actions */}
       <div className="flex flex-col items-end w-[90px] shrink-0">
         {discount > 0 ? (
-          <div className="bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded mb-1 self-end">
-            {discount}% OFF MRP
+          <div className={`text-white text-[9px] font-bold px-1.5 py-0.5 rounded mb-1 self-end ${!product.inStock ? 'bg-slate-400' : 'bg-blue-600'}`}>
+            {discount}% OFF
           </div>
         ) : (
           <div className="h-4 mb-1" />
@@ -89,24 +89,25 @@ export const CategoryProductCard = React.memo(function CategoryProductCard({
             <CachedImage
               src={product.image}
               alt={product.name}
-              className="absolute inset-0 w-full h-full object-cover mix-blend-multiply"
+              className={`absolute inset-0 w-full h-full object-cover mix-blend-multiply transition-all ${!product.inStock ? 'grayscale opacity-70' : ''}`}
             />
           ) : (
             <Package size={24} className="text-slate-300" />
           )}
 
+          {/* Elegant Out of Stock Overlay */}
           {!product.inStock && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50">
-              <span className="rounded bg-slate-800 px-1 py-0.5 text-[7px] font-black tracking-wider text-white">
-                OUT OF STOCK
-              </span>
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/40 backdrop-blur-[1.5px]">
+              <div className="bg-white/95 px-1.5 py-1 rounded shadow-sm border border-slate-100 flex items-center">
+                <span className="text-[7px] font-black tracking-widest text-slate-600 uppercase">Sold Out</span>
+              </div>
             </div>
           )}
           
           <button
             type="button"
             onClick={handleWishlistClick}
-            className="absolute top-1 right-1 bg-white/90 rounded-full p-1 shadow-sm z-10"
+            className="absolute top-1 right-1 bg-white/90 rounded-full p-1 shadow-sm z-20"
           >
             <Heart
               size={12}
@@ -146,9 +147,9 @@ export const CategoryProductCard = React.memo(function CategoryProductCard({
             <button
               type="button"
               disabled
-              className="flex items-center justify-center w-[80px] h-[28px] rounded border bg-slate-100 text-slate-400 font-bold text-[10px] cursor-not-allowed shadow-sm"
+              className="flex items-center justify-center w-[80px] h-[28px] rounded-lg border border-slate-100 bg-slate-50 text-slate-400 font-bold text-[9px] cursor-not-allowed shadow-none"
             >
-              OUT OF STOCK
+              SOLD OUT
             </button>
           ) : (
             <button

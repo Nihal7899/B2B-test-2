@@ -140,7 +140,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
     })();
   }, [productId, brandId, categoryId, refreshProductData]);
 
-  // CORRECTED: Fixed KeepAlive Key & Visibility Routing
+  // KeepAlive Key & Visibility Routing
   useEffect(() => {
     let active = true;
     const expectedKey = `product|${productId}`;
@@ -229,7 +229,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   };
 
   const handleApplyTierQuantity = (targetQty: number) => {
-    if (!product) return;
+    if (!product || !product.inStock) return;
     const currentQty = cart.getQuantity(product.id);
     if (currentQty === 0) cart.addToCart(product, targetQty);
     else cart.updateQuantity(product.id, targetQty);
@@ -295,7 +295,13 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
               return (
                 <div key={idx} className="flex h-full w-full shrink-0 items-center justify-center overflow-hidden">
                   {!isInvalid ? (
-                    <CachedImage src={imgUrl} alt={`${product.name} - ${idx + 1}`} onError={() => setImageErrors((prev) => ({ ...prev, [idx]: true }))} className="h-full w-full object-cover pointer-events-none" draggable={false} />
+                    <CachedImage 
+                      src={imgUrl} 
+                      alt={`${product.name} - ${idx + 1}`} 
+                      onError={() => setImageErrors((prev) => ({ ...prev, [idx]: true }))} 
+                      className={`h-full w-full object-cover pointer-events-none transition-all ${!product.inStock ? 'grayscale opacity-70' : ''}`} 
+                      draggable={false} 
+                    />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-slate-300"><Package size={64} strokeWidth={1.5} /></div>
                   )}
@@ -306,11 +312,22 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
         ) : (
           <div className="flex h-full w-full items-center justify-center text-slate-300"><Package size={64} strokeWidth={1.5} /></div>
         )}
+
+        {/* Elegant Out of Stock Overlay over Image Slider */}
+        {!product.inStock && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/30 backdrop-blur-[2px]">
+            <div className="bg-white/95 px-5 py-2.5 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-2">
+               <Package size={18} className="text-slate-400" />
+               <span className="text-sm font-black tracking-widest text-slate-600 uppercase">Sold Out</span>
+            </div>
+          </div>
+        )}
+
         {images.length > 1 && (
           <>
-            <button type="button" onClick={() => setActiveImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50 transition-colors z-10"><ArrowLeft size={18} /></button>
-            <button type="button" onClick={() => setActiveImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50 transition-colors z-10"><ArrowRight size={18} /></button>
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+            <button type="button" onClick={() => setActiveImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50 transition-colors z-30"><ArrowLeft size={18} /></button>
+            <button type="button" onClick={() => setActiveImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50 transition-colors z-30"><ArrowRight size={18} /></button>
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-30">
               {images.map((_, idx) => (
                 <button key={idx} type="button" onClick={() => setActiveImageIndex(idx)} className={`h-2 rounded-full transition-all duration-300 ${idx === activeImageIndex ? 'w-4 bg-slate-800' : 'w-2 bg-slate-300'}`} />
               ))}
@@ -322,28 +339,28 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
       <div className="px-4 mt-4 space-y-4">
         <div>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: primaryColor }}>{product.brand}</p>
-            <OfferBadge discountPercent={discount} size="md" color={primaryColor} />
+            <p className={`text-xs font-bold uppercase tracking-wider ${!product.inStock ? 'text-slate-400' : ''}`} style={product.inStock ? { color: primaryColor } : undefined}>{product.brand}</p>
+            {product.inStock && <OfferBadge discountPercent={discount} size="md" color={primaryColor} />}
           </div>
-          <h1 className="text-2xl font-extrabold text-ink-900 tracking-tight mt-1">{product.name}</h1>
+          <h1 className={`text-2xl font-extrabold tracking-tight mt-1 ${!product.inStock ? 'text-slate-600' : 'text-ink-900'}`}>{product.name}</h1>
           <p className="text-sm text-ink-500 mt-1">{product.packSize} <span className="mx-1 text-ink-300">·</span> Minimum order: {product.moq} units</p>
           <div className="flex items-center gap-1.5 mt-2">
-            <span className="flex items-center gap-1 text-xs font-bold text-ink-700"><Star size={14} className="fill-amber-400 text-amber-400" /> {product.rating}</span>
+            <span className={`flex items-center gap-1 text-xs font-bold ${!product.inStock ? 'text-slate-400' : 'text-ink-700'}`}><Star size={14} className={!product.inStock ? 'fill-slate-300 text-slate-300' : 'fill-amber-400 text-amber-400'} /> {product.rating}</span>
             <span className="text-xs text-ink-300">|</span>
-            <span className="text-xs font-semibold" style={{ color: product.inStock ? primaryColor : '#ef4444' }}>{product.inStock ? 'In stock' : 'Out of stock'}</span>
+            <span className="text-xs font-semibold" style={{ color: product.inStock ? primaryColor : '#94a3b8' }}>{product.inStock ? 'In stock' : 'Out of stock'}</span>
           </div>
           {product.hsn_code && <p className="text-xs text-ink-400 mt-1 flex items-center gap-1"><Hash size={12} /> HSN: {product.hsn_code}</p>}
           {product.gst_percentage !== undefined && product.gst_percentage > 0 && <p className="text-xs text-ink-400 flex items-center gap-1"><Percent size={12} /> GST: {product.gst_percentage}%</p>}
         </div>
 
-        <div className="rounded-2xl p-4 transition-all" style={{ backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}30` }}>
+        <div className={`rounded-2xl p-4 transition-all ${!product.inStock ? 'bg-slate-50 border border-slate-100' : ''}`} style={product.inStock ? { backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}30` } : undefined}>
           <div className="flex items-end gap-2">
-            <span className="text-2xl font-extrabold" style={{ color: primaryColor }}>₹{effectivePrice}</span>
+            <span className={`text-2xl font-extrabold ${!product.inStock ? 'text-slate-500' : ''}`} style={product.inStock ? { color: primaryColor } : undefined}>₹{effectivePrice}</span>
             <span className="text-sm text-ink-400 line-through mb-1">MRP ₹{product.mrp}</span>
-            {activeTier && <span className="text-xs font-bold px-2 py-0.5 rounded-full mb-1 text-white shadow-xs" style={{ backgroundColor: primaryColor }}>Volume Deal Applied</span>}
+            {activeTier && product.inStock && <span className="text-xs font-bold px-2 py-0.5 rounded-full mb-1 text-white shadow-xs" style={{ backgroundColor: primaryColor }}>Volume Deal Applied</span>}
           </div>
-          <p className="text-[11px] mt-1" style={{ color: primaryColor }}>Your wholesale price · Inclusive of all taxes</p>
-          {quantity > 0 && effectivePrice < product.price && (
+          <p className={`text-[11px] mt-1 ${!product.inStock ? 'text-slate-400' : ''}`} style={product.inStock ? { color: primaryColor } : undefined}>Your wholesale price · Inclusive of all taxes</p>
+          {quantity > 0 && effectivePrice < product.price && product.inStock && (
             <div className="mt-3 p-2.5 rounded-xl flex items-center gap-2 border" style={{ backgroundColor: `${primaryColor}15`, borderColor: `${primaryColor}40` }}>
               <Zap size={15} style={{ color: primaryColor }} />
               <span className="text-xs font-bold text-ink-800">You saved <span style={{ color: primaryColor }}>₹{volumeSavings.toLocaleString('en-IN')}</span> on this tier!</span>
@@ -353,26 +370,40 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
 
         {volumeTiers.length > 0 && (
           <div className="space-y-2.5">
-            <div className="flex items-center gap-1.5"><Sparkles size={16} style={{ color: primaryColor }} /><h2 className="text-sm font-bold text-ink-900">Buy More, Save More</h2></div>
+            <div className="flex items-center gap-1.5">
+              <Sparkles size={16} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
+              <h2 className={`text-sm font-bold ${!product.inStock ? 'text-slate-500' : 'text-ink-900'}`}>Buy More, Save More</h2>
+            </div>
             <div className="grid grid-cols-1 gap-2.5">
               {volumeTiers.map((tier) => {
                 const tierDiscount = tier.discount_percent || Math.round(((product.price - tier.unit_price) / product.price) * 100);
                 const isApplied = quantity > 0 && quantity >= tier.min_quantity && (tier.max_quantity === null || quantity <= tier.max_quantity);
                 return (
-                  <div key={tier.id} className={`relative rounded-2xl p-3.5 border transition-all flex items-center justify-between gap-3 ${isApplied ? 'shadow-md bg-white' : 'bg-white/60 hover:bg-white border-ink-200'}`} style={{ borderColor: isApplied ? primaryColor : undefined, borderWidth: isApplied ? '1.5px' : '1px' }}>
+                  <div key={tier.id} className={`relative rounded-2xl p-3.5 border transition-all flex items-center justify-between gap-3 ${!product.inStock ? 'bg-slate-50 border-slate-100 opacity-90' : isApplied ? 'shadow-md bg-white' : 'bg-white/60 hover:bg-white border-ink-200'}`} style={product.inStock ? { borderColor: isApplied ? primaryColor : undefined, borderWidth: isApplied ? '1.5px' : '1px' } : undefined}>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-ink-900">Buy {tier.min_quantity}{tier.max_quantity ? `–${tier.max_quantity}` : '+'} units</span>
-                        {tierDiscount > 0 && <span className="text-[10px] font-black tracking-wide px-1.5 py-0.5 rounded-md text-white" style={{ backgroundColor: primaryColor }}>{tierDiscount}% OFF</span>}
+                        <span className={`text-xs font-bold ${!product.inStock ? 'text-slate-500' : 'text-ink-900'}`}>Buy {tier.min_quantity}{tier.max_quantity ? `–${tier.max_quantity}` : '+'} units</span>
+                        {tierDiscount > 0 && product.inStock && <span className="text-[10px] font-black tracking-wide px-1.5 py-0.5 rounded-md text-white" style={{ backgroundColor: primaryColor }}>{tierDiscount}% OFF</span>}
                       </div>
                       <div className="flex items-baseline gap-1.5 mt-1">
-                        <span className="text-sm font-extrabold text-ink-900">₹{tier.unit_price}</span>
+                        <span className={`text-sm font-extrabold ${!product.inStock ? 'text-slate-600' : 'text-ink-900'}`}>₹{tier.unit_price}</span>
                         <span className="text-[11px] text-ink-400">/unit</span>
                         <span className="text-[11px] text-ink-400 line-through">₹{product.price}</span>
                       </div>
                     </div>
-                    <button onClick={() => handleApplyTierQuantity(tier.min_quantity)} className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 shrink-0 cursor-pointer" style={isApplied ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : { backgroundColor: primaryColor, color: '#ffffff' }}>
-                      {isApplied ? <><Check size={14} /> Active</> : `Buy ${tier.min_quantity}`}
+                    <button 
+                      onClick={() => handleApplyTierQuantity(tier.min_quantity)} 
+                      disabled={!product.inStock}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-transform shrink-0 ${!product.inStock ? 'cursor-not-allowed shadow-none' : 'shadow-xs active:scale-95 cursor-pointer'}`} 
+                      style={
+                        !product.inStock 
+                          ? { backgroundColor: '#f1f5f9', color: '#94a3b8' } 
+                          : isApplied 
+                            ? { backgroundColor: `${primaryColor}15`, color: primaryColor } 
+                            : { backgroundColor: primaryColor, color: '#ffffff' }
+                      }
+                    >
+                      {!product.inStock ? 'Out of Stock' : isApplied ? <><Check size={14} /> Active</> : `Buy ${tier.min_quantity}`}
                     </button>
                   </div>
                 );
@@ -382,9 +413,9 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
         )}
 
         <div className="flex items-center gap-2 pt-1">
-          <Truck size={17} style={{ color: primaryColor }} />
+          <Truck size={17} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
           <div>
-            <p className="text-xs font-bold text-ink-700">Delivery by tomorrow</p>
+            <p className={`text-xs font-bold ${!product.inStock ? 'text-slate-500' : 'text-ink-700'}`}>Delivery by tomorrow</p>
             <p className="text-[10px] text-ink-400 mt-0.5">Free delivery on orders above ₹2,000</p>
           </div>
         </div>
@@ -395,8 +426,20 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: `${primaryColor}10` }}><ShieldCheck size={17} style={{ color: primaryColor }} /><div><p className="text-[10px] font-bold text-ink-700">Quality checked</p><p className="text-[9px] text-ink-400">Verified product</p></div></div>
-          <div className="rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: `${primaryColor}10` }}><Truck size={17} style={{ color: primaryColor }} /><div><p className="text-[10px] font-bold text-ink-700">Fast delivery</p><p className="text-[9px] text-ink-400">Reliable supply</p></div></div>
+          <div className={`rounded-xl p-3 flex items-center gap-2 ${!product.inStock ? 'bg-slate-50' : ''}`} style={product.inStock ? { backgroundColor: `${primaryColor}10` } : undefined}>
+            <ShieldCheck size={17} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
+            <div>
+              <p className={`text-[10px] font-bold ${!product.inStock ? 'text-slate-500' : 'text-ink-700'}`}>Quality checked</p>
+              <p className="text-[9px] text-ink-400">Verified product</p>
+            </div>
+          </div>
+          <div className={`rounded-xl p-3 flex items-center gap-2 ${!product.inStock ? 'bg-slate-50' : ''}`} style={product.inStock ? { backgroundColor: `${primaryColor}10` } : undefined}>
+            <Truck size={17} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
+            <div>
+              <p className={`text-[10px] font-bold ${!product.inStock ? 'text-slate-500' : 'text-ink-700'}`}>Fast delivery</p>
+              <p className="text-[9px] text-ink-400">Reliable supply</p>
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-2 pt-2">
@@ -408,8 +451,8 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
                 <button disabled={!product.inStock} onClick={() => cart.addToCart(product)} className={`h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform cursor-pointer ${!product.inStock ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`} style={{ backgroundColor: primaryColor }}><Plus size={16} /></button>
               </div>
             ) : !product.inStock ? (
-              <button disabled className="w-full h-12 rounded-xl bg-slate-200 text-slate-500 text-sm font-bold shadow-md cursor-not-allowed">
-                Out of stock
+              <button disabled className="w-full h-12 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 text-sm font-bold shadow-none cursor-not-allowed flex items-center justify-center gap-2">
+                <Package size={18} /> Out of Stock
               </button>
             ) : (
               <button onClick={() => cart.addToCart(product)} className="w-full h-12 rounded-xl text-white text-sm font-bold shadow-md transition-transform active:scale-[0.98] cursor-pointer" style={{ backgroundColor: primaryColor }}>Add to cart</button>

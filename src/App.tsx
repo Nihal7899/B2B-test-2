@@ -42,7 +42,6 @@ import { AuthScreen } from '@/screens/AuthScreen';
 import StoreScreen from '@/screens/StoreScreen';
 import { CategoryScreen } from '@/screens/CategoryScreen';
 import { BrandScreen } from '@/screens/BrandScreen';
-//import { BannerScreen } from '@/screens/BannerScreen';
 import { WalletScreen } from '@/screens/WalletScreen';
 import { HomeLoadingScreen } from '@/components/HomeLoadingScreen';
 import type {
@@ -74,6 +73,7 @@ import {
 } from '@/services/push';
 
 import { getOrFetchHomeData, getHomeDataSync } from '@/services/homePreload';
+import { startContinuousLocationWatch, stopContinuousLocationWatch } from '@/services/location';
 
 const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   home: '/',
@@ -98,7 +98,6 @@ const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   store: '/store',
   categoryDetail: '/category',
   brand: '/brand',
-//  banner: '/banner',
   wallet: '/wallet',
 };
 
@@ -249,8 +248,20 @@ function App() {
   const isDeliveryPartner = role === 'delivery_partner';
   const isWarehouseManager = role === 'warehouse_manager';
   const isInvestor = role === 'investor';
-  const isDedicatedStaff = isDeliveryPartner || isWarehouseManager; 
+  const isDedicatedStaff = isDeliveryPartner || isWarehouseManager;
 
+  // --- ZOMATO-STYLE CONTINUOUS FOREGROUND GPS STREAM ---
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || !user || isDedicatedStaff) return;
+
+    // Start continuous hardware watch
+    void startContinuousLocationWatch();
+
+    return () => {
+      void stopContinuousLocationWatch();
+    };
+  }, [user, isDedicatedStaff]);
+  // -----------------------------------------------------
 
   const deliveryTab = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -367,7 +378,6 @@ function App() {
     screen === 'categories' ||
     screen === 'categoryDetail' ||
     screen === 'brand' ||
-    //screen === 'banner' ||
     screen === 'search' ||
     screen === 'product';
 
@@ -514,7 +524,6 @@ function App() {
     if (isWarehouseManager) {
       return <WarehouseScreen isDedicatedRole={true} />;
     }
-
 
     switch (screen) {
       case 'home':
@@ -675,9 +684,6 @@ function App() {
 
       case 'brand':
         return <BrandScreen />;
-
-  //    case 'banner':
-   //     return <BannerScreen />;
 
       case 'categoryDetail':
         return <CategoryScreen onBack={() => navigate(-1)} onProduct={openProduct} cart={cart} />;

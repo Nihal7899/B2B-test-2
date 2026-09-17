@@ -38,6 +38,7 @@ import {
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
 import { getHomeDataSync, updateHomeDataCache, type PreloadedHomeData } from '@/services/homePreload';
+import { startContinuousLocationWatch } from '@/services/location';
 
 interface HomeScreenProps {
   onCategory: (category: Category) => void;
@@ -144,7 +145,7 @@ export function HomeScreen({
   const [products, setProducts] = useState<Product[]>(initialCache.products);
   const [stores, setStores] = useState<Store[]>(initialCache.stores);
   const [brands, setBrands] = useState<TrustedBrand[]>(initialCache.brands);
-  
+
   const [popularProducts, setPopularProducts] = useState<Product[]>(initialCache.popularProducts);
   const [reorderProducts, setReorderProducts] = useState<Product[]>(initialCache.reorderProducts);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>(initialCache.recentlyViewed);
@@ -153,10 +154,13 @@ export function HomeScreen({
   const [topRated, setTopRated] = useState<Product[]>(initialCache.topRated);
   const [limitedStock, setLimitedStock] = useState<Product[]>(initialCache.limitedStock);
   const [brandSpotlight, setBrandSpotlight] = useState(initialCache.brandSpotlight);
-  
+
   const [address] = useState<DbAddress | null>(initialCache.address);
   const [showPopup, setShowPopup] = useState(() => !sessionStorage.getItem('hasSeenBottomPopup'));
+
+  // Location prompt state - Checked immediately on mount
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const [locationCheckComplete, setLocationCheckComplete] = useState(false);
 
   const bottomPopupBanner = useMemo(() => {
     return Array.isArray(banners) ? banners.find((b) => b?.position === 'bottom_popup') : null;
@@ -167,106 +171,93 @@ export function HomeScreen({
     sessionStorage.setItem('hasSeenBottomPopup', 'true');
   }, []);
 
-  // --- GPS WARMUP & PERMISSIONS LOGIC ---
-    // --- GPS WARMUP & PERMISSIONS LOGIC ---
-  const warmUpGps = async () => {
-    try {
-      console.log('🌍 Warming up and refining GPS in background...');
-      let watchId: string | null = null;
-      let bestAccuracy = Infinity;
+  // --- IMMEDIATE LOCATION CHECK (RUNS ON EVERY APP OPEN) ---
+  useEffect(() => {
+    let active = true;
 
-      // 30-second background ceiling
-      const timer = setTimeout(async () => {
-        if (watchId) {
-          await Geolocation.clearWatch({ id: watchId });
-          console.log('✅ Background GPS refinement finished (30s timeout reached).');
-        }
-      }, 30000); 
-
-      watchId = await Geolocation.watchPosition(
-        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 },
-        async (position, err) => {
-          if (err || !position?.coords) return;
-          
-          if (position.coords.accuracy < bestAccuracy) {
-            bestAccuracy = position.coords.accuracy;
+    const checkLocationImmediately = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const perm = await Geolocation.checkPermissions();
+          if (perm.location === 'granted' || perm.coarseLocation === 'granted') {
+            void startContinuousLocationWatch();
+            if (active) {
+              setShowLocationPrompt(false);
+              setLocationCheckComplete(true);
+            }
+          } else {
+            // Not granted - Show bottom sheet immediately
+            if (active) {
+              setShowLocationPrompt(true);
+              setLocationCheckComplete(true);
+            }
           }
-
-          // If we get an excellent lock (20m), stop the background drain early
-          if (bestAccuracy <= 20) {
-            clearTimeout(timer);
-            await Geolocation.clearWatch({ id: watchId as string });
-            console.log('✅ Background GPS locked with high accuracy.');
+        } catch {
+          if (active) {
+            setShowLocationPrompt(true);
+            setLocationCheckComplete(true);
           }
         }
-      );
-    } catch (error) {
-      console.warn('GPS background warm-up bypassed or failed:', error);
-    }
-  };
+      } else {
+        // Web platform check
+        if (navigator.permissions && navigator.permissions.query) {
+          try {
+            const res = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+            if (res.state === 'granted') {
+              void startContinuousLocationWatch();
+              if (active) {
+                setShowLocationPrompt(false);
+                setLocationCheckComplete(true);
+              }
+            } else {
+              if (active) {
+                setShowLocationPrompt(true);
+                setLocationCheckComplete(true);
+              }
+            }
+          } catch {
+            if (active) {
+              setShowLocationPrompt(true);
+              setLocationCheckComplete(true);
+            }
+          }
+        } else {
+          if (active) {
+            setShowLocationPrompt(true);
+            setLocationCheckComplete(true);
+          }
+        }
+      }
+    };
 
+    void checkLocationImmediately();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleAllowLocation = async () => {
-    localStorage.setItem('hasSeenLocationPrompt', 'true');
     setShowLocationPrompt(false);
-    
+
     if (Capacitor.isNativePlatform()) {
       try {
         const perm = await Geolocation.requestPermissions();
         if (perm.location === 'granted' || perm.coarseLocation === 'granted') {
-          void warmUpGps();
+          void startContinuousLocationWatch();
         }
       } catch (e) {
         console.warn(e);
       }
     } else {
-      // For Web, calling getCurrentPosition automatically triggers the browser prompt
-      void warmUpGps();
+      void startContinuousLocationWatch();
     }
   };
 
   const handleDismissLocation = () => {
-    localStorage.setItem('hasSeenLocationPrompt', 'true');
     setShowLocationPrompt(false);
   };
-
-  useEffect(() => {
-    let active = true;
-    const checkLocationStatus = async () => {
-      const hasSeenPrompt = localStorage.getItem('hasSeenLocationPrompt');
-      
-      if (Capacitor.isNativePlatform()) {
-        try {
-          const perm = await Geolocation.checkPermissions();
-          if (perm.location === 'granted' || perm.coarseLocation === 'granted') {
-            // Permission already granted. Silently warm up GPS.
-            void warmUpGps();
-          } else if (!hasSeenPrompt && active) {
-            // Not granted and hasn't seen the prompt yet. Show beautiful UI.
-            setShowLocationPrompt(true);
-          }
-        } catch (e) {
-          console.warn('Permission check failed:', e);
-        }
-      } else {
-        // Handle web fallback
-        if (!hasSeenPrompt && active) {
-          setShowLocationPrompt(true);
-        }
-      }
-    };
-    
-    // Delay prompt slightly so it doesn't collide with app load animations
-    const timer = setTimeout(() => {
-      void checkLocationStatus();
-    }, 1500);
-
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, []);
-  // --------------------------------------
+  // --------------------------------------------------------
 
   const refreshDynamicSections = useCallback(async () => {
     try {
@@ -276,7 +267,7 @@ export function HomeScreen({
       ]);
       if (Array.isArray(recent)) setRecentlyViewed(recent);
       if (Array.isArray(reorder)) setReorderProducts(reorder);
-      
+
       updateHomeDataCache({
         recentlyViewed: Array.isArray(recent) ? recent : undefined,
         reorderProducts: Array.isArray(reorder) ? reorder : undefined,
@@ -292,10 +283,10 @@ export function HomeScreen({
         fetchHomeSections().catch(() => []),
         fetchHomeBanners().catch(() => []),
       ]);
-      
+
       const newSections = Array.isArray(secRes) ? secRes.filter((s) => s && s.isActive) : undefined;
       const newBanners = Array.isArray(banRes) ? banRes : undefined;
-      
+
       if (newSections) setSections(newSections);
       if (newBanners) setBanners(newBanners);
 
@@ -328,7 +319,6 @@ export function HomeScreen({
         stores: storeRes?.length ? storeRes : undefined,
         brands: brandRes?.length ? brandRes : undefined,
       });
-      
     } catch (e) {
       console.warn('Failed to refresh core catalog data:', e);
     }
@@ -342,7 +332,7 @@ export function HomeScreen({
     const syncList = (list: Product[]) => {
       if (!list || !Array.isArray(list)) return list;
       let changed = false;
-      
+
       const updated = list.map(p => {
         const fresh = productMap.get(p.id);
         if (fresh && (fresh.price !== p.price || fresh.mrp !== p.mrp || fresh.inStock !== p.inStock)) {
@@ -351,7 +341,7 @@ export function HomeScreen({
         }
         return p;
       });
-      
+
       return changed ? updated : list;
     };
 
@@ -362,13 +352,12 @@ export function HomeScreen({
     setLimitedStock(prev => syncList(prev));
     setRecentlyViewed(prev => syncList(prev));
     setReorderProducts(prev => syncList(prev));
-    
+
     setBrandSpotlight(prev => {
       if (!prev) return prev;
       const synced = syncList(prev.products);
       return synced !== prev.products ? { ...prev, products: synced } : prev;
     });
-
   }, [products]);
 
   useEffect(() => {
@@ -391,7 +380,7 @@ export function HomeScreen({
       if (active && (customEvent.detail?.key === '/' || customEvent.detail?.key === 'home' || !customEvent.detail?.key)) {
         void refreshDynamicSections();
         void refreshLayoutAndBanners();
-        void refreshCatalogData(); 
+        void refreshCatalogData();
       }
     };
     window.addEventListener('keepalive:activated', handleKeepAliveFocus);
@@ -400,7 +389,7 @@ export function HomeScreen({
       if (document.visibilityState === 'visible' && active) {
         void refreshDynamicSections();
         void refreshLayoutAndBanners();
-        void refreshCatalogData(); 
+        void refreshCatalogData();
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);
@@ -824,7 +813,7 @@ export function HomeScreen({
         })}
       </div>
 
-      {/* --- LOCATION PERMISSION BOTTOM SHEET --- */}
+      {/* --- LOCATION PERMISSION BOTTOM SHEET (OPENS IMMEDIATELY ON EVERY OPEN) --- */}
       {showLocationPrompt && (
         <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">
           <div 
@@ -869,8 +858,8 @@ export function HomeScreen({
         </div>
       )}
 
-      {/* --- PROMO POPUP BOTTOM SHEET --- */}
-      {bottomPopupBanner && showPopup && !showLocationPrompt && (
+      {/* --- PROMO POPUP BOTTOM SHEET (SHOWN ONLY AFTER LOCATION CHECK AND NOT DURING PROMPT) --- */}
+      {bottomPopupBanner && showPopup && locationCheckComplete && !showLocationPrompt && (
         <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">
           <div 
             className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity duration-300" 

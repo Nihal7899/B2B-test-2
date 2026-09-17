@@ -379,11 +379,12 @@ function App() {
     screen === 'categoryDetail' ||
     screen === 'brand' ||
     screen === 'search' ||
-    screen === 'product';
+    screen === 'product' ||
+    screen === 'investor'; // Add this line
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product'];
+    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product', 'investor']; // Added 'investor'
     const isDarkBg = darkHeaderScreens.includes(screen);
     setFullScreenSystemBars(!isDarkBg);
   }, [screen]);

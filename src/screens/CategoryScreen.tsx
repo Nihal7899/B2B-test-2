@@ -1,3 +1,4 @@
+// src/screens/CategoryScreen.tsx
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -8,6 +9,7 @@ import { CategoryProductCard } from '@/components/CategoryProductCard';
 import { fetchCategories, fetchProductsBySubcategory, fetchWishlist, toggleWishlist } from '@/services/catalog';
 import type { Category, Subcategory, Product } from '@/types';
 import { CachedImage } from '@/components/CachedImage';
+import { AppLoader } from '@/components/AppLoader';
 
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'rating' | 'discount';
 
@@ -233,9 +235,12 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
 
   if (loading || !category) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="h-8 w-8 rounded-full border-2 border-emerald-200 border-t-emerald-600 animate-spin" />
-      </div>
+      <AppLoader 
+        fullScreen={true} 
+        size="md" 
+        showStatus={true} 
+        type="general" 
+      />
     );
   }
 
@@ -382,8 +387,14 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
           </div>
 
           {productsLoading ? (
-            <div className="flex h-64 items-center justify-center">
-              <div className="h-6 w-6 rounded-full border-2 border-emerald-200 border-t-emerald-600 animate-spin" />
+            <div className="flex h-[60vh] items-center justify-center">
+              <AppLoader 
+                fullScreen={false} 
+                size="sm" 
+                showStatus={false} 
+                type="general" 
+                className="bg-transparent"
+              />
             </div>
           ) : filteredAndSortedProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">

@@ -388,13 +388,7 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
 
           {productsLoading ? (
             <div className="flex h-[60vh] items-center justify-center">
-              <AppLoader 
-                fullScreen={false} 
-                size="sm" 
-                showStatus={false} 
-                type="general" 
-                className="bg-transparent"
-              />
+              <div className="h-8 w-8 rounded-full border-[3px] border-emerald-200 border-t-emerald-600 animate-spin" />
             </div>
           ) : filteredAndSortedProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">

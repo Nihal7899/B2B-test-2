@@ -21,6 +21,13 @@ export function CartItem({ item, onIncrement, onDecrement, onRemove, onClick }: 
         <p className="text-[10px] font-bold text-brand-600 uppercase tracking-wide">{item.product.brand}</p>
         <h3 className="font-bold text-sm text-ink-800 truncate mt-0.5">{item.product.name}</h3>
         <p className="text-[11px] text-ink-400 mt-0.5">{item.product.packSize} · ₹{item.product.price} / unit</p>
+        
+        {!item.product.inStock && (
+          <p className="text-[10px] font-bold text-red-500 mt-1.5 leading-tight">
+            This product is currently out of stock. Please remove it from your cart.
+          </p>
+        )}
+
         <div className="flex items-center justify-between mt-2">
           <QuantitySelector quantity={item.quantity} onIncrement={onIncrement} onDecrement={onDecrement} />
           <p className="text-base font-extrabold text-brand-700">₹{item.effectiveUnitPrice * item.quantity}</p>

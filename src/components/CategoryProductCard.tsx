@@ -94,6 +94,14 @@ export const CategoryProductCard = React.memo(function CategoryProductCard({
           ) : (
             <Package size={24} className="text-slate-300" />
           )}
+
+          {!product.inStock && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50">
+              <span className="rounded bg-slate-800 px-1 py-0.5 text-[7px] font-black tracking-wider text-white">
+                OUT OF STOCK
+              </span>
+            </div>
+          )}
           
           <button
             type="button"
@@ -127,12 +135,21 @@ export const CategoryProductCard = React.memo(function CategoryProductCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onIncrement(product); }}
-                className="w-7 h-full flex items-center justify-center active:bg-black/5"
+                className={`w-7 h-full flex items-center justify-center active:bg-black/5 ${!product.inStock ? 'opacity-50 cursor-not-allowed' : ''}`}
                 style={{ color: primaryColor }}
+                disabled={!product.inStock}
               >
                 <Plus size={14} />
               </button>
             </div>
+          ) : !product.inStock ? (
+            <button
+              type="button"
+              disabled
+              className="flex items-center justify-center w-[80px] h-[28px] rounded border bg-slate-100 text-slate-400 font-bold text-[10px] cursor-not-allowed shadow-sm"
+            >
+              OUT OF STOCK
+            </button>
           ) : (
             <button
               type="button"

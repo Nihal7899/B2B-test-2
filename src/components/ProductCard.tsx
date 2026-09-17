@@ -129,6 +129,14 @@ export const ProductCard = React.memo(function ProductCard({
           </div>
         )}
 
+        {!product.inStock && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-[1px]">
+            <span className="rounded bg-slate-800 px-2 py-1 text-[9px] font-black tracking-wider text-white shadow-sm">
+              OUT OF STOCK
+            </span>
+          </div>
+        )}
+
         <div className="absolute left-2 top-2">
           {discount > 0 ? (
             <div
@@ -260,6 +268,14 @@ export const ProductCard = React.memo(function ProductCard({
               onDecrement={handleDecrement}
               theme={quantityTheme}
             />
+          ) : !product.inStock ? (
+            <button
+              type="button"
+              disabled
+              className="flex h-7 items-center gap-1 rounded-lg bg-slate-100 px-2.5 text-[9.5px] font-extrabold text-slate-400 shadow-sm cursor-not-allowed"
+            >
+              Out of stock
+            </button>
           ) : added ? (
             <span
               className="flex h-7 items-center gap-1 rounded-lg px-2 text-[8.5px] font-extrabold text-white shadow-sm"

@@ -405,8 +405,12 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
               <div className="h-12 flex items-center justify-between px-3 rounded-xl border shadow-sm" style={{ borderColor: `${primaryColor}40`, backgroundColor: `${primaryColor}10` }}>
                 <button onClick={() => cart.updateQuantity(product.id, quantity - 1)} className="h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform active:scale-95 cursor-pointer" style={{ backgroundColor: primaryColor }}><Minus size={16} /></button>
                 <span className="text-sm font-extrabold" style={{ color: primaryColor }}>{quantity} in cart</span>
-                <button onClick={() => cart.addToCart(product)} className="h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform active:scale-95 cursor-pointer" style={{ backgroundColor: primaryColor }}><Plus size={16} /></button>
+                <button disabled={!product.inStock} onClick={() => cart.addToCart(product)} className={`h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform cursor-pointer ${!product.inStock ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`} style={{ backgroundColor: primaryColor }}><Plus size={16} /></button>
               </div>
+            ) : !product.inStock ? (
+              <button disabled className="w-full h-12 rounded-xl bg-slate-200 text-slate-500 text-sm font-bold shadow-md cursor-not-allowed">
+                Out of stock
+              </button>
             ) : (
               <button onClick={() => cart.addToCart(product)} className="w-full h-12 rounded-xl text-white text-sm font-bold shadow-md transition-transform active:scale-[0.98] cursor-pointer" style={{ backgroundColor: primaryColor }}>Add to cart</button>
             )}

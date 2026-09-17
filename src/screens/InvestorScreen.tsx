@@ -348,7 +348,7 @@ export function InvestorScreen({ onBack }: { onBack?: () => void }) {
   const showSkeleton = loading && !metrics;
 
   return (
-    <div className="relative min-h-screen bg-[#060A11] text-slate-100 selection:bg-emerald-500/30 [-webkit-tap-highlight-color:transparent]">
+    <div className="relative min-h-screen bg-[#060A11] text-slate-100 selection:bg-emerald-500/30 [-webkit-tap-highlight-color:transparent] [&_.recharts-wrapper]:!outline-none [&_.recharts-wrapper_*]:!outline-none">
       {/* ─── Ambient Background ─── */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-48 left-1/4 h-[520px] w-[520px] rounded-full bg-emerald-500/[0.09] blur-[130px]" />

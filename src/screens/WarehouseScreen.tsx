@@ -331,7 +331,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   }, []);
 
-  // NEW: Dedicated function to load the urgent action items on the dashboard
+  // NEW: Dedicated function to load the urgent action items on the dashboard.
+  // Prefers the delivery_address_snapshot embedded in the order row so past orders
+  // never shift when the customer edits their live address.
   const loadPriorityOrders = useCallback(async () => {
     try {
       const { data } = await supabase.from('orders')
@@ -342,9 +344,27 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         
       if (data) {
         setPriorityOrders(data as DbOrder[]);
-        const addressIds = data.map(o => o.address_id).filter(Boolean);
-        if (addressIds.length > 0) {
-          const { data: addrs } = await supabase.from('addresses').select('*').in('id', addressIds);
+
+        setAddressMap(prev => {
+          const clone = { ...prev };
+          data.forEach((o: any) => {
+            const snap = o.delivery_address_snapshot;
+            if (snap && snap.recipient_name && o.address_id) {
+              // Keyed by address_id so the existing render path (addressMap[ord.address_id]) keeps working
+              clone[o.address_id] = snap;
+            }
+          });
+          return clone;
+        });
+
+        // Fetch live addresses only for legacy priority orders missing a snapshot
+        const legacyAddressIds = data
+          .filter((o: any) => !o.delivery_address_snapshot && o.address_id)
+          .map((o: any) => o.address_id)
+          .filter(Boolean);
+
+        if (legacyAddressIds.length > 0) {
+          const { data: addrs } = await supabase.from('addresses').select('*').in('id', legacyAddressIds);
           if (addrs) {
             setAddressMap(prev => {
               const clone = { ...prev };
@@ -369,8 +389,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     const newPayMap = { ...paymentsMap };
 
     fetchedOrders.forEach((ord: any) => {
-      // Address object
-      if (ord.address_obj) {
+      // Address object — RPC already prefers snapshot, so this is authoritative
+      if (ord.address_obj && ord.address_id) {
         newAddrMap[ord.address_id] = ord.address_obj;
       }
       

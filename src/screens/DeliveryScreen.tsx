@@ -305,14 +305,20 @@ export function DeliveryScreen({
       ]);
 
       const ordersMap = Object.fromEntries((ordersRes.data || []).map((o) => [o.id, o]));
-      const addressIds = (ordersRes.data || []).map((o) => o.address_id).filter(Boolean);
+
+      // Only fetch live addresses for legacy orders that don't have a snapshot.
+      // Prevents the "user edited their address → past orders shift" bug.
+      const legacyAddressIds = (ordersRes.data || [])
+        .filter((o: any) => !o.delivery_address_snapshot && o.address_id)
+        .map((o: any) => o.address_id)
+        .filter(Boolean);
 
       let addressMap: Record<string, DbAddress> = {};
-      if (addressIds.length > 0) {
+      if (legacyAddressIds.length > 0) {
         const { data: addrData } = await supabase
           .from('addresses')
           .select('*')
-          .in('id', addressIds);
+          .in('id', legacyAddressIds);
         addressMap = Object.fromEntries((addrData || []).map((a) => [a.id, a]));
       }
 
@@ -384,11 +390,19 @@ export function DeliveryScreen({
             summary.isFullyPaid = true;
           }
 
+          const snapshotAddr = (order as any).delivery_address_snapshot as DbAddress | null | undefined;
+          const resolvedAddress =
+            snapshotAddr && snapshotAddr.recipient_name
+              ? snapshotAddr
+              : order.address_id
+              ? addressMap[order.address_id] || null
+              : null;
+
           return {
             assignment: a,
             order,
             items: itemsMap[order.id] || [],
-            address: order.address_id ? addressMap[order.address_id] || null : null,
+            address: resolvedAddress,
             paymentSummary: summary,
           };
         })

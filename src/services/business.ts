@@ -2,9 +2,15 @@ import { supabase } from '@/lib/supabase';
 import type { Business, BusinessOutlet, DeliveryAddress } from '@/types';
 
 export async function fetchBusinesses(): Promise<Business[]> {
+  // Explicitly scope to the current user. Admins bypass RLS on `businesses`,
+  // so without this filter they would receive every business row in the DB.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
   const { data, error } = await supabase
     .from('businesses')
     .select('*')
+    .eq('owner_user_id', user.id)
     .order('is_default', { ascending: false })
     .order('created_at', { ascending: true });
   if (error) throw error;
@@ -28,9 +34,13 @@ export async function createBusiness(input: {
   const shouldBeDefault = input.is_default === true || existing.length === 0;
 
   if (shouldBeDefault && existing.length > 0) {
+    // Only unset the default flag on this user's own businesses
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
     await supabase
       .from('businesses')
       .update({ is_default: false })
+      .eq('owner_user_id', user.id)
       .eq('is_default', true);
   }
 
@@ -60,6 +70,11 @@ export async function updateBusiness(
   id: string,
   updates: Partial<Business>
 ): Promise<void> {
+  // Scope to the current user so admins (who bypass RLS) can never edit
+  // another owner's business record.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
   const payload: Record<string, unknown> = {};
   if (updates.business_name !== undefined) payload.business_name = updates.business_name;
   if (updates.business_type !== undefined) payload.business_type = updates.business_type;
@@ -78,12 +93,22 @@ export async function updateBusiness(
   const { error } = await supabase
     .from('businesses')
     .update(payload)
-    .eq('id', id);
+    .eq('id', id)
+    .eq('owner_user_id', user.id);
   if (error) throw error;
 }
 
 export async function deleteBusiness(id: string): Promise<void> {
-  const { error } = await supabase.from('businesses').delete().eq('id', id);
+  // Scope to the current user so admins (who bypass RLS) can never delete
+  // another owner's business record.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('businesses')
+    .delete()
+    .eq('id', id)
+    .eq('owner_user_id', user.id);
   if (error) throw error;
 }
 

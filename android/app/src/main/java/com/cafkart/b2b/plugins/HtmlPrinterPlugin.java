@@ -1,4 +1,4 @@
-package com.stackknit.test.plugins;
+package com.cafkart.app.plugins;
 
 import android.content.Context;
 import android.os.Build;

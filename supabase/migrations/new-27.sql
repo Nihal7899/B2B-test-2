@@ -1,5 +1,7 @@
 CREATE INDEX IF NOT EXISTS idx_orders_status_created_at ON orders (status, created_at);
-CREATE OR REPLACE FUNCTION get_paginated_warehouse_orders(
+DROP FUNCTION IF EXISTS public.get_paginated_warehouse_orders(text, int, int, text, text, text);
+
+CREATE OR REPLACE FUNCTION public.get_paginated_warehouse_orders(
   p_status TEXT DEFAULT 'all',
   p_page INT DEFAULT 1,
   p_page_size INT DEFAULT 12,
@@ -7,7 +9,10 @@ CREATE OR REPLACE FUNCTION get_paginated_warehouse_orders(
   p_sort_field TEXT DEFAULT 'created_at',
   p_sort_dir TEXT DEFAULT 'desc'
 )
-RETURNS JSON AS $$
+RETURNS JSON 
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 DECLARE
   v_offset INT;
   v_total INT;
@@ -15,14 +20,15 @@ DECLARE
 BEGIN
   v_offset := (p_page - 1) * p_page_size;
 
+  -- 1. Count Total with explicit ::text cast on o.status
   SELECT COUNT(o.id) INTO v_total
   FROM orders o
   LEFT JOIN addresses a ON o.address_id = a.id
   WHERE 
     (
-      (p_status = 'all' AND o.status IN ('pending', 'confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery')) OR
-      (p_status = 'assign_partner' AND o.status = 'packed') OR
-      (o.status = p_status)
+      (p_status = 'all' AND o.status::text IN ('pending', 'confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery')) OR
+      (p_status = 'assign_partner' AND o.status::text = 'packed') OR
+      (o.status::text = p_status)
     )
     AND (
       p_search = '' OR 
@@ -30,6 +36,7 @@ BEGIN
       a.recipient_name ILIKE '%' || p_search || '%'
     );
 
+  -- 2. Fetch Data with explicit ::text cast on o.status
   SELECT json_build_object(
     'total', v_total,
     'orders', COALESCE(json_agg(row_to_json(sub)), '[]'::json)
@@ -44,9 +51,9 @@ BEGIN
     LEFT JOIN addresses a ON o.address_id = a.id
     WHERE 
       (
-        (p_status = 'all' AND o.status IN ('pending', 'confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery')) OR
-        (p_status = 'assign_partner' AND o.status = 'packed') OR
-        (o.status = p_status)
+        (p_status = 'all' AND o.status::text IN ('pending', 'confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery')) OR
+        (p_status = 'assign_partner' AND o.status::text = 'packed') OR
+        (o.status::text = p_status)
       )
       AND (
         p_search = '' OR 
@@ -63,7 +70,11 @@ BEGIN
 
   RETURN v_result;
 END;
-$$ LANGUAGE plpgsql;
+$$;
+
+-- Force API refresh
+NOTIFY pgrst, 'reload schema';
+
 CREATE OR REPLACE FUNCTION get_paginated_invoices(
   p_start_date TIMESTAMPTZ DEFAULT NULL,
   p_end_date TIMESTAMPTZ DEFAULT NULL,

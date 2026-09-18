@@ -146,16 +146,45 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     providers,
   };
 
-  const { data: business } = await supabase
-    .from('businesses')
-    .select('business_name, gstin')
-    .eq('owner_user_id', order.user_id)
-    .maybeSingle();
-
-  let customerName = business?.business_name || null;
-  let customerGst = business?.gstin || null;
+  // ---- Customer / business resolution ----
+  // NOTE: businesses.owner_user_id is NOT unique in this DB (a user can have
+  // multiple business rows). Using `.maybeSingle()` here would silently fail
+  // when more than one row matches, which is why GSTIN was previously coming
+  // back empty. We use `.limit(1)` and tolerate the multi-row case.
+  let customerName: string | null = null;
+  let customerGst: string | null = null;
   let customerPhone = '';
 
+  // 1. Prefer order.business_snapshot if it was captured at order time
+  const businessSnapshot = (order as {
+    business_snapshot?: { business_name?: string; gstin?: string } | null;
+  }).business_snapshot;
+  if (businessSnapshot && (businessSnapshot.business_name || businessSnapshot.gstin)) {
+    customerName = businessSnapshot.business_name || null;
+    customerGst = businessSnapshot.gstin || null;
+  }
+
+  // 2. Fallback: query businesses table, tolerating multiple rows per owner
+  if (!customerName || !customerGst) {
+    const { data: businesses, error: bizErr } = await supabase
+      .from('businesses')
+      .select('business_name, gstin')
+      .eq('owner_user_id', order.user_id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (bizErr) {
+      console.warn('[fetchOrderBillData] businesses lookup failed:', bizErr);
+    }
+
+    const business = businesses?.[0];
+    if (business) {
+      if (!customerName) customerName = business.business_name || null;
+      if (!customerGst) customerGst = business.gstin || null;
+    }
+  }
+
+  // 3. Last resort: profile
   if (!customerName) {
     const { data: profile } = await supabase
       .from('profiles')

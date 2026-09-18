@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">CafKart</string>
     <string name="title_activity_main">CafKart</string>
-    <string name="package_name">com.stackknit.test</string>
-    <string name="custom_url_scheme">com.stackknit.test</string>
+    <string name="package_name">com.cafkart.app</string>
+    <string name="custom_url_scheme">com.cafkart.app</string>
 </resources>

@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.stackknit.test',
+  appId: 'com.cafkart.app',
   appName: 'CafKart',
   webDir: 'dist',
 

@@ -107,62 +107,37 @@ export default function AdminInvoices() {
       setLoadingMore(true);
     }
 
-    const offset = reset ? 0 : page * LIMIT;
+    const currentPage = reset ? 1 : page + 1;
     const search = debouncedSearch.trim();
     const { start, end } = getDateRange();
 
     try {
-      let userIds: string[] | null = null;
-      if (search) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id')
-          .ilike('full_name', `%${search}%`);
-        if (profiles && profiles.length > 0) {
-          userIds = profiles.map(p => p.id);
-        } else {
-          userIds = [];
-        }
-      }
-
-      let query = supabase
-        .from('orders')
-        .select('*', { count: 'exact' })
-        .in('status', ['confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery', 'delivered'])
-        .gte('created_at', start.toISOString())
-        .lt('created_at', end.toISOString())
-        .order('created_at', { ascending: false });
-
-      if (search) {
-        if (userIds && userIds.length > 0) {
-          query = query.or(`order_number.ilike.%${search}%, user_id.in.(${userIds.join(',')})`);
-        } else {
-          query = query.ilike('order_number', `%${search}%`);
-        }
-      }
-
-      const { data, count, error } = await query.range(offset, offset + LIMIT - 1);
+      // Replaced old N+1 profile queries with the single high-performance RPC 
+      const { data, error } = await supabase.rpc('get_paginated_invoices', {
+        p_start_date: start.toISOString(),
+        p_end_date: end.toISOString(),
+        p_search: search,
+        p_page: currentPage,
+        p_page_size: LIMIT,
+        p_sort_field: 'created_at'
+      });
 
       if (error) throw error;
-      const total = count || 0;
+
+      const total = data?.total || 0;
+      const fetchedData = data?.orders || [];
       setTotalCount(total);
 
-      if (!data || data.length === 0) {
+      if (fetchedData.length === 0) {
         if (reset) setOrders([]);
         setHasMore(false);
         return;
       }
 
-      const userIdsFromOrders = data.map(o => o.user_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', userIdsFromOrders);
-      const nameMap = Object.fromEntries((profiles || []).map(p => [p.id, p.full_name || 'Customer']));
-
-      const enriched = data.map(o => ({
+      // Map the customer name directly from the joined address payload
+      const enriched = fetchedData.map((o: any) => ({
         ...o,
-        customer_name: nameMap[o.user_id] || 'Customer',
+        customer_name: o.address_obj?.recipient_name || 'Customer',
       }));
 
       if (reset) {
@@ -170,7 +145,7 @@ export default function AdminInvoices() {
         setPage(1);
       } else {
         setOrders(prev => [...prev, ...enriched]);
-        setPage(prev => prev + 1);
+        setPage(currentPage);
       }
 
       const loadedCount = reset ? enriched.length : orders.length + enriched.length;

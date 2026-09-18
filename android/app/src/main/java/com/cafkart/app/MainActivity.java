@@ -1,4 +1,4 @@
-package com.stackknit.test;
+package com.cafkart.app;
 
 import android.graphics.Color;
 import android.os.Bundle;
@@ -6,7 +6,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.core.view.WindowCompat;
 import com.getcapacitor.BridgeActivity;
-import com.stackknit.test.plugins.HtmlPrinterPlugin;
+import com.cafkart.app.plugins.HtmlPrinterPlugin;
 
 public class MainActivity extends BridgeActivity {
     @Override

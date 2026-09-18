@@ -233,7 +233,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'invoices' | 'inventory' | 'low_stock'>('dashboard');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
 
-  // NEW: State to track if we are viewing the category list or the drilled-down products grid
+  // State to track if we are viewing the category list or the drilled-down products grid
   const [inventoryViewMode, setInventoryViewMode] = useState<'categories' | 'products'>('categories');
 
   useEffect(() => {
@@ -258,7 +258,13 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
+  // NEW: Store independent collections for the different tabs and limits
   const [orders, setOrders] = useState<DbOrder[]>([]);
+  const [invoices, setInvoices] = useState<DbOrder[]>([]);
+  const [priorityOrders, setPriorityOrders] = useState<DbOrder[]>([]);
+  const [totalOrdersCount, setTotalOrdersCount] = useState(0);
+  const [totalInvoicesCount, setTotalInvoicesCount] = useState(0);
+
   const [addressMap, setAddressMap] = useState<Record<string, DbAddress>>({});
   const [assignmentsMap, setAssignmentsMap] = useState<Record<string, { id: string; delivery_partner_id: string | null; status: string }>>({});
   const [paymentsMap, setPaymentsMap] = useState<Record<string, PaymentSummary>>({});
@@ -325,103 +331,173 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   }, []);
 
-  const loadOrders = useCallback(async () => {
+  // NEW: Dedicated function to load the urgent action items on the dashboard
+  const loadPriorityOrders = useCallback(async () => {
     try {
-      const { data: ordersData, error: ordersErr } = await supabase
-        .from('orders')
+      const { data } = await supabase.from('orders')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(250);
-
-      if (ordersErr || !ordersData) return;
-
-      setOrders(ordersData as DbOrder[]);
-
-      const orderIds = ordersData.map((o) => o.id);
-      const addressIds = ordersData.map((o) => o.address_id).filter(Boolean);
-
-      const [addrRes, assignRes, paymentsRes] = await Promise.all([
-        addressIds.length > 0
-          ? supabase.from('addresses').select('*').in('id', addressIds)
-          : Promise.resolve({ data: [] }),
-        orderIds.length > 0
-          ? supabase.from('delivery_assignments').select('id, order_id, delivery_partner_id, status').in('order_id', orderIds)
-          : Promise.resolve({ data: [] }),
-        orderIds.length > 0
-          ? supabase.from('payments').select('id, order_id, provider, amount, status').in('order_id', orderIds)
-          : Promise.resolve({ data: [] }),
-      ]);
-
-      if (addrRes.data) {
-        setAddressMap(Object.fromEntries(addrRes.data.map((a) => [a.id, a])));
-      }
-
-      if (assignRes.data) {
-        const asgMap: Record<string, any> = {};
-        assignRes.data.forEach((asg) => {
-          asgMap[asg.order_id] = asg;
-        });
-        setAssignmentsMap(asgMap);
-      }
-
-      const paySummaries: Record<string, PaymentSummary> = {};
-      const allPayments: PaymentRecord[] = (paymentsRes.data as PaymentRecord[]) || [];
-
-      ordersData.forEach((ord) => {
-        let walletPaid = 0;
-        let onlinePaid = 0;
-        let codPaid = 0;
-        let needsRefundRetry = false;
-        let isProcessingRefund = false;
-        const providers: string[] = [];
-
-        const orderPayments = allPayments.filter((p) => p.order_id === ord.id);
-        const isCancelled = ord.status === 'cancelled';
-
-        orderPayments.forEach((p) => {
-          const status = (p.status || '').toLowerCase();
-          const provider = (p.provider || '').toLowerCase();
-          const amt = Number(p.amount) || 0;
-
-          if (!providers.includes(provider)) providers.push(provider);
-
-          if (status === 'paid' || status === 'completed') {
-            if (provider === 'wallet') walletPaid += amt;
-            else if (provider === 'razorpay') onlinePaid += amt;
-            else if (provider === 'cod') codPaid += amt;
+        .in('status', ['pending', 'packed'])
+        .order('created_at', { ascending: true })
+        .limit(4);
+        
+      if (data) {
+        setPriorityOrders(data as DbOrder[]);
+        const addressIds = data.map(o => o.address_id).filter(Boolean);
+        if (addressIds.length > 0) {
+          const { data: addrs } = await supabase.from('addresses').select('*').in('id', addressIds);
+          if (addrs) {
+            setAddressMap(prev => {
+              const clone = { ...prev };
+              addrs.forEach(a => {
+                if (a && a.id) clone[a.id] = a;
+              });
+              return clone;
+            });
           }
-
-          if (status === 'processing_refund') isProcessingRefund = true;
-          
-          // If the payment is marked as failed, or if the order was cancelled but the Razorpay payment is still sitting in 'paid'
-          if (status === 'refund_failed' || (isCancelled && provider === 'razorpay' && (status === 'paid' || status === 'completed'))) {
-            needsRefundRetry = true;
-          }
-        });
-
-        const total = Number(ord.total) || 0;
-        const totalSettled = walletPaid + onlinePaid + codPaid;
-        const pending = Math.max(0, total - totalSettled);
-
-        paySummaries[ord.id] = {
-          walletPaid,
-          onlinePaid,
-          codPaid,
-          totalPaid: totalSettled,
-          amountDue: ord.status === 'delivered' ? 0 : pending,
-          isFullyPaid: ord.status === 'delivered' || pending <= 0.01,
-          providers,
-          needsRefundRetry,
-          isProcessingRefund,
-        };
-      });
-
-      setPaymentsMap(paySummaries);
+        }
+      }
     } catch {
       // ignore
     }
   }, []);
 
+  // NEW: Helper to merge RPC payload results into the local state dictionaries
+  const extractRPCDataToState = (fetchedOrders: any[], setTargetOrders: any) => {
+    setTargetOrders(fetchedOrders);
+    const newAddrMap = { ...addressMap };
+    const newAssignMap = { ...assignmentsMap };
+    const newPayMap = { ...paymentsMap };
+
+    fetchedOrders.forEach((ord: any) => {
+      // Address object
+      if (ord.address_obj) {
+        newAddrMap[ord.address_id] = ord.address_obj;
+      }
+      
+      // Assignment object
+      if (ord.assignment_obj) {
+        newAssignMap[ord.id] = ord.assignment_obj;
+      }
+
+      // Payments array
+      let walletPaid = 0;
+      let onlinePaid = 0;
+      let codPaid = 0;
+      let needsRefundRetry = false;
+      let isProcessingRefund = false;
+      const providers: string[] = [];
+      const orderPayments = ord.payments_arr || [];
+      const isCancelled = ord.status === 'cancelled';
+
+      orderPayments.forEach((p: any) => {
+        if (!p) return;
+        const status = (p.status || '').toLowerCase();
+        const provider = (p.provider || '').toLowerCase();
+        const amt = Number(p.amount) || 0;
+
+        if (!providers.includes(provider)) providers.push(provider);
+        if (status === 'paid' || status === 'completed') {
+          if (provider === 'wallet') walletPaid += amt;
+          else if (provider === 'razorpay') onlinePaid += amt;
+          else if (provider === 'cod') codPaid += amt;
+        }
+
+        if (status === 'processing_refund') isProcessingRefund = true;
+        if (status === 'refund_failed' || (isCancelled && provider === 'razorpay' && (status === 'paid' || status === 'completed'))) {
+          needsRefundRetry = true;
+        }
+      });
+
+      const total = Number(ord.total) || 0;
+      const totalSettled = walletPaid + onlinePaid + codPaid;
+      const pending = Math.max(0, total - totalSettled);
+
+      newPayMap[ord.id] = {
+        walletPaid,
+        onlinePaid,
+        codPaid,
+        totalPaid: totalSettled,
+        amountDue: ord.status === 'delivered' ? 0 : pending,
+        isFullyPaid: ord.status === 'delivered' || pending <= 0.01,
+        providers,
+        needsRefundRetry,
+        isProcessingRefund,
+      };
+    });
+
+    setAddressMap(newAddrMap);
+    setAssignmentsMap(newAssignMap);
+    setPaymentsMap(newPayMap);
+  };
+
+  // NEW: Server Paginated Fetch for the Active Orders Queue
+  const loadServerOrders = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_paginated_warehouse_orders', {
+        p_status: orderStatusPill,
+        p_page: ordersPage,
+        p_page_size: ORDERS_PER_PAGE,
+        p_search: searchQuery.trim(),
+        p_sort_field: orderSortField,
+        p_sort_dir: orderSortDirection
+      });
+
+      if (!error && data) {
+        setTotalOrdersCount(data.total || 0);
+        extractRPCDataToState(data.orders || [], setOrders);
+      }
+    } catch {
+      // ignore
+    }
+  }, [orderStatusPill, ordersPage, searchQuery, orderSortField, orderSortDirection]);
+
+  // NEW: Server Paginated Fetch for the Invoices/Historical Queue
+  const loadServerInvoices = useCallback(async () => {
+    try {
+      const now = new Date();
+      const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      let startDate = null;
+      let endDate = null;
+
+      if (invoiceDatePreset === 'today') {
+        startDate = todayMidnight.toISOString();
+      } else if (invoiceDatePreset === 'yesterday') {
+        const y = new Date(todayMidnight);
+        y.setDate(y.getDate() - 1);
+        startDate = y.toISOString();
+        endDate = todayMidnight.toISOString();
+      } else if (invoiceDatePreset === 'week') {
+        const w = new Date(todayMidnight);
+        w.setDate(w.getDate() - 6);
+        startDate = w.toISOString();
+      } else if (invoiceDatePreset === 'month') {
+        const m = new Date(todayMidnight);
+        m.setDate(m.getDate() - 29);
+        startDate = m.toISOString();
+      } else if (invoiceDatePreset === 'custom') {
+        if (customStartDate) startDate = new Date(`${customStartDate}T00:00:00`).toISOString();
+        if (customEndDate) endDate = new Date(`${customEndDate}T23:59:59`).toISOString();
+      }
+
+      const { data, error } = await supabase.rpc('get_paginated_invoices', {
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_search: searchQuery.trim(),
+        p_page: invoicesPage,
+        p_page_size: INVOICES_PER_PAGE,
+        p_sort_field: invoiceDateField
+      });
+
+      if (!error && data) {
+        setTotalInvoicesCount(data.total || 0);
+        extractRPCDataToState(data.orders || [], setInvoices);
+      }
+    } catch {
+      // ignore
+    }
+  }, [invoiceDatePreset, customStartDate, customEndDate, searchQuery, invoicesPage, invoiceDateField]);
+
+  // UNCHANGED: Loads all inventory products
   const loadInventory = useCallback(async () => {
     try {
       const { data } = await supabase
@@ -434,29 +510,67 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   }, []);
 
+  // NEW: Consolidate initialization loaders
   const loadAll = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadDrivers(), loadOrders(), loadInventory(), loadStats(), loadCategories()]);
+    await Promise.all([
+      loadDrivers(), 
+      loadInventory(), 
+      loadStats(), 
+      loadCategories(),
+      loadPriorityOrders()
+    ]);
+    if (activeTab === 'orders' || activeTab === 'dashboard') await loadServerOrders();
+    if (activeTab === 'invoices') await loadServerInvoices();
     setLoading(false);
     setRefreshing(false);
-  }, [loadDrivers, loadOrders, loadInventory, loadStats, loadCategories]);
+  }, [loadDrivers, loadInventory, loadStats, loadCategories, loadPriorityOrders, loadServerOrders, loadServerInvoices, activeTab]);
 
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
 
+  // Tab change triggers for isolated list reloads
+  useEffect(() => {
+    if (activeTab === 'orders' || activeTab === 'dashboard') void loadServerOrders();
+  }, [activeTab, loadServerOrders]);
+
+  useEffect(() => {
+    if (activeTab === 'invoices') void loadServerInvoices();
+  }, [activeTab, loadServerInvoices]);
+
+  // NEW: Optimized realtime mutator avoiding full DB re-fetches
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let debounceTimer: NodeJS.Timeout;
 
-    const handleRealtimeSpike = () => {
-      console.log('[Warehouse Realtime] Sync Signal received from DB ⚡');
-      clearTimeout(debounceTimer);
-      
-      debounceTimer = setTimeout(() => {
-        void loadOrders();
+    const handleRealtimeSpike = (payload: any) => {
+      // If it's a specific driver assignment broadcast
+      if (payload.type === 'broadcast' && payload.event === 'assignment_changed') {
+        const { orderId, newDriverId } = payload.payload;
+        setAssignmentsMap(prev => ({ ...prev, [orderId]: { ...prev[orderId], delivery_partner_id: newDriverId } }));
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'ready_for_pickup' } : o));
+        setPriorityOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'ready_for_pickup' } : o));
+        return;
+      }
+
+      // If we got an exact row update from postgres, mutate in memory
+      if (payload.table === 'orders' && payload.eventType === 'UPDATE') {
+        const updatedOrder = payload.new;
+        setOrders(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o));
+        setInvoices(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o));
+        setPriorityOrders(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o));
         void loadStats();
-      }, 400); 
+      } else {
+        // Fallback for massive spikes or un-parsed updates: debounced targeted refresh
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          if (activeTab === 'orders' || activeTab === 'dashboard') void loadServerOrders();
+          if (activeTab === 'invoices') void loadServerInvoices();
+          void loadStats();
+          void loadPriorityOrders();
+        }, 400); 
+      }
     };
 
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -465,7 +579,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       const channelName = `warehouse_signal_sync_${user.id}`;
       channel = supabase
         .channel(channelName)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'warehouse_sync_signals' }, handleRealtimeSpike)
+        // Listen to explicit order row changes instead of empty warehouse_sync_signals
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleRealtimeSpike)
         .on('broadcast', { event: 'assignment_changed' }, handleRealtimeSpike)
         .subscribe((status, err) => {
           if (err) console.error('[Warehouse Realtime] Error:', err);
@@ -477,7 +592,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       clearTimeout(debounceTimer);
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [loadOrders, loadStats]);
+  }, [activeTab, loadServerOrders, loadServerInvoices, loadStats, loadPriorityOrders]);
 
   const sendWarehouseUpdateBroadcast = async () => {
     await supabase.channel('warehouse_global_broadcast').send({
@@ -505,6 +620,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     }
   };
 
+  // Helper to instantly mutate local state without waiting for realtime/refetch
+  const updateLocalOrderState = (orderId: string, status: string) => {
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+    setPriorityOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+  };
+
   const handleConfirmOrder = async (orderId: string) => {
     setActionOrderId(orderId);
     try {
@@ -512,9 +633,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       if (error) {
         showToast('Could not confirm order: ' + error.message, 'error');
       } else {
-        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: 'confirmed' } : o)));
+        updateLocalOrderState(orderId, 'confirmed');
         showToast('Order confirmed and stock allocated', 'success');
-        await Promise.all([loadOrders(), loadInventory(), loadStats()]);
+        await Promise.all([loadStats(), loadInventory()]);
         void sendWarehouseUpdateBroadcast();
       }
     } finally {
@@ -532,9 +653,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       if (error) {
         showToast('Status update failed: ' + error.message, 'error');
       } else {
-        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+        updateLocalOrderState(orderId, status);
         showToast(`Order marked as ${status.replace(/_/g, ' ')}`, 'success');
-        await Promise.all([loadOrders(), loadStats()]);
+        await loadStats();
         void sendWarehouseUpdateBroadcast();
       }
     } finally {
@@ -567,17 +688,15 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       } else {
         supabase.functions.invoke('razorpay', {
           body: { action: 'refund_razorpay_payment', order_id: cancelModalOrderId }
-        }).then(() => loadOrders()).catch(() => {
+        }).catch(() => {
           console.error("Razorpay refund invocation failed");
         });
 
-        setOrders((prev) =>
-          prev.map((o) => (o.id === cancelModalOrderId ? { ...o, status: 'cancelled' } : o))
-        );
+        updateLocalOrderState(cancelModalOrderId, 'cancelled');
         showToast('Order cancelled, inventory restored & refund initiated', 'info');
         setCancelModalOrderId(null);
         setCustomCancelReason('');
-        await Promise.all([loadOrders(), loadInventory(), loadStats()]);
+        await Promise.all([loadStats(), loadInventory()]);
         void sendWarehouseUpdateBroadcast();
       }
     } finally {
@@ -624,9 +743,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           .eq('id', orderId);
       }
 
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: 'ready_for_pickup' } : o))
-      );
+      updateLocalOrderState(orderId, 'ready_for_pickup');
+      setAssignmentsMap(prev => ({ ...prev, [orderId]: { ...prev[orderId], delivery_partner_id: driverId } }));
 
       const syncChannel = supabase.channel('delivery_dispatch_sync');
       await syncChannel.send({
@@ -637,7 +755,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
       showToast('Driver assigned & order ready for pickup', 'success');
       setEditingDriverOrderId(null);
-      await Promise.all([loadOrders(), loadStats()]);
+      await loadStats();
     } catch (err: any) {
       showToast('Failed to assign driver: ' + err.message, 'error');
     } finally {
@@ -718,85 +836,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     setInvoicesPage(1);
   }, [searchQuery, invoiceDatePreset, customStartDate, customEndDate, invoiceDateField]);
 
-  const filteredOrders = useMemo(() => {
-    const list = orders.filter((o) => {
-      const recipient = o.address_id ? addressMap[o.address_id]?.recipient_name || '' : '';
-      const orderNum = o.order_number || '';
-      const matchesSearch =
-        orderNum.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        recipient.toLowerCase().includes(searchQuery.toLowerCase());
-
-      let matchesStatus = true;
-      if (orderStatusPill === 'assign_partner') {
-        matchesStatus = o.status === 'packed';
-      } else if (orderStatusPill !== 'all') {
-        matchesStatus = o.status === orderStatusPill;
-      }
-
-      return matchesSearch && matchesStatus;
-    });
-
-    list.sort((a, b) => {
-      const dateA = new Date((orderSortField === 'updated_at' ? a.updated_at : a.created_at) || a.created_at).getTime();
-      const dateB = new Date((orderSortField === 'updated_at' ? b.updated_at : b.created_at) || b.created_at).getTime();
-      return orderSortDirection === 'desc' ? dateB - dateA : dateA - dateB;
-    });
-
-    return list;
-  }, [orders, addressMap, searchQuery, orderStatusPill, orderSortField, orderSortDirection]);
-
-  const totalOrderPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE) || 1;
-  const paginatedOrders = useMemo(() => {
-    const start = (ordersPage - 1) * ORDERS_PER_PAGE;
-    return filteredOrders.slice(start, start + ORDERS_PER_PAGE);
-  }, [filteredOrders, ordersPage]);
-
-  const filteredInvoices = useMemo(() => {
-    const now = new Date();
-    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterdayMidnight = new Date(todayMidnight);
-    yesterdayMidnight.setDate(yesterdayMidnight.getDate() - 1);
-
-    const sevenDaysAgo = new Date(todayMidnight);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-
-    const thirtyDaysAgo = new Date(todayMidnight);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
-
-    return orders.filter((ord) => {
-      const recipient = ord.address_id ? addressMap[ord.address_id]?.recipient_name || '' : '';
-      const orderNum = ord.order_number || '';
-      const matchesSearch =
-        orderNum.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        recipient.toLowerCase().includes(searchQuery.toLowerCase());
-
-      if (!matchesSearch) return false;
-
-      const dateFieldVal = invoiceDateField === 'updated_at' ? ord.updated_at || ord.created_at : ord.created_at;
-      const ordDate = new Date(dateFieldVal);
-
-      if (invoiceDatePreset === 'all') return true;
-      if (invoiceDatePreset === 'today') return ordDate >= todayMidnight;
-      if (invoiceDatePreset === 'yesterday') return ordDate >= yesterdayMidnight && ordDate < todayMidnight;
-      if (invoiceDatePreset === 'week') return ordDate >= sevenDaysAgo;
-      if (invoiceDatePreset === 'month') return ordDate >= thirtyDaysAgo;
-
-      if (invoiceDatePreset === 'custom') {
-        if (!customStartDate && !customEndDate) return true;
-        const start = customStartDate ? new Date(`${customStartDate}T00:00:00`) : new Date(0);
-        const end = customEndDate ? new Date(`${customEndDate}T23:59:59`) : new Date();
-        return ordDate >= start && ordDate <= end;
-      }
-
-      return true;
-    });
-  }, [orders, addressMap, searchQuery, invoiceDatePreset, customStartDate, customEndDate, invoiceDateField]);
-
-  const totalInvoicePages = Math.ceil(filteredInvoices.length / INVOICES_PER_PAGE) || 1;
-  const paginatedInvoices = useMemo(() => {
-    const start = (invoicesPage - 1) * INVOICES_PER_PAGE;
-    return filteredInvoices.slice(start, start + INVOICES_PER_PAGE);
-  }, [filteredInvoices, invoicesPage]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -834,31 +873,8 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         todayOrdersCount: serverStats.today_orders_count,
       };
     }
-
-    const pending = orders.filter((o) => o.status === 'pending').length;
-    const confirmed = orders.filter((o) => o.status === 'confirmed').length;
-    const packed = orders.filter((o) => o.status === 'packed').length;
-    const ready = orders.filter((o) => o.status === 'ready_for_pickup').length;
-    const out = orders.filter((o) => o.status === 'out_for_delivery').length;
-
-    const todayOrders = orders.filter(
-      (o) => isTodayDate(o.created_at) && o.status !== 'cancelled'
-    );
-    const todayVolume = todayOrders.reduce(
-      (acc, curr) => acc + (Number(curr.total) || 0),
-      0
-    );
-
-    return {
-      pending,
-      confirmed,
-      packed,
-      ready,
-      out,
-      todayVolume,
-      todayOrdersCount: todayOrders.length,
-    };
-  }, [orders, serverStats]);
+    return { pending: 0, confirmed: 0, packed: 0, ready: 0, out: 0, todayVolume: 0, todayOrdersCount: 0 };
+  }, [serverStats]);
 
   const managerDisplayName =
     profile?.full_name?.trim() ||
@@ -872,6 +888,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     if (hour < 17) return 'Good Afternoon';
     return 'Good Evening';
   }, []);
+
+  const totalOrderPages = Math.ceil(totalOrdersCount / ORDERS_PER_PAGE) || 1;
+  const totalInvoicePages = Math.ceil(totalInvoicesCount / INVOICES_PER_PAGE) || 1;
 
   return (
     <div className="min-h-screen bg-[#f4f7f5] flex flex-col justify-between pb-28 md:pb-16">
@@ -964,7 +983,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
             <div className="hidden md:flex items-center gap-1 bg-slate-200/70 p-1 rounded-2xl w-auto overflow-x-auto no-scrollbar">
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-                { id: 'orders', label: `Orders (${orders.length})`, icon: Package },
+                { id: 'orders', label: `Orders`, icon: Package },
                 { id: 'invoices', label: 'Invoices', icon: FileText },
                 { id: 'inventory', label: `Inventory (${products.length})`, icon: Boxes },
                 { id: 'low_stock', label: 'Low Stock', icon: AlertTriangle, count: lowStockProducts.length },
@@ -1178,16 +1197,13 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                   </button>
                 </div>
 
-                {orders.filter((o) => o.status === 'pending' || o.status === 'packed').length === 0 ? (
+                {priorityOrders.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-6">
                     🎉 Outstanding work! No urgent bottlenecks in the warehouse pipeline.
                   </p>
                 ) : (
                   <div className="divide-y divide-slate-100">
-                    {orders
-                      .filter((o) => o.status === 'pending' || o.status === 'packed')
-                      .slice(0, 4)
-                      .map((ord) => {
+                    {priorityOrders.map((ord) => {
                         const addr = ord.address_id ? addressMap[ord.address_id] : null;
                         const isPending = ord.status === 'pending';
                         return (
@@ -1203,7 +1219,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   {isPending ? 'Needs Confirm' : 'Needs Driver'}
                                 </span>
                               </div>
-                              <p className="text-[11px] text-slate-50 truncate mt-0.5">
+                              <p className="text-[11px] text-slate-500 truncate mt-0.5">
                                 {addr?.recipient_name} · ₹{Number(ord.total).toFixed(2)}
                               </p>
                             </div>
@@ -1272,13 +1288,9 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                       className="w-full h-11 pl-3.5 pr-8 rounded-2xl bg-white border border-emerald-900/15 text-xs font-black text-slate-800 shadow-xs outline-none focus:border-[#0a382c] appearance-none"
                     >
                       {orderPills.map((pill) => {
-                        let count = 0;
-                        if (pill.id === 'all') count = orders.length;
-                        else if (pill.id === 'assign_partner') count = orders.filter((o) => o.status === 'packed').length;
-                        else count = orders.filter((o) => o.status === pill.id).length;
                         return (
                           <option key={pill.id} value={pill.id}>
-                            {pill.label} ({count})
+                            {pill.label}
                           </option>
                         );
                       })}
@@ -1381,11 +1393,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 <div className="hidden md:flex items-center justify-between gap-3 mb-2">
                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 flex-1">
                     {orderPills.map((pill) => {
-                      let count = 0;
-                      if (pill.id === 'all') count = orders.length;
-                      else if (pill.id === 'assign_partner') count = orders.filter((o) => o.status === 'packed').length;
-                      else count = orders.filter((o) => o.status === pill.id).length;
-
                       const isActive = orderStatusPill === pill.id;
 
                       return (
@@ -1399,13 +1406,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                           }`}
                         >
                           <span>{pill.label}</span>
-                          <span
-                            className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
-                              isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {count}
-                          </span>
                         </button>
                       );
                     })}
@@ -1426,7 +1426,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {filteredOrders.length === 0 ? (
+              {orders.length === 0 ? (
                 <div className="bg-white border border-slate-200/80 rounded-[26px] p-12 text-center text-slate-400 space-y-2">
                   <Package size={40} className="mx-auto text-slate-300" />
                   <p className="font-bold text-sm text-slate-700">No orders matching filter</p>
@@ -1434,7 +1434,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {paginatedOrders.map((ord) => {
+                  {orders.map((ord) => {
                     const addr = ord.address_id ? addressMap[ord.address_id] : null;
                     const asg = assignmentsMap[ord.id];
                     const pay = paymentsMap[ord.id] || { walletPaid: 0, onlinePaid: 0, codPaid: 0, totalPaid: 0, amountDue: Number(ord.total), isFullyPaid: false, providers: [], needsRefundRetry: false, isProcessingRefund: false };
@@ -1444,7 +1444,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                     const isPacked = ord.status === 'packed';
                     const isReadyForPickup = ord.status === 'ready_for_pickup';
                     const assignedDriver = drivers.find((d) => d.id === asg?.delivery_partner_id);
-                    const isEditingDriver = editingDriverOrderId === ord.id;
 
                     const hasPendingCash = !pay.isFullyPaid && !isDelivered && pay.amountDue > 0;
 
@@ -1682,12 +1681,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {filteredOrders.length > ORDERS_PER_PAGE && (
+              {totalOrdersCount > ORDERS_PER_PAGE && (
                 <div className="flex items-center justify-between bg-white border border-slate-200 rounded-[22px] px-4 py-3 shadow-xs">
                   <p className="text-xs font-semibold text-slate-500">
                     Showing <span className="font-black text-slate-900">{(ordersPage - 1) * ORDERS_PER_PAGE + 1}</span> to{' '}
-                    <span className="font-black text-slate-900">{Math.min(ordersPage * ORDERS_PER_PAGE, filteredOrders.length)}</span> of{' '}
-                    <span className="font-black text-slate-900">{filteredOrders.length}</span>
+                    <span className="font-black text-slate-900">{Math.min(ordersPage * ORDERS_PER_PAGE, totalOrdersCount)}</span> of{' '}
+                    <span className="font-black text-slate-900">{totalOrdersCount}</span>
                   </p>
 
                   <div className="flex items-center gap-1.5">
@@ -1716,14 +1715,14 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
 
           {activeTab === 'invoices' && (
             <div className="space-y-4">
-              {filteredInvoices.length === 0 ? (
+              {invoices.length === 0 ? (
                 <div className="bg-white border border-slate-200/80 rounded-[26px] p-12 text-center text-slate-400 space-y-2">
                   <FileText size={40} className="mx-auto text-slate-300" />
                   <p className="font-bold text-sm text-slate-700">No invoices match period</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  {paginatedInvoices.map((ord) => {
+                  {invoices.map((ord) => {
                     const addr = ord.address_id ? addressMap[ord.address_id] : null;
                     const pay = paymentsMap[ord.id];
                     const isCancelled = ord.status === 'cancelled';
@@ -1833,12 +1832,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                 </div>
               )}
 
-              {filteredInvoices.length > INVOICES_PER_PAGE && (
+              {totalInvoicesCount > INVOICES_PER_PAGE && (
                 <div className="flex items-center justify-between bg-white border border-slate-200 rounded-[22px] px-4 py-3 shadow-xs">
                   <p className="text-xs font-semibold text-slate-500">
                     Showing <span className="font-black text-slate-900">{(invoicesPage - 1) * INVOICES_PER_PAGE + 1}</span> to{' '}
-                    <span className="font-black text-slate-900">{Math.min(invoicesPage * INVOICES_PER_PAGE, filteredInvoices.length)}</span> of{' '}
-                    <span className="font-black text-slate-900">{filteredInvoices.length}</span>
+                    <span className="font-black text-slate-900">{Math.min(invoicesPage * INVOICES_PER_PAGE, totalInvoicesCount)}</span> of{' '}
+                    <span className="font-black text-slate-900">{totalInvoicesCount}</span>
                   </p>
 
                   <div className="flex items-center gap-1.5">

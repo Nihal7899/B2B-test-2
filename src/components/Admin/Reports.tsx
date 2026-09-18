@@ -46,11 +46,9 @@ const downloadExcel = async (wb: XLSX.WorkBook, filename: string) => {
       (window as any).Capacitor?.isNativePlatform?.();
 
     if (isCapacitorNative) {
-      // 1. Generate Base64 string for Capacitor Filesystem
       const wboutBase64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
       const fileName = `${filename}.xlsx`;
 
-      // Try reading plugins from window or dynamic imports
       let Filesystem = (window as any).Capacitor?.Plugins?.Filesystem;
       let Directory = (window as any).Capacitor?.Plugins?.Directory || { Cache: 'CACHE' };
       let Share = (window as any).Capacitor?.Plugins?.Share;
@@ -90,7 +88,6 @@ const downloadExcel = async (wb: XLSX.WorkBook, filename: string) => {
       }
     }
 
-    // 2. Standard Web Browser Fallback
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -106,7 +103,6 @@ const downloadExcel = async (wb: XLSX.WorkBook, filename: string) => {
     toast.success('Excel downloaded!');
   } catch (err) {
     console.error('Download error:', err);
-    // Ultimate fallback for browser
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -265,7 +261,7 @@ export default function Reports() {
       const { fromUTC, toUTC } = getDateRange();
       let query = supabase
         .from('orders')
-        .select('id, total, created_at, updated_at, user_id, order_number, subtotal, discount, delivery_fee, gst_amount, cgst_amount, sgst_amount')
+        .select('id, total, created_at, updated_at, user_id, order_number, subtotal, discount, delivery_fee, gst_amount, cgst_amount, sgst_amount, business_snapshot')
         .eq('status', 'delivered')
         .gte('updated_at', fromUTC)
         .order('updated_at', { ascending: true });
@@ -328,7 +324,7 @@ export default function Reports() {
         setProductSales([]);
       }
 
-      // GST Reports with Pro-Rata and Delivery Fee alignment
+      // GST Reports
       const gstOrders = orders || [];
       let gstData: GSTReport[] = gstOrders.map((o) => {
         const subtotal = Number(o.subtotal || 0);
@@ -360,34 +356,77 @@ export default function Reports() {
 
       if (orders?.length) {
         const userIds = orders.map((o) => o.user_id);
+
+        // Profile fallback (for phone + walk-in customers without a business)
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id, full_name, business_name, phone')
           .in('id', userIds);
+
+        // Business fallback (only for legacy orders that have no business_snapshot)
         const { data: businesses } = await supabase
           .from('businesses')
-          .select('owner_user_id, business_name, gstin')
+          .select('owner_user_id, business_name, gstin, is_default, created_at')
           .in('owner_user_id', userIds);
 
-        const nameMap = new Map();
-        const phoneMap = new Map();
-        const gstMap = new Map();
+        const profileMap = new Map<string, { name: string; phone: string }>();
         profiles?.forEach((p) => {
-          nameMap.set(p.id, p.business_name || p.full_name || 'Customer');
-          phoneMap.set(p.id, p.phone || '');
+          profileMap.set(p.id, {
+            name: p.business_name || p.full_name || 'Customer',
+            phone: p.phone || '',
+          });
         });
-        businesses?.forEach((b) => {
-          nameMap.set(b.owner_user_id, b.business_name);
-          gstMap.set(b.owner_user_id, b.gstin || '');
-        });
+
+        const businessByOwner = new Map<string, { business_name: string; gstin: string }>();
+        (businesses || [])
+          .sort((a: any, b: any) => {
+            const ad = a.is_default ? 1 : 0;
+            const bd = b.is_default ? 1 : 0;
+            if (ad !== bd) return bd - ad;
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          })
+          .forEach((b: any) => {
+            if (!businessByOwner.has(b.owner_user_id)) {
+              businessByOwner.set(b.owner_user_id, {
+                business_name: b.business_name || '',
+                gstin: b.gstin || '',
+              });
+            }
+          });
 
         gstData = gstData.map((g) => {
           const order = orders.find((o) => o.id === g.id);
-          if (order) {
-            g.customer_name = nameMap.get(order.user_id) || 'Customer';
-            g.customer_phone = phoneMap.get(order.user_id) || '';
-            g.customer_gst = gstMap.get(order.user_id) || '';
+          if (!order) return g;
+
+          // 1. Prefer the immutable snapshot
+          const snap = (order as any).business_snapshot as
+            | { business_name?: string; gstin?: string | null }
+            | null
+            | undefined;
+
+          if (snap?.business_name) {
+            g.customer_name = snap.business_name;
+            g.customer_gst = snap.gstin || '';
+            const prof = profileMap.get(order.user_id);
+            g.customer_phone = prof?.phone || '';
+            return g;
           }
+
+          // 2. Fallback to latest business row
+          const biz = businessByOwner.get(order.user_id);
+          if (biz && biz.business_name) {
+            g.customer_name = biz.business_name;
+            g.customer_gst = biz.gstin;
+            const prof = profileMap.get(order.user_id);
+            g.customer_phone = prof?.phone || '';
+            return g;
+          }
+
+          // 3. Profile fallback
+          const prof = profileMap.get(order.user_id);
+          g.customer_name = prof?.name || 'Customer';
+          g.customer_phone = prof?.phone || '';
+          g.customer_gst = '';
           return g;
         });
       }
@@ -494,14 +533,12 @@ export default function Reports() {
     await downloadExcel(wb, `Stock_Report_${dateFilterLabel()}`);
   };
 
-  // ─── Executive GST Excel Export (Summary + Bill-Like Details) ────────
   const exportGSTToExcel = async () => {
     if (gstReport.length === 0) {
       toast.error('No GST data to export');
       return;
     }
 
-    // ─── 1. GST Summary Sheet ──────────────────────────────
     const summaryData = gstReport.map((g) => ({
       'Invoice No': g.invoice_number,
       'Invoice Date': new Date(g.created_at).toLocaleDateString('en-IN'),
@@ -534,7 +571,6 @@ export default function Reports() {
       'Invoice Grand Total (₹)': Number(gstSummary.grandTotal.toFixed(2)),
     });
 
-    // ─── 2. GST Details Sheet (Structured Executive Bill Format) ──────
     const orderIds = gstReport.map((g) => g.id);
     let detailsData: any[] = [];
 
@@ -555,7 +591,6 @@ export default function Reports() {
           const invItems = itemsByOrder[g.id] || [];
           const rawSubtotal = invItems.reduce((sum, it) => sum + Number(it.line_total || 0), 0);
 
-          // ─ Bill Header Block ─
           detailsData.push({
             'Record Type': 'INVOICE HEADER',
             'Invoice No': g.invoice_number,
@@ -575,7 +610,6 @@ export default function Reports() {
             'Row Total (₹)': '',
           });
 
-          // ─ Itemized Line Items ─
           invItems.forEach((item, idx) => {
             const lineTotal = Number(item.line_total || 0);
             const unitPrice = Number(item.unit_price || 0);
@@ -607,7 +641,6 @@ export default function Reports() {
             });
           });
 
-          // ─ Delivery & Fulfillment Service Row ─
           if (g.delivery_fee > 0) {
             const delTaxable = g.delivery_fee / 1.18;
             const delGst = g.delivery_fee - delTaxable;
@@ -632,7 +665,6 @@ export default function Reports() {
             });
           }
 
-          // ─ Bill Summary Row ─
           detailsData.push({
             'Record Type': 'BILL SUMMARY',
             'Invoice No': g.invoice_number,
@@ -652,7 +684,6 @@ export default function Reports() {
             'Row Total (₹)': Number(g.grand_total.toFixed(2)),
           });
 
-          // ─ Separator Spacer ─
           detailsData.push({
             'Record Type': '',
             'Invoice No': '',
@@ -679,7 +710,6 @@ export default function Reports() {
     const ws1 = XLSX.utils.json_to_sheet(summaryData);
     const ws2 = XLSX.utils.json_to_sheet(detailsData);
 
-    // Optimized Column Widths
     ws1['!cols'] = [
       { wch: 18 }, { wch: 14 }, { wch: 25 }, { wch: 16 }, { wch: 18 },
       { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 22 },

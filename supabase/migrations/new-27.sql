@@ -131,3 +131,19 @@ BEGIN
   RETURN v_result;
 END;
 $$ LANGUAGE plpgsql;
+
+
+alter table public.businesses enable row level security;
+
+create policy "Admins and warehouse managers can manage businesses"
+on public.businesses
+for all
+to authenticated
+using (
+  auth_helpers.is_admin()
+  or auth_helpers.is_warehouse_manager()
+)
+with check (
+  auth_helpers.is_admin()
+  or auth_helpers.is_warehouse_manager()
+);

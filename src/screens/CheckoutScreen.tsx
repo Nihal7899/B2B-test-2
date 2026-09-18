@@ -5,7 +5,9 @@ import { Checkout } from 'capacitor-razorpay';
 import logoImg from './logo.png';
 import type { useCart } from '@/store';
 import type { DbAddress } from '@/services/catalog';
+import type { Business } from '@/types';
 import { fetchAddresses, getDeliveryCharge, computeGST } from '@/services/catalog';
+import { fetchBusinesses } from '@/services/business';
 import { fetchWallet, payWithWalletRpc } from '@/services/wallet';
 import { supabase } from '@/lib/supabase';
 
@@ -25,6 +27,8 @@ interface CheckoutScreenProps {
 export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: CheckoutScreenProps) {
   const [addresses, setAddresses] = useState<DbAddress[]>([]);
   const [selectedAddr, setSelectedAddr] = useState<string | null>(null);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [useWallet, setUseWallet] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
@@ -56,16 +60,29 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   const isFullWalletPayment = useWallet && walletDeduction >= grandTotal;
 
   const loadData = useCallback(async () => {
-    const [addrData, userWallet] = await Promise.all([fetchAddresses(), fetchWallet()]);
+    const [addrData, userWallet, bizList] = await Promise.all([
+      fetchAddresses(),
+      fetchWallet(),
+      fetchBusinesses().catch(() => [] as Business[]),
+    ]);
+
     setAddresses(addrData);
     if (addrData.length > 0) {
       const def = addrData.find((a) => a.is_default);
       setSelectedAddr(def?.id ?? addrData[0].id);
     }
+
     if (userWallet) {
       setWalletBalance(userWallet.balance);
       if (userWallet.balance <= 0) setUseWallet(false);
     }
+
+    setBusinesses(bizList);
+    if (bizList.length > 0) {
+      const defBiz = bizList.find((b) => b.is_default) ?? bizList[0];
+      setSelectedBusinessId(defBiz.id);
+    }
+
     setLoading(false);
   }, []);
 
@@ -203,6 +220,11 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
       isSubmittingRef.current = false;
       return;
     }
+    if (!selectedBusinessId) {
+      setError('Please select a billing business.');
+      isSubmittingRef.current = false;
+      return;
+    }
     setPlacing(true);
     setError('');
 
@@ -217,6 +239,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         p_items: items,
         p_promo_code: cart.appliedPromo?.code || null,
         p_delivery_zone_id: deliveryZoneId,
+        p_business_id: selectedBusinessId,
       });
 
       if (orderError || !orderId) {
@@ -406,6 +429,62 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
           <p className="text-xs text-ink-500 mt-0.5">Review and place your order</p>
         </div>
       </div>
+
+      {/* Billing business */}
+      <section>
+        <h2 className="text-sm font-bold text-ink-900 mb-2">Billing business</h2>
+        {businesses.length === 0 ? (
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5">
+            <p className="text-xs font-bold text-amber-900">No business profile yet</p>
+            <p className="text-[11px] text-amber-700 mt-0.5">
+              Add a business to receive GST invoices. You can still proceed, but the invoice will not
+              carry a GSTIN.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {businesses.map((b) => {
+              const isSel = selectedBusinessId === b.id;
+              return (
+                <button
+                  key={b.id}
+                  onClick={() => setSelectedBusinessId(b.id)}
+                  className={`w-full text-left p-3.5 rounded-2xl border-2 transition-colors ${
+                    isSel ? 'border-brand-500 bg-brand-50' : 'border-ink-100 bg-white'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <div
+                      className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                        isSel ? 'border-brand-600 bg-brand-600' : 'border-ink-300'
+                      }`}
+                    >
+                      {isSel && <CheckCircle2 size={12} className="text-white" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold text-ink-800">{b.business_name}</p>
+                        {b.is_default && (
+                          <span className="text-[9px] font-bold bg-brand-100 text-brand-700 rounded-full px-2 py-0.5">
+                            DEFAULT
+                          </span>
+                        )}
+                      </div>
+                      {b.gst_registered && b.gstin ? (
+                        <p className="text-[11px] text-ink-500 mt-0.5 font-mono">
+                          GSTIN: <span className="font-bold">{b.gstin}</span>
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-ink-400 mt-0.5">Not GST registered</p>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <section>
         <h2 className="text-sm font-bold text-ink-900 mb-2">Delivery address</h2>
@@ -601,7 +680,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
       <button
         onClick={handlePlaceOrder}
-        disabled={placing || !selectedAddr || cart.items.length === 0}
+        disabled={placing || !selectedAddr || cart.items.length === 0 || !selectedBusinessId}
         className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft disabled:opacity-60"
       >
         {placing ? (

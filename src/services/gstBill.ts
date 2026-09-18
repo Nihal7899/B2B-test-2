@@ -147,29 +147,38 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
   };
 
   // ---- Customer / business resolution ----
-  // NOTE: businesses.owner_user_id is NOT unique in this DB (a user can have
-  // multiple business rows). Using `.maybeSingle()` here would silently fail
-  // when more than one row matches, which is why GSTIN was previously coming
-  // back empty. We use `.limit(1)` and tolerate the multi-row case.
+  // Priority:
+  //   1. order.business_snapshot (immune to later business edits/deletes)
+  //   2. latest business row for the user (fallback for pre-snapshot orders)
+  //   3. profile
   let customerName: string | null = null;
   let customerGst: string | null = null;
   let customerPhone = '';
 
-  // 1. Prefer order.business_snapshot if it was captured at order time
-  const businessSnapshot = (order as {
-    business_snapshot?: { business_name?: string; gstin?: string } | null;
-  }).business_snapshot;
-  if (businessSnapshot && (businessSnapshot.business_name || businessSnapshot.gstin)) {
-    customerName = businessSnapshot.business_name || null;
-    customerGst = businessSnapshot.gstin || null;
+  type BusinessSnapshotShape = {
+    id?: string;
+    business_name?: string;
+    business_type?: string;
+    gst_registered?: boolean;
+    gstin?: string | null;
+    gst_verification_status?: string;
+  };
+
+  // 1. Snapshot
+  const snapshot = (order as { business_snapshot?: BusinessSnapshotShape | null })
+    .business_snapshot;
+  if (snapshot && (snapshot.business_name || snapshot.gstin)) {
+    customerName = snapshot.business_name || null;
+    customerGst = snapshot.gstin || null;
   }
 
-  // 2. Fallback: query businesses table, tolerating multiple rows per owner
+  // 2. Fallback to businesses table (legacy orders)
   if (!customerName || !customerGst) {
     const { data: businesses, error: bizErr } = await supabase
       .from('businesses')
-      .select('business_name, gstin')
+      .select('business_name, gstin, is_default, created_at')
       .eq('owner_user_id', order.user_id)
+      .order('is_default', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(1);
 
@@ -184,7 +193,7 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     }
   }
 
-  // 3. Last resort: profile
+  // 3. Profile fallback
   if (!customerName) {
     const { data: profile } = await supabase
       .from('profiles')

@@ -169,6 +169,7 @@ export interface Business {
   gstin: string | null;
   gst_verification_status: 'pending' | 'verified' | 'failed';
   gst_verified_at: string | null;
+  is_default?: boolean;
   created_at: string;
   updated_at: string;
 }

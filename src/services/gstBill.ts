@@ -17,6 +17,17 @@ export interface PaymentBreakdown {
   providers: string[];
 }
 
+export interface BillingAddressSnapshot {
+  business_name?: string;
+  gstin?: string | null;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  landmark?: string | null;
+  pincode?: string | null;
+}
+
 export interface OrderBillData {
   order: DbOrder;
   items: (DbOrderItem & { hsn_code?: string; gst_percentage?: number })[];
@@ -24,6 +35,8 @@ export interface OrderBillData {
   customerName: string;
   customerPhone: string;
   customerGst?: string;
+  billingAddress?: BillingAddressSnapshot | null;
+  billingAddressLine?: string;
   payments: { id: string; provider: string; status: string; amount: number }[];
   paymentBreakdown: PaymentBreakdown;
 }
@@ -195,6 +208,36 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     }
   }
 
+  // ---- Billing address snapshot (registered business address at order time) ----
+  const rawBilling = (order as { billing_address_snapshot?: BillingAddressSnapshot | null })
+    .billing_address_snapshot;
+  const billingAddress: BillingAddressSnapshot | null =
+    rawBilling && (rawBilling.address_line_1 || rawBilling.city || rawBilling.pincode)
+      ? rawBilling
+      : null;
+
+  const billingParts = billingAddress
+    ? [
+        billingAddress.address_line_1,
+        billingAddress.address_line_2,
+        billingAddress.landmark,
+        billingAddress.city && billingAddress.state
+          ? `${billingAddress.city}, ${billingAddress.state}`
+          : billingAddress.city || billingAddress.state,
+        billingAddress.pincode,
+      ].filter((p): p is string => !!p && String(p).trim().length > 0)
+    : [];
+
+  const billingAddressLine = billingParts.join(', ');
+
+  // If a billing business snapshot exists, prefer its name/GST over inferred values
+  if (billingAddress?.business_name) {
+    customerName = billingAddress.business_name;
+  }
+  if (billingAddress?.gstin) {
+    customerGst = billingAddress.gstin;
+  }
+
   return {
     order: order as DbOrder,
     items: (items || []) as (DbOrderItem & { hsn_code?: string; gst_percentage?: number })[],
@@ -202,6 +245,8 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     customerName: customerName || address?.recipient_name || 'Customer',
     customerPhone: customerPhone || address?.phone || '',
     customerGst: customerGst || '',
+    billingAddress,
+    billingAddressLine,
     payments,
     paymentBreakdown,
   };
@@ -219,7 +264,17 @@ function buildA4InvoiceHtml(
   config: InvoiceConfig | null,
   design: InvoiceDesignSettings
 ): string {
-  const { order, items, address, customerName, customerPhone, customerGst, paymentBreakdown } = data;
+  const {
+    order,
+    items,
+    address,
+    customerName,
+    customerPhone,
+    customerGst,
+    billingAddress,
+    billingAddressLine,
+    paymentBreakdown,
+  } = data;
 
   const totalDiscount = Number(order.discount || 0);
   const deliveryFee = Number(order.delivery_fee || 0);
@@ -314,6 +369,9 @@ function buildA4InvoiceHtml(
   const customerNameDisplay = customerName || 'Customer';
   const customerPhoneDisplay = customerPhone || '';
   const customerGstDisplay = customerGst || '';
+  const billingAddressDisplay =
+    billingAddressLine ||
+    (address ? `${address.line1}, ${address.city} - ${address.postal_code}` : '');
   const currentDate = new Date(order.created_at).toLocaleDateString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric'
   });
@@ -465,7 +523,7 @@ function buildA4InvoiceHtml(
           <div style="flex:1;padding:6px;font-size:10.5px;line-height:1.4;">
             <div style="font-size:9px;font-weight:bold;text-transform:uppercase;color:#555;">Details of Recipient / Buyer</div>
             <div style="font-size:13px;font-weight:bold;margin-top:2px;">${customerNameDisplay}</div>
-            <div>${address ? `${address.line1}, ${address.city} - ${address.postal_code}` : 'Walk-in'}</div>
+            <div>${billingAddressDisplay || 'Walk-in'}</div>
             <div><strong>GSTIN:</strong> ${customerGstDisplay || 'Unregistered'}</div>
             <div><strong>Invoice No:</strong> ${invoiceNumber} | <strong>Date:</strong> ${currentDate}</div>
             <div style="margin-top:3px;"><span style="background:${paymentStatusBg};color:${paymentStatusColor};font-weight:800;padding:1px 6px;border-radius:4px;font-size:9.5px;">${paymentStatusText}</span></div>
@@ -568,7 +626,7 @@ function buildA4InvoiceHtml(
           <div style="flex:1.2;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:10.5px;">
             <span style="font-size:9px;font-weight:800;color:${primaryColor};text-transform:uppercase;">Billed To</span>
             <div style="font-size:13px;font-weight:800;color:#0f172a;margin-top:1px;">${customerNameDisplay}</div>
-            ${address ? `<div style="color:#475569;margin-top:2px;">${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
+            ${billingAddressDisplay ? `<div style="color:#475569;margin-top:2px;">${billingAddressDisplay}</div>` : ''}
             <div style="color:#64748b;margin-top:2px;">Phone: ${customerPhoneDisplay || '-'} | GSTIN: ${customerGstDisplay || 'Unregistered'}</div>
           </div>
           <div style="flex:0.8;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:10.5px;text-align:right;">
@@ -681,7 +739,7 @@ function buildA4InvoiceHtml(
           <div>
             <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:#94a3b8;text-transform:uppercase;">Billed To</div>
             <div style="font-weight:700;color:#0f172a;">${customerNameDisplay}</div>
-            ${address ? `<div>${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
+            ${billingAddressDisplay ? `<div>${billingAddressDisplay}</div>` : ''}
             <div>Phone: ${customerPhoneDisplay || '-'} | GST: ${customerGstDisplay || 'Unregistered'}</div>
           </div>
           <div style="text-align:right;">
@@ -804,7 +862,7 @@ function buildA4InvoiceHtml(
           <div style="flex:1.2;border:1px solid #cbd5e1;border-top:3.5px solid ${primaryColor};border-radius:6px;padding:8px 10px;background:#f8fafc;">
             <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;color:${primaryColor};">Billed To / Consignee</div>
             <div style="font-size:12.5px;font-weight:800;color:#0f172a;margin-top:1px;">${customerNameDisplay}</div>
-            ${address ? `<div style="font-size:10.5px;color:#334155;margin-top:2px;">${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
+            ${billingAddressDisplay ? `<div style="font-size:10.5px;color:#334155;margin-top:2px;">${billingAddressDisplay}</div>` : ''}
             <div style="font-size:10px;color:#475569;margin-top:3px;">Phone: ${customerPhoneDisplay || '-'} | GSTIN: ${customerGstDisplay || 'Unregistered'}</div>
           </div>
           <div style="flex:1;border:1px solid #cbd5e1;border-top:3.5px solid #0f172a;border-radius:6px;padding:8px 10px;background:#f8fafc;font-size:10.5px;">
@@ -912,7 +970,7 @@ function buildA4InvoiceHtml(
         </div>
 
         <div style="display:flex;justify-content:space-between;background:#f8fafc;border:1px solid #cbd5e1;padding:4px 6px;margin-bottom:4px;font-size:8.5px;">
-          <div><strong>Customer:</strong> ${customerNameDisplay} (${customerPhoneDisplay || '-'}) | GST: ${customerGstDisplay || 'Unreg'}</div>
+          <div><strong>Customer:</strong> ${customerNameDisplay} (${customerPhoneDisplay || '-'})${billingAddressDisplay ? ` · ${billingAddressDisplay}` : ''} | GST: ${customerGstDisplay || 'Unreg'}</div>
           <div><strong>Status:</strong> ${paymentStatusText}</div>
         </div>
 

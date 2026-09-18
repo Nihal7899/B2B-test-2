@@ -17,6 +17,12 @@ export async function createBusiness(input: {
   gst_registered: boolean;
   gstin?: string;
   is_default?: boolean;
+  address_line_1?: string;
+  address_line_2?: string;
+  city?: string;
+  state?: string;
+  landmark?: string;
+  pincode?: string;
 }): Promise<Business | null> {
   const existing = await fetchBusinesses().catch(() => [] as Business[]);
   const shouldBeDefault = input.is_default === true || existing.length === 0;
@@ -37,6 +43,12 @@ export async function createBusiness(input: {
       gstin: input.gst_registered ? (input.gstin ?? null) : null,
       gst_verification_status: 'pending',
       is_default: shouldBeDefault,
+      address_line_1: input.address_line_1 ?? null,
+      address_line_2: input.address_line_2 ?? null,
+      city: input.city ?? null,
+      state: input.state ?? null,
+      landmark: input.landmark ?? null,
+      pincode: input.pincode ?? null,
     })
     .select()
     .single();
@@ -56,6 +68,12 @@ export async function updateBusiness(
   if (updates.gst_verification_status !== undefined) {
     payload.gst_verification_status = updates.gst_verification_status;
   }
+  if (updates.address_line_1 !== undefined) payload.address_line_1 = updates.address_line_1;
+  if (updates.address_line_2 !== undefined) payload.address_line_2 = updates.address_line_2;
+  if (updates.city !== undefined) payload.city = updates.city;
+  if (updates.state !== undefined) payload.state = updates.state;
+  if (updates.landmark !== undefined) payload.landmark = updates.landmark;
+  if (updates.pincode !== undefined) payload.pincode = updates.pincode;
 
   const { error } = await supabase
     .from('businesses')

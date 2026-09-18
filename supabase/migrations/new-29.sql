@@ -1,14 +1,24 @@
 -- ================================================================
--- ADDRESS SNAPSHOT + WAREHOUSE RPC OVERHAUL
+-- BUSINESS BILLING ADDRESS + ORDER BILLING SNAPSHOT
 -- Run in Supabase SQL editor.
 -- ================================================================
 
--- 1. Drop old create_order overloads (both)
-drop function if exists public.create_order(uuid, jsonb);
-drop function if exists public.create_order(uuid, jsonb, text, uuid);
-drop function if exists public.create_order(uuid, jsonb, text, uuid, uuid);
+-- 1. Add address columns to businesses
+alter table public.businesses
+  add column if not exists address_line_1 text,
+  add column if not exists address_line_2 text,
+  add column if not exists city text,
+  add column if not exists state text,
+  add column if not exists landmark text,
+  add column if not exists pincode text;
 
--- 2. New create_order that also writes delivery_address_snapshot
+-- 2. Drop existing create_order (5-param) so we can replace it cleanly
+drop function if exists public.create_order(uuid, jsonb, text, uuid, uuid);
+drop function if exists public.create_order(uuid, jsonb, text, uuid);
+drop function if exists public.create_order(uuid, jsonb);
+
+-- 3. New create_order that writes both delivery_address_snapshot AND
+--    billing_address_snapshot (built from the selected business)
 create or replace function public.create_order(
   p_address_id uuid,
   p_items jsonb,
@@ -40,13 +50,14 @@ DECLARE
   v_charge NUMERIC;
   v_business_snapshot JSONB := NULL;
   v_delivery_address_snapshot JSONB := NULL;
+  v_billing_address_snapshot JSONB := NULL;
 BEGIN
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
   END IF;
 
-  -- Build address snapshot AND capture pincode in one query
+  -- Delivery address snapshot + pincode capture
   SELECT
     jsonb_build_object(
       'id', a.id,
@@ -71,17 +82,34 @@ BEGIN
     RAISE EXCEPTION 'Invalid address: address not found or does not belong to user';
   END IF;
 
-  -- Business snapshot
+  -- Business snapshot + billing address snapshot
   IF p_business_id IS NOT NULL THEN
-    SELECT jsonb_build_object(
-      'id', b.id,
-      'business_name', b.business_name,
-      'business_type', b.business_type,
-      'gst_registered', b.gst_registered,
-      'gstin', b.gstin,
-      'gst_verification_status', b.gst_verification_status
-    )
-    INTO v_business_snapshot
+    SELECT
+      jsonb_build_object(
+        'id', b.id,
+        'business_name', b.business_name,
+        'business_type', b.business_type,
+        'gst_registered', b.gst_registered,
+        'gstin', b.gstin,
+        'gst_verification_status', b.gst_verification_status,
+        'address_line_1', b.address_line_1,
+        'address_line_2', b.address_line_2,
+        'city', b.city,
+        'state', b.state,
+        'landmark', b.landmark,
+        'pincode', b.pincode
+      ),
+      jsonb_build_object(
+        'business_name', b.business_name,
+        'gstin', b.gstin,
+        'address_line_1', b.address_line_1,
+        'address_line_2', b.address_line_2,
+        'city', b.city,
+        'state', b.state,
+        'landmark', b.landmark,
+        'pincode', b.pincode
+      )
+    INTO v_business_snapshot, v_billing_address_snapshot
     FROM businesses b
     WHERE b.id = p_business_id AND b.owner_user_id = v_user_id;
 
@@ -170,7 +198,8 @@ BEGIN
     promo_code_id, delivery_zone_id, order_number,
     gst_amount, cgst_amount, sgst_amount,
     business_snapshot,
-    delivery_address_snapshot
+    delivery_address_snapshot,
+    billing_address_snapshot
   )
   VALUES (
     v_user_id, p_address_id, 'pending', v_subtotal, v_discount, v_delivery_fee, v_total,
@@ -178,7 +207,8 @@ BEGIN
     'SK-' || to_char(now(), 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)),
     v_gst_total, v_gst_total / 2, v_gst_total / 2,
     v_business_snapshot,
-    v_delivery_address_snapshot
+    v_delivery_address_snapshot,
+    v_billing_address_snapshot
   )
   RETURNING id INTO v_order_id;
 

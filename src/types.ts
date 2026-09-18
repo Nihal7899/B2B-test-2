@@ -170,6 +170,12 @@ export interface Business {
   gst_verification_status: 'pending' | 'verified' | 'failed';
   gst_verified_at: string | null;
   is_default?: boolean;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  landmark?: string | null;
+  pincode?: string | null;
   created_at: string;
   updated_at: string;
 }

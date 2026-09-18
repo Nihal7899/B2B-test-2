@@ -10,6 +10,7 @@ import {
   Trash2,
   Star,
   X,
+  MapPin,
 } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { updateProfile } from '@/services/catalog';
@@ -47,6 +48,12 @@ interface FormState {
   gstRegistered: boolean;
   gstin: string;
   isDefault: boolean;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  landmark: string;
+  pincode: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -56,6 +63,12 @@ const EMPTY_FORM: FormState = {
   gstRegistered: false,
   gstin: '',
   isDefault: false,
+  addressLine1: '',
+  addressLine2: '',
+  city: '',
+  state: '',
+  landmark: '',
+  pincode: '',
 };
 
 export function BusinessRegistrationScreen({
@@ -108,6 +121,12 @@ export function BusinessRegistrationScreen({
       gstRegistered: !!b.gst_registered,
       gstin: b.gstin || '',
       isDefault: !!b.is_default,
+      addressLine1: b.address_line_1 || '',
+      addressLine2: b.address_line_2 || '',
+      city: b.city || '',
+      state: b.state || '',
+      landmark: b.landmark || '',
+      pincode: b.pincode || '',
     });
     setError('');
     setMode('form');
@@ -120,6 +139,14 @@ export function BusinessRegistrationScreen({
     }
     if (!form.businessName.trim()) {
       setError('Please enter your business name.');
+      return;
+    }
+    if (!form.addressLine1.trim()) {
+      setError('Please enter the billing address (line 1).');
+      return;
+    }
+    if (!form.city.trim() || !form.state.trim() || !form.pincode.trim()) {
+      setError('Please fill in city, state, and pincode.');
       return;
     }
     if (form.gstRegistered && form.gstin.length !== 15) {
@@ -146,6 +173,12 @@ export function BusinessRegistrationScreen({
           business_type: form.businessType,
           gst_registered: form.gstRegistered,
           gstin: form.gstRegistered ? form.gstin : null,
+          address_line_1: form.addressLine1.trim(),
+          address_line_2: form.addressLine2.trim() || null,
+          city: form.city.trim(),
+          state: form.state.trim(),
+          landmark: form.landmark.trim() || null,
+          pincode: form.pincode.trim(),
         });
         if (form.isDefault) {
           await setDefaultBusiness(form.id);
@@ -157,6 +190,12 @@ export function BusinessRegistrationScreen({
           gst_registered: form.gstRegistered,
           gstin: form.gstRegistered ? form.gstin : undefined,
           is_default: form.isDefault,
+          address_line_1: form.addressLine1.trim(),
+          address_line_2: form.addressLine2.trim() || undefined,
+          city: form.city.trim(),
+          state: form.state.trim(),
+          landmark: form.landmark.trim() || undefined,
+          pincode: form.pincode.trim(),
         });
         if (created) onRegistered(created);
       }
@@ -194,6 +233,20 @@ export function BusinessRegistrationScreen({
     }
   };
 
+  const formatAddress = (b: Business): string => {
+    const parts = [
+      b.address_line_1,
+      b.address_line_2,
+      b.landmark,
+      b.city && b.state ? `${b.city}, ${b.state}` : b.city || b.state,
+      b.pincode,
+    ].filter((p): p is string => !!p && p.trim().length > 0);
+    return parts.join(', ');
+  };
+
+  // ───────────────────────────────────────────────────────────
+  // FORM MODE
+  // ───────────────────────────────────────────────────────────
   if (mode === 'form') {
     const isEdit = !!form.id;
     return (
@@ -262,6 +315,60 @@ export function BusinessRegistrationScreen({
                   {type}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Billing address block */}
+          <div className="border-t border-ink-100 pt-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <MapPin size={13} className="text-brand-600" />
+              <label className="text-xs font-bold text-ink-700">
+                Billing address <span className="text-red-500">*</span>
+              </label>
+            </div>
+
+            <div className="space-y-2.5">
+              <input
+                value={form.addressLine1}
+                onChange={(e) => setForm({ ...form, addressLine1: e.target.value })}
+                placeholder="Address line 1 *"
+                className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+              />
+              <input
+                value={form.addressLine2}
+                onChange={(e) => setForm({ ...form, addressLine2: e.target.value })}
+                placeholder="Address line 2 (optional)"
+                className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+              />
+              <input
+                value={form.landmark}
+                onChange={(e) => setForm({ ...form, landmark: e.target.value })}
+                placeholder="Landmark (optional)"
+                className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+              />
+              <div className="grid grid-cols-2 gap-2.5">
+                <input
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  placeholder="City *"
+                  className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+                />
+                <input
+                  value={form.state}
+                  onChange={(e) => setForm({ ...form, state: e.target.value })}
+                  placeholder="State *"
+                  className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+                />
+              </div>
+              <input
+                value={form.pincode}
+                onChange={(e) =>
+                  setForm({ ...form, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })
+                }
+                placeholder="Pincode *"
+                inputMode="numeric"
+                className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm tracking-wider outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+              />
             </div>
           </div>
 
@@ -343,6 +450,9 @@ export function BusinessRegistrationScreen({
     );
   }
 
+  // ───────────────────────────────────────────────────────────
+  // LIST MODE
+  // ───────────────────────────────────────────────────────────
   return (
     <div className="safe-top px-4 pb-6 space-y-4 max-w-lg mx-auto">
       <div className="flex items-center gap-3">
@@ -405,6 +515,11 @@ export function BusinessRegistrationScreen({
                         )}
                       </div>
                       <p className="text-[11px] text-ink-500 mt-0.5">{b.business_type || '—'}</p>
+                      {formatAddress(b) && (
+                        <p className="text-[11px] text-ink-600 mt-1 leading-snug">
+                          {formatAddress(b)}
+                        </p>
+                      )}
                       {b.gst_registered && b.gstin ? (
                         <p className="text-[11px] text-ink-600 mt-1 font-mono tracking-wide">
                           GSTIN: <span className="font-bold">{b.gstin}</span>

@@ -155,24 +155,14 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
   let customerGst: string | null = null;
   let customerPhone = '';
 
-  type BusinessSnapshotShape = {
-    id?: string;
-    business_name?: string;
-    business_type?: string;
-    gst_registered?: boolean;
-    gstin?: string | null;
-    gst_verification_status?: string;
-  };
-
-  // 1. Snapshot
-  const snapshot = (order as { business_snapshot?: BusinessSnapshotShape | null })
-    .business_snapshot;
-  if (snapshot && (snapshot.business_name || snapshot.gstin)) {
-    customerName = snapshot.business_name || null;
-    customerGst = snapshot.gstin || null;
+  const businessSnapshot = (order as {
+    business_snapshot?: { business_name?: string; gstin?: string } | null;
+  }).business_snapshot;
+  if (businessSnapshot && (businessSnapshot.business_name || businessSnapshot.gstin)) {
+    customerName = businessSnapshot.business_name || null;
+    customerGst = businessSnapshot.gstin || null;
   }
 
-  // 2. Fallback to businesses table (legacy orders)
   if (!customerName || !customerGst) {
     const { data: businesses, error: bizErr } = await supabase
       .from('businesses')
@@ -193,7 +183,6 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     }
   }
 
-  // 3. Profile fallback
   if (!customerName) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -246,7 +235,6 @@ function buildA4InvoiceHtml(
     paymentStatusColor,
   } = paymentBreakdown;
 
-  // 1. Pro-rata discount per line item under Section 15(3) CGST Act
   const itemsWithDetails = items.map((item, idx) => {
     const lineTotal = Number(item.line_total || 0);
     const unitPrice = Number(item.unit_price || 0);
@@ -278,7 +266,6 @@ function buildA4InvoiceHtml(
     };
   });
 
-  // 2. Delivery Fee SAC 9968
   if (deliveryFee > 0) {
     const deliveryTaxable = deliveryFee / 1.18;
     const deliveryGst = deliveryFee - deliveryTaxable;

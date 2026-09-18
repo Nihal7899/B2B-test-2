@@ -13,7 +13,9 @@ import {
   Building2,
   RefreshCw,
   BadgeCheck,
+  TrendingUp, // <--- Add this import
 } from 'lucide-react';
+
 import { useAuth } from '@/auth';
 import { fetchWallet } from '@/services/wallet';
 import type { Wallet, ScreenName } from '@/types';
@@ -55,7 +57,8 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
     profile?.business_name?.trim() ||
     'Valued Merchant';
 
-  const isStaff = role === 'admin' || role === 'warehouse_manager' || role === 'delivery_partner';
+  const isStaff = role === 'admin' || role === 'warehouse_manager' || role === 'delivery_partner' || role === 'investor';
+
 
   return (
     <div className="safe-top px-4 pb-12 space-y-4 max-w-lg mx-auto">
@@ -183,6 +186,24 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
                   <div>
                     <p className="text-xs font-bold text-ink-900">Delivery Panel</p>
                     <p className="text-[10px] text-ink-400">Assigned dispatches & cash settlement</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-ink-400" />
+              </button>
+            )}
+            
+            {(role === 'investor') && (
+              <button
+                onClick={() => onNavigate('investor')}
+                className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <TrendingUp size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-ink-900">Investor Dashboard</p>
+                    <p className="text-[10px] text-ink-400">Live performance & analytics</p>
                   </div>
                 </div>
                 <ChevronRight size={16} className="text-ink-400" />

@@ -324,7 +324,7 @@ export default function Reports() {
         setProductSales([]);
       }
 
-      // GST Reports
+      // GST Reports with Pro-Rata and Delivery Fee alignment
       const gstOrders = orders || [];
       let gstData: GSTReport[] = gstOrders.map((o) => {
         const subtotal = Number(o.subtotal || 0);
@@ -356,14 +356,10 @@ export default function Reports() {
 
       if (orders?.length) {
         const userIds = orders.map((o) => o.user_id);
-
-        // Profile fallback (for phone + walk-in customers without a business)
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id, full_name, business_name, phone')
           .in('id', userIds);
-
-        // Business fallback (only for legacy orders that have no business_snapshot)
         const { data: businesses } = await supabase
           .from('businesses')
           .select('owner_user_id, business_name, gstin, is_default, created_at')
@@ -412,7 +408,7 @@ export default function Reports() {
             return g;
           }
 
-          // 2. Fallback to latest business row
+          // 2. Latest business fallback
           const biz = businessByOwner.get(order.user_id);
           if (biz && biz.business_name) {
             g.customer_name = biz.business_name;
@@ -533,12 +529,14 @@ export default function Reports() {
     await downloadExcel(wb, `Stock_Report_${dateFilterLabel()}`);
   };
 
+  // ─── Executive GST Excel Export (Summary + Bill-Like Details) ────────
   const exportGSTToExcel = async () => {
     if (gstReport.length === 0) {
       toast.error('No GST data to export');
       return;
     }
 
+    // ─── 1. GST Summary Sheet ──────────────────────────────
     const summaryData = gstReport.map((g) => ({
       'Invoice No': g.invoice_number,
       'Invoice Date': new Date(g.created_at).toLocaleDateString('en-IN'),
@@ -571,6 +569,7 @@ export default function Reports() {
       'Invoice Grand Total (₹)': Number(gstSummary.grandTotal.toFixed(2)),
     });
 
+    // ─── 2. GST Details Sheet (Structured Executive Bill Format) ──────
     const orderIds = gstReport.map((g) => g.id);
     let detailsData: any[] = [];
 
@@ -591,6 +590,7 @@ export default function Reports() {
           const invItems = itemsByOrder[g.id] || [];
           const rawSubtotal = invItems.reduce((sum, it) => sum + Number(it.line_total || 0), 0);
 
+          // ─ Bill Header Block ─
           detailsData.push({
             'Record Type': 'INVOICE HEADER',
             'Invoice No': g.invoice_number,
@@ -610,6 +610,7 @@ export default function Reports() {
             'Row Total (₹)': '',
           });
 
+          // ─ Itemized Line Items ─
           invItems.forEach((item, idx) => {
             const lineTotal = Number(item.line_total || 0);
             const unitPrice = Number(item.unit_price || 0);
@@ -641,6 +642,7 @@ export default function Reports() {
             });
           });
 
+          // ─ Delivery & Fulfillment Service Row ─
           if (g.delivery_fee > 0) {
             const delTaxable = g.delivery_fee / 1.18;
             const delGst = g.delivery_fee - delTaxable;
@@ -665,6 +667,7 @@ export default function Reports() {
             });
           }
 
+          // ─ Bill Summary Row ─
           detailsData.push({
             'Record Type': 'BILL SUMMARY',
             'Invoice No': g.invoice_number,
@@ -684,6 +687,7 @@ export default function Reports() {
             'Row Total (₹)': Number(g.grand_total.toFixed(2)),
           });
 
+          // ─ Separator Spacer ─
           detailsData.push({
             'Record Type': '',
             'Invoice No': '',
@@ -710,6 +714,7 @@ export default function Reports() {
     const ws1 = XLSX.utils.json_to_sheet(summaryData);
     const ws2 = XLSX.utils.json_to_sheet(detailsData);
 
+    // Optimized Column Widths
     ws1['!cols'] = [
       { wch: 18 }, { wch: 14 }, { wch: 25 }, { wch: 16 }, { wch: 18 },
       { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 22 },

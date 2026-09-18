@@ -18,12 +18,10 @@ export async function createBusiness(input: {
   gstin?: string;
   is_default?: boolean;
 }): Promise<Business | null> {
-  // If this is the user's first business, force it as default automatically.
   const existing = await fetchBusinesses().catch(() => [] as Business[]);
   const shouldBeDefault = input.is_default === true || existing.length === 0;
 
   if (shouldBeDefault && existing.length > 0) {
-    // clear any current default before inserting the new one
     await supabase
       .from('businesses')
       .update({ is_default: false })
@@ -59,8 +57,6 @@ export async function updateBusiness(
     payload.gst_verification_status = updates.gst_verification_status;
   }
 
-  // is_default is NOT settable here — use setDefaultBusiness so the
-  // partial unique index is honoured.
   const { error } = await supabase
     .from('businesses')
     .update(payload)
@@ -165,7 +161,6 @@ export async function saveDeliveryAddress(
 ): Promise<DeliveryAddress | null> {
   console.log('🔧 saveDeliveryAddress called with:', addr);
 
-  // 1. Handle "is_default" – unset any existing default for this user
   if (addr.is_default) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -178,7 +173,6 @@ export async function saveDeliveryAddress(
       .eq('user_id', user.id);
   }
 
-  // 2. Build insert data
   const insertData: Record<string, unknown> = {
     label: addr.label ?? 'Business',
     recipient_name: addr.recipient_name,

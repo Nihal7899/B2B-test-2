@@ -1,11 +1,9 @@
 -- ================================================================
 -- MULTI-BUSINESS SUPPORT MIGRATION
--- Run this entire block in the Supabase SQL editor.
+-- Run in Supabase SQL editor.
 -- ================================================================
 
--- ----------------------------------------------------------------
 -- 1. Add is_default flag to businesses
--- ----------------------------------------------------------------
 alter table public.businesses
   add column if not exists is_default boolean not null default false;
 
@@ -14,15 +12,11 @@ create unique index if not exists businesses_owner_default_uniq
   on public.businesses(owner_user_id)
   where is_default = true;
 
--- ----------------------------------------------------------------
--- 2. Drop BOTH stale create_order functions
--- ----------------------------------------------------------------
+-- 2. Drop BOTH old create_order overloads
 drop function if exists public.create_order(uuid, jsonb);
 drop function if exists public.create_order(uuid, jsonb, text, uuid);
 
--- ----------------------------------------------------------------
 -- 3. New create_order with p_business_id and business_snapshot
--- ----------------------------------------------------------------
 create or replace function public.create_order(
   p_address_id uuid,
   p_items jsonb,
@@ -54,13 +48,11 @@ DECLARE
   v_charge NUMERIC;
   v_business_snapshot JSONB := NULL;
 BEGIN
-  -- 1. Authenticate
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
   END IF;
 
-  -- 2. Validate address and get pincode
   SELECT postal_code INTO v_pincode
   FROM addresses
   WHERE id = p_address_id AND user_id = v_user_id;
@@ -68,7 +60,6 @@ BEGIN
     RAISE EXCEPTION 'Invalid address: address not found or does not belong to user';
   END IF;
 
-  -- 2b. Resolve business snapshot (if business_id provided)
   IF p_business_id IS NOT NULL THEN
     SELECT jsonb_build_object(
       'id', b.id,
@@ -87,7 +78,6 @@ BEGIN
     END IF;
   END IF;
 
-  -- 3. Compute subtotal and GST with volume pricing
   WITH item_pricing AS (
     SELECT
       i.product_id,
@@ -119,7 +109,6 @@ BEGIN
     RAISE EXCEPTION 'No valid items or all items are inactive';
   END IF;
 
-  -- 4. Compute delivery fee
   SELECT charge, zone_id INTO v_charge, v_zone_id
   FROM get_delivery_charge(v_pincode, v_subtotal);
 
@@ -130,7 +119,6 @@ BEGIN
     END IF;
   END IF;
 
-  -- 5. Validate promo code and compute discount
   IF p_promo_code IS NOT NULL THEN
     SELECT
       id, discount_type, discount_value, min_order_value, max_discount_amount
@@ -158,62 +146,33 @@ BEGIN
     END IF;
   END IF;
 
-  -- 6. GST adjustment on discount
   IF v_discount > 0 AND v_subtotal > 0 THEN
     v_discount_ratio := v_discount / v_subtotal;
     v_gst_total := v_gst_total * (1 - v_discount_ratio);
   END IF;
 
-  -- 7. Total
   v_total := v_subtotal - v_discount + v_delivery_fee + v_gst_total;
 
-  -- 8. Insert order (with business_snapshot)
   INSERT INTO orders (
-    user_id,
-    address_id,
-    status,
-    subtotal,
-    discount,
-    delivery_fee,
-    total,
-    promo_code_id,
-    delivery_zone_id,
-    order_number,
-    gst_amount,
-    cgst_amount,
-    sgst_amount,
-    business_snapshot
+    user_id, address_id, status, subtotal, discount, delivery_fee, total,
+    promo_code_id, delivery_zone_id, order_number,
+    gst_amount, cgst_amount, sgst_amount, business_snapshot
   )
   VALUES (
-    v_user_id,
-    p_address_id,
-    'pending',
-    v_subtotal,
-    v_discount,
-    v_delivery_fee,
-    v_total,
-    v_promo_id,
-    p_delivery_zone_id,
+    v_user_id, p_address_id, 'pending', v_subtotal, v_discount, v_delivery_fee, v_total,
+    v_promo_id, p_delivery_zone_id,
     'SK-' || to_char(now(), 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)),
-    v_gst_total,
-    v_gst_total / 2,
-    v_gst_total / 2,
-    v_business_snapshot
+    v_gst_total, v_gst_total / 2, v_gst_total / 2, v_business_snapshot
   )
   RETURNING id INTO v_order_id;
 
-  -- 9. Insert order items
   INSERT INTO order_items (
     order_id, product_id, brand, product_name, pack_size,
     unit_price, mrp, quantity, line_total,
     hsn_code, gst_percentage, product_code
   )
   SELECT
-    v_order_id,
-    p.id,
-    p.brand,
-    p.name,
-    p.pack_size,
+    v_order_id, p.id, p.brand, p.name, p.pack_size,
     COALESCE(
       (SELECT unit_price FROM product_volume_pricing vp
        WHERE vp.product_id = p.id
@@ -222,8 +181,7 @@ BEGIN
        ORDER BY vp.unit_price ASC LIMIT 1),
       p.wholesale_price
     ),
-    p.mrp,
-    i.quantity,
+    p.mrp, i.quantity,
     COALESCE(
       (SELECT unit_price FROM product_volume_pricing vp
        WHERE vp.product_id = p.id
@@ -232,9 +190,7 @@ BEGIN
        ORDER BY vp.unit_price ASC LIMIT 1),
       p.wholesale_price
     ) * i.quantity,
-    p.hsn_code,
-    p.gst_percentage,
-    p.product_code
+    p.hsn_code, p.gst_percentage, p.product_code
   FROM jsonb_to_recordset(p_items) AS i(product_id UUID, quantity INT)
   JOIN products p ON p.id = i.product_id
   WHERE p.is_active = true;
@@ -243,9 +199,7 @@ BEGIN
 END;
 $function$;
 
--- ----------------------------------------------------------------
--- 4. Helper RPC: atomically set a user's default business
--- ----------------------------------------------------------------
+-- 4. set_default_business RPC
 create or replace function public.set_default_business(p_business_id uuid)
 returns void
 language plpgsql

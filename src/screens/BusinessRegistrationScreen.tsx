@@ -194,9 +194,6 @@ export function BusinessRegistrationScreen({
     }
   };
 
-  // ───────────────────────────────────────────────────────────
-  // FORM MODE
-  // ───────────────────────────────────────────────────────────
   if (mode === 'form') {
     const isEdit = !!form.id;
     return (
@@ -346,9 +343,6 @@ export function BusinessRegistrationScreen({
     );
   }
 
-  // ───────────────────────────────────────────────────────────
-  // LIST MODE
-  // ───────────────────────────────────────────────────────────
   return (
     <div className="safe-top px-4 pb-6 space-y-4 max-w-lg mx-auto">
       <div className="flex items-center gap-3">

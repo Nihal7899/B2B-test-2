@@ -434,12 +434,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const loadServerOrders = useCallback(async () => {
     try {
       const { data, error } = await supabase.rpc('get_paginated_warehouse_orders', {
-        p_status: orderStatusPill,
-        p_page: ordersPage,
-        p_page_size: ORDERS_PER_PAGE,
-        p_search: searchQuery.trim(),
-        p_sort_field: orderSortField,
-        p_sort_dir: orderSortDirection
+        p_status: orderStatusPill || 'all',
+        p_page: ordersPage || 1,
+        p_page_size: ORDERS_PER_PAGE || 12,
+        p_search: searchQuery ? searchQuery.trim() : '',
+        p_sort_field: orderSortField || 'created_at',
+        p_sort_dir: orderSortDirection || 'desc'
       });
 
       if (!error && data) {
@@ -480,12 +480,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       }
 
       const { data, error } = await supabase.rpc('get_paginated_invoices', {
-        p_start_date: startDate,
-        p_end_date: endDate,
-        p_search: searchQuery.trim(),
-        p_page: invoicesPage,
-        p_page_size: INVOICES_PER_PAGE,
-        p_sort_field: invoiceDateField
+        p_start_date: startDate || null,
+        p_end_date: endDate || null,
+        p_search: searchQuery ? searchQuery.trim() : '',
+        p_page: invoicesPage || 1,
+        p_page_size: INVOICES_PER_PAGE || 12,
+        p_sort_field: invoiceDateField || 'created_at'
       });
 
       if (!error && data) {

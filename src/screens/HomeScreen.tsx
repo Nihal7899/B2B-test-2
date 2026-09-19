@@ -63,12 +63,10 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
-// --- Custom SVGs Mapped Exactly From Image ---
-
 const StandardModeIcon = ({ active }: { active: boolean }) => {
   const color = active ? "#02402c" : "#ffffff";
   return (
-    <svg width="28" height="24" viewBox="0 0 28 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="24" height="22" viewBox="0 0 28 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M10 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <rect x="4" y="7" width="20" height="14" rx="3" stroke={color} strokeWidth="2" />
       <path d="M4 12h20 M12 12l2 2.5 2-2.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -79,10 +77,10 @@ const StandardModeIcon = ({ active }: { active: boolean }) => {
 const ExpressModeIcon = ({ active }: { active: boolean }) => {
   const color = active ? "#02402c" : "#ffffff";
   const cargoFill = active ? "#02402c" : "transparent";
-  const lightningColor = "#fde047"; // Yellow lightning bolt
+  const lightningColor = "#fde047"; 
   
   return (
-    <svg width="36" height="24" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="32" height="22" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M5 14h4 M3 10h3 M4 18h2" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <rect x="11" y="4" width="12" height="14" rx="2.5" fill={cargoFill} stroke={color} strokeWidth="2" />
       <path d="M17 7l-2 5h2.5l-1 4 3-5h-2.5l1.5-4h-2z" fill={lightningColor} />
@@ -95,12 +93,10 @@ const ExpressModeIcon = ({ active }: { active: boolean }) => {
 };
 
 const SolidMapPin = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
     <path fillRule="evenodd" clipRule="evenodd" d="M12 22C12 22 20 14.4183 20 10C20 5.58172 16.4183 2 12 2C7.58172 2 4 5.58172 4 10C4 14.4183 12 22 12 22ZM12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z" />
   </svg>
 );
-
-// ---------------------------------------------
 
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
@@ -519,53 +515,51 @@ export function HomeScreen({
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      {/* --- REBUILT HEADER (Matched with image) --- */}
       <div className="bg-[#02402c] safe-top">
-        <div className="max-w-7xl mx-auto px-4 pt-4 pb-3 flex flex-col gap-4">
+        <div className="max-w-7xl mx-auto px-4 pt-3 pb-3 flex flex-col gap-3">
           
-          {/* Segmented Control for Standard / Express */}
-          <div className="flex items-center w-full bg-white/10 p-[5px] rounded-[32px]">
+          {/* Rounded Rectangle Container for Delivery Mode */}
+          <div className="flex items-center w-full bg-white/10 p-1 rounded-2xl">
             <button
               onClick={() => setDeliveryMode('standard')}
-              className={`flex-1 h-[56px] rounded-[28px] flex flex-col items-center justify-center gap-[2px] transition-all duration-300 ${
+              className={`flex-1 h-12 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${
                 deliveryMode === 'standard' 
                   ? 'bg-white shadow-sm text-[#02402c]' 
                   : 'text-white'
               }`}
             >
               <StandardModeIcon active={deliveryMode === 'standard'} />
-              <span className="font-semibold tracking-wide text-[14px]">Standard</span>
+              <span className="font-semibold tracking-wide text-[13px]">Standard</span>
             </button>
 
             <button
               onClick={() => setDeliveryMode('express')}
-              className={`flex-1 h-[56px] rounded-[28px] flex flex-col items-center justify-center gap-[2px] transition-all duration-300 ${
+              className={`flex-1 h-12 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${
                 deliveryMode === 'express' 
                   ? 'bg-white shadow-sm text-[#02402c]' 
                   : 'text-white'
               }`}
             >
               <ExpressModeIcon active={deliveryMode === 'express'} />
-              <span className="font-semibold tracking-wide text-[14px]">Express</span>
+              <span className="font-semibold tracking-wide text-[13px]">Express</span>
             </button>
           </div>
 
-          {/* Location Bar Pill */}
+          {/* Reduced Height Location Bar Pill */}
           <button
             onClick={() => navigate('/addresses')}
-            className="flex items-center gap-2.5 rounded-full border border-white px-4 py-3.5 w-full"
+            className="flex items-center gap-2.5 rounded-full border border-white px-3.5 py-2.5 w-full"
           >
             <SolidMapPin />
-            <span className="text-[15px] font-medium text-white truncate flex-1 text-left tracking-wide">
+            <span className="text-[14px] font-medium text-white truncate flex-1 text-left tracking-wide">
               {locationText}
             </span>
-            <ChevronDown size={20} className="text-white shrink-0" strokeWidth={2} />
+            <ChevronDown size={18} className="text-white shrink-0" strokeWidth={2} />
           </button>
 
         </div>
       </div>
 
-      {/* Sticky Search and Cart Bar */}
       <div 
         className="sticky z-40 bg-[#02402c] text-white px-4 pt-1 pb-4 shadow-md rounded-b-3xl"
         style={{ top: 'env(safe-area-inset-top, 0px)' }} 
@@ -590,7 +584,6 @@ export function HomeScreen({
           </button>
         </div>
       </div>
-      {/* -------------------------------------- */}
 
       <div className="space-y-6 pt-4 pb-16 transform-gpu">
         {topBanner && (

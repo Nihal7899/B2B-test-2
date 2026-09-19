@@ -2299,3 +2299,46 @@ export async function copyBannerImage(imageUrl: string): Promise<string> {
   return data.publicUrl;
 }
 
+// ================================================================
+// WAREHOUSE / DISTANCE HELPERS
+// ================================================================
+
+/**
+ * Great-circle distance between two coordinates in kilometres.
+ * Same Haversine math used by the warehouse batching RPC.
+ */
+export function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Persists the driver's currently selected warehouse onto their profile.
+ * `warehouseId` is a delivery_ranges.id (the "warehouse" concept reuses this table).
+ */
+export async function updateProfileCurrentWarehouse(warehouseId: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ current_warehouse_id: warehouseId })
+    .eq('id', user.id);
+
+  if (error) throw error;
+}

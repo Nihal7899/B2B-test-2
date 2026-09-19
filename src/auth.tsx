@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
-// Added 'investor' to AppRole
 export type AppRole = 'admin' | 'warehouse_manager' | 'delivery_partner' | 'investor' | 'customer';
 
 export interface ProfileData {
@@ -15,6 +14,7 @@ export interface ProfileData {
   registration_status: 'unregistered' | 'registered';
   staff_registration_status: 'unregistered' | 'registered';
   current_cod_balance: number;
+  current_warehouse_id: string | null;
 }
 
 interface AuthContextValue {
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, personal_name, full_name, phone, business_name, avatar_url, registration_status, staff_registration_status, current_cod_balance')
+      .select('id, personal_name, full_name, phone, business_name, avatar_url, registration_status, staff_registration_status, current_cod_balance, current_warehouse_id')
       .eq('id', userId)
       .maybeSingle();
 

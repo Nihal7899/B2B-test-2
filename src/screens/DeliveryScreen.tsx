@@ -26,10 +26,18 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
-import { fetchDeliveryRanges, type DbOrder, type DbOrderItem, type DbAddress } from '@/services/catalog';
+import {
+  fetchDeliveryRanges,
+  haversineKm,
+  updateProfileCurrentWarehouse,
+  type DbOrder,
+  type DbOrderItem,
+  type DbAddress,
+} from '@/services/catalog';
 import { SlideToConfirm } from '@/components/SlideToConfirm';
 import { Toast } from '@/components/ui/Toast';
 import { StaffRegistrationModal } from '@/components/StaffRegistrationModal';
+import { WarehousePickerSheet, type WarehouseOption } from '@/components/WarehousePickerSheet';
 
 interface DeliveryScreenProps {
   onBack?: () => void;
@@ -59,13 +67,6 @@ interface SettlementRecord {
 interface ToastNotification {
   message: string;
   type: 'success' | 'error' | 'info' | 'warning';
-}
-
-interface StoreLocation {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
 }
 
 // Date helper utilities
@@ -208,7 +209,8 @@ export function DeliveryScreen({
     }[]
   >([]);
   const [settlements, setSettlements] = useState<SettlementRecord[]>([]);
-  const [storeLocations, setStoreLocations] = useState<StoreLocation[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
+  const [showWarehousePicker, setShowWarehousePicker] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -245,7 +247,6 @@ export function DeliveryScreen({
         return;
       }
 
-      // Fetch delivery assignments, settlements, and store locations from delivery ranges
       const [assignRes, settlementsRes, rangesData] = await Promise.all([
         supabase
           .from('delivery_assignments')
@@ -260,11 +261,12 @@ export function DeliveryScreen({
         fetchDeliveryRanges().catch(() => []),
       ]);
 
-      // Sync multiple store navigation coordinates from Delivery Ranges
+      // Delivery ranges are repurposed here as the "warehouse" list.
+      // Only name + coordinates matter; the `radius_km` column is ignored.
       if (rangesData && rangesData.length > 0) {
         const activeRanges = rangesData.filter((r) => r.is_active);
         const listToUse = activeRanges.length > 0 ? activeRanges : rangesData;
-        setStoreLocations(
+        setWarehouses(
           listToUse.map((r) => ({
             id: r.id,
             name: r.name,
@@ -272,6 +274,8 @@ export function DeliveryScreen({
             lng: Number(r.center_lng),
           }))
         );
+      } else {
+        setWarehouses([]);
       }
 
       if (settlementsRes.data) {
@@ -306,8 +310,6 @@ export function DeliveryScreen({
 
       const ordersMap = Object.fromEntries((ordersRes.data || []).map((o) => [o.id, o]));
 
-      // Only fetch live addresses for legacy orders that don't have a snapshot.
-      // Prevents the "user edited their address → past orders shift" bug.
       const legacyAddressIds = (ordersRes.data || [])
         .filter((o: any) => !o.delivery_address_snapshot && o.address_id)
         .map((o: any) => o.address_id)
@@ -527,17 +529,66 @@ export function DeliveryScreen({
     }
   };
 
+  // ---- Warehouse selection ----
+  const selectedWarehouse = useMemo<WarehouseOption | null>(() => {
+    if (warehouses.length === 0) return null;
+    const explicit = profile?.current_warehouse_id
+      ? warehouses.find((w) => w.id === profile.current_warehouse_id)
+      : null;
+    return explicit ?? warehouses[0] ?? null;
+  }, [warehouses, profile?.current_warehouse_id]);
+
+  const handleWarehouseSelect = async (id: string) => {
+    await updateProfileCurrentWarehouse(id);
+    await refreshProfile();
+    showToast('Operating warehouse updated', 'success');
+  };
+
+  // ---- Distance per order (warehouse → customer) ----
+  const distanceByOrderId = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!selectedWarehouse) return map;
+
+    for (const a of assignments) {
+      const lat = a.address?.latitude;
+      const lng = a.address?.longitude;
+      if (lat != null && lng != null) {
+        map.set(
+          a.order.id,
+          haversineKm(
+            selectedWarehouse.lat,
+            selectedWarehouse.lng,
+            Number(lat),
+            Number(lng)
+          )
+        );
+      }
+    }
+    return map;
+  }, [assignments, selectedWarehouse]);
+
+  const sortByDistance = useCallback(
+    <T extends { order: DbOrder }>(list: T[]): T[] => {
+      if (!selectedWarehouse) return list;
+      return [...list].sort((a, b) => {
+        const da = distanceByOrderId.get(a.order.id) ?? Number.POSITIVE_INFINITY;
+        const db = distanceByOrderId.get(b.order.id) ?? Number.POSITIVE_INFINITY;
+        return da - db;
+      });
+    },
+    [selectedWarehouse, distanceByOrderId]
+  );
+
   const pendingList = useMemo(
-    () => assignments.filter((a) => a.assignment.status === 'ready_for_pickup'),
-    [assignments]
+    () => sortByDistance(assignments.filter((a) => a.assignment.status === 'ready_for_pickup')),
+    [assignments, sortByDistance]
   );
 
   const pickedUpList = useMemo(
-    () => assignments.filter((a) => a.assignment.status === 'out_for_delivery'),
-    [assignments]
+    () => sortByDistance(assignments.filter((a) => a.assignment.status === 'out_for_delivery')),
+    [assignments, sortByDistance]
   );
 
-  // Delivered Tab: Strictly show TODAY'S delivered orders
   const todayDeliveredList = useMemo(
     () =>
       assignments.filter(
@@ -550,14 +601,12 @@ export function DeliveryScreen({
 
   const netCodCashToDeposit = Number(profile?.current_cod_balance ?? 0);
 
-  // Today's Cleared with Admin
   const todaySettledWithAdmin = useMemo(() => {
     return settlements
       .filter((s) => isToday(s.created_at))
       .reduce((acc, curr) => acc + (curr.amount || 0), 0);
   }, [settlements]);
 
-  // Route Outstanding COD
   const routeOutstandingCod = useMemo(() => {
     return [...pendingList, ...pickedUpList].reduce(
       (acc, curr) => acc + (curr.paymentSummary.amountToCollect || 0),
@@ -572,11 +621,11 @@ export function DeliveryScreen({
     return [];
   }, [navTab, pendingList, pickedUpList, todayDeliveredList]);
 
+  // Nearest active first (picked-up in priority since they're the next drops)
   const activeSpotlight = useMemo(() => {
     return pickedUpList[0] || pendingList[0] || assignments[0] || null;
   }, [pickedUpList, pendingList, assignments]);
 
-  // Admin Clearance Receipts by timeframe
   const { todayReceipts, yesterdayReceipts, weekReceipts } = useMemo(() => {
     return {
       todayReceipts: settlements.filter((s) => isToday(s.created_at)),
@@ -632,10 +681,8 @@ export function DeliveryScreen({
       )}
 
       <div>
-        {/* 1. COMPACT STICKY HEADER (Zero wasted vertical space & tight gap to truck/greeting) */}
         <header className="sticky top-0 z-40 bg-gradient-to-b from-[#063a2c] via-[#084534] to-[#0a4d3b] text-white pt-[max(0.4rem,env(safe-area-inset-top))] pb-2 px-4 sm:px-6 shadow-md rounded-b-[24px] border-b border-[#0d5944] overflow-hidden">
           <div className="max-w-xl mx-auto flex items-start justify-between gap-2">
-            {/* Left Column: CafKart Logo directly followed by Greetings */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 select-none">
                 {!isDedicatedRole && onBack && (
@@ -657,7 +704,6 @@ export function DeliveryScreen({
                 </div>
               </div>
 
-              {/* Greeting immediately stacked below logo with minimal gap */}
               <div className="mt-1">
                 <p className="text-[10.5px] font-medium text-emerald-200/90 leading-tight">
                   {timeGreeting},
@@ -671,7 +717,6 @@ export function DeliveryScreen({
               </div>
             </div>
 
-            {/* Right Column: Online pill & refresh on top, Truck graphic immediately below */}
             <div className="flex flex-col items-end shrink-0 w-[44%] max-w-[175px]">
               <div className="flex items-center gap-1.5">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-[#59D9B6] border border-emerald-400/30 text-[9.5px] font-black tracking-wide">
@@ -689,7 +734,6 @@ export function DeliveryScreen({
                 </button>
               </div>
 
-              {/* Truck SVG placed directly under Online Pill with zero vertical gap */}
               <div className="w-full -mr-2 -mt-1 scale-105 origin-top-right transition-transform pointer-events-none">
                 <DeliveryTruckGraphic className="w-full h-auto drop-shadow-md" />
               </div>
@@ -697,12 +741,33 @@ export function DeliveryScreen({
           </div>
         </header>
 
-        {/* Content Body */}
         <main className="px-4 sm:px-6 pt-3.5 max-w-xl mx-auto space-y-4">
-          {/* TAB 1: MODERN METRICS & DISPATCH DASHBOARD */}
           {navTab === 'dashboard' && (
             <div className="space-y-4">
-              {/* COD Remittance Fintech Card */}
+              {/* Operating warehouse chip — only shown when the driver has more than one option */}
+              {warehouses.length > 1 && selectedWarehouse && (
+                <button
+                  type="button"
+                  onClick={() => setShowWarehousePicker(true)}
+                  className="w-full rounded-2xl bg-white border border-slate-200/80 p-3 flex items-center gap-3 shadow-sm hover:border-emerald-300 transition-all active:scale-[0.99]"
+                >
+                  <div className="h-9 w-9 rounded-xl bg-emerald-50 text-[#0a382c] flex items-center justify-center shrink-0 border border-emerald-200/60">
+                    <Store size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      Operating from
+                    </p>
+                    <p className="text-xs font-black text-slate-900 truncate mt-0.5">
+                      {selectedWarehouse.name}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-black text-emerald-800 flex items-center gap-1 shrink-0">
+                    Change <ChevronRight size={13} />
+                  </span>
+                </button>
+              )}
+
               <div className="rounded-[26px] p-5 text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#064e3b] via-[#094736] to-[#042c22] border border-emerald-500/30">
                 <div className="relative z-10 flex flex-col justify-between space-y-3">
                   <div className="flex items-center justify-between">
@@ -748,7 +813,6 @@ export function DeliveryScreen({
                 <div className="absolute -right-8 -bottom-8 h-40 w-40 rounded-full bg-[#59D9B6]/15 blur-2xl pointer-events-none" />
               </div>
 
-              {/* 4-Card Modern Fintech Metrics Grid */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white border border-slate-200/80 rounded-[22px] p-4 shadow-sm space-y-1 hover:border-emerald-300 transition-all">
                   <div className="flex items-center justify-between">
@@ -805,7 +869,6 @@ export function DeliveryScreen({
                 </div>
               </div>
 
-              {/* Spotlight Active Dispatch Card */}
               {activeSpotlight ? (
                 <div className="space-y-3">
                   <div className="rounded-[26px] p-5 text-white shadow-lg bg-gradient-to-br from-[#064e3b] via-[#094736] to-[#04281f] border border-emerald-500/30 space-y-3.5">
@@ -820,7 +883,12 @@ export function DeliveryScreen({
                           {activeSpotlight.order.order_number}
                         </h2>
                         <p className="text-[11px] text-emerald-200/80 font-medium mt-0.5">
-                          Assigned: {new Date(activeSpotlight.order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} ·{' '}
+                          Assigned: {new Date(activeSpotlight.order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                          {(() => {
+                            const d = distanceByOrderId.get(activeSpotlight.order.id);
+                            return d != null ? ` · ${d.toFixed(2)} km from warehouse` : '';
+                          })()}
+                          {' · '}
                           <span className="font-bold text-white uppercase">
                             {activeSpotlight.paymentSummary.amountToCollect > 0 ? 'COD' : 'PREPAID'}
                           </span>
@@ -865,7 +933,6 @@ export function DeliveryScreen({
                     </div>
                   </div>
 
-                  {/* 2. STORE LOCATION CARD (Shows title "Store Location", hides raw coordinates, lists all stores with Navigate button) */}
                   <div className="bg-white border border-slate-200/80 rounded-[22px] p-3.5 shadow-sm space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
                       <Store size={12} className="text-emerald-700" />
@@ -873,42 +940,53 @@ export function DeliveryScreen({
                     </p>
 
                     <div className="divide-y divide-slate-100">
-                      {storeLocations.length === 0 ? (
+                      {warehouses.length === 0 ? (
                         <div className="flex items-center justify-between py-1.5">
                           <span className="text-xs font-black text-slate-800">Central Hub Store</span>
                           <span className="text-[11px] text-slate-400 font-medium">Coordinates unavailable</span>
                         </div>
                       ) : (
-                        storeLocations.map((store) => (
-                          <div
-                            key={store.id}
-                            className="flex items-center justify-between py-2 first:pt-1 last:pb-0 gap-3"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="h-8 w-8 rounded-xl bg-emerald-50 text-[#0a382c] flex items-center justify-center shrink-0 border border-emerald-200/60">
-                                <Store size={15} />
-                              </div>
-                              <p className="text-xs font-black text-slate-900 truncate">
-                                {store.name}
-                              </p>
-                            </div>
-
-                            <a
-                              href={`https://www.google.com/maps?q=${store.lat},${store.lng}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-xs font-black text-slate-800 shadow-2xs active:scale-95 transition-all shrink-0"
+                        warehouses.map((store) => {
+                          const isSelected = selectedWarehouse?.id === store.id;
+                          return (
+                            <div
+                              key={store.id}
+                              className={`flex items-center justify-between py-2 first:pt-1 last:pb-0 gap-3 ${
+                                isSelected ? 'bg-emerald-50/60 -mx-2 px-2 rounded-xl' : ''
+                              }`}
                             >
-                              <Navigation size={12} className="text-emerald-700" />
-                              Navigate
-                            </a>
-                          </div>
-                        ))
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="h-8 w-8 rounded-xl bg-emerald-50 text-[#0a382c] flex items-center justify-center shrink-0 border border-emerald-200/60">
+                                  <Store size={15} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black text-slate-900 truncate">
+                                    {store.name}
+                                  </p>
+                                  {isSelected && (
+                                    <p className="text-[9px] font-black uppercase tracking-wider text-emerald-700 mt-0.5">
+                                      Operating from here
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <a
+                                href={`https://www.google.com/maps?q=${store.lat},${store.lng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-xs font-black text-slate-800 shadow-2xs active:scale-95 transition-all shrink-0"
+                              >
+                                <Navigation size={12} className="text-emerald-700" />
+                                Navigate
+                              </a>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   </div>
 
-                  {/* 2. DELIVERY LOCATION CARD (Shows title "Delivery Location" without raw coordinates) */}
                   {activeSpotlight.address && (
                     <div className="bg-white border border-slate-200/80 rounded-[22px] p-3.5 shadow-sm space-y-2">
                       <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
@@ -957,7 +1035,6 @@ export function DeliveryScreen({
                 </div>
               ) : null}
 
-              {/* Safety Banner */}
               <div className="rounded-[22px] bg-gradient-to-r from-emerald-50 via-teal-50/50 to-white border border-emerald-200/60 p-3.5 flex items-center gap-3 shadow-2xs">
                 <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
                   <ShieldCheck size={18} />
@@ -972,7 +1049,6 @@ export function DeliveryScreen({
             </div>
           )}
 
-          {/* TABS 2, 3, 4: QUEUES (Delivered tab strictly shows TODAY'S completed drops) */}
           {(navTab === 'pending' || navTab === 'picked_up' || navTab === 'delivered') && (
             <div>
               {navTab === 'delivered' && (
@@ -982,6 +1058,14 @@ export function DeliveryScreen({
                     Today's Delivered Drops ({todayDeliveredList.length})
                   </p>
                   <span className="text-[10px] font-bold text-slate-400">Settled Today</span>
+                </div>
+              )}
+
+              {navTab !== 'delivered' && selectedWarehouse && currentOrderList.length > 0 && (
+                <div className="mb-3 flex items-center gap-1.5 px-1 text-[11px] font-bold text-slate-500">
+                  <Store size={12} className="text-emerald-700" />
+                  Sorted by distance from
+                  <span className="text-slate-700 font-black">{selectedWarehouse.name}</span>
                 </div>
               )}
 
@@ -1007,13 +1091,13 @@ export function DeliveryScreen({
                     const isCurrentProcessing = isProcessing(assignment.id);
                     const isDelivered = assignment.status === 'delivered';
                     const isItemsExpanded = !!expandedItems[order.id];
+                    const distanceKm = distanceByOrderId.get(order.id);
 
                     return (
                       <div
                         key={assignment.id}
                         className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.03)] space-y-3.5 hover:border-emerald-200 transition-all"
                       >
-                        {/* Order Header Row */}
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-2xl bg-[#0a382c] text-[#59D9B6] flex items-center justify-center shadow-xs">
@@ -1021,8 +1105,14 @@ export function DeliveryScreen({
                             </div>
                             <div>
                               <p className="text-sm font-black text-slate-900 tracking-tight">{order.order_number}</p>
-                              <p className="text-[11px] font-semibold text-slate-400 mt-0.5">
-                                Assigned: {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                              <p className="text-[11px] font-semibold text-slate-400 mt-0.5 flex items-center gap-1.5">
+                                <span>Assigned: {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                                {distanceKm != null && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 font-black text-[10px]">
+                                    <MapPin size={9} />
+                                    {distanceKm.toFixed(2)} km
+                                  </span>
+                                )}
                               </p>
                             </div>
                           </div>
@@ -1045,7 +1135,6 @@ export function DeliveryScreen({
                           </span>
                         </div>
 
-                        {/* Doorstep Cash Collection Card */}
                         <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-r from-[#0a4d3a] to-[#0e634b] text-white shadow-sm border border-emerald-600/30">
                           <div className="flex items-center justify-between relative z-10">
                             <div className="flex items-start gap-3">
@@ -1074,7 +1163,6 @@ export function DeliveryScreen({
                           </div>
                         </div>
 
-                        {/* Package Contents with Eye Button Drawer */}
                         {items.length > 0 && (
                           <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 space-y-2.5">
                             <div className="flex items-center justify-between">
@@ -1135,7 +1223,6 @@ export function DeliveryScreen({
                           </div>
                         )}
 
-                        {/* Customer Address Card */}
                         {address && (
                           <div className="rounded-2xl bg-white border border-slate-200/90 p-3.5 space-y-3 shadow-2xs">
                             <div className="flex items-start gap-2.5">
@@ -1181,7 +1268,6 @@ export function DeliveryScreen({
                           </div>
                         )}
 
-                        {/* Slide to Confirm Trigger */}
                         <div className="pt-1">
                           {assignment.status === 'ready_for_pickup' && (
                             <SlideToConfirm
@@ -1233,7 +1319,6 @@ export function DeliveryScreen({
             </div>
           )}
 
-          {/* TAB 5: DRIVER ACCOUNT & ADMIN CLEARANCE RECEIPTS */}
           {navTab === 'account' && (
             <div className="space-y-4">
               <div className="bg-white border border-slate-200/80 rounded-[26px] p-5 shadow-sm flex items-center gap-4">
@@ -1268,7 +1353,6 @@ export function DeliveryScreen({
                 </div>
               </div>
 
-              {/* Admin Clearance Receipts Segmented UI */}
               <div className="bg-white border border-slate-200/80 rounded-[24px] p-4 shadow-sm space-y-3.5">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
@@ -1371,7 +1455,6 @@ export function DeliveryScreen({
                 )}
               </div>
 
-              {/* Sign Out Button */}
               <div className="space-y-2 pt-2">
                 <button
                   onClick={() => void logout({ scope: 'local' })}
@@ -1386,7 +1469,6 @@ export function DeliveryScreen({
         </main>
       </div>
 
-      {/* Floating Bottom Navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom">
         <div className="max-w-xl mx-auto flex items-center justify-around h-16 px-2">
           <button
@@ -1462,6 +1544,15 @@ export function DeliveryScreen({
       </nav>
 
       <StaffRegistrationModal isOpen={isStaffUnregistered} />
+
+      {showWarehousePicker && (
+        <WarehousePickerSheet
+          warehouses={warehouses}
+          selectedId={selectedWarehouse?.id ?? null}
+          onSelect={handleWarehouseSelect}
+          onClose={() => setShowWarehousePicker(false)}
+        />
+      )}
     </div>
   );
 }

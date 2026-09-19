@@ -513,3 +513,21 @@ begin
   );
 end;
 $function$;
+
+-- ================================================================
+-- DRIVER'S SELECTED WAREHOUSE
+-- Reuses delivery_ranges as the warehouse list (name + coordinates).
+-- Run in Supabase SQL editor.
+-- ================================================================
+
+alter table public.profiles
+  add column if not exists current_warehouse_id uuid
+    references public.delivery_ranges(id) on delete set null;
+    
+create policy "Users can insert own profile"
+on public.profiles
+for insert
+to authenticated
+with check (
+  id = auth.uid()
+);

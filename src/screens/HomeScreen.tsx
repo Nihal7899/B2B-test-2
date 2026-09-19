@@ -65,33 +65,106 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
-// --- Premium Custom SVGs (Dynamically adapt to active state) ---
-const StandardModeIcon = ({ active }: { active: boolean }) => (
-  <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="6" y="11" width="20" height="15" rx="2.5" stroke={active ? "#02402c" : "currentColor"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M10 11V7a6 6 0 0 1 12 0v4" stroke={active ? "#02402c" : "currentColor"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M11 18l3 3 6-6" stroke={active ? "#02402c" : "currentColor"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
+// --- Delivery mode icons: inline SVGs matching the new home-screen design ---
+const StandardModeIcon = ({ active }: { active: boolean }) => {
+  const stroke = active ? '#0B4A38' : '#F8FAF7';
+
+  return (
+    <svg
+      width="30"
+      height="30"
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M7.5 11.5H24.5C25.6046 11.5 26.5 12.3954 26.5 13.5V24C26.5 25.1046 25.6046 26 24.5 26H7.5C6.39543 26 5.5 25.1046 5.5 24V13.5C5.5 12.3954 6.39543 11.5 7.5 11.5Z"
+        stroke={stroke}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 11.5V8.5C10 6.01472 12.0147 4 14.5 4H17.5C19.9853 4 22 6.01472 22 8.5V11.5"
+        stroke={stroke}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M11 17.5H21"
+        stroke={stroke}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M12.5 21L14.5 23L19.5 18"
+        stroke={stroke}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+};
 
 const ExpressModeIcon = ({ active }: { active: boolean }) => {
-  const stroke = "currentColor"; 
+  const stroke = active ? '#0B4A38' : '#F8FAF7';
+
   return (
-    <svg width="34" height="24" viewBox="0 0 46 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <line x1="8" y1="19" x2="12" y2="15" stroke={stroke} strokeWidth="2" strokeLinecap="round"/>
-      <line x1="6" y1="24" x2="10" y2="20" stroke={stroke} strokeWidth="2" strokeLinecap="round"/>
-      <line x1="9" y1="28" x2="13" y2="24" stroke={stroke} strokeWidth="2" strokeLinecap="round"/>
-      
-      <path d="M22 13h10v10H22V13z" fill={active ? "#065f46" : "none"} stroke={stroke} strokeWidth="2" strokeLinejoin="round"/>
-      <path d="M32 16h4.5l3 3.5v3.5h-7.5v-7z" fill={active ? "#065f46" : "none"} stroke={stroke} strokeWidth="2" strokeLinejoin="round"/>
-      <circle cx="26" cy="24" r="3" fill={active ? "#047857" : "none"} stroke={stroke} strokeWidth="2"/>
-      <circle cx="36" cy="24" r="3" fill={active ? "#047857" : "none"} stroke={stroke} strokeWidth="2"/>
-      
-      <path d="M19 4c3-3 8-3.5 10-1.5 2 2 1.5 7-1.5 10l-7 7c-2 2-5.5 1.5-7 0-1.5-1.5-2-5 0-7l5.5-8.5z" fill={active ? "white" : "none"} stroke={active ? "#10b981" : stroke} strokeWidth="2" strokeLinejoin="round"/>
-      <path d="M11 19l-3.5 4.5 5.5-1" fill={active ? "white" : "none"} stroke={active ? "#10b981" : stroke} strokeWidth="2" strokeLinejoin="round"/>
-      <path d="M23 6l4-4-1 5.5" fill={active ? "white" : "none"} stroke={active ? "#10b981" : stroke} strokeWidth="2" strokeLinejoin="round"/>
-      
-      <circle cx="18" cy="11" r="2.5" fill={active ? "#10b981" : "none"} stroke={active ? "white" : stroke} strokeWidth="2"/>
+    <svg
+      width="40"
+      height="30"
+      viewBox="0 0 46 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      {/* Speed lines */}
+      <path d="M5 19L10 14" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+      <path d="M3 24L9 18" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+      <path d="M7 28L12 23" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+
+      {/* Truck body */}
+      <path
+        d="M20 13H31V23H20V13Z"
+        stroke={stroke}
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M31 16H36L40 20V23H31V16Z"
+        stroke={stroke}
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+
+      {/* Wheels */}
+      <circle cx="25" cy="24" r="3" stroke={stroke} strokeWidth="2" />
+      <circle cx="36" cy="24" r="3" stroke={stroke} strokeWidth="2" />
+
+      {/* Express bolt / rocket mark */}
+      <path
+        d="M20.5 4.5C24 1 29.5 1.5 31 3.5C32.5 5.5 30.5 10.5 27.5 13.5L21 20C18.5 22.5 14.5 21.5 13.5 19C12.5 16.5 13.5 13.5 15.5 11L20.5 4.5Z"
+        fill={active ? '#0B4A38' : 'none'}
+        stroke={stroke}
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15 17L10.5 21.5L16 20"
+        stroke={stroke}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M22.5 7.5L27 3L26 8.5"
+        stroke={active ? '#F8FAF7' : stroke}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 };
@@ -518,30 +591,38 @@ export function HomeScreen({
       <div className="bg-[#02402c] safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-4 pb-3 flex flex-col gap-4">
           
-          {/* Row 1: Premium Delivery Mode Toggle Buttons */}
-          <div className="flex items-center gap-3 w-full">
+          {/* Row 1: Modern solid-color delivery mode selector */}
+          <div className="flex items-stretch gap-2.5 w-full">
             <button
+              type="button"
               onClick={() => setDeliveryMode('standard')}
-              className={`relative flex-1 h-[56px] rounded-[16px] flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${
-                deliveryMode === 'standard' 
-                  ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.15)] scale-100 z-10 text-[#02402c]' 
-                  : 'bg-white/10 scale-[0.98] opacity-80 text-white/80 hover:bg-white/20'
+              aria-pressed={deliveryMode === 'standard'}
+              className={`relative flex-1 h-[76px] rounded-[24px] border flex flex-col items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] ${
+                deliveryMode === 'standard'
+                  ? 'bg-[#F7F5EF] border-[#F7F5EF] text-[#0B4A38] shadow-[0_6px_18px_rgba(0,0,0,0.10)]'
+                  : 'bg-[#195B48] border-[#276C59] text-[#F8FAF7] shadow-none'
               }`}
             >
               <StandardModeIcon active={deliveryMode === 'standard'} />
-              <span className="font-bold italic text-[13px] tracking-wide mt-0.5">Standard</span>
+              <span className="font-semibold text-[14px] tracking-[-0.2px] leading-none">
+                Standard
+              </span>
             </button>
 
             <button
+              type="button"
               onClick={() => setDeliveryMode('express')}
-              className={`relative flex-1 h-[56px] rounded-[16px] flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${
-                deliveryMode === 'express' 
-                  ? 'bg-[#10b981] shadow-[0_4px_12px_rgba(16,185,129,0.3)] scale-100 z-10 text-white' 
-                  : 'bg-white/10 scale-[0.98] opacity-80 text-white/80 hover:bg-white/20'
+              aria-pressed={deliveryMode === 'express'}
+              className={`relative flex-1 h-[76px] rounded-[24px] border flex flex-col items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] ${
+                deliveryMode === 'express'
+                  ? 'bg-[#F7F5EF] border-[#F7F5EF] text-[#0B4A38] shadow-[0_6px_18px_rgba(0,0,0,0.10)]'
+                  : 'bg-[#195B48] border-[#276C59] text-[#F8FAF7] shadow-none'
               }`}
             >
               <ExpressModeIcon active={deliveryMode === 'express'} />
-              <span className="font-bold italic text-[13px] tracking-wide mt-0.5">Express</span>
+              <span className="font-semibold text-[14px] tracking-[-0.2px] leading-none">
+                Express
+              </span>
             </button>
           </div>
 

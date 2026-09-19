@@ -318,3 +318,198 @@ BEGIN
   RETURN v_result;
 END;
 $function$;
+
+
+
+-- ================================================================
+-- DISPATCH RADIUS + NEARBY ORDERS + BATCH DRIVER ASSIGNMENT
+-- Run in Supabase SQL editor.
+-- ================================================================
+
+-- 1. Seed default radius into app_settings (2 km)
+insert into public.app_settings (key, value)
+values ('dispatch_radius_km', '{"km": 2}'::jsonb)
+on conflict (key) do nothing;
+
+-- 2. Get nearby packed/confirmed orders around a reference order
+create or replace function public.get_nearby_packed_orders(
+  p_reference_order_id uuid,
+  p_radius_km numeric default null
+)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $function$
+declare
+  v_ref_lat numeric;
+  v_ref_lng numeric;
+  v_radius numeric;
+  v_result json;
+begin
+  -- Resolve radius: explicit value > app_settings > 2km default
+  if p_radius_km is null then
+    select coalesce((value->>'km')::numeric, 2)
+    into v_radius
+    from app_settings
+    where key = 'dispatch_radius_km'
+    limit 1;
+
+    if v_radius is null then
+      v_radius := 2;
+    end if;
+  else
+    v_radius := p_radius_km;
+  end if;
+
+  -- Resolve the reference order's coordinates (snapshot first, live fallback)
+  select
+    coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude),
+    coalesce((o.delivery_address_snapshot->>'longitude')::numeric, a.longitude)
+  into v_ref_lat, v_ref_lng
+  from orders o
+  left join addresses a on o.address_id = a.id
+  where o.id = p_reference_order_id;
+
+  if v_ref_lat is null or v_ref_lng is null then
+    return json_build_object('radius_km', v_radius, 'orders', '[]'::json);
+  end if;
+
+  select json_build_object(
+    'radius_km', v_radius,
+    'orders', coalesce(json_agg(row_to_json(sub)), '[]'::json)
+  )
+  into v_result
+  from (
+    select
+      o.id,
+      o.order_number,
+      o.status::text as status,
+      o.total,
+      o.created_at,
+      o.address_id,
+      coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude) as latitude,
+      coalesce((o.delivery_address_snapshot->>'longitude')::numeric, a.longitude) as longitude,
+      coalesce(o.delivery_address_snapshot->>'recipient_name', a.recipient_name) as recipient_name,
+      coalesce(o.delivery_address_snapshot->>'line1', a.line1) as line1,
+      coalesce(o.delivery_address_snapshot->>'city', a.city) as city,
+      coalesce(o.delivery_address_snapshot->>'postal_code', a.postal_code) as postal_code,
+      round(
+        (
+          6371 * acos(
+            least(1, greatest(-1,
+              cos(radians(v_ref_lat)) *
+              cos(radians(coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude))) *
+              cos(radians(coalesce((o.delivery_address_snapshot->>'longitude')::numeric, a.longitude)) - radians(v_ref_lng)) +
+              sin(radians(v_ref_lat)) *
+              sin(radians(coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude)))
+            ))
+          )
+        )::numeric,
+        2
+      ) as distance_km
+    from orders o
+    left join addresses a on o.address_id = a.id
+    where
+      o.id <> p_reference_order_id
+      and o.status::text in ('pending', 'confirmed', 'packed', 'ready_for_pickup')
+      and coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude) is not null
+      and coalesce((o.delivery_address_snapshot->>'longitude')::numeric, a.longitude) is not null
+      and (
+        6371 * acos(
+          least(1, greatest(-1,
+            cos(radians(v_ref_lat)) *
+            cos(radians(coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude))) *
+            cos(radians(coalesce((o.delivery_address_snapshot->>'longitude')::numeric, a.longitude)) - radians(v_ref_lng)) +
+            sin(radians(v_ref_lat)) *
+            sin(radians(coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude)))
+          ))
+        )
+      ) <= v_radius
+    order by distance_km asc
+    limit 50
+  ) sub;
+
+  return v_result;
+end;
+$function$;
+
+-- 3. Batch assign driver to multiple orders
+--    Only orders in 'packed' or 'ready_for_pickup' status can be assigned.
+--    Returns a report: { assigned: [...], skipped: [{order_id, reason}] }
+create or replace function public.assign_driver_batch(
+  p_order_ids uuid[],
+  p_driver_id uuid
+)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $function$
+declare
+  v_order_id uuid;
+  v_status text;
+  v_existing_id uuid;
+  v_assigned uuid[] := '{}';
+  v_skipped jsonb := '[]'::jsonb;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_order_ids is null or array_length(p_order_ids, 1) is null or array_length(p_order_ids, 1) = 0 then
+    raise exception 'No order ids provided';
+  end if;
+
+  if p_driver_id is null then
+    raise exception 'Driver id required';
+  end if;
+
+  foreach v_order_id in array p_order_ids loop
+    begin
+      -- Only packed or ready_for_pickup orders can receive a driver
+      select status::text into v_status from orders where id = v_order_id;
+
+      if v_status is null then
+        v_skipped := v_skipped || jsonb_build_object('order_id', v_order_id, 'reason', 'Order not found');
+        continue;
+      end if;
+
+      if v_status not in ('packed', 'ready_for_pickup') then
+        v_skipped := v_skipped || jsonb_build_object('order_id', v_order_id, 'reason', format('Order is %s, not packed', v_status));
+        continue;
+      end if;
+
+      -- Upsert assignment
+      select id into v_existing_id from delivery_assignments where order_id = v_order_id limit 1;
+
+      if v_existing_id is not null then
+        update delivery_assignments
+        set delivery_partner_id = p_driver_id,
+            status = 'ready_for_pickup',
+            updated_at = now()
+        where id = v_existing_id;
+      else
+        insert into delivery_assignments (order_id, delivery_partner_id, status)
+        values (v_order_id, p_driver_id, 'ready_for_pickup');
+      end if;
+
+      update orders
+      set status = 'ready_for_pickup',
+          updated_at = now()
+      where id = v_order_id;
+
+      v_assigned := array_append(v_assigned, v_order_id);
+    exception when others then
+      v_skipped := v_skipped || jsonb_build_object('order_id', v_order_id, 'reason', sqlerrm);
+    end;
+  end loop;
+
+  return json_build_object(
+    'assigned', coalesce(to_json(v_assigned), '[]'::json),
+    'skipped', v_skipped,
+    'total_assigned', coalesce(array_length(v_assigned, 1), 0),
+    'total_skipped', jsonb_array_length(v_skipped)
+  );
+end;
+$function$;

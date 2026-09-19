@@ -49,6 +49,7 @@ import SectionsManager from '@/components/Admin/SectionsManager';
 import CodSettlementManager from '@/components/Admin/CodSettlementManager';
 import SynonymsManager from '@/components/Admin/SynonymsManager';
 import RefundManager from '@/components/Admin/RefundManager';
+import AdminSettingsManager from '@/components/Admin/AdminSettingsManager';
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -79,7 +80,8 @@ type Tab =
   | 'reports'
   | 'compression'
   | 'synonyms'
-  | 'refunds';
+  | 'refunds'
+  | 'settings';
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -153,6 +155,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'compression', label: 'Compression', icon: Settings },
     { id: 'synonyms', label: 'Search Synonyms', icon: BookOpen },
     { id: 'refunds', label: 'Refunds', icon: CreditCard },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -239,6 +242,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'reports' && <Reports />}
         {tab === 'synonyms' && <SynonymsManager />}
         {tab === 'refunds' && <RefundManager />}
+        {tab === 'settings' && <AdminSettingsManager />}
       </div>
     </div>
   );

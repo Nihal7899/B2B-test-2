@@ -39,8 +39,10 @@ import {
   SlidersHorizontal,
   ArrowUpDown,
   AlertOctagon,
-  Layers
+  Layers,
+  MapPin,           // NEW
 } from 'lucide-react';
+import { NearbyOrdersModal } from '@/components/NearbyOrdersModal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
 import { fetchCategories } from '@/services/catalog';
@@ -299,6 +301,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [refreshing, setRefreshing] = useState(false);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [nearbyModal, setNearbyModal] = useState<{
+    orderId: string;
+    orderNumber: string;
+    driverId: string;
+    driverName: string;
+  } | null>(null);
 
   const isStaffUnregistered = !profile?.staff_registration_status || profile.staff_registration_status === 'unregistered';
 
@@ -1626,6 +1634,29 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
                                   {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <><Check size={14} /> Assign & Ready</>}
                                 </button>
                               </div>
+                          
+                              {/* NEW: Batch dispatch entry point */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const chosenDriverId = driverSelections[ord.id] || asg?.delivery_partner_id || '';
+                                  if (!chosenDriverId) {
+                                    showToast('Pick a delivery partner first to batch-assign', 'warning');
+                                    return;
+                                  }
+                                  const driverName =
+                                    drivers.find((d) => d.id === chosenDriverId)?.name || 'Delivery Partner';
+                                  setNearbyModal({
+                                    orderId: ord.id,
+                                    orderNumber: ord.order_number,
+                                    driverId: chosenDriverId,
+                                    driverName,
+                                  });
+                                }}
+                                className="w-full h-9 rounded-xl bg-white border border-emerald-400 hover:bg-emerald-100 text-emerald-900 text-[11px] font-black flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition"
+                              >
+                                <MapPin size={13} /> Find nearby orders to batch dispatch
+                              </button>
                             </div>
                           )}
 
@@ -2386,6 +2417,21 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
         }}
         onCancel={() => setStockConfirmDialog({ isOpen: false })}
       />
+      {nearbyModal && (
+        <NearbyOrdersModal
+          referenceOrderId={nearbyModal.orderId}
+          referenceOrderNumber={nearbyModal.orderNumber}
+          driverId={nearbyModal.driverId}
+          driverName={nearbyModal.driverName}
+          onClose={() => setNearbyModal(null)}
+          onAssigned={() => {
+            void loadServerOrders();
+            void loadStats();
+            void loadPriorityOrders();
+            showToast('Nearby orders assigned to driver', 'success');
+          }}
+        />
+      )}
 
       <StaffRegistrationModal isOpen={isStaffUnregistered} />
     </div>

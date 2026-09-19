@@ -65,40 +65,37 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
-// --- Custom SVGs mapped directly from the image ---
-const StandardModeIcon = () => (
-  <svg width="34" height="34" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="6" y="11" width="20" height="15" rx="2.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M10 11V7a6 6 0 0 1 12 0v4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M11 18l3 3 6-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+// --- Premium Custom SVGs (Dynamically adapt to active state) ---
+const StandardModeIcon = ({ active }: { active: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="6" y="11" width="20" height="15" rx="2.5" stroke={active ? "#02402c" : "currentColor"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M10 11V7a6 6 0 0 1 12 0v4" stroke={active ? "#02402c" : "currentColor"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M11 18l3 3 6-6" stroke={active ? "#02402c" : "currentColor"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
-const ExpressModeIcon = () => (
-  <svg width="50" height="34" viewBox="0 0 46 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Speed lines */}
-    <line x1="8" y1="19" x2="12" y2="15" stroke="black" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="6" y1="24" x2="10" y2="20" stroke="black" strokeWidth="2" strokeLinecap="round"/>
-    <line x1="9" y1="28" x2="13" y2="24" stroke="black" strokeWidth="2" strokeLinecap="round"/>
-    
-    {/* Truck */}
-    <path d="M22 13h10v10H22V13z" fill="#785931" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M32 16h4.5l3 3.5v3.5h-7.5v-7z" fill="#785931" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-    <circle cx="26" cy="24" r="3" fill="#F8F8F0" stroke="black" strokeWidth="2"/>
-    <circle cx="36" cy="24" r="3" fill="#F8F8F0" stroke="black" strokeWidth="2"/>
-    
-    {/* Rocket Body */}
-    <path d="M19 4c3-3 8-3.5 10-1.5 2 2 1.5 7-1.5 10l-7 7c-2 2-5.5 1.5-7 0-1.5-1.5-2-5 0-7l5.5-8.5z" fill="white" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-    
-    {/* Fins */}
-    <path d="M11 19l-3.5 4.5 5.5-1" fill="white" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M23 6l4-4-1 5.5" fill="white" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-    
-    {/* Window */}
-    <circle cx="18" cy="11" r="2.5" fill="white" stroke="black" strokeWidth="2"/>
-  </svg>
-);
-// --------------------------------------------------
+const ExpressModeIcon = ({ active }: { active: boolean }) => {
+  const stroke = "currentColor"; 
+  return (
+    <svg width="34" height="24" viewBox="0 0 46 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="8" y1="19" x2="12" y2="15" stroke={stroke} strokeWidth="2" strokeLinecap="round"/>
+      <line x1="6" y1="24" x2="10" y2="20" stroke={stroke} strokeWidth="2" strokeLinecap="round"/>
+      <line x1="9" y1="28" x2="13" y2="24" stroke={stroke} strokeWidth="2" strokeLinecap="round"/>
+      
+      <path d="M22 13h10v10H22V13z" fill={active ? "#065f46" : "none"} stroke={stroke} strokeWidth="2" strokeLinejoin="round"/>
+      <path d="M32 16h4.5l3 3.5v3.5h-7.5v-7z" fill={active ? "#065f46" : "none"} stroke={stroke} strokeWidth="2" strokeLinejoin="round"/>
+      <circle cx="26" cy="24" r="3" fill={active ? "#047857" : "none"} stroke={stroke} strokeWidth="2"/>
+      <circle cx="36" cy="24" r="3" fill={active ? "#047857" : "none"} stroke={stroke} strokeWidth="2"/>
+      
+      <path d="M19 4c3-3 8-3.5 10-1.5 2 2 1.5 7-1.5 10l-7 7c-2 2-5.5 1.5-7 0-1.5-1.5-2-5 0-7l5.5-8.5z" fill={active ? "white" : "none"} stroke={active ? "#10b981" : stroke} strokeWidth="2" strokeLinejoin="round"/>
+      <path d="M11 19l-3.5 4.5 5.5-1" fill={active ? "white" : "none"} stroke={active ? "#10b981" : stroke} strokeWidth="2" strokeLinejoin="round"/>
+      <path d="M23 6l4-4-1 5.5" fill={active ? "white" : "none"} stroke={active ? "#10b981" : stroke} strokeWidth="2" strokeLinejoin="round"/>
+      
+      <circle cx="18" cy="11" r="2.5" fill={active ? "#10b981" : "none"} stroke={active ? "white" : stroke} strokeWidth="2"/>
+    </svg>
+  );
+};
+// ----------------------------------------------------------------
 
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
@@ -517,32 +514,34 @@ export function HomeScreen({
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      {/* --- REDESIGNED HEADER AS PER IMAGE --- */}
+      {/* --- REFINED PREMIUM HEADER --- */}
       <div className="bg-[#02402c] safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-4 pb-3 flex flex-col gap-4">
           
-          {/* Row 1: Delivery Mode Toggle Buttons */}
+          {/* Row 1: Premium Delivery Mode Toggle Buttons */}
           <div className="flex items-center gap-3 w-full">
             <button
               onClick={() => setDeliveryMode('standard')}
-              className={`flex-1 h-[72px] rounded-[18px] flex flex-col items-center justify-center gap-0.5 transition-all ${
-                deliveryMode === 'standard' ? 'shadow-sm opacity-100' : 'opacity-80 grayscale-[20%]'
+              className={`relative flex-1 h-[56px] rounded-[16px] flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${
+                deliveryMode === 'standard' 
+                  ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.15)] scale-100 z-10 text-[#02402c]' 
+                  : 'bg-white/10 scale-[0.98] opacity-80 text-white/80 hover:bg-white/20'
               }`}
-              style={{ backgroundColor: '#A97C2B' }}
             >
-              <StandardModeIcon />
-              <span className="text-white font-bold italic text-[15px] tracking-wide mt-0.5">Standard</span>
+              <StandardModeIcon active={deliveryMode === 'standard'} />
+              <span className="font-bold italic text-[13px] tracking-wide mt-0.5">Standard</span>
             </button>
 
             <button
               onClick={() => setDeliveryMode('express')}
-              className={`flex-1 h-[72px] rounded-[18px] flex flex-col items-center justify-center gap-0.5 transition-all ${
-                deliveryMode === 'express' ? 'shadow-sm opacity-100' : 'opacity-80 grayscale-[20%]'
+              className={`relative flex-1 h-[56px] rounded-[16px] flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${
+                deliveryMode === 'express' 
+                  ? 'bg-[#10b981] shadow-[0_4px_12px_rgba(16,185,129,0.3)] scale-100 z-10 text-white' 
+                  : 'bg-white/10 scale-[0.98] opacity-80 text-white/80 hover:bg-white/20'
               }`}
-              style={{ backgroundColor: '#F8F8F0' }}
             >
-              <ExpressModeIcon />
-              <span className="text-black font-bold italic text-[15px] tracking-wide mt-0.5">Express</span>
+              <ExpressModeIcon active={deliveryMode === 'express'} />
+              <span className="font-bold italic text-[13px] tracking-wide mt-0.5">Express</span>
             </button>
           </div>
 

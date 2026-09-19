@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  MapPin,
   ChevronDown,
   Search,
   ShoppingBag,
@@ -10,8 +9,7 @@ import {
   Tag,
   RotateCcw,
   ChevronRight,
-  X,
-  Zap
+  X
 } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -65,110 +63,44 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
-// --- Delivery mode icons: inline SVGs matching the new home-screen design ---
-const StandardModeIcon = ({ active }: { active: boolean }) => {
-  const stroke = active ? '#0B4A38' : '#F8FAF7';
+// --- Custom SVGs Mapped Exactly From Image ---
 
+const StandardModeIcon = ({ active }: { active: boolean }) => {
+  const color = active ? "#02402c" : "#ffffff";
   return (
-    <svg
-      width="30"
-      height="30"
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path
-        d="M7.5 11.5H24.5C25.6046 11.5 26.5 12.3954 26.5 13.5V24C26.5 25.1046 25.6046 26 24.5 26H7.5C6.39543 26 5.5 25.1046 5.5 24V13.5C5.5 12.3954 6.39543 11.5 7.5 11.5Z"
-        stroke={stroke}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10 11.5V8.5C10 6.01472 12.0147 4 14.5 4H17.5C19.9853 4 22 6.01472 22 8.5V11.5"
-        stroke={stroke}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M11 17.5H21"
-        stroke={stroke}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M12.5 21L14.5 23L19.5 18"
-        stroke={stroke}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg width="28" height="24" viewBox="0 0 28 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <rect x="4" y="7" width="20" height="14" rx="3" stroke={color} strokeWidth="2" />
+      <path d="M4 12h20 M12 12l2 2.5 2-2.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 };
 
 const ExpressModeIcon = ({ active }: { active: boolean }) => {
-  const stroke = active ? '#0B4A38' : '#F8FAF7';
-
+  const color = active ? "#02402c" : "#ffffff";
+  const cargoFill = active ? "#02402c" : "transparent";
+  const lightningColor = "#fde047"; // Yellow lightning bolt
+  
   return (
-    <svg
-      width="40"
-      height="30"
-      viewBox="0 0 46 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      {/* Speed lines */}
-      <path d="M5 19L10 14" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
-      <path d="M3 24L9 18" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
-      <path d="M7 28L12 23" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
-
-      {/* Truck body */}
-      <path
-        d="M20 13H31V23H20V13Z"
-        stroke={stroke}
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M31 16H36L40 20V23H31V16Z"
-        stroke={stroke}
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-
-      {/* Wheels */}
-      <circle cx="25" cy="24" r="3" stroke={stroke} strokeWidth="2" />
-      <circle cx="36" cy="24" r="3" stroke={stroke} strokeWidth="2" />
-
-      {/* Express bolt / rocket mark */}
-      <path
-        d="M20.5 4.5C24 1 29.5 1.5 31 3.5C32.5 5.5 30.5 10.5 27.5 13.5L21 20C18.5 22.5 14.5 21.5 13.5 19C12.5 16.5 13.5 13.5 15.5 11L20.5 4.5Z"
-        fill={active ? '#0B4A38' : 'none'}
-        stroke={stroke}
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M15 17L10.5 21.5L16 20"
-        stroke={stroke}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M22.5 7.5L27 3L26 8.5"
-        stroke={active ? '#F8FAF7' : stroke}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg width="36" height="24" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 14h4 M3 10h3 M4 18h2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <rect x="11" y="4" width="12" height="14" rx="2.5" fill={cargoFill} stroke={color} strokeWidth="2" />
+      <path d="M17 7l-2 5h2.5l-1 4 3-5h-2.5l1.5-4h-2z" fill={lightningColor} />
+      <path d="M23 11h4l3.5 3.5v3.5h-7.5v-7z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M23 11h2.5l2 2.5v1.5h-4.5v-4z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx="15" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
+      <circle cx="26" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
     </svg>
   );
 };
-// ----------------------------------------------------------------
+
+const SolidMapPin = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <path fillRule="evenodd" clipRule="evenodd" d="M12 22C12 22 20 14.4183 20 10C20 5.58172 16.4183 2 12 2C7.58172 2 4 5.58172 4 10C4 14.4183 12 22 12 22ZM12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z" />
+  </svg>
+);
+
+// ---------------------------------------------
 
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
@@ -267,7 +199,7 @@ export function HomeScreen({
   const [address] = useState<DbAddress | null>(initialCache.address);
   const [showPopup, setShowPopup] = useState(() => !sessionStorage.getItem('hasSeenBottomPopup'));
 
-  const [deliveryMode, setDeliveryMode] = useState<'standard' | 'express'>('standard');
+  const [deliveryMode, setDeliveryMode] = useState<'standard' | 'express'>('express');
 
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationCheckComplete, setLocationCheckComplete] = useState(false);
@@ -562,7 +494,7 @@ export function HomeScreen({
   const handleGetQuantity = useCallback((id: string) => cart.getQuantity(id), [cart]);
 
   const locationText = useMemo(() => {
-    if (!address) return 'Baithu riha periera moola hosangadi,...'; // Fallback text exactly like image
+    if (!address) return 'Business - Talapady'; 
     if (address.label && address.city) return `${address.label} - ${address.city}`;
     return address.city || address.line1;
   }, [address]);
@@ -587,63 +519,53 @@ export function HomeScreen({
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      {/* --- REFINED PREMIUM HEADER --- */}
+      {/* --- REBUILT HEADER (Matched with image) --- */}
       <div className="bg-[#02402c] safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-4 pb-3 flex flex-col gap-4">
           
-          {/* Row 1: Modern solid-color delivery mode selector */}
-          <div className="flex items-stretch gap-2.5 w-full">
+          {/* Segmented Control for Standard / Express */}
+          <div className="flex items-center w-full bg-white/10 p-[5px] rounded-[32px]">
             <button
-              type="button"
               onClick={() => setDeliveryMode('standard')}
-              aria-pressed={deliveryMode === 'standard'}
-              className={`relative flex-1 h-[76px] rounded-[24px] border flex flex-col items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] ${
-                deliveryMode === 'standard'
-                  ? 'bg-[#F7F5EF] border-[#F7F5EF] text-[#0B4A38] shadow-[0_6px_18px_rgba(0,0,0,0.10)]'
-                  : 'bg-[#195B48] border-[#276C59] text-[#F8FAF7] shadow-none'
+              className={`flex-1 h-[56px] rounded-[28px] flex flex-col items-center justify-center gap-[2px] transition-all duration-300 ${
+                deliveryMode === 'standard' 
+                  ? 'bg-white shadow-sm text-[#02402c]' 
+                  : 'text-white'
               }`}
             >
               <StandardModeIcon active={deliveryMode === 'standard'} />
-              <span className="font-semibold text-[14px] tracking-[-0.2px] leading-none">
-                Standard
-              </span>
+              <span className="font-semibold tracking-wide text-[14px]">Standard</span>
             </button>
 
             <button
-              type="button"
               onClick={() => setDeliveryMode('express')}
-              aria-pressed={deliveryMode === 'express'}
-              className={`relative flex-1 h-[76px] rounded-[24px] border flex flex-col items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] ${
-                deliveryMode === 'express'
-                  ? 'bg-[#F7F5EF] border-[#F7F5EF] text-[#0B4A38] shadow-[0_6px_18px_rgba(0,0,0,0.10)]'
-                  : 'bg-[#195B48] border-[#276C59] text-[#F8FAF7] shadow-none'
+              className={`flex-1 h-[56px] rounded-[28px] flex flex-col items-center justify-center gap-[2px] transition-all duration-300 ${
+                deliveryMode === 'express' 
+                  ? 'bg-white shadow-sm text-[#02402c]' 
+                  : 'text-white'
               }`}
             >
               <ExpressModeIcon active={deliveryMode === 'express'} />
-              <span className="font-semibold text-[14px] tracking-[-0.2px] leading-none">
-                Express
-              </span>
+              <span className="font-semibold tracking-wide text-[14px]">Express</span>
             </button>
           </div>
 
-          {/* Row 2: Location Bar */}
-          <div className="flex gap-2.5">
-            <button
-              onClick={() => navigate('/addresses')}
-              className="flex items-center gap-2 bg-[#01281c] rounded-[14px] px-3.5 py-3 flex-1 overflow-hidden"
-            >
-              <MapPin size={20} className="text-white shrink-0" strokeWidth={2.5} />
-              <span className="text-[14px] text-white truncate flex-1 text-left tracking-wide">
-                {locationText}
-              </span>
-              <ChevronDown size={20} className="text-white/80 shrink-0" strokeWidth={2.5} />
-            </button>
-          </div>
+          {/* Location Bar Pill */}
+          <button
+            onClick={() => navigate('/addresses')}
+            className="flex items-center gap-2.5 rounded-full border border-white px-4 py-3.5 w-full"
+          >
+            <SolidMapPin />
+            <span className="text-[15px] font-medium text-white truncate flex-1 text-left tracking-wide">
+              {locationText}
+            </span>
+            <ChevronDown size={20} className="text-white shrink-0" strokeWidth={2} />
+          </button>
 
         </div>
       </div>
 
-      {/* Row 3: Sticky Search and Cart Bar */}
+      {/* Sticky Search and Cart Bar */}
       <div 
         className="sticky z-40 bg-[#02402c] text-white px-4 pt-1 pb-4 shadow-md rounded-b-3xl"
         style={{ top: 'env(safe-area-inset-top, 0px)' }} 

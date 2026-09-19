@@ -10,7 +10,8 @@ import {
   Tag,
   RotateCcw,
   ChevronRight,
-  X
+  X,
+  Zap
 } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -160,6 +161,9 @@ export function HomeScreen({
 
   const [address] = useState<DbAddress | null>(initialCache.address);
   const [showPopup, setShowPopup] = useState(() => !sessionStorage.getItem('hasSeenBottomPopup'));
+
+  // Delivery mode toggle (static UI)
+  const [deliveryMode, setDeliveryMode] = useState<'standard' | 'express'>('standard');
 
   // Location prompt state - Checked immediately on mount
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
@@ -490,18 +494,18 @@ export function HomeScreen({
       />
 
       <div className="bg-[#02402c] text-white safe-top">
-        <div className="max-w-7xl mx-auto px-4 pt-3 pb-2">
+        <div className="max-w-7xl mx-auto px-4 pt-3 pb-2 flex items-center justify-between gap-3">
           <button
             onClick={() => navigate('/addresses')}
             type="button"
-            className="flex items-center gap-2 text-left"
+            className="flex items-center gap-2 text-left min-w-0 flex-1"
           >
             <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center shrink-0">
               <MapPin size={15} className="text-white" />
             </div>
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1">
-                <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[240px] sm:max-w-xs">
+                <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[180px] sm:max-w-xs">
                   {locationText}
                 </span>
                 <ChevronDown size={14} className="text-white/80 shrink-0" />
@@ -511,6 +515,37 @@ export function HomeScreen({
               </span>
             </div>
           </button>
+
+          {/* Delivery Mode Toggle */}
+          <div className="shrink-0 flex items-center rounded-xl bg-white/10 border border-white/15 p-0.5">
+            <button
+              type="button"
+              onClick={() => setDeliveryMode('standard')}
+              className={`px-2.5 h-6 rounded-lg text-[10px] font-bold tracking-tight transition-colors ${
+                deliveryMode === 'standard'
+                  ? 'bg-emerald-400 text-emerald-950 shadow-sm'
+                  : 'text-white/70 active:text-white'
+              }`}
+            >
+              Standard
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeliveryMode('express')}
+              className={`px-2.5 h-6 rounded-lg text-[10px] font-bold tracking-tight transition-colors flex items-center gap-1 ${
+                deliveryMode === 'express'
+                  ? 'bg-emerald-400 text-emerald-950 shadow-sm'
+                  : 'text-white/70 active:text-white'
+              }`}
+            >
+              <Zap
+                size={10}
+                strokeWidth={3}
+                className={deliveryMode === 'express' ? 'fill-emerald-950' : ''}
+              />
+              Express
+            </button>
+          </div>
         </div>
       </div>
 

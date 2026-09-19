@@ -65,6 +65,41 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
+// --- Custom SVGs mapped directly from the image ---
+const StandardModeIcon = () => (
+  <svg width="34" height="34" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="6" y="11" width="20" height="15" rx="2.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M10 11V7a6 6 0 0 1 12 0v4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M11 18l3 3 6-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const ExpressModeIcon = () => (
+  <svg width="50" height="34" viewBox="0 0 46 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Speed lines */}
+    <line x1="8" y1="19" x2="12" y2="15" stroke="black" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="6" y1="24" x2="10" y2="20" stroke="black" strokeWidth="2" strokeLinecap="round"/>
+    <line x1="9" y1="28" x2="13" y2="24" stroke="black" strokeWidth="2" strokeLinecap="round"/>
+    
+    {/* Truck */}
+    <path d="M22 13h10v10H22V13z" fill="#785931" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M32 16h4.5l3 3.5v3.5h-7.5v-7z" fill="#785931" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+    <circle cx="26" cy="24" r="3" fill="#F8F8F0" stroke="black" strokeWidth="2"/>
+    <circle cx="36" cy="24" r="3" fill="#F8F8F0" stroke="black" strokeWidth="2"/>
+    
+    {/* Rocket Body */}
+    <path d="M19 4c3-3 8-3.5 10-1.5 2 2 1.5 7-1.5 10l-7 7c-2 2-5.5 1.5-7 0-1.5-1.5-2-5 0-7l5.5-8.5z" fill="white" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+    
+    {/* Fins */}
+    <path d="M11 19l-3.5 4.5 5.5-1" fill="white" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+    <path d="M23 6l4-4-1 5.5" fill="white" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+    
+    {/* Window */}
+    <circle cx="18" cy="11" r="2.5" fill="white" stroke="black" strokeWidth="2"/>
+  </svg>
+);
+// --------------------------------------------------
+
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
   const [keywordIndex, setKeywordIndex] = useState(0);
@@ -162,10 +197,8 @@ export function HomeScreen({
   const [address] = useState<DbAddress | null>(initialCache.address);
   const [showPopup, setShowPopup] = useState(() => !sessionStorage.getItem('hasSeenBottomPopup'));
 
-  // Delivery mode toggle (static UI)
   const [deliveryMode, setDeliveryMode] = useState<'standard' | 'express'>('standard');
 
-  // Location prompt state - Checked immediately on mount
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationCheckComplete, setLocationCheckComplete] = useState(false);
 
@@ -178,7 +211,6 @@ export function HomeScreen({
     sessionStorage.setItem('hasSeenBottomPopup', 'true');
   }, []);
 
-  // --- IMMEDIATE LOCATION CHECK (RUNS ON EVERY APP OPEN) ---
   useEffect(() => {
     let active = true;
 
@@ -193,7 +225,6 @@ export function HomeScreen({
               setLocationCheckComplete(true);
             }
           } else {
-            // Not granted - Show bottom sheet immediately
             if (active) {
               setShowLocationPrompt(true);
               setLocationCheckComplete(true);
@@ -206,7 +237,6 @@ export function HomeScreen({
           }
         }
       } else {
-        // Web platform check
         if (navigator.permissions && navigator.permissions.query) {
           try {
             const res = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
@@ -244,7 +274,6 @@ export function HomeScreen({
     };
   }, []);
 
-  // 2. Add this useEffect to restore system nav if the popup won't show
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
@@ -257,13 +286,9 @@ export function HomeScreen({
       }
     };
 
-    // Only run this logic after location checks are resolved
     if (locationCheckComplete) {
-      // Determine if the popup is scheduled to render
       const willShowPopup = bottomPopupBanner && showPopup && !showLocationPrompt;
-      
       if (!willShowPopup) {
-        // If no popup is showing, restore the navigation bar immediately
         restoreSystemNav();
       }
     }
@@ -289,7 +314,6 @@ export function HomeScreen({
   const handleDismissLocation = () => {
     setShowLocationPrompt(false);
   };
-  // --------------------------------------------------------
 
   const refreshDynamicSections = useCallback(async () => {
     try {
@@ -468,7 +492,7 @@ export function HomeScreen({
   const handleGetQuantity = useCallback((id: string) => cart.getQuantity(id), [cart]);
 
   const locationText = useMemo(() => {
-    if (!address) return 'Choose location';
+    if (!address) return 'Baithu riha periera moola hosangadi,...'; // Fallback text exactly like image
     if (address.label && address.city) return `${address.label} - ${address.city}`;
     return address.city || address.line1;
   }, [address]);
@@ -493,64 +517,55 @@ export function HomeScreen({
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      <div className="bg-[#02402c] text-white safe-top">
-        <div className="max-w-7xl mx-auto px-4 pt-3 pb-2 flex items-center justify-between gap-3">
-          <button
-            onClick={() => navigate('/addresses')}
-            type="button"
-            className="flex items-center gap-2 text-left min-w-0 flex-1"
-          >
-            <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-              <MapPin size={15} className="text-white" />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1">
-                <span className="text-[13px] font-bold tracking-tight text-white truncate max-w-[180px] sm:max-w-xs">
-                  {locationText}
-                </span>
-                <ChevronDown size={14} className="text-white/80 shrink-0" />
-              </div>
-              <span className="text-[10px] font-medium text-white/60 leading-none">
-                {address ? 'Delivery location' : 'Tap to choose address'}
-              </span>
-            </div>
-          </button>
-
-          {/* Delivery Mode Toggle */}
-          <div className="shrink-0 flex items-center rounded-xl bg-white/10 border border-white/15 p-0.5">
+      {/* --- REDESIGNED HEADER AS PER IMAGE --- */}
+      <div className="bg-[#02402c] safe-top">
+        <div className="max-w-7xl mx-auto px-4 pt-4 pb-3 flex flex-col gap-4">
+          
+          {/* Row 1: Delivery Mode Toggle Buttons */}
+          <div className="flex items-center gap-3 w-full">
             <button
-              type="button"
               onClick={() => setDeliveryMode('standard')}
-              className={`px-2.5 h-6 rounded-lg text-[10px] font-bold tracking-tight transition-colors ${
-                deliveryMode === 'standard'
-                  ? 'bg-emerald-400 text-emerald-950 shadow-sm'
-                  : 'text-white/70 active:text-white'
+              className={`flex-1 h-[72px] rounded-[18px] flex flex-col items-center justify-center gap-0.5 transition-all ${
+                deliveryMode === 'standard' ? 'shadow-sm opacity-100' : 'opacity-80 grayscale-[20%]'
               }`}
+              style={{ backgroundColor: '#A97C2B' }}
             >
-              Standard
+              <StandardModeIcon />
+              <span className="text-white font-bold italic text-[15px] tracking-wide mt-0.5">Standard</span>
             </button>
+
             <button
-              type="button"
               onClick={() => setDeliveryMode('express')}
-              className={`px-2.5 h-6 rounded-lg text-[10px] font-bold tracking-tight transition-colors flex items-center gap-1 ${
-                deliveryMode === 'express'
-                  ? 'bg-emerald-400 text-emerald-950 shadow-sm'
-                  : 'text-white/70 active:text-white'
+              className={`flex-1 h-[72px] rounded-[18px] flex flex-col items-center justify-center gap-0.5 transition-all ${
+                deliveryMode === 'express' ? 'shadow-sm opacity-100' : 'opacity-80 grayscale-[20%]'
               }`}
+              style={{ backgroundColor: '#F8F8F0' }}
             >
-              <Zap
-                size={10}
-                strokeWidth={3}
-                className={deliveryMode === 'express' ? 'fill-emerald-950' : ''}
-              />
-              Express
+              <ExpressModeIcon />
+              <span className="text-black font-bold italic text-[15px] tracking-wide mt-0.5">Express</span>
             </button>
           </div>
+
+          {/* Row 2: Location Bar */}
+          <div className="flex gap-2.5">
+            <button
+              onClick={() => navigate('/addresses')}
+              className="flex items-center gap-2 bg-[#01281c] rounded-[14px] px-3.5 py-3 flex-1 overflow-hidden"
+            >
+              <MapPin size={20} className="text-white shrink-0" strokeWidth={2.5} />
+              <span className="text-[14px] text-white truncate flex-1 text-left tracking-wide">
+                {locationText}
+              </span>
+              <ChevronDown size={20} className="text-white/80 shrink-0" strokeWidth={2.5} />
+            </button>
+          </div>
+
         </div>
       </div>
 
+      {/* Row 3: Sticky Search and Cart Bar */}
       <div 
-        className="sticky z-40 bg-[#02402c] text-white px-4 pt-2.5 pb-3.5 shadow-md rounded-b-3xl"
+        className="sticky z-40 bg-[#02402c] text-white px-4 pt-1 pb-4 shadow-md rounded-b-3xl"
         style={{ top: 'env(safe-area-inset-top, 0px)' }} 
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
@@ -573,6 +588,7 @@ export function HomeScreen({
           </button>
         </div>
       </div>
+      {/* -------------------------------------- */}
 
       <div className="space-y-6 pt-4 pb-16 transform-gpu">
         {topBanner && (
@@ -876,7 +892,6 @@ export function HomeScreen({
         })}
       </div>
 
-      {/* --- LOCATION PERMISSION BOTTOM SHEET (OPENS IMMEDIATELY ON EVERY OPEN) --- */}
       {showLocationPrompt && (
         <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">
           <div 
@@ -921,7 +936,6 @@ export function HomeScreen({
         </div>
       )}
 
-      {/* --- PROMO POPUP BOTTOM SHEET (SHOWN ONLY AFTER LOCATION CHECK AND NOT DURING PROMPT) --- */}
       {bottomPopupBanner && showPopup && locationCheckComplete && !showLocationPrompt && (
         <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">
           <div 

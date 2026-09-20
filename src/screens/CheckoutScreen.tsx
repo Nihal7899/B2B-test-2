@@ -3,7 +3,7 @@ import {
   ArrowLeft, MapPin, Tag, Truck, Loader2, CheckCircle2, CreditCard, Banknote,
   AlertCircle, X, Gift, Wallet, ShieldCheck, Building2, Plus, Sparkles,
   ChevronRight, ChevronDown, Check, Clock, Package, Lock, BadgeCheck, Percent,
-  Home, Briefcase, MapPinned, PlusCircle, Tag as TagIcon, Zap
+  Home, Briefcase, Warehouse, MapPinned, PlusCircle, Tag as TagIcon, Zap
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Checkout } from 'capacitor-razorpay';
@@ -33,7 +33,7 @@ interface CheckoutScreenProps {
 const StandardModeIcon = ({ active }: { active: boolean }) => {
   const color = active ? "#02402c" : "#94a3b8";
   return (
-    <svg width="22" height="20" viewBox="0 0 28 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="22" height="20" viewBox="0 0 28 24" fill="none">
       <path d="M10 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
       <rect x="4" y="7" width="20" height="14" rx="3" stroke={color} strokeWidth="2.5" />
       <path d="M4 12h20 M12 12l2 2.5 2-2.5" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -46,7 +46,7 @@ const ExpressModeIcon = ({ active }: { active: boolean }) => {
   const cargoFill = active ? "#02402c" : "transparent";
   const lightningColor = active ? "#fde047" : "transparent";
   return (
-    <svg width="28" height="20" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="28" height="20" viewBox="0 0 36 24" fill="none">
       <path d="M5 14h4 M3 10h3 M4 18h2" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
       <rect x="11" y="4" width="12" height="14" rx="2.5" fill={cargoFill} stroke={color} strokeWidth="2.5" />
       <path d="M17 7l-2 5h2.5l-1 4 3-5h-2.5l1.5-4h-2z" fill={lightningColor} stroke={active ? "none" : color} strokeWidth={active ? 0 : 2} />
@@ -66,25 +66,26 @@ function formatTimeRemaining(endDate: string | null | undefined): string | null 
   const days = Math.floor(diff / 86400000);
   const hours = Math.floor((diff / 3600000) % 24);
   const mins = Math.floor((diff / 60000) % 60);
-  if (days > 0) return `${days}d ${hours}h left`;
-  if (hours > 0) return `${hours}h ${mins}m left`;
-  return `${mins}m left`;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
 }
 
 function getScopeLabel(p: PromoCode): string {
   if (p.applies_to === 'all') return 'All products';
-  if (p.applies_to === 'category') return `Selected categor${(p.applies_to_ids?.length ?? 0) > 1 ? 'ies' : 'y'}`;
-  return `Selected product${(p.applies_to_ids?.length ?? 0) > 1 ? 's' : ''}`;
+  if (p.applies_to === 'category') return `${p.applies_to_ids?.length ?? 0} categor${(p.applies_to_ids?.length ?? 0) > 1 ? 'ies' : 'y'}`;
+  return `${p.applies_to_ids?.length ?? 0} product${(p.applies_to_ids?.length ?? 0) > 1 ? 's' : ''}`;
 }
 
 function getAddressIcon(label: string) {
   const l = (label || '').toLowerCase();
+  if (l.includes('business') || l.includes('warehouse') || l.includes('shop')) return Warehouse;
   if (l.includes('home')) return Home;
-  if (l.includes('office') || l.includes('work') || l.includes('business')) return Briefcase;
+  if (l.includes('office') || l.includes('work')) return Briefcase;
   return MapPinned;
 }
 
-// ---------- Bottom Sheet Wrapper ----------
+// ---------- Bottom Sheet ----------
 function BottomSheet({
   open, onClose, title, subtitle, children,
 }: {
@@ -99,16 +100,14 @@ function BottomSheet({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[200] flex items-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm animate-in fade-in duration-200" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" />
       <div
         className="relative w-full max-w-lg mx-auto bg-white rounded-t-[28px] shadow-2xl animate-in slide-in-from-bottom-4 duration-300 flex flex-col max-h-[88vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* handle */}
         <div className="flex-shrink-0 pt-3">
           <div className="h-1.5 w-12 bg-slate-200 rounded-full mx-auto" />
         </div>
-        {/* header */}
         <div className="flex-shrink-0 px-5 pt-3 pb-4 flex items-start justify-between gap-3 border-b border-slate-100">
           <div className="min-w-0">
             <h3 className="text-[17px] font-black text-slate-900 tracking-[-0.02em]">{title}</h3>
@@ -121,7 +120,6 @@ function BottomSheet({
             <X size={16} className="text-slate-600" strokeWidth={2.5} />
           </button>
         </div>
-        {/* content */}
         <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
           {children}
         </div>
@@ -163,7 +161,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod');
   const [showPaymentAlert, setShowPaymentAlert] = useState(false);
   const [paymentAlertMsg, setPaymentAlertMsg] = useState('');
-  const [scrolled, setScrolled] = useState(false);
 
   // Sheets
   const [showAddressSheet, setShowAddressSheet] = useState(false);
@@ -200,14 +197,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
   const currentAddress = addresses.find((a) => a.id === selectedAddr) || null;
 
-  // Scroll listener
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  // Load all data
   const loadData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -243,7 +232,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
   useEffect(() => { void loadData(); }, [loadData]);
 
-  // Load available promo codes (client-side filter by time + usage)
+  // Load available promo codes
   useEffect(() => {
     void (async () => {
       try {
@@ -260,11 +249,10 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
           return true;
         });
         setAvailablePromos(filtered);
-      } catch { /* silent */ }
+      } catch {}
     })();
   }, []);
 
-  // Background sync of delivery pref
   useEffect(() => {
     const sync = async () => {
       try {
@@ -287,7 +275,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     if (user) supabase.from('profiles').update({ delivery_type: type }).eq('id', user.id).then();
   };
 
-  // Load Razorpay script
   useEffect(() => {
     if (!isNative && typeof window !== 'undefined' && !window.Razorpay) {
       const script = document.createElement('script');
@@ -298,7 +285,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     }
   }, [isNative]);
 
-  // Recalc delivery + GST
   useEffect(() => {
     async function recalc() {
       const promoDisc = cart.appliedPromo?.discount || 0;
@@ -321,7 +307,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     void recalc();
   }, [selectedAddr, addresses, effectiveSubtotal, cart.items, cart.appliedPromo, deliveryType]);
 
-  // Cancel on unload
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (sessionStorage.getItem('active_checkout') === 'true') {
@@ -525,19 +510,13 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f6f7f9] flex flex-col">
-        <div className="bg-gradient-to-br from-[#02402c] to-[#03573b] safe-top px-4 pt-4 pb-6">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-white/10 animate-pulse" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 w-24 rounded-full bg-white/20 animate-pulse" />
-              <div className="h-3 w-40 rounded-full bg-white/10 animate-pulse" />
-            </div>
-          </div>
+        <div className="px-3 pt-3">
+          <div className="h-14 rounded-2xl bg-[#02402c] animate-pulse" />
         </div>
         <div className="flex-1 flex items-center justify-center">
           <div className="relative">
-            <div className="h-12 w-12 rounded-full border-[3px] border-[#02402c]/15" />
-            <div className="absolute inset-0 h-12 w-12 rounded-full border-[3px] border-transparent border-t-[#02402c] animate-spin" />
+            <div className="h-11 w-11 rounded-full border-[3px] border-[#02402c]/15" />
+            <div className="absolute inset-0 h-11 w-11 rounded-full border-[3px] border-transparent border-t-[#02402c] animate-spin" />
           </div>
         </div>
       </div>
@@ -547,62 +526,53 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   const AddressIcon = currentAddress ? getAddressIcon(currentAddress.label) : MapPin;
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9] pb-32 scroll-smooth">
-      {/* ==================== STICKY ADDRESS HEADER ==================== */}
-      <header className={`sticky top-0 z-40 transition-shadow duration-300 ${scrolled ? 'shadow-[0_10px_30px_-14px_rgba(2,64,44,0.4)]' : ''}`}>
-        <div className="relative bg-gradient-to-br from-[#02402c] via-[#03573b] to-[#013a29] safe-top overflow-hidden">
-          <div className="pointer-events-none absolute -top-20 -right-16 h-48 w-48 rounded-full bg-emerald-400/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 -left-12 h-48 w-48 rounded-full bg-emerald-500/15 blur-3xl" />
-          <div className="pointer-events-none absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+    <div className="min-h-screen bg-[#f6f7f9] pb-40 scroll-smooth">
+      {/* ==================== STICKY HEADER ==================== */}
+      <header className="sticky top-0 z-40 px-3 pt-3 pb-2 bg-gradient-to-b from-[#f6f7f9] via-[#f6f7f9] to-[#f6f7f9]/0">
+        <div className="rounded-2xl bg-[#02402c] p-1.5 flex items-center gap-1.5 shadow-[0_10px_28px_-12px_rgba(2,64,44,0.55)]">
+          <button
+            onClick={onBack}
+            className="h-10 w-10 rounded-xl bg-white/10 hover:bg-white/15 active:scale-95 flex items-center justify-center shrink-0 transition-all"
+            aria-label="Go back"
+          >
+            <ArrowLeft size={17} className="text-white" strokeWidth={2.4} />
+          </button>
 
-          <div className="relative px-3 py-3 flex items-center gap-2">
-            <button
-              onClick={onBack}
-              className="h-10 w-10 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center backdrop-blur-md active:scale-95 transition-all shrink-0"
-              aria-label="Go back"
-            >
-              <ArrowLeft size={18} className="text-white" />
-            </button>
-
-            <button
-              onClick={() => setShowAddressSheet(true)}
-              className="flex-1 min-w-0 text-left rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur-md px-3 py-2.5 flex items-center gap-3 active:scale-[0.99] transition-all"
-            >
-              <div className="h-9 w-9 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-                <AddressIcon size={16} className="text-emerald-200" strokeWidth={2.4} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[9.5px] font-black text-emerald-200/90 tracking-[0.1em] uppercase">
-                  Deliver to
-                </p>
-                {currentAddress ? (
-                  <>
-                    <p className="text-[13.5px] font-black text-white tracking-[-0.01em] truncate mt-0.5">
-                      {currentAddress.label}
-                      {currentAddress.is_default && (
-                        <span className="ml-1.5 text-[8.5px] font-black bg-emerald-400/30 text-emerald-100 rounded-md px-1.5 py-0.5 align-middle">
-                          DEFAULT
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-emerald-100/80 font-medium truncate mt-0.5">
-                      {currentAddress.line1}, {currentAddress.city} – {currentAddress.postal_code}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-[13px] font-black text-white mt-0.5">Add delivery address</p>
-                )}
-              </div>
-              <ChevronDown size={16} className="text-emerald-200/80 shrink-0" strokeWidth={2.6} />
-            </button>
-          </div>
+          <button
+            onClick={() => setShowAddressSheet(true)}
+            className="flex-1 min-w-0 flex items-center gap-2.5 rounded-xl bg-white/[0.06] hover:bg-white/10 active:scale-[0.99] px-2.5 py-2 text-left transition-all"
+          >
+            <div className="h-8 w-8 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center shrink-0">
+              <AddressIcon size={14} className="text-emerald-200" strokeWidth={2.4} />
+            </div>
+            <div className="min-w-0 flex-1">
+              {currentAddress ? (
+                <>
+                  <p className="text-[12.5px] font-black text-white tracking-[-0.01em] truncate flex items-center gap-1.5">
+                    <span className="truncate">{currentAddress.label}</span>
+                    {currentAddress.is_default && (
+                      <span className="shrink-0 text-[8.5px] font-black bg-emerald-400/25 text-emerald-100 rounded px-1.5 py-[1px] tracking-wider">
+                        DEFAULT
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-[10.5px] text-emerald-100/70 font-semibold truncate mt-0.5">
+                    {currentAddress.line1}, {currentAddress.city} – {currentAddress.postal_code}
+                  </p>
+                </>
+              ) : (
+                <p className="text-[12.5px] font-black text-white">Add delivery address</p>
+              )}
+            </div>
+            <ChevronDown size={14} className="text-emerald-200/70 shrink-0" strokeWidth={2.6} />
+          </button>
         </div>
       </header>
 
       {/* ==================== CONTENT ==================== */}
-      <div className="px-4 pt-4 space-y-4">
-        {/* DELIVERY TOGGLE (compact) */}
-        <section className="bg-white rounded-2xl p-1.5 shadow-[0_10px_30px_-18px_rgba(2,64,44,0.35)] border border-slate-100 flex gap-1.5">
+      <div className="px-4 pt-3 space-y-3.5">
+        {/* DELIVERY TOGGLE */}
+        <section className="bg-white rounded-2xl p-1.5 shadow-[0_8px_24px_-16px_rgba(2,64,44,0.3)] border border-slate-100 flex gap-1.5">
           <button
             onClick={() => handleDeliveryTypeChange('standard')}
             className={`flex-1 h-[62px] rounded-xl flex flex-col items-center justify-center transition-all duration-300 relative ${
@@ -648,31 +618,31 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
           </button>
         </section>
 
-        {/* OFFERS / PROMO STRIP */}
+        {/* OFFERS STRIP */}
         <section
           onClick={() => setShowPromoSheet(true)}
-          className="bg-white rounded-2xl border border-slate-100 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.15)] p-3.5 flex items-center gap-3 cursor-pointer active:scale-[0.99] transition-all"
+          className="bg-white rounded-2xl border border-slate-100 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.15)] p-3.5 flex items-center gap-3 cursor-pointer active:scale-[0.99] transition-all"
         >
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/25">
+          <div className="h-10 w-10 rounded-xl bg-[#02402c] flex items-center justify-center shrink-0 shadow-md shadow-[#02402c]/25">
             <TagIcon size={17} className="text-white" strokeWidth={2.5} />
           </div>
           <div className="flex-1 min-w-0">
             {cart.appliedPromo ? (
               <>
-                <p className="text-[13.5px] font-black text-emerald-700 tracking-wide flex items-center gap-1.5">
+                <p className="text-[13px] font-black text-emerald-700 tracking-wide flex items-center gap-1.5">
                   {cart.appliedPromo.code}
                   <Sparkles size={12} className="text-emerald-500" />
                 </p>
-                <p className="text-[11.5px] text-emerald-600 font-bold mt-0.5">
+                <p className="text-[11px] text-emerald-600 font-bold mt-0.5">
                   You saved ₹{cart.appliedPromo.discount.toLocaleString('en-IN')} 🎉
                 </p>
               </>
             ) : (
               <>
-                <p className="text-[13.5px] font-black text-slate-900 tracking-[-0.01em]">
+                <p className="text-[13px] font-black text-slate-900 tracking-[-0.01em]">
                   {availablePromos.length > 0 ? `${availablePromos.length} offer${availablePromos.length > 1 ? 's' : ''} available` : 'Have a promo code?'}
                 </p>
-                <p className="text-[11.5px] text-slate-500 font-semibold mt-0.5">
+                <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
                   {availablePromos.length > 0 ? 'Tap to view & apply best offers' : 'Tap to enter a code'}
                 </p>
               </>
@@ -686,12 +656,12 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
               <X size={14} strokeWidth={2.5} />
             </button>
           ) : (
-            <ChevronRight size={18} className="text-slate-300 shrink-0" strokeWidth={2.4} />
+            <ChevronRight size={17} className="text-slate-300 shrink-0" strokeWidth={2.4} />
           )}
         </section>
 
         {/* BILLING DETAILS */}
-        <section className="bg-white rounded-2xl border border-slate-100 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.15)] overflow-hidden">
+        <section className="bg-white rounded-2xl border border-slate-100 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.15)] overflow-hidden">
           <SectionHeader icon={Building2} title="Billing Details" subtitle="For GST invoice" />
           <div className="px-4 pb-4">
             {businesses.length === 0 ? (
@@ -753,7 +723,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         </section>
 
         {/* ORDER SUMMARY */}
-        <section className="bg-white rounded-2xl border border-slate-100 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.15)] overflow-hidden">
+        <section className="bg-white rounded-2xl border border-slate-100 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.15)] overflow-hidden">
           <SectionHeader
             icon={Package}
             title="Order Summary"
@@ -840,46 +810,6 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
           </div>
         </section>
 
-        {/* WALLET */}
-        <section className="bg-gradient-to-br from-[#02402c] via-[#03573b] to-[#013a29] rounded-2xl shadow-[0_16px_40px_-22px_rgba(2,64,44,0.7)] overflow-hidden relative">
-          <div className="pointer-events-none absolute -top-12 -right-12 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-emerald-500/15 blur-3xl" />
-          <div className="pointer-events-none absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-
-          <div className="relative p-3.5 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center shrink-0">
-              <Wallet size={18} className="text-emerald-200" strokeWidth={2.4} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-black text-white tracking-[-0.01em] flex items-center gap-1.5">
-                CafKart Wallet <Sparkles size={11} className="text-emerald-300" />
-              </p>
-              <p className="text-[11.5px] text-emerald-100/85 mt-0.5 font-semibold">
-                Balance: <span className="text-white font-black tabular-nums">₹{walletBalance.toLocaleString('en-IN')}</span>
-              </p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer shrink-0">
-              <input
-                type="checkbox"
-                checked={useWallet && walletBalance > 0}
-                disabled={walletBalance <= 0}
-                onChange={(e) => setUseWallet(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-white/20 border border-white/10 rounded-full peer peer-checked:bg-emerald-400 peer-checked:border-emerald-400 peer-disabled:opacity-40 after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all after:shadow peer-checked:after:translate-x-[20px]"></div>
-            </label>
-          </div>
-
-          {walletDeduction > 0 && (
-            <div className="relative mx-3.5 mb-3.5 flex items-center justify-between rounded-xl bg-white/10 border border-white/15 backdrop-blur-md px-3 py-2">
-              <span className="text-[11px] font-bold text-emerald-100/90 tracking-wide">Split from wallet</span>
-              <span className="text-[13px] font-black text-emerald-200 tabular-nums">
-                − ₹{walletDeduction.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-          )}
-        </section>
-
         {/* TRUST */}
         <div className="flex items-center justify-center gap-3 py-2">
           <div className="flex items-center gap-1.5">
@@ -899,72 +829,109 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         </div>
       </div>
 
-      {/* ==================== FIXED BOTTOM BAR ==================== */}
+      {/* ==================== FIXED BOTTOM AREA ==================== */}
       <div className="fixed bottom-0 inset-x-0 z-50">
-        <div className="bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-[0_-12px_40px_-12px_rgba(15,23,42,0.15)]">
-          <div className="max-w-lg mx-auto px-3 py-3 flex items-center gap-2.5">
-            {/* Payment Method Chip */}
-            {!isFullWalletPayment ? (
+        <div className="max-w-lg mx-auto">
+          {/* Compact Wallet strip */}
+          <div className="bg-white border-t border-slate-200 px-4 py-2 flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-[#02402c] flex items-center justify-center shrink-0">
+              <Wallet size={14} className="text-white" strokeWidth={2.4} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[11.5px] font-black text-slate-900 tracking-[-0.01em] leading-none">Wallet</p>
+                {walletDeduction > 0 && (
+                  <span className="text-[9.5px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-[1px] rounded leading-none tabular-nums">
+                    −₹{walletDeduction.toLocaleString('en-IN')}
+                  </span>
+                )}
+              </div>
+              <p className="text-[10.5px] text-slate-500 font-bold mt-0.5 tabular-nums">
+                Balance ₹{walletBalance.toLocaleString('en-IN')}
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={useWallet && walletBalance > 0}
+                disabled={walletBalance <= 0}
+                onChange={(e) => setUseWallet(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-10 h-[22px] bg-slate-200 rounded-full peer peer-checked:bg-[#02402c] peer-disabled:opacity-40 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-[18px] after:w-[18px] after:transition-all after:shadow-sm peer-checked:after:translate-x-[18px]"></div>
+            </label>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="bg-white border-t border-slate-100 px-3 py-3 shadow-[0_-12px_36px_-12px_rgba(15,23,42,0.15)]">
+            <div className="flex items-center gap-2.5">
+              {/* Payment selector — larger */}
+              {!isFullWalletPayment ? (
+                <button
+                  onClick={() => setShowPaymentSheet(true)}
+                  className="flex-1 h-[52px] rounded-2xl bg-slate-50 border border-slate-200 px-3.5 flex items-center gap-3 active:scale-[0.98] transition-all hover:bg-slate-100"
+                >
+                  <div className="h-8 w-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                    {paymentMethod === 'cod' ? (
+                      <Banknote size={15} className="text-[#02402c]" strokeWidth={2.4} />
+                    ) : (
+                      <CreditCard size={15} className="text-[#02402c]" strokeWidth={2.4} />
+                    )}
+                  </div>
+                  <div className="text-left min-w-0 flex-1">
+                    <p className="text-[9px] font-black text-slate-400 tracking-[0.12em] uppercase leading-none">Pay via</p>
+                    <p className="text-[13px] font-black text-slate-900 tracking-[-0.01em] leading-tight mt-0.5 truncate">
+                      {paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}
+                    </p>
+                  </div>
+                  <ChevronDown size={15} className="text-slate-400 shrink-0" strokeWidth={2.6} />
+                </button>
+              ) : (
+                <div className="flex-1 h-[52px] rounded-2xl bg-emerald-50 border border-emerald-200 px-3.5 flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-white border border-emerald-200 flex items-center justify-center shrink-0">
+                    <Wallet size={15} className="text-emerald-600" strokeWidth={2.4} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black text-emerald-600 tracking-[0.12em] uppercase leading-none">Full payment</p>
+                    <p className="text-[13px] font-black text-emerald-700 tracking-[-0.01em] leading-tight mt-0.5">Wallet</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Pay button — slightly smaller */}
               <button
-                onClick={() => setShowPaymentSheet(true)}
-                className="shrink-0 h-12 rounded-xl bg-slate-50 border border-slate-200 px-3 flex items-center gap-2 active:scale-95 transition-all hover:bg-slate-100"
+                onClick={handlePlaceOrder}
+                disabled={placing || !selectedAddr || cart.items.length === 0 || !selectedBusinessId}
+                className="group relative shrink-0 h-[48px] rounded-2xl bg-[#02402c] text-white text-[13px] font-black flex items-center justify-center gap-1.5 px-4 shadow-lg shadow-[#02402c]/30 disabled:bg-slate-300 disabled:shadow-none transition-all active:scale-[0.97] overflow-hidden"
               >
-                <div className="h-7 w-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
-                  {paymentMethod === 'cod' ? (
-                    <Banknote size={14} className="text-[#02402c]" strokeWidth={2.4} />
-                  ) : (
-                    <CreditCard size={14} className="text-[#02402c]" strokeWidth={2.4} />
-                  )}
-                </div>
-                <div className="text-left hidden xs:block">
-                  <p className="text-[9px] font-black text-slate-400 tracking-wider uppercase leading-none">Pay via</p>
-                  <p className="text-[12px] font-black text-slate-900 tracking-[-0.01em] leading-tight mt-0.5">
-                    {paymentMethod === 'cod' ? 'COD' : 'Online'}
-                  </p>
-                </div>
-                <ChevronDown size={14} className="text-slate-400" strokeWidth={2.4} />
+                <span className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+                {placing ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : isFullWalletPayment ? (
+                  <>
+                    <Lock size={13} className="opacity-90" />
+                    <span>Place Order</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock size={13} className="opacity-90" />
+                    <span className="tabular-nums">
+                      Pay ₹{remainingPayable.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </span>
+                  </>
+                )}
               </button>
-            ) : (
-              <div className="shrink-0 h-12 rounded-xl bg-emerald-50 border border-emerald-200 px-3 flex items-center gap-2">
-                <Wallet size={14} className="text-emerald-600" strokeWidth={2.4} />
-                <div>
-                  <p className="text-[9px] font-black text-emerald-600 tracking-wider uppercase leading-none">Full</p>
-                  <p className="text-[12px] font-black text-emerald-700 tracking-[-0.01em] leading-tight mt-0.5">Wallet</p>
-                </div>
+            </div>
+            {error && (
+              <div className="flex items-center justify-center gap-1.5 mt-2">
+                <AlertCircle size={12} className="text-red-500" />
+                <p className="text-[11px] text-red-500 font-bold">{error}</p>
               </div>
             )}
-
-            {/* Place Order Button */}
-            <button
-              onClick={handlePlaceOrder}
-              disabled={placing || !selectedAddr || cart.items.length === 0 || !selectedBusinessId}
-              className="group relative flex-1 h-12 rounded-xl bg-gradient-to-r from-[#02402c] via-[#03573b] to-[#02402c] text-white text-[14px] font-black flex items-center justify-center gap-2 shadow-lg shadow-[#02402c]/30 disabled:from-slate-300 disabled:via-slate-300 disabled:to-slate-300 disabled:shadow-none transition-all active:scale-[0.98] overflow-hidden"
-            >
-              <span className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-              {placing ? (
-                <>
-                  <Loader2 size={17} className="animate-spin" />
-                  <span>Processing...</span>
-                </>
-              ) : isFullWalletPayment ? (
-                <>
-                  <Lock size={14} className="opacity-90" />
-                  <span>Place Order</span>
-                </>
-              ) : (
-                <>
-                  <Lock size={14} className="opacity-90" />
-                  <span>Pay ₹{remainingPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </>
-              )}
-            </button>
           </div>
-          {error && (
-            <div className="max-w-lg mx-auto px-3 pb-2 flex items-center justify-center gap-1.5">
-              <AlertCircle size={12} className="text-red-500" />
-              <p className="text-[11px] text-red-500 font-bold">{error}</p>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1087,94 +1054,75 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                 return (
                   <div
                     key={p.id}
-                    className={`relative overflow-hidden rounded-2xl border-2 transition-all ${
+                    className={`relative overflow-hidden rounded-2xl border transition-all ${
                       isApplied
-                        ? 'border-emerald-400 bg-gradient-to-br from-emerald-50 to-white shadow-[0_8px_24px_-12px_rgba(16,185,129,0.35)]'
-                        : 'border-slate-200 bg-white'
+                        ? 'border-emerald-300 bg-gradient-to-br from-emerald-50 to-white shadow-[0_8px_24px_-14px_rgba(16,185,129,0.4)]'
+                        : 'border-slate-200 bg-white hover:border-slate-300 shadow-[0_4px_16px_-12px_rgba(15,23,42,0.15)]'
                     }`}
                   >
-                    {/* Top row: badge + code + timer */}
                     <div className="flex items-stretch">
-                      {/* Left gradient accent */}
-                      <div className={`w-1 ${isApplied ? 'bg-emerald-400' : 'bg-gradient-to-b from-[#02402c] to-[#03573b]'}`} />
-                      <div className="flex-1 p-3.5">
-                        <div className="flex items-start justify-between gap-3 mb-2.5">
-                          <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            <span className="text-[13px] font-black text-slate-900 tracking-[0.06em] bg-slate-100 rounded-lg px-2 py-1">
+                      {/* Left colored strip */}
+                      <div className={`w-1.5 ${isApplied ? 'bg-emerald-400' : 'bg-[#02402c]'}`} />
+
+                      <div className="flex-1 p-3.5 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          {/* Code + timer */}
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            <span className="text-[12px] font-black text-slate-900 tracking-[0.08em] bg-slate-100 rounded-md px-2 py-1">
                               {p.code}
                             </span>
-                            {isPercent && p.max_discount_amount && (
-                              <span className="text-[10px] font-black bg-[#02402c]/10 text-[#02402c] rounded-md px-1.5 py-0.5 tracking-wide">
-                                LIMITED
+                            {timer && (
+                              <span className="text-[9.5px] font-black bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 rounded-full px-2 py-0.5 flex items-center gap-1 border border-amber-200/60">
+                                <Clock size={9} strokeWidth={3} />
+                                {timer}
                               </span>
                             )}
                           </div>
-                          {timer && (
-                            <span className="shrink-0 text-[10px] font-black bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 rounded-full px-2 py-1 flex items-center gap-1 border border-amber-200/60">
-                              <Clock size={9} strokeWidth={3} />
-                              {timer}
-                            </span>
-                          )}
-                        </div>
 
-                        {/* Big discount display */}
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-[22px] font-black text-[#02402c] tracking-[-0.03em] leading-none">
-                            {isPercent ? `${p.discount_value}%` : `₹${p.discount_value}`}
-                          </span>
-                          <span className="text-[12px] font-black text-[#02402c]/70 tracking-wide">OFF</span>
-                        </div>
+                          {/* Big discount */}
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-[22px] font-black text-[#02402c] tracking-[-0.03em] leading-none">
+                              {isPercent ? `${p.discount_value}%` : `₹${p.discount_value}`}
+                            </span>
+                            <span className="text-[11px] font-black text-[#02402c]/70 tracking-wide">OFF</span>
+                          </div>
 
-                        {/* Table-like rows: X → Y → Z */}
-                        <div className="mt-3 space-y-1.5">
-                          {p.min_order_value > 0 && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[9.5px] font-black text-slate-400 tracking-[0.08em] uppercase w-[38px] shrink-0">
-                                Above
+                          {/* Conditions line */}
+                          <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                            {p.min_order_value > 0 && (
+                              <span className="text-[10.5px] font-bold text-slate-500">
+                                Above ₹{p.min_order_value}
                               </span>
-                              <span className="text-[11.5px] font-bold text-slate-700 tabular-nums">
-                                ₹{p.min_order_value}
-                              </span>
-                            </div>
-                          )}
-                          {isPercent && p.max_discount_amount && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[9.5px] font-black text-slate-400 tracking-[0.08em] uppercase w-[38px] shrink-0">
-                                Up to
-                              </span>
-                              <span className="text-[11.5px] font-bold text-slate-700 tabular-nums">
-                                ₹{p.max_discount_amount}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2">
-                            <span className="text-[9.5px] font-black text-slate-400 tracking-[0.08em] uppercase w-[38px] shrink-0">
-                              On
-                            </span>
-                            <span className="text-[11.5px] font-bold text-slate-700">
-                              {getScopeLabel(p)}
-                            </span>
+                            )}
+                            {isPercent && p.max_discount_amount && (
+                              <>
+                                <span className="text-slate-300">•</span>
+                                <span className="text-[10.5px] font-bold text-slate-500">
+                                  Up to ₹{p.max_discount_amount}
+                                </span>
+                              </>
+                            )}
+                            <span className="text-slate-300">•</span>
+                            <span className="text-[10.5px] font-bold text-slate-500">{getScopeLabel(p)}</span>
                           </div>
                         </div>
-                      </div>
-                    </div>
 
-                    {/* Action bar */}
-                    <div className="border-t border-dashed border-slate-200 px-3.5 py-2.5 flex items-center justify-end bg-slate-50/50">
-                      {isApplied ? (
-                        <div className="flex items-center gap-1.5 text-emerald-600">
-                          <CheckCircle2 size={14} strokeWidth={2.6} />
-                          <span className="text-[11px] font-black tracking-wide">APPLIED</span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => void handleApplyPromo(p.code)}
-                          disabled={applyingPromo}
-                          className="h-8 px-3.5 rounded-lg bg-[#02402c] text-white text-[11px] font-black tracking-wide active:scale-95 disabled:bg-slate-300 transition-all"
-                        >
-                          {applyingPromo ? <Loader2 size={12} className="animate-spin" /> : 'APPLY'}
-                        </button>
-                      )}
+                        {/* Apply button — inline */}
+                        {isApplied ? (
+                          <div className="shrink-0 flex items-center gap-1 text-emerald-600">
+                            <CheckCircle2 size={15} strokeWidth={2.6} />
+                            <span className="text-[10.5px] font-black tracking-wide">APPLIED</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => void handleApplyPromo(p.code)}
+                            disabled={applyingPromo}
+                            className="shrink-0 h-9 px-4 rounded-lg bg-[#02402c] text-white text-[11px] font-black tracking-wide active:scale-95 disabled:bg-slate-300 transition-all shadow-sm shadow-[#02402c]/25"
+                          >
+                            {applyingPromo ? <Loader2 size={12} className="animate-spin" /> : 'APPLY'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

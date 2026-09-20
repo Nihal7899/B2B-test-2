@@ -1,8 +1,9 @@
+// src/screens/ProductDetailScreen.tsx
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Heart, ShoppingBag, Star, Truck, ShieldCheck,
-  Percent, Hash, Plus, Minus, Sparkles, Check, Zap, Package,
+  Percent, Hash, Plus, Minus, Sparkles, Check, Zap, Package, Timer
 } from 'lucide-react';
 import type { Product, VolumePricingTier } from '@/types';
 import { useCart } from '@/store';
@@ -11,6 +12,7 @@ import { ProductCard } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
 import { AppLoader } from '@/components/AppLoader';
 import { CachedImage } from '@/components/CachedImage';
+import { supabase } from '@/lib/supabase';
 import {
   fetchProductById, fetchWishlist, toggleWishlist, fetchVolumePricing,
   fetchStoreConfig, fetchBrandById, fetchCategories,
@@ -48,6 +50,9 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
+  
+  // Delivery config state
+  const [deliveryConfig, setDeliveryConfig] = useState<{ max_value: number | null; estimated_time?: string } | null>(null);
 
   const touchStartX = useRef<number | null>(null);
   const touchDeltaX = useRef<number>(0);
@@ -55,6 +60,20 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
   const { primaryColor = '#02402c' } = theme;
+
+  // Fetch Delivery Config
+  useEffect(() => {
+    supabase
+      .from('delivery_charges')
+      .select('*')
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setDeliveryConfig(data);
+        }
+      });
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -199,7 +218,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
             <ArrowLeft size={18} />
           </button>
         </div>
-        <div className="flex-1 flex items-center justify-center -mt-16"><AppLoader fullScreen="{false}" showStatus="{true}" size="md" type="general"/></div>
+        <div className="flex-1 flex items-center justify-center -mt-16"><AppLoader fullScreen={false} showStatus={true} size="md" type="general"/></div>
       </div>
     );
   }
@@ -412,11 +431,37 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           </div>
         )}
 
-        <div className="flex items-center gap-2 pt-1">
-          <Truck size={17} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
-          <div>
-            <p className={`text-xs font-bold ${!product.inStock ? 'text-slate-500' : 'text-ink-700'}`}>Delivery by tomorrow</p>
-            <p className="text-[10px] text-ink-400 mt-0.5">Free delivery on orders above ₹2,000</p>
+        {/* Beautiful Express Delivery Block */}
+        <div className={`mt-4 rounded-2xl p-4 border transition-all ${!product.inStock ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200 shadow-sm'}`}>
+          <div className="flex items-start gap-3">
+            <div className={`p-2.5 rounded-2xl ${!product.inStock ? 'bg-slate-200 text-slate-400' : ''}`} style={product.inStock ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : undefined}>
+              <Zap size={20} className={product.inStock ? "fill-current" : ""} />
+            </div>
+            <div className="flex-1 pt-0.5">
+              <div className="flex items-center gap-2">
+                <h3 className={`text-sm font-extrabold tracking-tight ${!product.inStock ? 'text-slate-500' : 'text-slate-900'}`}>
+                  Express Delivery
+                </h3>
+                {product.inStock && (
+                  <span className="px-1.5 py-0.5 rounded-[5px] text-[9px] font-black tracking-widest text-white uppercase shadow-sm" style={{ backgroundColor: primaryColor }}>
+                    FAST
+                  </span>
+                )}
+              </div>
+              <p className={`text-xs mt-1 font-medium flex items-center gap-1.5 ${!product.inStock ? 'text-slate-400' : 'text-slate-600'}`}>
+                <Timer size={14} className={!product.inStock ? 'text-slate-400' : 'text-slate-400'} />
+                Delivery in <span className={!product.inStock ? '' : 'text-slate-900 font-black'}>{deliveryConfig?.estimated_time || '45 - 60 minutes'}</span>
+              </p>
+              
+              {deliveryConfig?.max_value !== null && deliveryConfig?.max_value !== undefined && (
+                <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-slate-100">
+                  <Sparkles size={14} className={!product.inStock ? 'text-slate-400' : 'text-amber-500'} />
+                  <p className={`text-[11px] font-semibold ${!product.inStock ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Free delivery on orders above <span className="font-bold text-slate-900">₹{deliveryConfig.max_value}</span>
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

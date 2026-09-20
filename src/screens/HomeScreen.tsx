@@ -83,11 +83,33 @@ const ExpressModeIcon = ({ active }: { active: boolean }) => {
   
   return (
     <svg width="32" height="22" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Speed lines */}
       <path d="M5 14h4 M3 10h3 M4 18h2" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <rect x="11" y="4" width="12" height="14" rx="2.5" fill={cargoFill} stroke={color} strokeWidth="2" />
+      
+      {/* Cargo Box with precise Wheel Well cutouts */}
+      <path 
+        d="M 11 18 V 6.5 A 2.5 2.5 0 0 1 13.5 4 H 20.5 A 2.5 2.5 0 0 1 23 6.5 V 18 H 18 A 3 3 0 0 0 12 18 H 11 Z" 
+        fill={cargoFill} 
+        stroke={color} 
+        strokeWidth="2" 
+        strokeLinejoin="round" 
+      />
+      
+      {/* Lightning Bolt */}
       <path d="M17 7l-2 5h2.5l-1 4 3-5h-2.5l1.5-4h-2z" fill={lightningColor} />
-      <path d="M23 11h4l3.5 3.5v3.5h-7.5v-7z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      
+      {/* Front Cab with precise Wheel Well cutout */}
+      <path 
+        d="M 23 11 H 27 L 30.5 14.5 V 18 H 29 A 3 3 0 0 0 23 18 Z" 
+        stroke={color} 
+        strokeWidth="2" 
+        strokeLinejoin="round" 
+      />
+      
+      {/* Window */}
       <path d="M23 11h2.5l2 2.5v1.5h-4.5v-4z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+      
+      {/* Wheels */}
       <circle cx="15" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
       <circle cx="26" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
     </svg>
@@ -537,7 +559,6 @@ export function HomeScreen({
   );
   const handleGetQuantity = useCallback((id: string) => cart.getQuantity(id), [cart]);
 
-  // Shows address line 1 with fallback to city
   const locationText = useMemo(() => {
     if (!address) return 'Baithu riha periera moola hosangadi,...'; 
     return address.line1 || address.city || 'Choose location';

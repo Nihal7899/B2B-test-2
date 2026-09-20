@@ -1,4 +1,3 @@
-// src/screens/ProductDetailScreen.tsx
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
@@ -52,7 +51,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
   
   // Delivery config state
-  const [deliveryConfig, setDeliveryConfig] = useState<{ max_order_value: string | null; estimated_time?: string } | null>(null);
+  const [deliveryConfig, setDeliveryConfig] = useState<{ max_order_value: number | null; estimated_time?: string } | null>(null);
 
   const touchStartX = useRef<number | null>(null);
   const touchDeltaX = useRef<number>(0);
@@ -68,9 +67,9 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
     const fetchDelivery = async () => {
       const { data, error } = await supabase
         .from('delivery_charges')
-        .select('max_order_value, estimated_time')
+        .select('min_order_value, charge, estimated_time')
         .eq('is_active', true)
-        .order('idx', { ascending: true }); // Fetch ALL active tiers
+        .order('min_order_value', { ascending: true }); // Properly order by minimum order value
 
       if (error) {
         console.error("Delivery Config Error:", error);
@@ -78,13 +77,13 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
       }
 
       if (data && data.length > 0 && active) {
-        // 1. Find the first tier that actually has an estimated time string
+        // Find the first tier with a valid estimated time string
         const timeTier = data.find((d) => d.estimated_time && d.estimated_time.trim() !== '');
         const estTime = timeTier ? timeTier.estimated_time.trim() : undefined;
 
-        // 2. The free delivery threshold is dictated by the LAST tier
-        const lastTier = data[data.length - 1];
-        const freeThreshold = lastTier.max_order_value; // Null = no free delivery, Value = free above this value
+        // Find the tier where charge is 0 to determine the free delivery threshold
+        const freeTier = data.find((d) => Number(d.charge) === 0);
+        const freeThreshold = freeTier ? freeTier.min_order_value : null;
 
         setDeliveryConfig({
           estimated_time: estTime,
@@ -184,7 +183,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
     })();
   }, [productId, brandId, categoryId, refreshProductData]);
 
-  // KeepAlive Key & Visibility Routing
   useEffect(() => {
     let active = true;
     const expectedKey = `product|${productId}`;
@@ -357,7 +355,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           <div className="flex h-full w-full items-center justify-center text-slate-300"><Package size={64} strokeWidth={1.5} /></div>
         )}
 
-        {/* Elegant Out of Stock Overlay over Image Slider */}
         {!product.inStock && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/30 backdrop-blur-[2px]">
             <div className="bg-white/95 px-5 py-2.5 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-2">
@@ -479,7 +476,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
               </p>
               
               {/* Free Delivery Threshold Check */}
-              {deliveryConfig?.max_order_value && (
+              {deliveryConfig?.max_order_value != null && (
                 <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-slate-100">
                   <Sparkles size={14} className={!product.inStock ? 'text-slate-400' : 'text-amber-500'} />
                   <p className={`text-[11px] font-semibold ${!product.inStock ? 'text-slate-400' : 'text-slate-600'}`}>

@@ -537,3 +537,72 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT NULL delivery_type text DEFAULT 's
 
 -- Add estimated_time to delivery_charges
 ALTER TABLE public.delivery_charges ADD COLUMN IF NOT NULL estimated_time text DEFAULT '45 mins';
+
+
+DROP FUNCTION IF EXISTS public.get_delivery_charge(text, numeric);
+
+CREATE OR REPLACE FUNCTION public.get_delivery_charge(p_pincode text, p_subtotal numeric)
+ RETURNS TABLE(charge numeric, zone_id uuid, estimated_time text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_zone_ids uuid[];
+BEGIN
+  SELECT array_agg(id) INTO v_zone_ids
+  FROM public.delivery_zones
+  WHERE p_pincode = ANY(pincodes);
+
+  IF v_zone_ids IS NULL OR array_length(v_zone_ids, 1) = 0 THEN
+    RETURN QUERY SELECT 0::numeric, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    dc.charge,
+    dc.zone_id,
+    dc.estimated_time
+  FROM public.delivery_charges dc
+  WHERE dc.zone_id = ANY(v_zone_ids)
+    AND dc.is_active = true
+    AND (dc.min_order_value IS NULL OR dc.min_order_value <= p_subtotal)
+    AND (dc.max_order_value IS NULL OR dc.max_order_value >= p_subtotal)
+  ORDER BY dc.min_order_value DESC
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 0::numeric, v_zone_ids[1], NULL::text;
+  END IF;
+END;
+$function$;
+
+-- 1. Create the table
+CREATE TABLE IF NOT EXISTS public.app_versions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  app_version TEXT NOT NULL,
+  playstore_link TEXT NOT NULL,
+  app_store_link TEXT NOT NULL,
+  release_notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2. Enable Row Level Security (RLS)
+ALTER TABLE public.app_versions ENABLE ROW LEVEL SECURITY;
+
+-- 3. Allow anonymous & authenticated users to read the version info
+CREATE POLICY "Allow public read-only access to app_versions"
+ON public.app_versions
+FOR SELECT
+TO public
+USING (true);
+
+-- 4. Insert an initial record (example)
+INSERT INTO public.app_versions (app_version, playstore_link, app_store_link, release_notes)
+VALUES (
+  '1.0.1',
+  'https://play.google.com/store/apps/details?id=com.cafkart.app',
+  'https://apps.apple.com/app/id6400000000',
+  'Critical bug fixes and performance improvements.'
+);

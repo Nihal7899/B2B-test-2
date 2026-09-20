@@ -200,10 +200,10 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
       const subtotalAfterPromo = Math.max(0, effectiveSubtotal - promoDisc);
       
-      const chargeResponse = await getDeliveryCharge(addr.postal_code, subtotalAfterPromo) as any;
+      const chargeResponse = await getDeliveryCharge(addr.postal_code, subtotalAfterPromo);
       const charge = chargeResponse?.charge || 0;
       const zoneId = chargeResponse?.zoneId || null;
-      const estimatedTime = chargeResponse?.estimated_time || '45 mins';
+      const estimatedTime = chargeResponse?.estimatedTime || '2 hours';  // ← camelCase
       
       setExpressCharge(charge);
       setExpressTime(estimatedTime);

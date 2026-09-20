@@ -37,7 +37,9 @@ import {
   fetchCategories,
   fetchProducts,
   fetchStores,
-  fetchTrustedBrands
+  fetchTrustedBrands,
+  fetchWishlist,    // Added
+  toggleWishlist    // Added
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
 import { getHomeDataSync, updateHomeDataCache, type PreloadedHomeData } from '@/services/homePreload';
@@ -83,10 +85,7 @@ const ExpressModeIcon = ({ active }: { active: boolean }) => {
   
   return (
     <svg width="32" height="22" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Speed lines */}
       <path d="M5 14h4 M3 10h3 M4 18h2" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      
-      {/* Cargo Box with precise Wheel Well cutouts */}
       <path 
         d="M 11 18 V 6.5 A 2.5 2.5 0 0 1 13.5 4 H 20.5 A 2.5 2.5 0 0 1 23 6.5 V 18 H 18 A 3 3 0 0 0 12 18 H 11 Z" 
         fill={cargoFill} 
@@ -94,29 +93,20 @@ const ExpressModeIcon = ({ active }: { active: boolean }) => {
         strokeWidth="2" 
         strokeLinejoin="round" 
       />
-      
-      {/* Lightning Bolt */}
       <path d="M17 7l-2 5h2.5l-1 4 3-5h-2.5l1.5-4h-2z" fill={lightningColor} />
-      
-      {/* Front Cab with precise Wheel Well cutout */}
       <path 
         d="M 23 11 H 27 L 30.5 14.5 V 18 H 29 A 3 3 0 0 0 23 18 Z" 
         stroke={color} 
         strokeWidth="2" 
         strokeLinejoin="round" 
       />
-      
-      {/* Window */}
       <path d="M23 11h2.5l2 2.5v1.5h-4.5v-4z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
-      
-      {/* Wheels */}
       <circle cx="15" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
       <circle cx="26" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
     </svg>
   );
 };
 
-// Pure White Map Pin
 const SolidMapPin = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="#ffffff" xmlns="http://www.w3.org/2000/svg" className="shrink-0 text-white">
     <path fillRule="evenodd" clipRule="evenodd" d="M12 22C12 22 20 14.4183 20 10C20 5.58172 16.4183 2 12 2C7.58172 2 4 5.58172 4 10C4 14.4183 12 22 12 22ZM12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z" />
@@ -179,23 +169,47 @@ export function HomeScreen({
   const navigate = useNavigate();
   const cart = useCart();
 
-  // --- Wishlist Management ---
-  const [wishlist, setWishlist] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('b2b_wishlist') || '[]');
-    } catch {
-      return [];
-    }
-  });
+  // --- Real Backend Wishlist Sync ---
+  const [wishlist, setWishlist] = useState<string[]>([]);
 
-  const handleWishlistToggle = useCallback((id: string) => {
-    setWishlist((prev) => {
-      const next = prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id];
-      localStorage.setItem('b2b_wishlist', JSON.stringify(next));
-      return next;
-    });
+  const loadWishlist = useCallback(async () => {
+    try {
+      const wl = await fetchWishlist();
+      setWishlist(wl || []);
+    } catch (err) {
+      console.error(err);
+    }
   }, []);
-  // ---------------------------
+
+  useEffect(() => {
+    void loadWishlist();
+    const handleWishlistChange = () => void loadWishlist();
+    window.addEventListener('wishlist-updated', handleWishlistChange);
+    window.addEventListener('focus', handleWishlistChange);
+    return () => {
+      window.removeEventListener('wishlist-updated', handleWishlistChange);
+      window.removeEventListener('focus', handleWishlistChange);
+    };
+  }, [loadWishlist]);
+
+  const handleWishlistToggle = useCallback(async (productId: string) => {
+    const isWishlisted = wishlist.includes(productId);
+    const nextState = !isWishlisted;
+    
+    // Optimistic UI update
+    setWishlist((prev) => 
+      isWishlisted ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+
+    try {
+      await toggleWishlist(productId, isWishlisted);
+      window.dispatchEvent(new CustomEvent('wishlist-updated', { detail: { productId, wishlisted: nextState } }));
+    } catch (err) {
+      // Revert if API fails
+      void loadWishlist();
+    }
+  }, [wishlist, loadWishlist]);
+  // ----------------------------------
 
   const initialCache = useMemo(() => {
     return (
@@ -244,7 +258,6 @@ export function HomeScreen({
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationCheckComplete, setLocationCheckComplete] = useState(false);
 
-  // --- Profile Sync for Delivery Mode ---
   useEffect(() => {
     let active = true;
     const fetchProfilePreference = async () => {
@@ -286,7 +299,6 @@ export function HomeScreen({
       console.warn('Failed to update delivery preference:', e);
     }
   }, []);
-  // --------------------------------------
 
   const bottomPopupBanner = useMemo(() => {
     return Array.isArray(banners) ? banners.find((b) => b?.position === 'bottom_popup') : null;
@@ -605,7 +617,6 @@ export function HomeScreen({
       <div className="bg-[#02402c] safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-3 flex flex-col gap-3">
           
-          {/* Rounded Rectangle Container for Delivery Mode */}
           <div className="flex items-center w-full bg-white/10 p-1 rounded-2xl">
             <button
               onClick={() => handleDeliveryModeToggle('standard')}
@@ -632,7 +643,6 @@ export function HomeScreen({
             </button>
           </div>
 
-          {/* Location Bar Pill with Address line 1 and white pin */}
           <button
             onClick={() => navigate('/addresses')}
             className="flex items-center gap-2.5 rounded-full border border-white px-3.5 py-2.5 w-full text-white overflow-hidden"

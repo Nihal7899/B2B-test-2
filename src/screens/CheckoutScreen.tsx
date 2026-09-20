@@ -1,3 +1,4 @@
+// src/components/checkout/CheckoutScreen.tsx
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { ArrowLeft, MapPin, Tag, Truck, Loader2, CheckCircle2, CreditCard, Banknote, AlertCircle, X, Gift, Wallet } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
@@ -24,6 +25,37 @@ interface CheckoutScreenProps {
   onAddAddress: () => void;
 }
 
+// --- Premium SVG Icons for Checkout ---
+const StandardModeIcon = ({ active }: { active: boolean }) => {
+  const color = active ? "#15803d" : "#64748b"; 
+  return (
+    <svg width="24" height="20" viewBox="0 0 28 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <rect x="4" y="7" width="20" height="14" rx="3" stroke={color} strokeWidth="2" />
+      <path d="M4 12h20 M12 12l2 2.5 2-2.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
+
+const ExpressModeIcon = ({ active }: { active: boolean }) => {
+  const color = active ? "#15803d" : "#64748b";
+  const cargoFill = active ? "#15803d" : "transparent";
+  const lightningColor = active ? "#fde047" : "transparent"; 
+  
+  return (
+    <svg width="32" height="20" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 14h4 M3 10h3 M4 18h2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <rect x="11" y="4" width="12" height="14" rx="2.5" fill={cargoFill} stroke={color} strokeWidth="2" />
+      <path d="M17 7l-2 5h2.5l-1 4 3-5h-2.5l1.5-4h-2z" fill={lightningColor} stroke={active ? "none" : color} strokeWidth={active ? 0 : 1.5} />
+      <path d="M23 11h4l3.5 3.5v3.5h-7.5v-7z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M23 11h2.5l2 2.5v1.5h-4.5v-4z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx="15" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
+      <circle cx="26" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
+    </svg>
+  );
+};
+// ------------------------------------
+
 export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: CheckoutScreenProps) {
   const [addresses, setAddresses] = useState<DbAddress[]>([]);
   const [selectedAddr, setSelectedAddr] = useState<string | null>(null);
@@ -37,8 +69,14 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod');
   const [showPaymentAlert, setShowPaymentAlert] = useState(false);
   const [paymentAlertMsg, setPaymentAlertMsg] = useState('');
+  
+  // Delivery State Elements
+  const [deliveryType, setDeliveryType] = useState<'standard' | 'express'>('standard');
+  const [expressCharge, setExpressCharge] = useState(0);
+  const [expressTime, setExpressTime] = useState('');
   const [deliveryCharge, setDeliveryCharge] = useState(0);
   const [deliveryZoneId, setDeliveryZoneId] = useState<string | null>(null);
+  
   const [gstTotal, setGstTotal] = useState(0);
   const [gstBreakdown, setGstBreakdown] = useState<Record<number, number>>({});
   const [promoInput, setPromoInput] = useState('');
@@ -60,6 +98,18 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   const isFullWalletPayment = useWallet && walletDeduction >= grandTotal;
 
   const loadData = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Fetch delivery_type from profiles if available
+    let dbDeliveryType = 'standard';
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('delivery_type').eq('id', user.id).single();
+      if (profile?.delivery_type) {
+        dbDeliveryType = profile.delivery_type;
+        setDeliveryType(profile.delivery_type as 'standard' | 'express');
+      }
+    }
+
     const [addrData, userWallet, bizList] = await Promise.all([
       fetchAddresses(),
       fetchWallet(),
@@ -116,12 +166,36 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
       if (!addr) return;
 
       const subtotalAfterPromo = Math.max(0, effectiveSubtotal - promoDisc);
-      const { charge, zoneId } = await getDeliveryCharge(addr.postal_code, subtotalAfterPromo);
-      setDeliveryCharge(charge);
-      setDeliveryZoneId(zoneId || null);
+      
+      // Assume getDeliveryCharge returns the expanded response if implemented backend-side
+      const chargeResponse = await getDeliveryCharge(addr.postal_code, subtotalAfterPromo) as any;
+      const charge = chargeResponse?.charge || 0;
+      const zoneId = chargeResponse?.zoneId || null;
+      const estimatedTime = chargeResponse?.estimated_time || '45 mins';
+      
+      setExpressCharge(charge);
+      setExpressTime(estimatedTime);
+      setDeliveryZoneId(zoneId);
+
+      // Determine active cost based on Standard vs Express selection
+      if (deliveryType === 'express') {
+        setDeliveryCharge(charge);
+      } else {
+        setDeliveryCharge(0);
+      }
     }
     void recalc();
-  }, [selectedAddr, addresses, effectiveSubtotal, cart.items, cart.appliedPromo]);
+  }, [selectedAddr, addresses, effectiveSubtotal, cart.items, cart.appliedPromo, deliveryType]);
+
+  const handleDeliveryTypeChange = async (type: 'standard' | 'express') => {
+    setDeliveryType(type);
+    
+    // Fire and forget updating the backend database with their preference
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      supabase.from('profiles').update({ delivery_type: type }).eq('id', user.id).then();
+    }
+  };
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -234,6 +308,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         quantity: i.quantity,
       }));
 
+      // NOTE: We pass down the deliveryZoneId, ensuring backend charges match standard (0) vs express (variable)
       const { data: orderId, error: orderError } = await supabase.rpc('create_order', {
         p_address_id: selectedAddr,
         p_items: items,
@@ -429,6 +504,41 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
           <p className="text-xs text-ink-500 mt-0.5">Review and place your order</p>
         </div>
       </div>
+
+      <section>
+        <h2 className="text-sm font-bold text-ink-900 mb-2">Delivery Mode</h2>
+        <div className="flex items-center w-full bg-ink-50 p-1 rounded-2xl border border-ink-100">
+          <button
+            onClick={() => handleDeliveryTypeChange('standard')}
+            className={`flex-1 h-[68px] rounded-xl flex flex-col items-center justify-center gap-[1px] transition-all duration-300 ${
+              deliveryType === 'standard' 
+                ? 'bg-white shadow-sm text-brand-700 border border-brand-100' 
+                : 'text-ink-500 hover:bg-ink-100'
+            }`}
+          >
+            <StandardModeIcon active={deliveryType === 'standard'} />
+            <span className="font-bold text-[13px] mt-0.5">Standard</span>
+            <span className={`text-[10px] font-medium ${deliveryType === 'standard' ? 'text-brand-600' : 'text-ink-400'}`}>
+              Free Delivery
+            </span>
+          </button>
+
+          <button
+            onClick={() => handleDeliveryTypeChange('express')}
+            className={`flex-1 h-[68px] rounded-xl flex flex-col items-center justify-center gap-[1px] transition-all duration-300 ${
+              deliveryType === 'express' 
+                ? 'bg-white shadow-sm text-brand-700 border border-brand-100' 
+                : 'text-ink-500 hover:bg-ink-100'
+            }`}
+          >
+            <ExpressModeIcon active={deliveryType === 'express'} />
+            <span className="font-bold text-[13px] mt-0.5">Express</span>
+            <span className={`text-[10px] font-medium truncate px-1 max-w-full ${deliveryType === 'express' ? 'text-brand-600' : 'text-ink-400'}`}>
+              {expressCharge > 0 ? `+₹${expressCharge}` : 'Check Area'} {expressTime ? `• ${expressTime}` : ''}
+            </span>
+          </button>
+        </div>
+      </section>
 
       {/* Billing business */}
       <section>
@@ -649,7 +759,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
             );
           })}
           <div className="flex justify-between text-xs text-ink-500">
-            <span>Delivery fee</span>
+            <span>{deliveryType === 'express' ? 'Express Delivery' : 'Standard Delivery'}</span>
             <span className="font-semibold text-brand-600">
               {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge}`}
             </span>

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
+import { supabase } from '@/lib/supabase';
 
 import type { Category, Product, PromoBanner, Store, TrustedBrand, HomeSection, DbAddress } from '@/types';
 import { useCart } from '@/store';
@@ -63,6 +64,7 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
+// --- Custom Premium SVGs ---
 const StandardModeIcon = ({ active }: { active: boolean }) => {
   const color = active ? "#02402c" : "#ffffff";
   return (
@@ -97,6 +99,7 @@ const SolidMapPin = () => (
     <path fillRule="evenodd" clipRule="evenodd" d="M12 22C12 22 20 14.4183 20 10C20 5.58172 16.4183 2 12 2C7.58172 2 4 5.58172 4 10C4 14.4183 12 22 12 22ZM12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z" />
   </svg>
 );
+// -----------------------------
 
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
@@ -195,10 +198,54 @@ export function HomeScreen({
   const [address] = useState<DbAddress | null>(initialCache.address);
   const [showPopup, setShowPopup] = useState(() => !sessionStorage.getItem('hasSeenBottomPopup'));
 
-  const [deliveryMode, setDeliveryMode] = useState<'standard' | 'express'>('express');
+  const [deliveryMode, setDeliveryMode] = useState<'standard' | 'express'>('standard');
 
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationCheckComplete, setLocationCheckComplete] = useState(false);
+
+  // --- Profile Sync for Delivery Mode ---
+  useEffect(() => {
+    let active = true;
+    const fetchProfilePreference = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && active) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('delivery_type')
+            .eq('id', user.id)
+            .single();
+            
+          if (data?.delivery_type) {
+            setDeliveryMode(data.delivery_type as 'standard' | 'express');
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load delivery preference:', e);
+      }
+    };
+    void fetchProfilePreference();
+    
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleDeliveryModeToggle = useCallback(async (mode: 'standard' | 'express') => {
+    setDeliveryMode(mode);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({ delivery_type: mode })
+          .eq('id', user.id);
+      }
+    } catch (e) {
+      console.warn('Failed to update delivery preference:', e);
+    }
+  }, []);
+  // --------------------------------------
 
   const bottomPopupBanner = useMemo(() => {
     return Array.isArray(banners) ? banners.find((b) => b?.position === 'bottom_popup') : null;
@@ -521,7 +568,7 @@ export function HomeScreen({
           {/* Rounded Rectangle Container for Delivery Mode */}
           <div className="flex items-center w-full bg-white/10 p-1 rounded-2xl">
             <button
-              onClick={() => setDeliveryMode('standard')}
+              onClick={() => handleDeliveryModeToggle('standard')}
               className={`flex-1 h-12 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${
                 deliveryMode === 'standard' 
                   ? 'bg-white shadow-sm text-[#02402c]' 
@@ -533,7 +580,7 @@ export function HomeScreen({
             </button>
 
             <button
-              onClick={() => setDeliveryMode('express')}
+              onClick={() => handleDeliveryModeToggle('express')}
               className={`flex-1 h-12 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${
                 deliveryMode === 'express' 
                   ? 'bg-white shadow-sm text-[#02402c]' 

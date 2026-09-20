@@ -50,7 +50,7 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
       ...f,
       latitude: loc.latitude,
       longitude: loc.longitude,
-      line1: loc.line1 || f.line1,
+      line2: loc.line1 || f.line2, // Updated to populate line 2 instead of line 1
       city: loc.city || f.city,
       state: loc.state || f.state,
       postal_code: loc.postal_code || f.postal_code,

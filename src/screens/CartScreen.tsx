@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, CheckCircle2, ShoppingBag, Tag, Truck, Gift,
   Loader2, MapPin, X, ChevronRight, ChevronDown, Home, Briefcase, Warehouse,
-  MapPinned, Sparkles, Clock, ShieldCheck, Package, AlertCircle, Zap, Percent,
+  MapPinned, Sparkles, Clock, ShieldCheck, Package, AlertCircle, PlusCircle,
+  Check,
 } from 'lucide-react';
 import type { Product, PromoCode } from '@/types';
 import type { useCart } from '@/store';
@@ -115,7 +116,12 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
   const [promoInput, setPromoInput] = useState('');
   const [promoError, setPromoError] = useState<string | null>(null);
   const [applyingPromo, setApplyingPromo] = useState(false);
-  const [defaultAddress, setDefaultAddress] = useState<DbAddress | null>(null);
+
+  // Address state
+  const [addresses, setAddresses] = useState<DbAddress[]>([]);
+  const [selectedAddr, setSelectedAddr] = useState<string | null>(null);
+  const [showAddressSheet, setShowAddressSheet] = useState(false);
+
   const [deliveryCharge, setDeliveryCharge] = useState<number | null>(null);
   const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [gstTotal, setGstTotal] = useState(0);
@@ -195,14 +201,20 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
     setPromoError(null);
   };
 
+  // Load all addresses
   useEffect(() => {
-    async function loadDefaultAddress() {
-      const addresses = await fetchAddresses();
-      const def = addresses.find((a) => a.is_default) || addresses[0] || null;
-      setDefaultAddress(def);
+    async function loadAddresses() {
+      const list = await fetchAddresses();
+      setAddresses(list);
+      if (list.length > 0) {
+        const def = list.find((a) => a.is_default) || list[0];
+        setSelectedAddr(def.id);
+      }
     }
-    loadDefaultAddress();
+    loadAddresses();
   }, []);
+
+  const selectedAddress = addresses.find((a) => a.id === selectedAddr) || null;
 
   // Load available promos
   useEffect(() => {
@@ -233,9 +245,9 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
       setGstBreakdown(computedBreakdown);
 
       const subtotalAfterPromo = Math.max(0, cart.subtotal - promoDiscount);
-      if (defaultAddress?.postal_code) {
+      if (selectedAddress?.postal_code) {
         setDeliveryLoading(true);
-        const { charge } = await getDeliveryCharge(defaultAddress.postal_code, subtotalAfterPromo);
+        const { charge } = await getDeliveryCharge(selectedAddress.postal_code, subtotalAfterPromo);
         setDeliveryCharge(charge);
         setDeliveryLoading(false);
       } else {
@@ -243,7 +255,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
       }
     }
     compute();
-  }, [cart.items, cart.subtotal, cart.appliedPromo, defaultAddress]);
+  }, [cart.items, cart.subtotal, cart.appliedPromo, selectedAddress]);
 
   const subtotalAfterDiscount = Math.max(0, cart.subtotal - (cart.appliedPromo?.discount || 0));
   const displayDelivery = deliveryCharge !== null ? deliveryCharge : 0;
@@ -295,7 +307,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
   const hasOutOfStockErrors = outOfStockErrors.length > 0;
   const hasCheckoutErrors = hasMoqErrors || hasOutOfStockErrors;
 
-  const AddressIcon = defaultAddress ? getAddressIcon(defaultAddress.label) : MapPin;
+  const AddressIcon = selectedAddress ? getAddressIcon(selectedAddress.label) : MapPin;
 
   return (
     <div className="min-h-screen bg-[#f6f7f9] pb-32 scroll-smooth">
@@ -311,33 +323,37 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
             <ArrowLeft size={17} className="text-white" strokeWidth={2.4} />
           </button>
 
-          <div className="flex-1 min-w-0 flex items-center gap-2.5 rounded-xl bg-white/[0.06] px-2.5 py-2">
+          <button
+            onClick={() => setShowAddressSheet(true)}
+            className="flex-1 min-w-0 flex items-center gap-2.5 rounded-xl bg-white/[0.06] hover:bg-white/10 active:scale-[0.99] px-2.5 py-2 text-left transition-all"
+          >
             <div className="h-8 w-8 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center shrink-0">
               <AddressIcon size={14} className="text-emerald-200" strokeWidth={2.4} />
             </div>
             <div className="min-w-0 flex-1">
-              {defaultAddress ? (
+              {selectedAddress ? (
                 <>
                   <p className="text-[12.5px] font-black text-white tracking-[-0.01em] truncate flex items-center gap-1.5">
-                    <span className="truncate">{defaultAddress.label}</span>
-                    {defaultAddress.is_default && (
+                    <span className="truncate">{selectedAddress.label}</span>
+                    {selectedAddress.is_default && (
                       <span className="shrink-0 text-[8.5px] font-black bg-emerald-400/25 text-emerald-100 rounded px-1.5 py-[1px] tracking-wider">
                         DEFAULT
                       </span>
                     )}
                   </p>
                   <p className="text-[10.5px] text-emerald-100/70 font-semibold truncate mt-0.5">
-                    {defaultAddress.line1}, {defaultAddress.city} – {defaultAddress.postal_code}
+                    {selectedAddress.line1}, {selectedAddress.city} – {selectedAddress.postal_code}
                   </p>
                 </>
               ) : (
                 <>
                   <p className="text-[12.5px] font-black text-white tracking-[-0.01em]">Add delivery address</p>
-                  <p className="text-[10.5px] text-emerald-100/70 font-semibold mt-0.5">Set it up at checkout</p>
+                  <p className="text-[10.5px] text-emerald-100/70 font-semibold mt-0.5">Tap to select or add</p>
                 </>
               )}
             </div>
-          </div>
+            <ChevronDown size={14} className="text-emerald-200/70 shrink-0" strokeWidth={2.6} />
+          </button>
         </div>
       </header>
 
@@ -350,17 +366,19 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
             title="Your Items"
             subtitle={`${cart.totalItems} item${cart.totalItems > 1 ? 's' : ''} in cart`}
           />
-          <div className="px-4 pb-4 space-y-2.5">
-            {cart.items.map((item) => (
-              <CartItem
-                key={item.product.id}
-                item={item}
-                onIncrement={() => handleIncrement(item.product)}
-                onDecrement={() => handleDecrement(item.product.id, item.quantity)}
-                onRemove={() => handleRemove(item.product.id)}
-                onClick={() => onProduct(item.product)}
-              />
-            ))}
+          <div className="px-4 pb-2">
+            <div className="divide-y divide-slate-100">
+              {cart.items.map((item) => (
+                <CartItem
+                  key={item.product.id}
+                  item={item}
+                  onIncrement={() => handleIncrement(item.product)}
+                  onDecrement={() => handleDecrement(item.product.id, item.quantity)}
+                  onRemove={() => handleRemove(item.product.id)}
+                  onClick={() => onProduct(item.product)}
+                />
+              ))}
+            </div>
           </div>
         </section>
 
@@ -570,7 +588,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
         <div className="max-w-lg mx-auto">
           <div className="bg-white border-t border-slate-100 px-3 py-3 shadow-[0_-12px_36px_-12px_rgba(15,23,42,0.15)]">
             <div className="flex items-center gap-2.5">
-              {/* Total display */}
               <div className="flex-1 h-[52px] rounded-2xl bg-slate-50 border border-slate-200 px-3.5 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
                   <Package size={15} className="text-[#02402c]" strokeWidth={2.4} />
@@ -583,7 +600,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
                 </div>
               </div>
 
-              {/* Proceed button */}
               <button
                 onClick={hasCheckoutErrors ? undefined : onCheckout}
                 disabled={hasCheckoutErrors}
@@ -594,14 +610,89 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
                 <ArrowRight size={15} strokeWidth={2.8} />
               </button>
             </div>
-            {!defaultAddress && (
+            {!selectedAddress && (
               <p className="text-center text-[10.5px] text-amber-600 font-bold mt-2">
-                You can add a delivery address at checkout
+                Select a delivery address to get accurate delivery fee
               </p>
             )}
           </div>
         </div>
       </div>
+
+      {/* ==================== ADDRESS SHEET ==================== */}
+      <BottomSheet
+        open={showAddressSheet}
+        onClose={() => setShowAddressSheet(false)}
+        title="Delivery Address"
+        subtitle={`${addresses.length} saved address${addresses.length !== 1 ? 'es' : ''}`}
+      >
+        <div className="p-4 space-y-2.5">
+          {addresses.length === 0 && (
+            <div className="py-6 text-center">
+              <div className="h-14 w-14 rounded-2xl bg-slate-100 mx-auto flex items-center justify-center">
+                <MapPin size={22} className="text-slate-400" strokeWidth={2.2} />
+              </div>
+              <p className="text-[13px] font-black text-slate-700 mt-3">No addresses yet</p>
+              <p className="text-[11.5px] text-slate-500 font-semibold mt-1">
+                Add one to get accurate delivery fee
+              </p>
+            </div>
+          )}
+
+          {addresses.map((addr) => {
+            const isSel = selectedAddr === addr.id;
+            const Icon = getAddressIcon(addr.label);
+            return (
+              <button
+                key={addr.id}
+                onClick={() => { setSelectedAddr(addr.id); setShowAddressSheet(false); }}
+                className={`w-full text-left p-3.5 rounded-2xl border-2 transition-all ${
+                  isSel
+                    ? 'border-[#02402c] bg-gradient-to-br from-[#02402c]/[0.04] to-transparent shadow-[0_6px_20px_-12px_rgba(2,64,44,0.4)]'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    isSel ? 'bg-[#02402c] text-white' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    <Icon size={16} strokeWidth={2.4} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[14px] font-black text-slate-900 tracking-[-0.01em]">{addr.label}</p>
+                      {addr.is_default && (
+                        <span className="text-[9px] font-black bg-[#02402c]/10 text-[#02402c] rounded px-1.5 py-0.5 tracking-wide">DEFAULT</span>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-slate-600 mt-1 leading-relaxed font-medium">
+                      {addr.line1}, {addr.city}, {addr.state} – {addr.postal_code}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className="text-[10.5px] font-bold text-slate-700 bg-slate-100 rounded-md px-2 py-0.5">
+                        {addr.recipient_name}
+                      </span>
+                      <span className="text-[10.5px] font-semibold text-slate-500">{addr.phone}</span>
+                    </div>
+                  </div>
+                  {isSel && (
+                    <div className="h-5 w-5 rounded-full bg-[#02402c] flex items-center justify-center shrink-0 mt-1">
+                      <Check size={11} className="text-white" strokeWidth={4} />
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() => { setShowAddressSheet(false); onCheckout(); }}
+            className="w-full h-14 rounded-2xl border-2 border-dashed border-[#02402c]/30 bg-gradient-to-br from-[#02402c]/[0.04] to-transparent text-[#02402c] text-[13px] font-black flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
+          >
+            <PlusCircle size={18} strokeWidth={2.4} /> Add new address
+          </button>
+        </div>
+      </BottomSheet>
 
       {/* ==================== PROMO CODES SHEET ==================== */}
       <BottomSheet
@@ -611,7 +702,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
         subtitle={availablePromos.length > 0 ? `${availablePromos.length} active offer${availablePromos.length > 1 ? 's' : ''}` : 'Apply a promo code'}
       >
         <div className="p-4 space-y-3">
-          {/* Manual entry */}
           {!cart.appliedPromo && (
             <div>
               <div className="flex gap-2">
@@ -646,7 +736,6 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
             </div>
           )}
 
-          {/* Available promo list */}
           {availablePromos.length > 0 && (
             <div className="space-y-2.5">
               <p className="text-[10.5px] font-black text-slate-400 tracking-[0.12em] uppercase px-1 pt-1">

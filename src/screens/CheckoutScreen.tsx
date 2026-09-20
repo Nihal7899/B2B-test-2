@@ -467,57 +467,56 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F9F7] text-[#172536] pb-36">
+    <div className="min-h-screen bg-[#F6F9F7] text-[#172536] pb-[calc(112px+env(safe-area-inset-bottom))]">
       {/* ------------------------------------------------------------------ */}
       {/* STICKY CHECKOUT HEADER                                             */}
       {/* ------------------------------------------------------------------ */}
-      <header className="sticky top-0 z-[100] bg-[#02402c] safe-top shadow-[0_8px_22px_rgba(2,64,44,0.16)]">
-        <div className="px-3.5 pt-2.5 pb-3.5">
+      <header className="sticky top-0 z-[100] bg-[#043F2D] safe-top shadow-[0_8px_26px_rgba(2,63,45,0.20)]">
+        <div className="px-3.5 pt-2.5 pb-3">
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={onBack}
               aria-label="Back"
-              className="h-9 w-9 shrink-0 rounded-[12px] border border-white/15 bg-white/[0.09] flex items-center justify-center active:scale-95 transition-transform"
+              className="h-10 w-10 shrink-0 rounded-[13px] border border-white/15 bg-white/[0.08] flex items-center justify-center active:scale-95 transition-transform shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
             >
-              <ArrowLeft size={18} strokeWidth={2.4} className="text-white" />
+              <ArrowLeft size={19} strokeWidth={2.3} className="text-white" />
             </button>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h1 className="text-[22px] leading-none font-extrabold tracking-[-0.04em] text-white">
+                <h1 className="text-[23px] leading-none font-black tracking-[-0.045em] text-white">
                   Checkout
                 </h1>
               </div>
               <p className="mt-1 text-[10.5px] font-medium text-emerald-50/70 truncate">
-                Review and place your order securely
+                Review your order and delivery details
               </p>
             </div>
 
-            <div className="shrink-0 flex items-center gap-1.5 rounded-full bg-white/[0.10] border border-white/15 px-2.5 py-1.5">
-              <ShieldCheck size={15} strokeWidth={2.2} className="text-[#B7F0D0]" />
-              <span className="text-[10px] font-extrabold tracking-tight text-white/90">
+            <div className="shrink-0 flex items-center gap-1.5 rounded-full bg-[#0C5B42] border border-[#4C8D75]/45 px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+              <span className="h-6 w-6 rounded-full bg-white/10 flex items-center justify-center">
+                <ShieldCheck size={14} strokeWidth={2.4} className="text-[#B8F2D3]" />
+              </span>
+              <span className="text-[10px] font-extrabold tracking-tight text-white">
                 Secure
               </span>
             </div>
           </div>
 
-          <div className="mt-3 h-1 rounded-full bg-white/10 overflow-hidden">
-            <div className="h-full w-1/3 rounded-full bg-[#65D69B]" />
-          </div>
         </div>
       </header>
 
       {/* ------------------------------------------------------------------ */}
       {/* DELIVERY SELECTOR                                                  */}
       {/* ------------------------------------------------------------------ */}
-      <section className="px-3.5 pt-3">
-        <div className="rounded-[20px] border border-[#DCE8E3] bg-white p-1 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+      <section className="px-3.5 pt-3.5">
+        <div className="rounded-[22px] border border-[#D8E5E0] bg-white p-1.5 shadow-[0_10px_28px_rgba(15,23,42,0.065)]">
           <div className="grid grid-cols-2 gap-1">
             <button
               type="button"
               onClick={() => handleDeliveryTypeChange('standard')}
-              className={`relative h-[72px] rounded-[16px] flex items-center gap-2.5 px-3 transition-all ${
+              className={`relative h-[74px] rounded-[17px] flex items-center gap-2.5 px-3 transition-all ${
                 deliveryType === 'standard'
                   ? 'bg-[#F0F7F3] ring-1 ring-[#CFE3DA]'
                   : 'bg-white'
@@ -546,7 +545,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
             <button
               type="button"
               onClick={() => handleDeliveryTypeChange('express')}
-              className={`relative h-[72px] rounded-[16px] flex items-center gap-2.5 px-3 transition-all ${
+              className={`relative h-[74px] rounded-[17px] flex items-center gap-2.5 px-3 transition-all ${
                 deliveryType === 'express'
                   ? 'bg-[#F0F7F3] ring-1 ring-[#CFE3DA]'
                   : 'bg-white'
@@ -753,10 +752,10 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                 type="text"
                 value={promoInput}
                 onChange={(e) => {
-                  setPromoInput(e.target.value);
+                  setPromoInput(e.target.value.toUpperCase());
                   if (promoError) setPromoError(null);
                 }}
-                placeholder="Enter promo code"
+                placeholder="ENTER PROMO CODE"
                 className="w-full h-11 rounded-[14px] border border-[#DDE6E2] bg-white pl-9 pr-3 text-[12px] font-medium outline-none focus:border-[#02402c] focus:ring-2 focus:ring-[#02402c]/5 placeholder:text-slate-400"
                 disabled={!!cart.appliedPromo}
               />
@@ -780,7 +779,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
           {cart.appliedPromo && (
             <div className="mt-2.5 flex items-center justify-between gap-2 bg-white/75 rounded-[12px] px-3 py-2">
               <span className="text-[10px] font-bold text-[#0A704E] truncate">
-                {cart.appliedPromo.code} applied · ₹{cart.appliedPromo.discount.toLocaleString('en-IN')} saved
+                {cart.appliedPromo.code.toUpperCase()} applied · ₹{cart.appliedPromo.discount.toLocaleString('en-IN')} saved
               </span>
               <button
                 type="button"
@@ -990,32 +989,34 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         {/* STICKY BOTTOM ACTION — uses the same safe-bottom utility as       */}
         {/* BottomNavigation.tsx                                              */}
         {/* ---------------------------------------------------------------- */}
-        <div className="fixed inset-x-0 bottom-0 z-[110] safe-bottom bg-white/[0.97] backdrop-blur-xl border-t border-slate-100 px-3.5 pt-2.5 shadow-[0_-7px_22px_rgba(15,23,42,0.075)]">
+        <div className="fixed inset-x-0 bottom-0 z-[110] safe-bottom bg-white/95 backdrop-blur-xl border-t border-[#E4ECE8] px-3.5 pt-2.5 pb-2 shadow-[0_-10px_30px_rgba(15,23,42,0.10)]">
           <div className="max-w-xl mx-auto flex items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[9px] uppercase tracking-[0.08em] font-black text-[#7B9188]">Payable now</p>
-              <p className="mt-0.5 text-[18px] leading-none font-black tracking-[-0.035em] text-[#12382D]">
+            <div className="min-w-0 shrink-0 pl-0.5">
+              <p className="text-[8px] uppercase tracking-[0.12em] font-black text-[#81938D]">Payable now</p>
+              <p className="mt-0.5 text-[20px] leading-none font-black tracking-[-0.045em] text-[#0A3D2D]">
                 ₹{remainingPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
+              {walletDeduction > 0 && (
+                <p className="mt-1 text-[8px] font-bold text-[#159565]">Wallet applied</p>
+              )}
             </div>
 
             <button
               type="button"
               onClick={handlePlaceOrder}
               disabled={placing || !selectedAddr || cart.items.length === 0 || !selectedBusinessId}
-              className="h-12 flex-1 max-w-[230px] rounded-[16px] bg-[#02402c] text-white px-4 shadow-[0_9px_20px_rgba(2,64,44,0.20)] disabled:bg-slate-300 disabled:shadow-none active:scale-[0.99] transition-all"
+              className="h-[50px] flex-1 rounded-[17px] bg-[#04543B] text-white px-5 shadow-[0_10px_24px_rgba(4,84,59,0.24)] disabled:bg-[#B9C8C2] disabled:shadow-none active:scale-[0.985] transition-all"
             >
               {placing ? (
-                <span className="flex items-center justify-center gap-2 text-[12px] font-extrabold">
+                <span className="flex items-center justify-center gap-2 text-[13px] font-extrabold">
                   <Loader2 size={16} className="animate-spin" />
-                  Processing securely...
+                  Processing...
                 </span>
               ) : (
-                <span className="flex items-center justify-between gap-2">
-                  <span className="text-[12px] font-extrabold">Place Order</span>
-                  <span className="rounded-[9px] bg-white/15 px-2.5 py-1.5 text-[11px] font-extrabold">
-                    {paymentMethod === 'razorpay' && !isFullWalletPayment ? 'Pay' : 'Continue'}
-                  </span>
+                <span className="flex items-center justify-center gap-2 text-[14px] font-extrabold tracking-[-0.01em]">
+                  Place Order
+                  <span className="opacity-60">•</span>
+                  <span>₹{remainingPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </span>
               )}
             </button>
@@ -1056,9 +1057,9 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
 function SectionTitle({ title, noMargin = false }: { title: string; noMargin?: boolean }) {
   return (
-    <div className={`${noMargin ? '' : 'mb-2.5'} flex items-center gap-2`}>
-      <span className="h-5 w-1 rounded-full bg-[#0A8F58]" />
-      <h2 className="text-[14px] font-extrabold tracking-[-0.02em] text-[#172536]">{title}</h2>
+    <div className={`${noMargin ? '' : 'mb-2.5'} flex items-center gap-2.5`}>
+      <span className="h-5 w-1 rounded-full bg-[#0A8F58] shadow-[0_2px_7px_rgba(10,143,88,0.20)]" />
+      <h2 className="text-[14px] font-black tracking-[-0.025em] text-[#172536]">{title}</h2>
     </div>
   );
 }

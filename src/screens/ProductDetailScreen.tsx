@@ -51,7 +51,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
   
-  // Delivery config state (Updated to match database schema)
+  // Delivery config state
   const [deliveryConfig, setDeliveryConfig] = useState<{ max_order_value: string | null; estimated_time?: string } | null>(null);
 
   const touchStartX = useRef<number | null>(null);
@@ -61,19 +61,43 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
 
   const { primaryColor = '#02402c' } = theme;
 
-  // Fetch Delivery Config
+  // Corrected Delivery Config Fetch
   useEffect(() => {
-    supabase
-      .from('delivery_charges')
-      .select('max_order_value, estimated_time')
-      .order('idx', { ascending: true }) // Gets the first tier where the threshold is defined
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setDeliveryConfig(data);
-        }
-      });
+    let active = true;
+    
+    const fetchDelivery = async () => {
+      const { data, error } = await supabase
+        .from('delivery_charges')
+        .select('max_order_value, estimated_time')
+        .eq('is_active', true)
+        .order('idx', { ascending: true }); // Fetch ALL active tiers
+
+      if (error) {
+        console.error("Delivery Config Error:", error);
+        return;
+      }
+
+      if (data && data.length > 0 && active) {
+        // 1. Find the first tier that actually has an estimated time string
+        const timeTier = data.find((d) => d.estimated_time && d.estimated_time.trim() !== '');
+        const estTime = timeTier ? timeTier.estimated_time.trim() : undefined;
+
+        // 2. The free delivery threshold is dictated by the LAST tier
+        const lastTier = data[data.length - 1];
+        const freeThreshold = lastTier.max_order_value; // Null = no free delivery, Value = free above this value
+
+        setDeliveryConfig({
+          estimated_time: estTime,
+          max_order_value: freeThreshold,
+        });
+      }
+    };
+
+    fetchDelivery();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -455,7 +479,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
               </p>
               
               {/* Free Delivery Threshold Check */}
-              {deliveryConfig?.max_order_value !== null && deliveryConfig?.max_order_value !== undefined && (
+              {deliveryConfig?.max_order_value && (
                 <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-slate-100">
                   <Sparkles size={14} className={!product.inStock ? 'text-slate-400' : 'text-amber-500'} />
                   <p className={`text-[11px] font-semibold ${!product.inStock ? 'text-slate-400' : 'text-slate-600'}`}>

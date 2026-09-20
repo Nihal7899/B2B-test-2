@@ -1,3 +1,4 @@
+// src/screens/ProductDetailScreen.tsx
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
@@ -51,7 +52,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
   
   // Delivery config state
-  const [deliveryConfig, setDeliveryConfig] = useState<{ max_order_value: number | null; estimated_time?: string } | null>(null);
+  const [deliveryConfig, setDeliveryConfig] = useState<{ free_delivery_threshold: number | null; estimated_time?: string } | null>(null);
 
   const touchStartX = useRef<number | null>(null);
   const touchDeltaX = useRef<number>(0);
@@ -60,16 +61,15 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
 
   const { primaryColor = '#02402c' } = theme;
 
-  // Corrected Delivery Config Fetch
+  // --- Strict Delivery Config Fetch ---
   useEffect(() => {
     let active = true;
     
     const fetchDelivery = async () => {
       const { data, error } = await supabase
         .from('delivery_charges')
-        .select('min_order_value, charge, estimated_time')
-        .eq('is_active', true)
-        .order('min_order_value', { ascending: true }); // Properly order by minimum order value
+        .select('min_order_value, max_order_value, charge, estimated_time')
+        .eq('is_active', true);
 
       if (error) {
         console.error("Delivery Config Error:", error);
@@ -77,17 +77,30 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
       }
 
       if (data && data.length > 0 && active) {
-        // Find the first tier with a valid estimated time string
-        const timeTier = data.find((d) => d.estimated_time && d.estimated_time.trim() !== '');
+        // Sort tiers treating null min_order_value as 0
+        const sortedTiers = data.sort((a, b) => (Number(a.min_order_value) || 0) - (Number(b.min_order_value) || 0));
+
+        // Find Estimated Time
+        const timeTier = sortedTiers.find((d) => d.estimated_time && d.estimated_time.trim() !== '');
         const estTime = timeTier ? timeTier.estimated_time.trim() : undefined;
 
-        // Find the tier where charge is 0 to determine the free delivery threshold
-        const freeTier = data.find((d) => Number(d.charge) === 0);
-        const freeThreshold = freeTier ? freeTier.min_order_value : null;
+        // Find Free Delivery Threshold
+        let freeThreshold: number | null = null;
+        
+        const freeTier = sortedTiers.find((d) => Number(d.charge) === 0);
+        if (freeTier) {
+          freeThreshold = Number(freeTier.min_order_value) || 0;
+        } else {
+          const lastTier = sortedTiers[sortedTiers.length - 1];
+          // STRICT CHECK: If max_order_value is actual null, string "null", or empty, this safely skips and leaves freeThreshold as null
+          if (lastTier.max_order_value && String(lastTier.max_order_value).toLowerCase() !== 'null') {
+            freeThreshold = Number(lastTier.max_order_value);
+          }
+        }
 
         setDeliveryConfig({
           estimated_time: estTime,
-          max_order_value: freeThreshold,
+          free_delivery_threshold: freeThreshold,
         });
       }
     };
@@ -98,6 +111,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
       active = false;
     };
   }, []);
+  // ------------------------------------
 
   useEffect(() => {
     const handleScroll = () => {
@@ -453,7 +467,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           </div>
         )}
 
-        {/* Beautiful Express Delivery Block */}
         <div className={`mt-4 rounded-2xl p-4 border transition-all ${!product.inStock ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200 shadow-sm'}`}>
           <div className="flex items-start gap-3">
             <div className={`p-2.5 rounded-2xl ${!product.inStock ? 'bg-slate-200 text-slate-400' : ''}`} style={product.inStock ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : undefined}>
@@ -475,12 +488,12 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
                 Delivery in <span className={!product.inStock ? '' : 'text-slate-900 font-black'}>{deliveryConfig?.estimated_time || '45 - 60 minutes'}</span>
               </p>
               
-              {/* Free Delivery Threshold Check */}
-              {deliveryConfig?.max_order_value != null && (
+              {/* STRICT Type Check ensures it only renders if there's a valid integer threshold */}
+              {typeof deliveryConfig?.free_delivery_threshold === 'number' && deliveryConfig.free_delivery_threshold > 0 && (
                 <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-slate-100">
                   <Sparkles size={14} className={!product.inStock ? 'text-slate-400' : 'text-amber-500'} />
                   <p className={`text-[11px] font-semibold ${!product.inStock ? 'text-slate-400' : 'text-slate-600'}`}>
-                    Free delivery on orders above <span className="font-bold text-slate-900">₹{deliveryConfig.max_order_value}</span>
+                    Free delivery on orders above <span className="font-bold text-slate-900">₹{deliveryConfig.free_delivery_threshold.toLocaleString('en-IN')}</span>
                   </p>
                 </div>
               )}

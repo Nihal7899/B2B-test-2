@@ -94,8 +94,9 @@ const ExpressModeIcon = ({ active }: { active: boolean }) => {
   );
 };
 
+// Pure White Map Pin
 const SolidMapPin = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="#ffffff" xmlns="http://www.w3.org/2000/svg" className="shrink-0 text-white">
     <path fillRule="evenodd" clipRule="evenodd" d="M12 22C12 22 20 14.4183 20 10C20 5.58172 16.4183 2 12 2C7.58172 2 4 5.58172 4 10C4 14.4183 12 22 12 22ZM12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z" />
   </svg>
 );
@@ -536,10 +537,10 @@ export function HomeScreen({
   );
   const handleGetQuantity = useCallback((id: string) => cart.getQuantity(id), [cart]);
 
+  // Shows address line 1 with fallback to city
   const locationText = useMemo(() => {
-    if (!address) return 'Business - Talapady'; 
-    if (address.label && address.city) return `${address.label} - ${address.city}`;
-    return address.city || address.line1;
+    if (!address) return 'Baithu riha periera moola hosangadi,...'; 
+    return address.line1 || address.city || 'Choose location';
   }, [address]);
 
   const getSlotBanners = useCallback(
@@ -592,10 +593,10 @@ export function HomeScreen({
             </button>
           </div>
 
-          {/* Reduced Height Location Bar Pill */}
+          {/* Location Bar Pill with Address line 1 and white pin */}
           <button
             onClick={() => navigate('/addresses')}
-            className="flex items-center gap-2.5 rounded-full border border-white px-3.5 py-2.5 w-full"
+            className="flex items-center gap-2.5 rounded-full border border-white px-3.5 py-2.5 w-full text-white overflow-hidden"
           >
             <SolidMapPin />
             <span className="text-[14px] font-medium text-white truncate flex-1 text-left tracking-wide">
@@ -952,7 +953,7 @@ export function HomeScreen({
             
             <div className="px-6 pb-4 flex flex-col items-center text-center">
               <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
-                <MapPin size={32} strokeWidth={2} />
+                <SolidMapPin />
               </div>
               <h2 className="text-xl font-black text-slate-900 mb-2">Enable Location</h2>
               <p className="text-sm text-slate-500 mb-8 max-w-[280px]">

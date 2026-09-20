@@ -51,8 +51,8 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
   
-  // Delivery config state
-  const [deliveryConfig, setDeliveryConfig] = useState<{ max_value: number | null; estimated_time?: string } | null>(null);
+  // Delivery config state (Updated to match database schema)
+  const [deliveryConfig, setDeliveryConfig] = useState<{ max_order_value: string | null; estimated_time?: string } | null>(null);
 
   const touchStartX = useRef<number | null>(null);
   const touchDeltaX = useRef<number>(0);
@@ -65,7 +65,8 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   useEffect(() => {
     supabase
       .from('delivery_charges')
-      .select('*')
+      .select('max_order_value, estimated_time')
+      .order('idx', { ascending: true }) // Gets the first tier where the threshold is defined
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
@@ -453,11 +454,12 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
                 Delivery in <span className={!product.inStock ? '' : 'text-slate-900 font-black'}>{deliveryConfig?.estimated_time || '45 - 60 minutes'}</span>
               </p>
               
-              {deliveryConfig?.max_value !== null && deliveryConfig?.max_value !== undefined && (
+              {/* Free Delivery Threshold Check */}
+              {deliveryConfig?.max_order_value !== null && deliveryConfig?.max_order_value !== undefined && (
                 <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-slate-100">
                   <Sparkles size={14} className={!product.inStock ? 'text-slate-400' : 'text-amber-500'} />
                   <p className={`text-[11px] font-semibold ${!product.inStock ? 'text-slate-400' : 'text-slate-600'}`}>
-                    Free delivery on orders above <span className="font-bold text-slate-900">₹{deliveryConfig.max_value}</span>
+                    Free delivery on orders above <span className="font-bold text-slate-900">₹{deliveryConfig.max_order_value}</span>
                   </p>
                 </div>
               )}

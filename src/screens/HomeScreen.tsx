@@ -179,6 +179,24 @@ export function HomeScreen({
   const navigate = useNavigate();
   const cart = useCart();
 
+  // --- Wishlist Management ---
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('b2b_wishlist') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const handleWishlistToggle = useCallback((id: string) => {
+    setWishlist((prev) => {
+      const next = prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id];
+      localStorage.setItem('b2b_wishlist', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+  // ---------------------------
+
   const initialCache = useMemo(() => {
     return (
       getHomeDataSync() ||
@@ -726,6 +744,8 @@ export function HomeScreen({
                   onDecrement={handleDecrement}
                   onProductClick={onProduct}
                   onViewAll={onViewAll}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
                 />
               ) : null;
 
@@ -743,6 +763,8 @@ export function HomeScreen({
                   onDecrement={handleDecrement}
                   onProductClick={onProduct}
                   onViewAll={onViewAll}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
                 />
               ) : null;
 
@@ -760,6 +782,8 @@ export function HomeScreen({
                   onDecrement={handleDecrement}
                   onProductClick={onProduct}
                   onViewAll={onViewAll}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
                 />
               ) : null;
 
@@ -777,6 +801,8 @@ export function HomeScreen({
                   onDecrement={handleDecrement}
                   onProductClick={onProduct}
                   onViewAll={onViewAll}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
                 />
               ) : null;
 
@@ -794,6 +820,8 @@ export function HomeScreen({
                   onDecrement={handleDecrement}
                   onProductClick={onProduct}
                   onViewAll={onViewAll}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
                 />
               ) : null;
 
@@ -811,6 +839,8 @@ export function HomeScreen({
                   onDecrement={handleDecrement}
                   onProductClick={onProduct}
                   onViewAll={onViewAll}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
                 />
               ) : null;
 
@@ -828,6 +858,8 @@ export function HomeScreen({
                   onDecrement={handleDecrement}
                   onProductClick={onProduct}
                   onViewAll={onViewAll}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
                 />
               ) : null;
 
@@ -845,6 +877,8 @@ export function HomeScreen({
                   onDecrement={handleDecrement}
                   onProductClick={onProduct}
                   onViewAll={onViewAll}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
                 />
               ) : null;
 
@@ -862,6 +896,8 @@ export function HomeScreen({
                   onDecrement={handleDecrement}
                   onProductClick={onProduct}
                   onViewAll={onViewAll}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
                 />
               ) : null;
 
@@ -879,6 +915,8 @@ export function HomeScreen({
                   onDecrement={handleDecrement}
                   onProductClick={onProduct}
                   onViewAll={onViewAll}
+                  wishlist={wishlist}
+                  onWishlistToggle={handleWishlistToggle}
                 />
               ) : null;
 

@@ -809,6 +809,7 @@ function App() {
           screen !== 'search' &&
           screen !== 'product' &&
           screen !== 'cart' &&
+          screen !== 'checkout' &&   // <-- add this
           screen !== 'warehouse' &&
           screen !== 'investor' &&
           screen !== 'delivery' &&

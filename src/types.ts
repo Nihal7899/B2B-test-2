@@ -60,6 +60,7 @@ export interface DeliveryCharge {
   min_order_value: number | null;
   max_order_value: number | null;
   charge: number;
+  estimated_time: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;

@@ -224,6 +224,10 @@ function App() {
 
   useEffect(() => {
     let active = true;
+
+    // 1. Exit immediately if running in a web browser
+    if (!Capacitor.isNativePlatform()) return;
+
     const checkAppVersion = async () => {
       try {
         const { data, error } = await supabase
@@ -298,15 +302,18 @@ function App() {
   const isInvestor = role === 'investor';
   const isDedicatedStaff = isDeliveryPartner || isWarehouseManager;
 
+  // --- ZOMATO-STYLE CONTINUOUS FOREGROUND GPS STREAM ---
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || !user || isDedicatedStaff) return;
 
+    // Start continuous hardware watch
     void startContinuousLocationWatch();
 
     return () => {
       void stopContinuousLocationWatch();
     };
   }, [user, isDedicatedStaff]);
+  // -----------------------------------------------------
 
   const deliveryTab = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -426,11 +433,11 @@ function App() {
     screen === 'brand' ||
     screen === 'search' ||
     screen === 'product' ||
-    screen === 'investor';
+    screen === 'investor'; 
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product', 'investor'];
+    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product', 'investor']; 
     const isDarkBg = darkHeaderScreens.includes(screen);
     setFullScreenSystemBars(!isDarkBg);
   }, [screen]);
@@ -778,7 +785,6 @@ function App() {
         }`}
       >
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
-          {/* Back button disabled when forced update is active */}
           <BackButtonHandler disableBack={isDedicatedStaff || needsForceUpdate} />
           
           {isHomeReady && (
@@ -824,7 +830,6 @@ function App() {
           />
         )}
 
-        {/* Splash screen has z-[9999], once onFinish triggers, the update modal displays immediately */}
         {showSplash && (
           <SplashScreen
             isReady={isHomeReady}

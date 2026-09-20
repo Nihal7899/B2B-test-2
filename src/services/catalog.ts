@@ -1332,30 +1332,21 @@ export async function deleteDeliveryCharge(id: string): Promise<void> {
 export async function getDeliveryCharge(
   pincode: string,
   subtotal: number
-): Promise<{ charge: number; zoneId?: string }> {
-  console.log('[getDeliveryCharge] Calling RPC with:', { pincode, subtotal });
+): Promise<{ charge: number; zoneId?: string; estimatedTime?: string }> {
   const { data, error } = await supabase.rpc('get_delivery_charge', {
     p_pincode: pincode,
     p_subtotal: subtotal,
   });
 
-  console.log('[getDeliveryCharge] RPC response:', { data, error });
-
-  if (error) {
-    console.error('[getDeliveryCharge] RPC error:', error);
-    return { charge: 0 };
-  }
-
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    console.warn('[getDeliveryCharge] No charge returned');
+  if (error || !data || !Array.isArray(data) || data.length === 0) {
     return { charge: 0 };
   }
 
   const firstRow = data[0];
-  console.log('[getDeliveryCharge] Final charge:', firstRow.charge);
   return {
     charge: firstRow.charge,
     zoneId: firstRow.zone_id,
+    estimatedTime: firstRow.estimated_time,   // ← add this
   };
 }
 

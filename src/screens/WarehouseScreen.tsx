@@ -2679,17 +2679,20 @@ const handleScanSaveStock = async () => {
           }}
         />
       )}
-      {/* Floating: Scan barcode to update stock */}
-      <button
-        onClick={() => {
-          resetScanFlow();
-          setScanStockOpen(true);
-        }}
-        className="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-40 h-14 w-14 rounded-full bg-[#0a382c] text-[#59D9B6] shadow-2xl border border-emerald-500/40 flex items-center justify-center hover:bg-[#082d23] active:scale-95 transition"
-        title="Scan barcode to update stock"
-      >
-        <ScanLine size={22} />
-      </button>
+      
+      {/* Floating: Scan barcode to update stock — only visible in Inventory & Low Stock tabs */}
+      {(activeTab === 'inventory' || activeTab === 'low_stock') && (
+        <button
+          onClick={() => {
+            resetScanFlow();
+            setScanStockOpen(true);
+          }}
+          className="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-40 h-14 w-14 rounded-full bg-[#0a382c] text-[#59D9B6] shadow-2xl border border-emerald-500/40 flex items-center justify-center hover:bg-[#082d23] active:scale-95 transition"
+          title="Scan barcode to update stock"
+        >
+          <ScanLine size={22} />
+        </button>
+      )}
 
       <StaffRegistrationModal isOpen={isStaffUnregistered} />
     </div>

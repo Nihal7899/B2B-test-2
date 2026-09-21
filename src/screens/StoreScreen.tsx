@@ -224,7 +224,7 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
   };
 
   if (loading || !config) return           <AppLoader fullScreen="{false}" showStatus="{true}" size="md" type="general"/>
-  if (productsLoading) return <StoreSkeleton />;
+
 
   const activeCategories = categories.filter((cat: any) =>
     products.some((p) => cat.productIds.includes(p.id))

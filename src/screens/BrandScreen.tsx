@@ -8,7 +8,7 @@ import { ProductCard } from '@/components/ProductCard';
 import { useCart } from '@/store';
 import { getStoreIcon } from '@/data/storeIcons';
 import { CachedImage } from '@/components/CachedImage';
-
+import { AppLoader } from '@/components/AppLoader';
 function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {
   if (iconName?.startsWith('http') || iconName?.startsWith('data:')) {
     // Replaced raw <img> with CachedImage
@@ -209,9 +209,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   if (loading || !brand) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh] safe-top safe-bottom">
-        <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
-      </div>
+          <AppLoader fullScreen="{false}" showStatus="{true}" size="md" type="general"/>
     );
   }
 

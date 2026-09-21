@@ -15,8 +15,6 @@ import {
   AlertCircle,
   AlertOctagon,
   Building2,
-  PhoneCall,
-  Navigation,
   Receipt,
   FileText,
 } from 'lucide-react';
@@ -61,51 +59,61 @@ type OrderWithSnapshots = DbOrder & {
 
 const STATUS_META: Record<
   string,
-  { label: string; badge: string; dot: string; icon: typeof Clock }
+  { label: string; badge: string; dot: string; icon: typeof Clock; hero: string }
 > = {
   pending: {
     label: 'Placed',
     badge: 'bg-amber-50 text-amber-800 border-amber-200',
     dot: 'bg-amber-500',
     icon: Clock,
+    hero: 'Order received',
   },
   confirmed: {
     label: 'Confirmed',
     badge: 'bg-blue-50 text-blue-800 border-blue-200',
     dot: 'bg-blue-500',
     icon: Package,
+    hero: 'Getting ready',
   },
   packed: {
     label: 'Packed',
     badge: 'bg-purple-50 text-purple-800 border-purple-200',
     dot: 'bg-purple-500',
     icon: Package,
+    hero: 'Packed & staged',
   },
   ready_for_pickup: {
     label: 'Ready for Pickup',
     badge: 'bg-indigo-50 text-indigo-800 border-indigo-200',
     dot: 'bg-indigo-500',
     icon: Package,
+    hero: 'Awaiting pickup',
   },
   out_for_delivery: {
     label: 'Out for Delivery',
     badge: 'bg-sky-50 text-sky-800 border-sky-200',
     dot: 'bg-sky-500',
     icon: Truck,
+    hero: 'On the way',
   },
   delivered: {
     label: 'Delivered',
     badge: 'bg-emerald-50 text-emerald-800 border-emerald-200',
     dot: 'bg-emerald-500',
     icon: CheckCircle2,
+    hero: 'Delivered',
   },
   cancelled: {
     label: 'Cancelled',
     badge: 'bg-red-50 text-red-800 border-red-200',
     dot: 'bg-red-500',
     icon: XCircle,
+    hero: 'Cancelled',
   },
 };
+
+const formatMoney = (n: number) =>
+  `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
   const [order, setOrder] = useState<OrderWithSnapshots | null>(null);
@@ -137,15 +145,11 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         setOrder(dbOrder);
         setItems(orderData.items);
 
-        // Delivery address: snapshot first, live address as fallback for legacy orders
         const dSnap = dbOrder.delivery_address_snapshot as DbAddress | null | undefined;
         const resolvedDelivery =
-          dSnap && dSnap.recipient_name
-            ? dSnap
-            : orderData.address ?? null;
+          dSnap && dSnap.recipient_name ? dSnap : orderData.address ?? null;
         setDeliveryAddress(resolvedDelivery);
 
-        // Billing address: snapshot first, otherwise null
         const bSnap = dbOrder.billing_address_snapshot as BillingSnapshot | null | undefined;
         const hasBillingData =
           bSnap &&
@@ -271,8 +275,14 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
       ].filter((p): p is string => !!p && p.trim().length > 0)
     : [];
 
+  const paymentHeadline = isCancelled
+    ? 'Refunded'
+    : paymentSummary.isFullyPaid
+    ? 'Fully Paid'
+    : 'Pay on Delivery';
+
   return (
-    <div className="safe-top px-4 pb-8 space-y-3 max-w-lg mx-auto">
+    <div className="safe-top pt-1 px-4 pb-8 space-y-3 max-w-lg mx-auto">
       {/* ─── Header row ───────────────────────────────────────────── */}
       <div className="flex items-start gap-3">
         <button
@@ -303,22 +313,18 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
       </div>
 
       {/* ─── Hero summary card ────────────────────────────────────── */}
-      <div className="rounded-3xl bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 p-5 text-white shadow-lg relative overflow-hidden">
-        <div className="relative z-10 flex items-center justify-between gap-3">
+      <div className="rounded-3xl bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 p-5 text-white shadow-lg shadow-brand-900/10 relative overflow-hidden">
+        <div className="relative z-10 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-wider text-brand-200">
               Total Order Value
             </p>
-            <p className="text-2xl font-black tracking-tight mt-1">
-              ₹
-              {Number(order.total).toLocaleString('en-IN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+            <p className="text-3xl font-black tracking-tight mt-1 leading-none">
+              {formatMoney(Number(order.total) || 0)}
             </p>
-            <p className="text-[10px] text-brand-300 mt-1 flex items-center gap-1">
-              <StatusIcon size={11} className="shrink-0" />
-              {isCancelled ? 'Void order — no delivery' : statusMeta.label}
+            <p className="text-[11px] text-brand-200 mt-2 flex items-center gap-1.5 font-semibold">
+              <StatusIcon size={12} className="shrink-0" />
+              {isCancelled ? 'Void order — no delivery' : statusMeta.hero}
             </p>
           </div>
 
@@ -326,25 +332,17 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             <p className="text-[10px] font-black uppercase tracking-wider text-brand-200">
               Payment
             </p>
-            <p className="text-sm font-black mt-1">
-              {isCancelled
-                ? 'Refunded'
-                : paymentSummary.isFullyPaid
-                ? 'Fully Paid'
-                : 'COD Pending'}
-            </p>
+            <p className="text-sm font-black mt-1">{paymentHeadline}</p>
             {!isCancelled && paymentSummary.amountToCollect > 0 && (
-              <p className="text-[10px] text-brand-300 mt-1">
-                Collect ₹
-                {paymentSummary.amountToCollect.toLocaleString('en-IN', {
-                  minimumFractionDigits: 2,
-                })}
+              <p className="text-[10px] text-brand-300 mt-1 font-semibold">
+                Pay {formatMoney(paymentSummary.amountToCollect)} on delivery
               </p>
             )}
           </div>
         </div>
 
-        <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-brand-600/30 blur-2xl pointer-events-none" />
+        <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-brand-500/25 blur-2xl pointer-events-none" />
+        <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-brand-700/30 blur-2xl pointer-events-none" />
       </div>
 
       {/* ─── Status timeline OR cancelled alert ───────────────────── */}
@@ -450,7 +448,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                 >
                   {paymentSummary.isFullyPaid
                     ? 'Payment Complete'
-                    : 'Cash to Pay on Delivery'}
+                    : 'Payment Due on Delivery'}
                 </p>
                 <p
                   className={`text-[11px] mt-0.5 ${
@@ -459,7 +457,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                 >
                   {paymentSummary.isFullyPaid
                     ? 'All dues settled for this order'
-                    : 'Pay the remaining balance upon receiving your delivery'}
+                    : 'Keep the exact amount ready for the delivery partner'}
                 </p>
               </div>
             </div>
@@ -470,9 +468,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             >
               {paymentSummary.isFullyPaid
                 ? '₹0.00'
-                : `₹${paymentSummary.amountToCollect.toLocaleString('en-IN', {
-                    minimumFractionDigits: 2,
-                  })}`}
+                : formatMoney(paymentSummary.amountToCollect)}
             </p>
           </div>
         </section>
@@ -539,33 +535,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
               {deliveryAddress.city}, {deliveryAddress.state} -{' '}
               {deliveryAddress.postal_code}
             </p>
-            {deliveryAddress.phone && (
-              <p className="text-xs text-ink-400 mt-1 flex items-center gap-1.5">
-                <PhoneCall size={11} className="shrink-0" />
-                {deliveryAddress.phone}
-              </p>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-dashed border-ink-100">
-            {deliveryAddress.phone && (
-              <a
-                href={`tel:${deliveryAddress.phone}`}
-                className="flex-1 h-9 rounded-full bg-brand-50 hover:bg-brand-100 border border-brand-200 text-brand-800 text-[11px] font-black flex items-center justify-center gap-1.5 active:scale-[0.98] transition"
-              >
-                <PhoneCall size={12} /> Call
-              </a>
-            )}
-            {deliveryAddress.latitude != null && deliveryAddress.longitude != null && (
-              <a
-                href={`https://www.google.com/maps?q=${deliveryAddress.latitude},${deliveryAddress.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 h-9 rounded-full bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-800 text-[11px] font-black flex items-center justify-center gap-1.5 active:scale-[0.98] transition"
-              >
-                <Navigation size={12} /> Navigate
-              </a>
-            )}
           </div>
         </section>
       )}
@@ -674,10 +643,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           <div className="border-t border-dashed border-ink-200 mt-2 pt-2.5 flex justify-between items-baseline">
             <span className="text-sm font-black text-ink-900">Total Order Value</span>
             <span className="text-lg font-black text-ink-900 tracking-tight">
-              ₹
-              {Number(order.total).toLocaleString('en-IN', {
-                minimumFractionDigits: 2,
-              })}
+              {formatMoney(Number(order.total) || 0)}
             </span>
           </div>
         </div>
@@ -696,12 +662,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                 <span className="flex items-center gap-1.5">
                   <Wallet size={13} /> Paid via Wallet
                 </span>
-                <span>
-                  - ₹
-                  {paymentSummary.walletPaid.toLocaleString('en-IN', {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
+                <span>- {formatMoney(paymentSummary.walletPaid)}</span>
               </div>
             )}
 
@@ -710,40 +671,25 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                 <span className="flex items-center gap-1.5">
                   <CreditCard size={13} /> Paid Online (Razorpay)
                 </span>
-                <span>
-                  - ₹
-                  {paymentSummary.onlinePaid.toLocaleString('en-IN', {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
+                <span>- {formatMoney(paymentSummary.onlinePaid)}</span>
               </div>
             )}
 
             {paymentSummary.codPaid > 0 && (
               <div className="flex justify-between text-xs text-emerald-700 font-bold items-center bg-emerald-50/60 border border-emerald-100 rounded-xl px-3 py-2">
                 <span className="flex items-center gap-1.5">
-                  <Banknote size={13} /> COD Settled
+                  <Banknote size={13} /> Paid on Delivery
                 </span>
-                <span>
-                  - ₹
-                  {paymentSummary.codPaid.toLocaleString('en-IN', {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
+                <span>- {formatMoney(paymentSummary.codPaid)}</span>
               </div>
             )}
 
             {!isCancelled && !paymentSummary.isFullyPaid && (
               <div className="flex justify-between text-xs text-amber-800 font-black items-center bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                 <span className="flex items-center gap-1.5">
-                  <Banknote size={13} /> Balance Due (COD)
+                  <Banknote size={13} /> Pay on Delivery
                 </span>
-                <span>
-                  ₹
-                  {paymentSummary.amountToCollect.toLocaleString('en-IN', {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
+                <span>{formatMoney(paymentSummary.amountToCollect)}</span>
               </div>
             )}
           </div>
@@ -768,10 +714,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                     </span>
                   </div>
                   <span className="text-xs font-black text-emerald-700 shrink-0">
-                    + ₹
-                    {paymentSummary.walletRefunded.toLocaleString('en-IN', {
-                      minimumFractionDigits: 2,
-                    })}
+                    + {formatMoney(paymentSummary.walletRefunded)}
                   </span>
                 </div>
               )}
@@ -787,10 +730,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                     </span>
                   </div>
                   <span className="text-xs font-black text-blue-700 shrink-0">
-                    + ₹
-                    {paymentSummary.onlineRefunded.toLocaleString('en-IN', {
-                      minimumFractionDigits: 2,
-                    })}
+                    + {formatMoney(paymentSummary.onlineRefunded)}
                   </span>
                 </div>
               )}

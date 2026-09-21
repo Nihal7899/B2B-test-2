@@ -313,15 +313,22 @@ function ProductForm({
   const checkBarcodeAvailable = async (code: string): Promise<boolean> => {
     const trimmed = code.trim();
     if (!trimmed) return true;
+  
     let query = supabase
       .from('products')
-      .select('id')
+      .select('id', { count: 'exact', head: true })
       .eq('barcode', trimmed);
+  
     if (initial?.id) {
       query = query.neq('id', initial.id);
     }
-    const { data } = await query.maybeSingle();
-    return !data;
+  
+    const { count, error } = await query;
+  
+    // Fail open: if the check itself errors, let the DB constraint be the gatekeeper
+    if (error) return true;
+  
+    return (count ?? 0) === 0;
   };
 
   const handleSave = async () => {

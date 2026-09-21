@@ -83,7 +83,7 @@ function BottomSheet({
             <X size={16} className="text-slate-600" strokeWidth={2.5} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="flex-1 overflow-y-auto overscroll-contain safe-bottom pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
           {children}
         </div>
       </div>

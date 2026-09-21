@@ -230,10 +230,8 @@ function ProductForm({
     is_active: initial?.is_active ?? true,
     hsn_code: initial?.hsn_code ?? '',
     gst_percentage: initial?.gst_percentage ?? 0,
-    barcode: initial?.barcode ?? '',   // <-- NEW
+    barcode: initial?.barcode ?? '',
   });
-  
-  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);  // <-- NEW
 
   const [imageUrls, setImageUrls] = useState<string[]>(initialImageUrls);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -243,6 +241,8 @@ function ProductForm({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState('');
+
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
   useEffect(() => {
     if (!form.category_id) {
@@ -309,10 +309,34 @@ function ProductForm({
     }
   };
 
+  // (c) Live barcode availability pre-check
+  const checkBarcodeAvailable = async (code: string): Promise<boolean> => {
+    const trimmed = code.trim();
+    if (!trimmed) return true;
+    let query = supabase
+      .from('products')
+      .select('id')
+      .eq('barcode', trimmed);
+    if (initial?.id) {
+      query = query.neq('id', initial.id);
+    }
+    const { data } = await query.maybeSingle();
+    return !data;
+  };
+
   const handleSave = async () => {
     if (!form.name || !form.slug || !form.brand || !form.category_id) {
       addToast('Name, slug, brand, and category are required', 'warning');
       return;
+    }
+
+    // (c) Pre-check barcode uniqueness before we touch the network with the actual insert
+    if (form.barcode?.trim()) {
+      const available = await checkBarcodeAvailable(form.barcode);
+      if (!available) {
+        addToast('This barcode is already assigned to another product.', 'error');
+        return;
+      }
     }
 
     setSaving(true);
@@ -356,19 +380,47 @@ function ProductForm({
         await deleteProductImage(url);
       }
 
+      // (a) Normalize empty barcode → NULL
+      const trimmedBarcode = form.barcode?.trim() ?? '';
       const mainImage = finalImageUrls.length ? finalImageUrls[0] : '';
       const payload = {
         ...form,
+        barcode: trimmedBarcode ? trimmedBarcode : null,
         image_url: mainImage,
         image_urls: finalImageUrls,
         stock_threshold: form.stock_threshold,
       };
 
+      // (b) Handle unique-violation errors gracefully with a toast
+      let dbError: { code?: string; message?: string } | null = null;
+
       if (initial) {
-        await supabase.from('products').update(payload).eq('id', initial.id);
+        const { error } = await supabase
+          .from('products')
+          .update(payload)
+          .eq('id', initial.id);
+        dbError = error;
       } else {
-        await supabase.from('products').insert(payload);
+        const { error } = await supabase.from('products').insert(payload);
+        dbError = error;
       }
+
+      if (dbError) {
+        if (dbError.code === '23505') {
+          if (dbError.message?.toLowerCase().includes('barcode')) {
+            addToast('This barcode is already assigned to another product.', 'error');
+          } else if (dbError.message?.toLowerCase().includes('slug')) {
+            addToast('This slug is already in use. Try a different one.', 'error');
+          } else {
+            addToast('A duplicate value conflicts with an existing product.', 'error');
+          }
+          return;
+        }
+        console.error(dbError);
+        addToast('Failed to save product: ' + (dbError.message ?? 'Unknown error'), 'error');
+        return;
+      }
+
       onSaved();
     } catch (err) {
       console.error(err);
@@ -652,6 +704,7 @@ function ProductForm({
       >
         {saving ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save</>}
       </button>
+
       {showBarcodeScanner && (
         <BarcodeScanner
           title="Scan Product Barcode"
@@ -661,8 +714,7 @@ function ProductForm({
             setShowBarcodeScanner(false);
           }}
         />
-      )}     
-      
+      )}
     </div>
   );
 }

@@ -277,6 +277,13 @@ $function$;
 ALTER TABLE public.products
   ADD COLUMN IF NOT EXISTS barcode text;
 
-CREATE INDEX IF NOT EXISTS idx_products_barcode
+
+  
+  -- Drop any previous naive unique constraint if it exists
+ALTER TABLE public.products
+  DROP CONSTRAINT IF EXISTS products_barcode_key;
+
+-- Partial unique index: only enforce uniqueness on meaningful barcodes
+CREATE UNIQUE INDEX IF NOT EXISTS products_barcode_unique
   ON public.products (barcode)
-  WHERE barcode IS NOT NULL;
+  WHERE barcode IS NOT NULL AND barcode <> '';

@@ -52,7 +52,7 @@ export interface DbProduct {
   hsn_code?: string;
   gst_percentage?: number;
   subcategory_id?: string;
-  barcode?: string;     // <-- NEW
+  barcode?: string | null;
 }
 
 export interface DbOrder {
@@ -174,7 +174,7 @@ export function mapProduct(db: DbProduct, categoryId: string, subcategory?: Subc
     subcategory_id: db.subcategory_id,
     subcategory,
     stock_threshold: db.stock_threshold ?? 0,
-    barcode: db.barcode ?? '',   // <-- NEW
+    barcode: db.barcode ?? '',   // normalize null → '' for the app
   };
 }
 

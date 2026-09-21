@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon, Search, ScanLine } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon, Search, ScanLine, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchSubcategories, fetchDistinctBrands, deleteProductImage } from '@/services/catalog';
 import type { DbCategory, DbProduct, Subcategory } from '@/types';
@@ -244,6 +244,13 @@ function ProductForm({
 
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
+  // --- Barcode inline validation state ---
+  const [barcodeError, setBarcodeError] = useState<string | null>(null);
+  const [barcodeChecking, setBarcodeChecking] = useState(false);
+  const barcodeCheckTimerRef = useRef<number | null>(null);
+  // Cache the last checked value so we don't re-hit the DB needlessly
+  const lastCheckedBarcodeRef = useRef<string>('');
+
   useEffect(() => {
     if (!form.category_id) {
       setSubcategories([]);
@@ -275,6 +282,65 @@ function ProductForm({
       }));
     }
   }, [form.name]);
+
+  // --- Debounced inline barcode duplicate check ---
+  useEffect(() => {
+    const trimmed = form.barcode?.trim() ?? '';
+
+    // Clear any pending timer
+    if (barcodeCheckTimerRef.current) {
+      window.clearTimeout(barcodeCheckTimerRef.current);
+      barcodeCheckTimerRef.current = null;
+    }
+
+    // Empty barcode → no error, no check
+    if (!trimmed) {
+      setBarcodeError(null);
+      setBarcodeChecking(false);
+      lastCheckedBarcodeRef.current = '';
+      return;
+    }
+
+    // Same value we already checked → skip
+    if (trimmed === lastCheckedBarcodeRef.current) return;
+
+    // Start debounce
+    setBarcodeChecking(true);
+    barcodeCheckTimerRef.current = window.setTimeout(async () => {
+      let query = supabase
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .eq('barcode', trimmed);
+
+      if (initial?.id) {
+        query = query.neq('id', initial.id);
+      }
+
+      const { count, error } = await query;
+
+      lastCheckedBarcodeRef.current = trimmed;
+      setBarcodeChecking(false);
+
+      if (error) {
+        // Fail open — do not block. DB unique index is still the gatekeeper.
+        setBarcodeError(null);
+        return;
+      }
+
+      if ((count ?? 0) > 0) {
+        setBarcodeError('This barcode is already assigned to another product.');
+      } else {
+        setBarcodeError(null);
+      }
+    }, 400);
+
+    return () => {
+      if (barcodeCheckTimerRef.current) {
+        window.clearTimeout(barcodeCheckTimerRef.current);
+        barcodeCheckTimerRef.current = null;
+      }
+    };
+  }, [form.barcode, initial?.id]);
 
   const handleBrandSelect = (brand: string) => {
     setBrandInput(brand);
@@ -309,38 +375,44 @@ function ProductForm({
     }
   };
 
-  // (c) Live barcode availability pre-check
+  // Authoritative check used at Save time — returns true if barcode is free (or empty)
   const checkBarcodeAvailable = async (code: string): Promise<boolean> => {
     const trimmed = code.trim();
     if (!trimmed) return true;
-  
+
     let query = supabase
       .from('products')
       .select('id', { count: 'exact', head: true })
       .eq('barcode', trimmed);
-  
+
     if (initial?.id) {
       query = query.neq('id', initial.id);
     }
-  
+
     const { count, error } = await query;
-  
-    // Fail open: if the check itself errors, let the DB constraint be the gatekeeper
+
+    // Fail open — let the DB constraint catch real duplicates
     if (error) return true;
-  
+
     return (count ?? 0) === 0;
   };
 
   const handleSave = async () => {
+    if (saving) return; // guard against double-tap
+
     if (!form.name || !form.slug || !form.brand || !form.category_id) {
       addToast('Name, slug, brand, and category are required', 'warning');
       return;
     }
 
-    // (c) Pre-check barcode uniqueness before we touch the network with the actual insert
+    // Pre-check barcode
     if (form.barcode?.trim()) {
+      setBarcodeChecking(true);
       const available = await checkBarcodeAvailable(form.barcode);
+      setBarcodeChecking(false);
+
       if (!available) {
+        setBarcodeError('This barcode is already assigned to another product.');
         addToast('This barcode is already assigned to another product.', 'error');
         return;
       }
@@ -387,7 +459,7 @@ function ProductForm({
         await deleteProductImage(url);
       }
 
-      // (a) Normalize empty barcode → NULL
+      // Normalize empty barcode → NULL
       const trimmedBarcode = form.barcode?.trim() ?? '';
       const mainImage = finalImageUrls.length ? finalImageUrls[0] : '';
       const payload = {
@@ -398,7 +470,6 @@ function ProductForm({
         stock_threshold: form.stock_threshold,
       };
 
-      // (b) Handle unique-violation errors gracefully with a toast
       let dbError: { code?: string; message?: string } | null = null;
 
       if (initial) {
@@ -415,6 +486,7 @@ function ProductForm({
       if (dbError) {
         if (dbError.code === '23505') {
           if (dbError.message?.toLowerCase().includes('barcode')) {
+            setBarcodeError('This barcode is already assigned to another product.');
             addToast('This barcode is already assigned to another product.', 'error');
           } else if (dbError.message?.toLowerCase().includes('slug')) {
             addToast('This slug is already in use. Try a different one.', 'error');
@@ -628,6 +700,7 @@ function ProductForm({
         </div>
       </div>
 
+      {/* Barcode with inline validation */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Barcode</label>
         <div className="flex gap-2">
@@ -636,7 +709,11 @@ function ProductForm({
             onChange={(e) => setForm({ ...form, barcode: e.target.value.trim() })}
             placeholder="e.g. 8901234567890"
             inputMode="numeric"
-            className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 font-mono"
+            className={`flex-1 h-10 rounded-xl border px-3 text-sm outline-none font-mono transition-colors ${
+              barcodeError
+                ? 'border-red-400 focus:border-red-500 bg-red-50/30'
+                : 'border-ink-200 focus:border-brand-500'
+            }`}
           />
           <button
             type="button"
@@ -646,9 +723,24 @@ function ProductForm({
             <ScanLine size={14} /> Scan
           </button>
         </div>
-        <p className="text-[10px] text-ink-400 mt-1">
-          Scan or enter the product's barcode / EAN / UPC. Optional.
-        </p>
+
+        {barcodeChecking && (
+          <p className="text-[10px] text-ink-400 mt-1 flex items-center gap-1">
+            <Loader2 size={11} className="animate-spin" /> Checking barcode…
+          </p>
+        )}
+
+        {!barcodeChecking && barcodeError && (
+          <p className="text-[11px] text-red-600 mt-1 flex items-center gap-1 font-semibold">
+            <AlertCircle size={12} /> {barcodeError}
+          </p>
+        )}
+
+        {!barcodeChecking && !barcodeError && (
+          <p className="text-[10px] text-ink-400 mt-1">
+            Scan or enter the product's barcode / EAN / UPC. Optional.
+          </p>
+        )}
       </div>
 
       <div>
@@ -706,8 +798,8 @@ function ProductForm({
 
       <button
         onClick={handleSave}
-        disabled={saving}
-        className="w-full h-11 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
+        disabled={saving || !!barcodeError}
+        className="w-full h-11 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {saving ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save</>}
       </button>

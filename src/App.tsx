@@ -633,7 +633,7 @@ function App() {
         if (profile?.registration_status !== 'registered') {
           return (
             <BusinessRegistrationScreen
-              onBack={() => goTo('cart')}
+              onBack={() => navigate(-1)}
               onRegistered={handleBusinessRegistered}
             />
           );
@@ -641,11 +641,13 @@ function App() {
         return (
           <CheckoutScreen
             cart={cart}
-            onBack={() => goTo('cart')}
+            onBack={() => navigate(-1)}
             onOrderPlaced={openOrder}
-            onAddAddress={() => goTo('addresses')}
+            onAddAddress={() => navigate(pathFor('addresses', { from: 'checkout' }))} 
           />
         );
+
+
 
       case 'orderDetail': {
         const orderId = new URLSearchParams(location.search).get('id');
@@ -653,8 +655,21 @@ function App() {
         return <OrderDetailScreen orderId={orderId} onBack={() => goTo('orders')} />;
       }
 
-      case 'addresses':
-        return <AddressesScreen onBack={() => goTo('account')} onSaved={() => goTo('checkout')} />;
+      case 'addresses': {
+        const isFromCheckout = new URLSearchParams(location.search).get('from') === 'checkout';
+        return (
+          <AddressesScreen 
+            onBack={() => navigate(-1)} 
+            onSaved={() => {
+              if (isFromCheckout) {
+                navigate(-1); // Safely returns to checkout without creating a loop
+              }
+              // If not from checkout, do nothing (stays on the addresses screen)
+            }} 
+          />
+        );
+      }
+
 
       case 'wishlist':
         return <WishlistScreen cart={cart} onProduct={openProduct} onShop={() => goTo('home')} />;

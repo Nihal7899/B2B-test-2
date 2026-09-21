@@ -74,11 +74,11 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
-// --- Custom Premium SVGs (Animated) ---
+// --- Custom Premium SVGs ---
 const StandardModeIcon = ({ active }: { active: boolean }) => {
   const color = active ? "#02402c" : "#ffffff";
   return (
-    <svg width="18" height="16" viewBox="0 0 28 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="transition-all duration-300">
+    <svg width="18" height="16" viewBox="0 0 28 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M10 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <rect x="4" y="7" width="20" height="14" rx="3" stroke={color} strokeWidth="2" />
       <path d="M4 12h20 M12 12l2 2.5 2-2.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -89,10 +89,10 @@ const StandardModeIcon = ({ active }: { active: boolean }) => {
 const ExpressModeIcon = ({ active }: { active: boolean }) => {
   const color = active ? "#02402c" : "#ffffff";
   const cargoFill = active ? "#02402c" : "transparent";
-  const lightningColor = active ? "#eab308" : "#fde047"; 
+  const lightningColor = "#fde047"; 
   
   return (
-    <svg width="22" height="16" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="transition-all duration-300">
+    <svg width="22" height="16" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M5 14h4 M3 10h3 M4 18h2" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <path 
         d="M 11 18 V 6.5 A 2.5 2.5 0 0 1 13.5 4 H 20.5 A 2.5 2.5 0 0 1 23 6.5 V 18 H 18 A 3 3 0 0 0 12 18 H 11 Z" 
@@ -100,13 +100,8 @@ const ExpressModeIcon = ({ active }: { active: boolean }) => {
         stroke={color} 
         strokeWidth="2" 
         strokeLinejoin="round" 
-        className="transition-colors duration-300"
       />
-      <path 
-        d="M17 7l-2 5h2.5l-1 4 3-5h-2.5l1.5-4h-2z" 
-        fill={lightningColor} 
-        className={`transition-colors duration-300 ${active ? 'animate-pulse drop-shadow-sm' : ''}`}
-      />
+      <path d="M17 7l-2 5h2.5l-1 4 3-5h-2.5l1.5-4h-2z" fill={lightningColor} />
       <path 
         d="M 23 11 H 27 L 30.5 14.5 V 18 H 29 A 3 3 0 0 0 23 18 Z" 
         stroke={color} 
@@ -114,8 +109,8 @@ const ExpressModeIcon = ({ active }: { active: boolean }) => {
         strokeLinejoin="round" 
       />
       <path d="M23 11h2.5l2 2.5v1.5h-4.5v-4z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
-      <circle cx="15" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" className="transition-colors duration-300" />
-      <circle cx="26" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" className="transition-colors duration-300" />
+      <circle cx="15" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
+      <circle cx="26" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
     </svg>
   );
 };
@@ -170,6 +165,7 @@ function BottomSheet({
             <X size={16} className="text-slate-600" strokeWidth={2.5} />
           </button>
         </div>
+        {/* Added safe-bottom and extra bottom padding here */}
         <div className="flex-1 overflow-y-auto overscroll-contain safe-bottom pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
           {children}
         </div>
@@ -177,6 +173,7 @@ function BottomSheet({
     </div>
   );
 }
+
 // --------------------------------------
 
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
@@ -350,6 +347,29 @@ export function HomeScreen({
       console.warn('Failed to refresh addresses:', error);
     }
   }, []);
+  
+  const handleSelectAddress = async (addr: DbAddress) => {
+    // Optimistically update the UI and close the sheet
+    setSelectedAddr(addr.id);
+    setShowAddressSheet(false);
+
+    try {
+      // 1. Find the current default address and unset it
+      const currentDefault = addresses.find((a) => a.is_default);
+      if (currentDefault && currentDefault.id !== addr.id) {
+        await supabase.from('addresses').update({ is_default: false }).eq('id', currentDefault.id);
+      }
+      
+      // 2. Set the newly selected address as the default
+      await supabase.from('addresses').update({ is_default: true }).eq('id', addr.id);
+      
+      // 3. Refresh the address list in the background to sync state
+      void refreshAddresses();
+    } catch (err) {
+      console.error('Failed to set default address', err);
+    }
+  };
+
 
   // Initial load of addresses
   useEffect(() => {
@@ -726,7 +746,7 @@ export function HomeScreen({
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      {/* Top Header Row: Location & Animated Delivery Mode Buttons */}
+      {/* Top Header Row: 2-Row Location & Taller Delivery Mode Buttons */}
       <div className="bg-[#02402c] safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-3 flex items-center justify-between gap-3">
           
@@ -749,22 +769,14 @@ export function HomeScreen({
             </div>
           </button>
 
-          {/* Delivery Mode Buttons (Sliding Pill Animation) */}
-          <div className="relative flex items-center bg-[#012f20] p-1 rounded-xl shrink-0 overflow-hidden shadow-inner w-[164px]">
-            
-            {/* The Animated Sliding Background Pill */}
-            <div
-              className={`absolute top-1 bottom-1 w-[78px] bg-white rounded-[8px] shadow-sm transition-transform duration-300 ease-out ${
-                deliveryMode === 'express' ? 'translate-x-[78px]' : 'translate-x-0'
-              }`}
-            />
-
+          {/* Delivery Mode Buttons (Larger and protected from overflow) */}
+          <div className="flex items-center bg-white/10 p-1 rounded-xl shrink-0 gap-1 overflow-hidden">
             <button
               onClick={() => handleDeliveryModeToggle('standard')}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[8px] transition-all duration-300 min-h-[36px] active:scale-95 ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] transition-all duration-200 min-h-[36px] ${
                 deliveryMode === 'standard' 
-                  ? 'text-[#02402c]' 
-                  : 'text-white/80 hover:text-white'
+                  ? 'bg-white shadow-sm text-[#02402c]' 
+                  : 'text-white/90 hover:text-white'
               }`}
             >
               <StandardModeIcon active={deliveryMode === 'standard'} />
@@ -773,10 +785,10 @@ export function HomeScreen({
 
             <button
               onClick={() => handleDeliveryModeToggle('express')}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[8px] transition-all duration-300 min-h-[36px] active:scale-95 ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] transition-all duration-200 min-h-[36px] ${
                 deliveryMode === 'express' 
-                  ? 'text-[#02402c]' 
-                  : 'text-white/80 hover:text-white'
+                  ? 'bg-white shadow-sm text-[#02402c]' 
+                  : 'text-white/90 hover:text-white'
               }`}
             >
               <ExpressModeIcon active={deliveryMode === 'express'} />
@@ -1205,13 +1217,14 @@ export function HomeScreen({
             return (
               <button
                 key={addr.id}
-                onClick={() => { setSelectedAddr(addr.id); setShowAddressSheet(false); }}
+                onClick={() => void handleSelectAddress(addr)} // <-- Updated line
                 className={`w-full text-left p-3.5 rounded-2xl border-2 transition-all ${
                   isSel
                     ? 'border-[#02402c] bg-gradient-to-br from-[#02402c]/[0.04] to-transparent shadow-[0_6px_20px_-12px_rgba(2,64,44,0.4)]'
                     : 'border-slate-200 bg-white hover:border-slate-300'
                 }`}
               >
+
                 <div className="flex items-start gap-3">
                   <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
                     isSel ? 'bg-[#02402c] text-white' : 'bg-slate-100 text-slate-500'

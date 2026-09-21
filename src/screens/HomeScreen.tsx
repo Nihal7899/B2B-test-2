@@ -17,7 +17,7 @@ import {
   MapPin,
   Check,
   PlusCircle,
-  Mic,          // ← ADD THIS
+  Mic,
 } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -46,9 +46,9 @@ import {
   fetchProducts,
   fetchStores,
   fetchTrustedBrands,
-  fetchWishlist,    
+  fetchWishlist,
   toggleWishlist,
-  fetchAddresses
+  fetchAddresses,
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
 import { getHomeDataSync, updateHomeDataCache, type PreloadedHomeData } from '@/services/homePreload';
@@ -77,7 +77,7 @@ const STATIC_B2B_KEYWORDS = [
 
 // --- Custom Premium SVGs ---
 const StandardModeIcon = ({ active }: { active: boolean }) => {
-  const color = active ? "#02402c" : "#ffffff";
+  const color = active ? '#02402c' : '#ffffff';
   return (
     <svg width="18" height="16" viewBox="0 0 28 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M10 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -88,37 +88,36 @@ const StandardModeIcon = ({ active }: { active: boolean }) => {
 };
 
 const ExpressModeIcon = ({ active }: { active: boolean }) => {
-  const color = active ? "#02402c" : "#ffffff";
-  const cargoFill = active ? "#02402c" : "transparent";
-  const lightningColor = "#fde047"; 
-  
+  const color = active ? '#02402c' : '#ffffff';
+  const cargoFill = active ? '#02402c' : 'transparent';
+  const lightningColor = '#fde047';
+
   return (
     <svg width="22" height="16" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M5 14h4 M3 10h3 M4 18h2" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <path 
-        d="M 11 18 V 6.5 A 2.5 2.5 0 0 1 13.5 4 H 20.5 A 2.5 2.5 0 0 1 23 6.5 V 18 H 18 A 3 3 0 0 0 12 18 H 11 Z" 
-        fill={cargoFill} 
-        stroke={color} 
-        strokeWidth="2" 
-        strokeLinejoin="round" 
+      <path
+        d="M 11 18 V 6.5 A 2.5 2.5 0 0 1 13.5 4 H 20.5 A 2.5 2.5 0 0 1 23 6.5 V 18 H 18 A 3 3 0 0 0 12 18 H 11 Z"
+        fill={cargoFill}
+        stroke={color}
+        strokeWidth="2"
+        strokeLinejoin="round"
       />
       <path d="M17 7l-2 5h2.5l-1 4 3-5h-2.5l1.5-4h-2z" fill={lightningColor} />
-      <path 
-        d="M 23 11 H 27 L 30.5 14.5 V 18 H 29 A 3 3 0 0 0 23 18 Z" 
-        stroke={color} 
-        strokeWidth="2" 
-        strokeLinejoin="round" 
-      />
+      <path d="M 23 11 H 27 L 30.5 14.5 V 18 H 29 A 3 3 0 0 0 23 18 Z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
       <path d="M23 11h2.5l2 2.5v1.5h-4.5v-4z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
-      <circle cx="15" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
-      <circle cx="26" cy="18" r="2.5" fill={active ? "#ffffff" : "transparent"} stroke={color} strokeWidth="2" />
+      <circle cx="15" cy="18" r="2.5" fill={active ? '#ffffff' : 'transparent'} stroke={color} strokeWidth="2" />
+      <circle cx="26" cy="18" r="2.5" fill={active ? '#ffffff' : 'transparent'} stroke={color} strokeWidth="2" />
     </svg>
   );
 };
 
 const SolidMapPin = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff" xmlns="http://www.w3.org/2000/svg" className="shrink-0 text-white drop-shadow-sm">
-    <path fillRule="evenodd" clipRule="evenodd" d="M12 22C12 22 20 14.4183 20 10C20 5.58172 16.4183 2 12 2C7.58172 2 4 5.58172 4 10C4 14.4183 12 22 12 22ZM12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z" />
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M12 22C12 22 20 14.4183 20 10C20 5.58172 16.4183 2 12 2C7.58172 2 4 5.58172 4 10C4 14.4183 12 22 12 22ZM12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z"
+    />
   </svg>
 );
 // -----------------------------
@@ -133,14 +132,24 @@ function getAddressIcon(label: string) {
 }
 
 function BottomSheet({
-  open, onClose, title, subtitle, children,
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
 }: {
-  open: boolean; onClose: () => void; title: string; subtitle?: string; children: React.ReactNode;
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
 }) {
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = '';
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [open]);
 
   if (!open) return null;
@@ -166,7 +175,6 @@ function BottomSheet({
             <X size={16} className="text-slate-600" strokeWidth={2.5} />
           </button>
         </div>
-        {/* Added safe-bottom and extra bottom padding here */}
         <div className="flex-1 overflow-y-auto overscroll-contain safe-bottom pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
           {children}
         </div>
@@ -174,7 +182,6 @@ function BottomSheet({
     </div>
   );
 }
-
 // --------------------------------------
 
 const HomeSearchBar = memo(function HomeSearchBar({
@@ -277,23 +284,25 @@ export function HomeScreen({
     };
   }, [loadWishlist]);
 
-  const handleWishlistToggle = useCallback(async (productId: string) => {
-    const isWishlisted = wishlist.includes(productId);
-    const nextState = !isWishlisted;
-    
-    // Optimistic UI update
-    setWishlist((prev) => 
-      isWishlisted ? prev.filter((id) => id !== productId) : [...prev, productId]
-    );
+  const handleWishlistToggle = useCallback(
+    async (productId: string) => {
+      const isWishlisted = wishlist.includes(productId);
+      const nextState = !isWishlisted;
 
-    try {
-      await toggleWishlist(productId, isWishlisted);
-      window.dispatchEvent(new CustomEvent('wishlist-updated', { detail: { productId, wishlisted: nextState } }));
-    } catch (err) {
-      // Revert if API fails
-      void loadWishlist();
-    }
-  }, [wishlist, loadWishlist]);
+      // Optimistic UI update
+      setWishlist((prev) =>
+        isWishlisted ? prev.filter((id) => id !== productId) : [...prev, productId]
+      );
+
+      try {
+        await toggleWishlist(productId, isWishlisted);
+        window.dispatchEvent(new CustomEvent('wishlist-updated', { detail: { productId, wishlisted: nextState } }));
+      } catch (err) {
+        void loadWishlist();
+      }
+    },
+    [wishlist, loadWishlist]
+  );
   // ----------------------------------
 
   const initialCache = useMemo(() => {
@@ -352,14 +361,12 @@ export function HomeScreen({
     try {
       const list = await fetchAddresses();
       setAddresses(list);
-      
+
       if (list.length > 0) {
         setSelectedAddr((prevSelected) => {
-          // If previous selection still exists, keep it
-          if (prevSelected && list.some(a => a.id === prevSelected)) {
+          if (prevSelected && list.some((a) => a.id === prevSelected)) {
             return prevSelected;
           }
-          // Otherwise fallback to default or first
           const def = list.find((a) => a.is_default) || list[0];
           return def.id;
         });
@@ -370,29 +377,24 @@ export function HomeScreen({
       console.warn('Failed to refresh addresses:', error);
     }
   }, []);
-  
+
   const handleSelectAddress = async (addr: DbAddress) => {
-    // Optimistically update the UI and close the sheet
     setSelectedAddr(addr.id);
     setShowAddressSheet(false);
 
     try {
-      // 1. Find the current default address and unset it
       const currentDefault = addresses.find((a) => a.is_default);
       if (currentDefault && currentDefault.id !== addr.id) {
         await supabase.from('addresses').update({ is_default: false }).eq('id', currentDefault.id);
       }
-      
-      // 2. Set the newly selected address as the default
+
       await supabase.from('addresses').update({ is_default: true }).eq('id', addr.id);
-      
-      // 3. Refresh the address list in the background to sync state
+
       void refreshAddresses();
     } catch (err) {
       console.error('Failed to set default address', err);
     }
   };
-
 
   // Initial load of addresses
   useEffect(() => {
@@ -400,9 +402,8 @@ export function HomeScreen({
   }, [refreshAddresses]);
 
   const activeAddress = useMemo(() => {
-    return addresses.find(a => a.id === selectedAddr) || initialCache.address;
+    return addresses.find((a) => a.id === selectedAddr) || initialCache.address;
   }, [addresses, selectedAddr, initialCache.address]);
-
 
   useEffect(() => {
     let active = true;
@@ -415,7 +416,7 @@ export function HomeScreen({
             .select('delivery_type')
             .eq('id', user.id)
             .single();
-            
+
           if (data?.delivery_type) {
             setDeliveryMode(data.delivery_type as 'standard' | 'express');
           }
@@ -425,7 +426,7 @@ export function HomeScreen({
       }
     };
     void fetchProfilePreference();
-    
+
     return () => {
       active = false;
     };
@@ -436,10 +437,7 @@ export function HomeScreen({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await supabase
-          .from('profiles')
-          .update({ delivery_type: mode })
-          .eq('id', user.id);
+        await supabase.from('profiles').update({ delivery_type: mode }).eq('id', user.id);
       }
     } catch (e) {
       console.warn('Failed to update delivery preference:', e);
@@ -537,7 +535,7 @@ export function HomeScreen({
       }
     }
   }, [locationCheckComplete, bottomPopupBanner, showPopup, showLocationPrompt]);
-  
+
   const handleAllowLocation = async () => {
     setShowLocationPrompt(false);
 
@@ -592,7 +590,7 @@ export function HomeScreen({
 
       updateHomeDataCache({
         sections: newSections,
-        banners: newBanners
+        banners: newBanners,
       });
     } catch (e) {
       console.warn('Failed to refresh layout:', e);
@@ -627,13 +625,13 @@ export function HomeScreen({
   useEffect(() => {
     if (!products || products.length === 0) return;
 
-    const productMap = new Map(products.map(p => [p.id, p]));
+    const productMap = new Map(products.map((p) => [p.id, p]));
 
     const syncList = (list: Product[]) => {
       if (!list || !Array.isArray(list)) return list;
       let changed = false;
 
-      const updated = list.map(p => {
+      const updated = list.map((p) => {
         const fresh = productMap.get(p.id);
         if (fresh && (fresh.price !== p.price || fresh.mrp !== p.mrp || fresh.inStock !== p.inStock)) {
           changed = true;
@@ -645,15 +643,15 @@ export function HomeScreen({
       return changed ? updated : list;
     };
 
-    setPopularProducts(prev => syncList(prev));
-    setVolumeDeals(prev => syncList(prev));
-    setNewArrivals(prev => syncList(prev));
-    setTopRated(prev => syncList(prev));
-    setLimitedStock(prev => syncList(prev));
-    setRecentlyViewed(prev => syncList(prev));
-    setReorderProducts(prev => syncList(prev));
+    setPopularProducts((prev) => syncList(prev));
+    setVolumeDeals((prev) => syncList(prev));
+    setNewArrivals((prev) => syncList(prev));
+    setTopRated((prev) => syncList(prev));
+    setLimitedStock((prev) => syncList(prev));
+    setRecentlyViewed((prev) => syncList(prev));
+    setReorderProducts((prev) => syncList(prev));
 
-    setBrandSpotlight(prev => {
+    setBrandSpotlight((prev) => {
       if (!prev) return prev;
       const synced = syncList(prev.products);
       return synced !== prev.products ? { ...prev, products: synced } : prev;
@@ -738,7 +736,6 @@ export function HomeScreen({
   );
   const handleGetQuantity = useCallback((id: string) => cart.getQuantity(id), [cart]);
 
-  // Derived Address Lines
   const locationLine1 = useMemo(() => {
     if (!activeAddress) return 'Choose location';
     return activeAddress.line1 || 'Current Location';
@@ -764,16 +761,14 @@ export function HomeScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-36 safe-bottom">
-      <div 
-        className="fixed top-0 left-0 right-0 z-50 bg-[#02402c] pointer-events-none" 
-        style={{ height: 'env(safe-area-inset-top, 0px)' }} 
+      <div
+        className="fixed top-0 left-0 right-0 z-50 bg-[#02402c] pointer-events-none"
+        style={{ height: 'env(safe-area-inset-top, 0px)' }}
       />
 
-      {/* Top Header Row: 2-Row Location & Taller Delivery Mode Buttons */}
+      {/* Top Header Row */}
       <div className="bg-[#02402c] safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-3 flex items-center justify-between gap-3">
-          
-          {/* Location Button */}
           <button
             onClick={() => setShowAddressSheet(true)}
             className="flex items-center gap-2 text-white flex-1 min-w-0 text-left py-1"
@@ -792,14 +787,11 @@ export function HomeScreen({
             </div>
           </button>
 
-          {/* Delivery Mode Buttons (Larger and protected from overflow) */}
           <div className="flex items-center bg-white/10 p-1 rounded-xl shrink-0 gap-1 overflow-hidden">
             <button
               onClick={() => handleDeliveryModeToggle('standard')}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] transition-all duration-200 min-h-[36px] ${
-                deliveryMode === 'standard' 
-                  ? 'bg-white shadow-sm text-[#02402c]' 
-                  : 'text-white/90 hover:text-white'
+                deliveryMode === 'standard' ? 'bg-white shadow-sm text-[#02402c]' : 'text-white/90 hover:text-white'
               }`}
             >
               <StandardModeIcon active={deliveryMode === 'standard'} />
@@ -809,30 +801,27 @@ export function HomeScreen({
             <button
               onClick={() => handleDeliveryModeToggle('express')}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] transition-all duration-200 min-h-[36px] ${
-                deliveryMode === 'express' 
-                  ? 'bg-white shadow-sm text-[#02402c]' 
-                  : 'text-white/90 hover:text-white'
+                deliveryMode === 'express' ? 'bg-white shadow-sm text-[#02402c]' : 'text-white/90 hover:text-white'
               }`}
             >
               <ExpressModeIcon active={deliveryMode === 'express'} />
               <span className="text-[12px] font-bold whitespace-nowrap">Express</span>
             </button>
           </div>
-
         </div>
       </div>
 
       {/* Sticky Search & Cart Header */}
-      <div 
+      <div
         className="sticky z-40 bg-[#02402c] text-white px-4 pt-1 pb-3 shadow-md rounded-b-3xl"
-        style={{ top: 'env(safe-area-inset-top, 0px)' }} 
+        style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
           <HomeSearchBar
             onSearchClick={() => navigate('/search')}
             onVoiceClick={() => navigate('/search?voice=1')}
           />
-        
+
           <button
             onClick={() => navigate('/cart')}
             type="button"
@@ -841,7 +830,7 @@ export function HomeScreen({
           >
             <ShoppingBag size={20} className="text-white" />
             <span className="hidden sm:inline text-xs font-bold">Cart</span>
-        
+
             {cart.totalItems > 0 && (
               <span className="absolute -top-1 -right-1 z-10 flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-emerald-400 text-emerald-950 text-[11px] font-black shadow-md border border-[#02402c]">
                 {cart.totalItems}
@@ -849,13 +838,10 @@ export function HomeScreen({
             )}
           </button>
         </div>
-        
       </div>
 
       <div className="space-y-6 pt-4 pb-16 transform-gpu">
-        {topBanner && (
-          <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
-        )}
+        {topBanner && <PromoAdBanner banner={topBanner} onAction={onBannerAction} />}
 
         {topSliderBanners.length > 0 && (
           <TopPromoSlider banners={topSliderBanners} onAction={onBannerAction} />
@@ -875,10 +861,7 @@ export function HomeScreen({
                       <h2 className="text-base font-black text-slate-900 tracking-tight">{section.title}</h2>
                       <p className="text-[11px] text-slate-500">{section.subtitle}</p>
                     </div>
-                    <button
-                      onClick={onViewAll}
-                      className="flex items-center text-xs font-bold text-emerald-600"
-                    >
+                    <button onClick={onViewAll} className="flex items-center text-xs font-bold text-emerald-600">
                       See all <ChevronRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -912,9 +895,7 @@ export function HomeScreen({
 
             case 'quick_reorder':
               return reorderProducts.length > 0 ? (
-                
-
-<ProductCarousel
+                <ProductCarousel
                   key={section.id}
                   title={section.title || 'Buy Again'}
                   products={reorderProducts}
@@ -931,9 +912,7 @@ export function HomeScreen({
 
             case 'recently_viewed':
               return recentlyViewed.length > 0 ? (
-                
-
-<ProductCarousel
+                <ProductCarousel
                   key={section.id}
                   title={section.title || 'Recently Viewed'}
                   products={recentlyViewed}
@@ -950,9 +929,7 @@ export function HomeScreen({
 
             case 'popular_products':
               return popularProducts.length > 0 ? (
-                
-
-<ProductCarousel
+                <ProductCarousel
                   key={section.id}
                   title={section.title || 'Popular Products'}
                   products={popularProducts}
@@ -969,9 +946,7 @@ export function HomeScreen({
 
             case 'volume_deals':
               return volumeDeals.length > 0 ? (
-                
-
-<ProductCarousel
+                <ProductCarousel
                   key={section.id}
                   title={section.title || 'Volume Savings'}
                   products={volumeDeals}
@@ -988,9 +963,7 @@ export function HomeScreen({
 
             case 'deals':
               return deals.length > 0 ? (
-                
-
-<ProductCarousel
+                <ProductCarousel
                   key={section.id}
                   title={section.title || 'Wholesale Deals'}
                   products={deals}
@@ -1007,9 +980,7 @@ export function HomeScreen({
 
             case 'new_arrivals':
               return newArrivals.length > 0 ? (
-                
-
-<ProductCarousel
+                <ProductCarousel
                   key={section.id}
                   title={section.title || 'New Arrivals'}
                   products={newArrivals}
@@ -1026,9 +997,7 @@ export function HomeScreen({
 
             case 'top_rated':
               return topRated.length > 0 ? (
-                
-
-<ProductCarousel
+                <ProductCarousel
                   key={section.id}
                   title={section.title || 'Top Rated by Businesses'}
                   products={topRated}
@@ -1045,9 +1014,7 @@ export function HomeScreen({
 
             case 'limited_stock':
               return limitedStock.length > 0 ? (
-                
-
-<ProductCarousel
+                <ProductCarousel
                   key={section.id}
                   title={section.title || 'Fast Selling / Low Stock'}
                   products={limitedStock}
@@ -1064,9 +1031,7 @@ export function HomeScreen({
 
             case 'brand_spotlight':
               return brandSpotlight && brandSpotlight.products.length > 0 ? (
-                
-
-<ProductCarousel
+                <ProductCarousel
                   key={section.id}
                   title={section.title || `Spotlight: ${brandSpotlight.brandName}`}
                   products={brandSpotlight.products}
@@ -1083,9 +1048,7 @@ export function HomeScreen({
 
             case 'essentials':
               return essentials.length > 0 ? (
-                
-
-<ProductCarousel
+                <ProductCarousel
                   key={section.id}
                   title={section.title || 'Everyday Essentials'}
                   products={essentials}
@@ -1106,18 +1069,10 @@ export function HomeScreen({
               return (
                 <section key={section.id}>
                   {matching.length > 1 ? (
-                    <PromoCarousel
-                      banners={matching}
-                      size={section.bannerSize}
-                      onAction={onBannerAction}
-                    />
+                    <PromoCarousel banners={matching} size={section.bannerSize} onAction={onBannerAction} />
                   ) : (
                     <div className="px-3">
-                      <PromoBannerCard
-                        banner={matching[0]}
-                        size={section.bannerSize}
-                        onAction={onBannerAction}
-                      />
+                      <PromoBannerCard banner={matching[0]} size={section.bannerSize} onAction={onBannerAction} />
                     </div>
                   )}
                 </section>
@@ -1176,20 +1131,20 @@ export function HomeScreen({
 
       {showLocationPrompt && (
         <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">
-          <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity duration-300" 
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity duration-300"
             onClick={handleDismissLocation}
           />
           <div className="relative w-full bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] pointer-events-auto flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300 pb-6 safe-bottom">
             <div className="flex justify-end p-4">
-              <button 
+              <button
                 onClick={handleDismissLocation}
                 className="h-8 w-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
               >
                 <X size={18} strokeWidth={2.5} />
               </button>
             </div>
-            
+
             <div className="px-6 pb-4 flex flex-col items-center text-center">
               <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-4">
                 <SolidMapPin />
@@ -1198,15 +1153,15 @@ export function HomeScreen({
               <p className="text-sm text-slate-500 mb-8 max-w-[280px]">
                 We need your location to show wholesale deals, accurate stock, and express delivery times in your area.
               </p>
-              
+
               <div className="w-full flex flex-col gap-3">
-                <button 
+                <button
                   onClick={handleAllowLocation}
                   className="w-full h-12 rounded-xl bg-emerald-600 text-white font-bold text-sm shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-transform"
                 >
                   Allow Location
                 </button>
-                <button 
+                <button
                   onClick={handleDismissLocation}
                   className="w-full h-12 rounded-xl bg-slate-50 text-slate-600 font-bold text-sm active:bg-slate-100 transition-colors"
                 >
@@ -1244,25 +1199,28 @@ export function HomeScreen({
             return (
               <button
                 key={addr.id}
-                onClick={() => void handleSelectAddress(addr)} // <-- Updated line
+                onClick={() => void handleSelectAddress(addr)}
                 className={`w-full text-left p-3.5 rounded-2xl border-2 transition-all ${
                   isSel
                     ? 'border-[#02402c] bg-gradient-to-br from-[#02402c]/[0.04] to-transparent shadow-[0_6px_20px_-12px_rgba(2,64,44,0.4)]'
                     : 'border-slate-200 bg-white hover:border-slate-300'
                 }`}
               >
-
                 <div className="flex items-start gap-3">
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    isSel ? 'bg-[#02402c] text-white' : 'bg-slate-100 text-slate-500'
-                  }`}>
+                  <div
+                    className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      isSel ? 'bg-[#02402c] text-white' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
                     <Icon size={16} strokeWidth={2.4} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-[14px] font-black text-slate-900 tracking-[-0.01em]">{addr.label}</p>
                       {addr.is_default && (
-                        <span className="text-[9px] font-black bg-[#02402c]/10 text-[#02402c] rounded px-1.5 py-0.5 tracking-wide">DEFAULT</span>
+                        <span className="text-[9px] font-black bg-[#02402c]/10 text-[#02402c] rounded px-1.5 py-0.5 tracking-wide">
+                          DEFAULT
+                        </span>
                       )}
                     </div>
                     <p className="text-[12px] text-slate-600 mt-1 leading-relaxed font-medium">
@@ -1286,7 +1244,10 @@ export function HomeScreen({
           })}
 
           <button
-            onClick={() => { setShowAddressSheet(false); navigate('/addresses'); }}
+            onClick={() => {
+              setShowAddressSheet(false);
+              navigate('/addresses');
+            }}
             className="w-full h-14 rounded-2xl border-2 border-dashed border-[#02402c]/30 bg-gradient-to-br from-[#02402c]/[0.04] to-transparent text-[#02402c] text-[13px] font-black flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
           >
             <PlusCircle size={18} strokeWidth={2.4} /> Add new address
@@ -1296,15 +1257,14 @@ export function HomeScreen({
 
       {bottomPopupBanner && showPopup && locationCheckComplete && !showLocationPrompt && (
         <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">
-          <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity duration-300" 
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity duration-300"
             onClick={dismissPopup}
           />
-          
+
           <div className="relative w-full h-[55%] min-h-[380px] max-h-[480px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] pointer-events-auto flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300">
-            
             <div className="flex justify-end p-3 absolute top-0 right-0 z-50">
-              <button 
+              <button
                 onClick={dismissPopup}
                 className="h-8 w-8 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-black/40 transition-colors"
               >
@@ -1312,8 +1272,8 @@ export function HomeScreen({
               </button>
             </div>
 
-            <ModernPopupBanner 
-              banner={bottomPopupBanner} 
+            <ModernPopupBanner
+              banner={bottomPopupBanner}
               className="w-full h-full rounded-none"
               onAction={(banner) => {
                 dismissPopup();

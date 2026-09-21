@@ -41,6 +41,7 @@ import { ProductCard, ProductCarousel } from '@/components/ProductCard';
 import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
 import { TopPromoSlider } from '@/components/TopPromoSlider';
 import { CachedImage } from '@/components/CachedImage';
+import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'rating' | 'discount';
 
@@ -68,20 +69,6 @@ interface SearchScreenProps {
 }
 
 const RECENT_SEARCHES_KEY = 'stackknit_recent_searches_v1';
-
-type SpeechRecognitionInstance = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  maxAlternatives?: number;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult: ((event: any) => void) | null;
-  onend: (() => void) | null;
-  onerror: ((event: any) => void) | null;
-  onstart: (() => void) | null;
-};
 
 export function SearchScreen({
   initialQuery = '',
@@ -127,13 +114,6 @@ export function SearchScreen({
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
   const [priceTouched, setPriceTouched] = useState(false);
 
-  // Voice
-  const [isListening, setIsListening] = useState(false);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const voiceTimeoutRef = useRef<number | null>(null);
-  const voiceAutoTriggeredRef = useRef(false);
-
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
@@ -143,16 +123,46 @@ export function SearchScreen({
   });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const voiceAutoTriggeredRef = useRef(false);
 
-  // Voice cleanup
-  useEffect(() => {
-    return () => {
-      try {
-        recognitionRef.current?.abort?.();
-      } catch {}
-      if (voiceTimeoutRef.current) clearTimeout(voiceTimeoutRef.current);
-    };
+  // ---------- CROSS-PLATFORM VOICE HOOK ----------
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setQuery(text);
   }, []);
+
+  const handleVoiceResult = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      setQuery(trimmed);
+      setSearchParams({ q: trimmed });
+    },
+    [setSearchParams],
+  );
+
+  const {
+    isListening,
+    error: voiceError,
+    start: startVoiceSearch,
+    isNative: isNativeVoice,
+  } = useVoiceSearch({
+    lang: 'en-IN',
+    onTranscript: handleVoiceTranscript,
+    onResult: handleVoiceResult,
+    timeoutMs: 8000,
+  });
+
+  // Auto-trigger voice when arriving with ?voice=1
+  useEffect(() => {
+    if (voiceParam === '1' && !voiceAutoTriggeredRef.current) {
+      voiceAutoTriggeredRef.current = true;
+      const t = window.setTimeout(() => {
+        void startVoiceSearch();
+      }, 350);
+      return () => window.clearTimeout(t);
+    }
+  }, [voiceParam, startVoiceSearch]);
+  // ---------------------------------------------
 
   const resetAllSearchState = useCallback(() => {
     setQuery('');
@@ -197,11 +207,11 @@ export function SearchScreen({
 
   const topSliderBanners = useMemo(
     () => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'top_slider') : []),
-    [banners]
+    [banners],
   );
   const carouselBanners = useMemo(
     () => banners.filter((b) => b.position === 'carousel' || b.position === 'middle'),
-    [banners]
+    [banners],
   );
 
   const clearRecentSearches = () => {
@@ -273,7 +283,7 @@ export function SearchScreen({
       setQuery(text);
       setSearchParams({ q: text.trim() });
     },
-    [setSearchParams]
+    [setSearchParams],
   );
 
   const handleSlugClick = (slugItem: RelatedSlugItem) => {
@@ -284,116 +294,6 @@ export function SearchScreen({
       setSearchParams({ q: slugItem.name });
     }
   };
-
-  // ---------- VOICE SEARCH ----------
-  const stopVoiceSearch = useCallback(() => {
-    try {
-      recognitionRef.current?.stop?.();
-    } catch {}
-    try {
-      recognitionRef.current?.abort?.();
-    } catch {}
-    recognitionRef.current = null;
-    setIsListening(false);
-    if (voiceTimeoutRef.current) {
-      clearTimeout(voiceTimeoutRef.current);
-      voiceTimeoutRef.current = null;
-    }
-  }, []);
-
-  const startVoiceSearch = useCallback(() => {
-    setVoiceError(null);
-    const w = window as any;
-    const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setVoiceError('Voice search is not supported on this device.');
-      setTimeout(() => setVoiceError(null), 2400);
-      return;
-    }
-
-    if (isListening) {
-      stopVoiceSearch();
-      return;
-    }
-
-    try {
-      const recognition: SpeechRecognitionInstance = new SpeechRecognition();
-      recognition.lang = 'en-IN';
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => setIsListening(true);
-
-      recognition.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
-        }
-        const cleaned = transcript.trim();
-        if (cleaned) setQuery(cleaned);
-        if (event.results[event.results.length - 1]?.isFinal) {
-          if (cleaned) {
-            setTimeout(() => {
-              handleSelectKeyword(cleaned);
-              stopVoiceSearch();
-            }, 250);
-          }
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        const code = event?.error;
-        if (code === 'not-allowed' || code === 'service-not-allowed') {
-          setVoiceError('Microphone permission denied.');
-        } else if (code === 'no-speech') {
-          setVoiceError("Didn't catch that. Try again.");
-        } else if (code !== 'aborted') {
-          setVoiceError('Voice search failed. Try again.');
-        }
-        setTimeout(() => setVoiceError(null), 2400);
-        setIsListening(false);
-        recognitionRef.current = null;
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-        recognitionRef.current = null;
-        if (voiceTimeoutRef.current) {
-          clearTimeout(voiceTimeoutRef.current);
-          voiceTimeoutRef.current = null;
-        }
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
-      setIsListening(true);
-
-      voiceTimeoutRef.current = window.setTimeout(() => {
-        try {
-          recognitionRef.current?.stop?.();
-        } catch {}
-      }, 8000);
-    } catch {
-      setVoiceError('Could not start voice search.');
-      setTimeout(() => setVoiceError(null), 2400);
-      setIsListening(false);
-    }
-  }, [isListening, stopVoiceSearch, handleSelectKeyword]);
-  // --------------------------------
-
-  // Auto-trigger voice when arriving with ?voice=1 (e.g. from home screen mic)
-  useEffect(() => {
-    if (voiceParam === '1' && !voiceAutoTriggeredRef.current) {
-      voiceAutoTriggeredRef.current = true;
-      // small delay so the input mounts and mic perms prompt shows nicely
-      const t = window.setTimeout(() => {
-        startVoiceSearch();
-      }, 350);
-      return () => window.clearTimeout(t);
-    }
-  }, [voiceParam, startVoiceSearch]);
 
   // ---------- PRICE BOUNDS ----------
   const priceBounds = useMemo<[number, number]>(() => {
@@ -500,7 +400,7 @@ export function SearchScreen({
   const currentSortLabel =
     SORT_OPTIONS.find((s) => s.id === sortBy)?.label || 'Relevancy';
 
-  // Suggestion row (memoized) — now shows image for category / subcategory too
+  // Suggestion row
   const SuggestionRow = useCallback(
     ({ item }: { item: SearchSuggestionItem }) => {
       const hasThumb = Boolean(item.imageUrl);
@@ -565,7 +465,7 @@ export function SearchScreen({
         </button>
       );
     },
-    [handleSelectKeyword]
+    [handleSelectKeyword],
   );
 
   return (
@@ -594,7 +494,7 @@ export function SearchScreen({
 
               <button
                 type="button"
-                onClick={startVoiceSearch}
+                onClick={() => void startVoiceSearch()}
                 aria-label={isListening ? 'Stop voice search' : 'Start voice search'}
                 className={`absolute right-9 h-8 w-8 rounded-lg flex items-center justify-center transition-all active:scale-90 ${
                   isListening
@@ -645,7 +545,9 @@ export function SearchScreen({
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
               </span>
-              <p className="text-[11px] font-bold text-white/95">Listening… speak now</p>
+              <p className="text-[11px] font-bold text-white/95">
+                Listening… speak now {isNativeVoice ? '' : '(browser)'}
+              </p>
             </div>
           )}
 

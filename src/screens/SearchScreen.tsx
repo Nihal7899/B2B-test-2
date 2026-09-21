@@ -23,7 +23,6 @@ import {
   ShoppingBag,
   Mic,
   MicOff,
-  Image as ImageIcon,
 } from 'lucide-react';
 import type { Product, PromoBanner, Category } from '@/types';
 import { useCart } from '@/store';
@@ -70,11 +69,11 @@ interface SearchScreenProps {
 
 const RECENT_SEARCHES_KEY = 'stackknit_recent_searches_v1';
 
-// Type for the Web Speech API recognition instance
 type SpeechRecognitionInstance = {
   lang: string;
   continuous: boolean;
   interimResults: boolean;
+  maxAlternatives?: number;
   start: () => void;
   stop: () => void;
   abort: () => void;
@@ -95,21 +94,22 @@ export function SearchScreen({
   const cart = useCart();
 
   const urlQuery = searchParams.get('q') || initialQuery || '';
+  const voiceParam = searchParams.get('voice');
 
   const [query, setQuery] = useState(urlQuery);
   const [submittedQuery, setSubmittedQuery] = useState(urlQuery);
   const [isFocused, setIsFocused] = useState(!urlQuery);
 
-  // Suggestions state
+  // Suggestions
   const [suggestions, setSuggestions] = useState<SearchSuggestionItem[]>([]);
   const [didYouMean, setDidYouMean] = useState<string | null>(null);
 
-  // Real data modules
+  // Data
   const [banners, setBanners] = useState<PromoBanner[]>([]);
   const [reorderProducts, setReorderProducts] = useState<Product[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
 
-  // Search results state
+  // Results
   const [products, setProducts] = useState<Product[]>([]);
   const [alternativeProducts, setAlternativeProducts] = useState<Product[]>([]);
   const [relatedSlugs, setRelatedSlugs] = useState<RelatedSlugItem[]>([]);
@@ -117,22 +117,22 @@ export function SearchScreen({
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Filter & Sort States
+  // Filters
   const [sortBy, setSortBy] = useState<SortOption>('default');
   const [isSortSheetOpen, setIsSortSheetOpen] = useState(false);
   const [dealsOnly, setDealsOnly] = useState(false);
   const [highRatingOnly, setHighRatingOnly] = useState(false);
   const [inStockOnly, setInStockOnly] = useState(false);
 
-  // Price range state
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
   const [priceTouched, setPriceTouched] = useState(false);
 
-  // Voice search state
+  // Voice
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const voiceTimeoutRef = useRef<number | null>(null);
+  const voiceAutoTriggeredRef = useRef(false);
 
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     try {
@@ -144,15 +144,13 @@ export function SearchScreen({
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Cleanup voice recognition on unmount
+  // Voice cleanup
   useEffect(() => {
     return () => {
       try {
         recognitionRef.current?.abort?.();
       } catch {}
-      if (voiceTimeoutRef.current) {
-        clearTimeout(voiceTimeoutRef.current);
-      }
+      if (voiceTimeoutRef.current) clearTimeout(voiceTimeoutRef.current);
     };
   }, []);
 
@@ -211,7 +209,7 @@ export function SearchScreen({
     localStorage.removeItem(RECENT_SEARCHES_KEY);
   };
 
-  // Debounced live suggestions
+  // Live suggestions
   useEffect(() => {
     let active = true;
     const timer = setTimeout(async () => {
@@ -270,10 +268,13 @@ export function SearchScreen({
     }
   };
 
-  const handleSelectKeyword = useCallback((text: string) => {
-    setQuery(text);
-    setSearchParams({ q: text.trim() });
-  }, [setSearchParams]);
+  const handleSelectKeyword = useCallback(
+    (text: string) => {
+      setQuery(text);
+      setSearchParams({ q: text.trim() });
+    },
+    [setSearchParams]
+  );
 
   const handleSlugClick = (slugItem: RelatedSlugItem) => {
     if (slugItem.type === 'category' && slugItem.id) {
@@ -331,14 +332,11 @@ export function SearchScreen({
           transcript += event.results[i][0].transcript;
         }
         const cleaned = transcript.trim();
-        if (cleaned) {
-          setQuery(cleaned);
-        }
+        if (cleaned) setQuery(cleaned);
         if (event.results[event.results.length - 1]?.isFinal) {
-          const finalText = cleaned;
-          if (finalText) {
+          if (cleaned) {
             setTimeout(() => {
-              handleSelectKeyword(finalText);
+              handleSelectKeyword(cleaned);
               stopVoiceSearch();
             }, 250);
           }
@@ -372,19 +370,30 @@ export function SearchScreen({
       recognition.start();
       setIsListening(true);
 
-      // Safety auto-stop after 8s
       voiceTimeoutRef.current = window.setTimeout(() => {
         try {
           recognitionRef.current?.stop?.();
         } catch {}
       }, 8000);
-    } catch (err) {
+    } catch {
       setVoiceError('Could not start voice search.');
       setTimeout(() => setVoiceError(null), 2400);
       setIsListening(false);
     }
   }, [isListening, stopVoiceSearch, handleSelectKeyword]);
   // --------------------------------
+
+  // Auto-trigger voice when arriving with ?voice=1 (e.g. from home screen mic)
+  useEffect(() => {
+    if (voiceParam === '1' && !voiceAutoTriggeredRef.current) {
+      voiceAutoTriggeredRef.current = true;
+      // small delay so the input mounts and mic perms prompt shows nicely
+      const t = window.setTimeout(() => {
+        startVoiceSearch();
+      }, 350);
+      return () => window.clearTimeout(t);
+    }
+  }, [voiceParam, startVoiceSearch]);
 
   // ---------- PRICE BOUNDS ----------
   const priceBounds = useMemo<[number, number]>(() => {
@@ -400,7 +409,6 @@ export function SearchScreen({
     return [Math.floor(min), Math.ceil(max)];
   }, [products]);
 
-  // Auto-initialize price range when products change
   useEffect(() => {
     if (priceBounds[0] === priceBounds[1]) {
       setPriceRange(null);
@@ -420,7 +428,6 @@ export function SearchScreen({
       const base = prev ?? priceBounds;
       const next: [number, number] = [...base] as [number, number];
       next[index] = value;
-      // Ensure min <= max
       if (next[0] > next[1]) {
         if (index === 0) next[1] = next[0];
         else next[0] = next[1];
@@ -438,15 +445,10 @@ export function SearchScreen({
   const filteredAndSortedProducts = useMemo(() => {
     let result = [...products];
 
-    if (dealsOnly) {
-      result = result.filter((p) => p.mrp > p.price);
-    }
-    if (highRatingOnly) {
-      result = result.filter((p) => (p.rating || 0) >= 4.0);
-    }
-    if (inStockOnly) {
-      result = result.filter((p) => p.inStock);
-    }
+    if (dealsOnly) result = result.filter((p) => p.mrp > p.price);
+    if (highRatingOnly) result = result.filter((p) => (p.rating || 0) >= 4.0);
+    if (inStockOnly) result = result.filter((p) => p.inStock);
+
     if (priceTouched && priceBounds[0] !== priceBounds[1]) {
       result = result.filter((p) => {
         const v = Number(p.price) || 0;
@@ -498,10 +500,11 @@ export function SearchScreen({
   const currentSortLabel =
     SORT_OPTIONS.find((s) => s.id === sortBy)?.label || 'Relevancy';
 
-  // ---------- Suggestion item component (memoized) ----------
+  // Suggestion row (memoized) — now shows image for category / subcategory too
   const SuggestionRow = useCallback(
     ({ item }: { item: SearchSuggestionItem }) => {
-      const hasThumb = item.type === 'product' || item.type === 'sku';
+      const hasThumb = Boolean(item.imageUrl);
+
       return (
         <button
           type="button"
@@ -510,21 +513,15 @@ export function SearchScreen({
         >
           {hasThumb ? (
             <div className="h-10 w-10 rounded-xl overflow-hidden bg-slate-100 ring-1 ring-slate-100 shrink-0">
-              {item.imageUrl ? (
-                <CachedImage
-                  src={item.imageUrl}
-                  alt={item.text}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center text-slate-300">
-                  <Package size={16} strokeWidth={2} />
-                </div>
-              )}
+              <CachedImage
+                src={item.imageUrl!}
+                alt={item.text}
+                className="h-full w-full object-cover"
+              />
             </div>
           ) : (
             <div className="h-9 w-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-              {item.type === 'category' ? (
+              {item.type === 'category' || item.type === 'subcategory' ? (
                 <Layers size={15} className="text-emerald-600" strokeWidth={2.4} />
               ) : item.type === 'brand' ? (
                 <Sparkle size={15} className="text-emerald-600" strokeWidth={2.4} />
@@ -545,9 +542,9 @@ export function SearchScreen({
             )}
           </div>
 
-          {item.type === 'category' && (
+          {(item.type === 'category' || item.type === 'subcategory') && (
             <span className="text-[9.5px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0 tracking-wide">
-              CATEGORY
+              {item.type === 'category' ? 'CATEGORY' : 'SUBCATEGORY'}
             </span>
           )}
           {item.type === 'brand' && (
@@ -561,7 +558,10 @@ export function SearchScreen({
             </span>
           )}
 
-          <ChevronRight size={14} className="text-slate-300 group-hover:text-emerald-600 shrink-0 transition-colors" />
+          <ChevronRight
+            size={14}
+            className="text-slate-300 group-hover:text-emerald-600 shrink-0 transition-colors"
+          />
         </button>
       );
     },
@@ -570,7 +570,6 @@ export function SearchScreen({
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-24">
-      {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-[#02402c] shadow-md safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-2.5 text-white">
           <form onSubmit={handleSubmit} className="flex items-center gap-2.5">
@@ -585,13 +584,14 @@ export function SearchScreen({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => setIsFocused(true)}
-                placeholder={isListening ? 'Listening…' : 'Search beverages, brands, atta, oils, pulses...'}
+                placeholder={
+                  isListening ? 'Listening…' : 'Search beverages, brands, atta, oils, pulses...'
+                }
                 className={`w-full h-11 pl-10 pr-24 rounded-xl bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 shadow-sm placeholder:text-slate-400 transition-all duration-200 ${
                   isListening ? 'ring-2 ring-emerald-400 ring-offset-0' : 'focus:ring-emerald-400'
                 }`}
               />
 
-              {/* Mic — always visible on right side of input */}
               <button
                 type="button"
                 onClick={startVoiceSearch}
@@ -602,14 +602,9 @@ export function SearchScreen({
                     : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-50'
                 }`}
               >
-                {isListening ? (
-                  <MicOff size={15} strokeWidth={2.5} />
-                ) : (
-                  <Mic size={15} strokeWidth={2.5} />
-                )}
+                {isListening ? <MicOff size={15} strokeWidth={2.5} /> : <Mic size={15} strokeWidth={2.5} />}
               </button>
 
-              {/* Clear button */}
               {query && (
                 <button
                   type="button"
@@ -627,7 +622,6 @@ export function SearchScreen({
               )}
             </div>
 
-            {/* Cart Button */}
             <button
               onClick={onCartClick}
               type="button"
@@ -645,16 +639,13 @@ export function SearchScreen({
             </button>
           </form>
 
-          {/* Listening strip */}
           {isListening && (
             <div className="mt-2 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 animate-in fade-in slide-in-from-top-1 duration-200">
               <span className="relative flex h-2 w-2 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
               </span>
-              <p className="text-[11px] font-bold text-white/95">
-                Listening… speak now
-              </p>
+              <p className="text-[11px] font-bold text-white/95">Listening… speak now</p>
             </div>
           )}
 
@@ -665,7 +656,6 @@ export function SearchScreen({
             </div>
           )}
 
-          {/* Filter Bar */}
           <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
             <button
               type="button"
@@ -737,7 +727,6 @@ export function SearchScreen({
           </div>
         </div>
 
-        {/* Active Filters Reset Strip */}
         <div
           className={`overflow-hidden transition-all duration-300 ease-in-out ${
             hasActiveFilters ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
@@ -763,9 +752,7 @@ export function SearchScreen({
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="flex-1 max-w-7xl w-full mx-auto py-3 space-y-6">
-        {/* Suggestions Dropdown */}
         {isFocused && (
           <div className="mx-4 bg-white rounded-2xl border border-slate-200/80 shadow-card divide-y divide-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
             {didYouMean && (
@@ -828,19 +815,17 @@ export function SearchScreen({
           </div>
         )}
 
-        {/* Results */}
         {!isFocused && submittedQuery && (
           <div className="space-y-6">
             {topSliderBanners.length > 0 && (
               <TopPromoSlider banners={topSliderBanners} onAction={onBannerAction} />
             )}
 
-            {/* Result count header */}
             {!loading && products.length > 0 && (
               <div className="px-4 flex items-center justify-between">
                 <p className="text-[11.5px] font-bold text-slate-500">
-                  <span className="text-slate-900">{filteredAndSortedProducts.length}</span>
-                  {' '}result{filteredAndSortedProducts.length !== 1 ? 's' : ''} for{' '}
+                  <span className="text-slate-900">{filteredAndSortedProducts.length}</span>{' '}
+                  result{filteredAndSortedProducts.length !== 1 ? 's' : ''} for{' '}
                   <span className="text-emerald-700">"{submittedQuery}"</span>
                 </p>
                 {priceTouched && priceBounds[0] !== priceBounds[1] && (
@@ -1006,7 +991,9 @@ export function SearchScreen({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Grid size={16} className="text-emerald-600" />
-                      <h3 className="text-sm font-black text-slate-900 tracking-tight">Explore Categories</h3>
+                      <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                        Explore Categories
+                      </h3>
                     </div>
                     <button
                       onClick={() => navigate('/categories')}
@@ -1064,13 +1051,9 @@ export function SearchScreen({
         )}
       </div>
 
-      {/* Sort & Filter Sheet */}
       {isSortSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div
-            className="absolute inset-0"
-            onClick={() => setIsSortSheetOpen(false)}
-          />
+          <div className="absolute inset-0" onClick={() => setIsSortSheetOpen(false)} />
 
           <div className="relative z-10 w-full max-w-[720px] rounded-t-[32px] bg-white p-5 pb-8 safe-bottom shadow-2xl animate-in slide-in-from-bottom duration-300">
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200" />
@@ -1080,9 +1063,7 @@ export function SearchScreen({
                 <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
                   Sort & Filter
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Refine how search results are shown
-                </p>
+                <p className="text-xs text-slate-400 mt-0.5">Refine how search results are shown</p>
               </div>
               <button
                 onClick={() => setIsSortSheetOpen(false)}
@@ -1093,7 +1074,6 @@ export function SearchScreen({
             </div>
 
             <div className="mt-4 space-y-4 max-h-[64vh] overflow-y-auto overscroll-contain pr-1">
-              {/* Price Range */}
               {priceBounds[0] !== priceBounds[1] && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
@@ -1110,7 +1090,6 @@ export function SearchScreen({
                     </button>
                   </div>
 
-                  {/* Price slider track */}
                   <div className="px-1 pb-2">
                     <div className="relative h-1.5 bg-slate-200 rounded-full">
                       <div
@@ -1146,14 +1125,18 @@ export function SearchScreen({
 
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex flex-col">
-                      <span className="text-[9.5px] font-black text-slate-400 tracking-wider uppercase">Min</span>
+                      <span className="text-[9.5px] font-black text-slate-400 tracking-wider uppercase">
+                        Min
+                      </span>
                       <span className="text-[14px] font-black text-slate-900 tabular-nums">
                         ₹{currentRange[0].toLocaleString('en-IN')}
                       </span>
                     </div>
                     <div className="h-px flex-1 bg-slate-200 mx-3" />
                     <div className="flex flex-col items-end">
-                      <span className="text-[9.5px] font-black text-slate-400 tracking-wider uppercase">Max</span>
+                      <span className="text-[9.5px] font-black text-slate-400 tracking-wider uppercase">
+                        Max
+                      </span>
                       <span className="text-[14px] font-black text-slate-900 tabular-nums">
                         ₹{currentRange[1].toLocaleString('en-IN')}
                       </span>
@@ -1164,7 +1147,6 @@ export function SearchScreen({
 
               <div className="h-px bg-slate-100" />
 
-              {/* Sort options */}
               <div className="space-y-1.5">
                 <h4 className="text-[13px] font-black text-slate-900 tracking-tight mb-2">
                   Sort Order
@@ -1188,7 +1170,9 @@ export function SearchScreen({
                       <div className="flex items-center gap-3">
                         <div
                           className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                            isSelected ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                            isSelected
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-slate-100 text-slate-500'
                           }`}
                         >
                           <Icon size={18} />
@@ -1201,9 +1185,7 @@ export function SearchScreen({
                           >
                             {opt.label}
                           </p>
-                          <p className="mt-1 text-[10px] text-slate-400">
-                            {opt.subLabel}
-                          </p>
+                          <p className="mt-1 text-[10px] text-slate-400">{opt.subLabel}</p>
                         </div>
                       </div>
 
@@ -1218,7 +1200,6 @@ export function SearchScreen({
               </div>
             </div>
 
-            {/* Apply / Reset footer */}
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2.5">
               <button
                 type="button"
@@ -1242,7 +1223,6 @@ export function SearchScreen({
         </div>
       )}
 
-      {/* Inline style for range thumbs (kept local to the screen) */}
       <style>{`
         .range-thumb::-webkit-slider-thumb {
           appearance: none;

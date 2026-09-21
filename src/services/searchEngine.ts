@@ -50,11 +50,19 @@ interface ProductIndexItem {
   imageUrl?: string;
 }
 
+interface SubcategoryIndexItem {
+  id: string;
+  name: string;
+  slug: string;
+  categoryId: string;
+  imageUrl?: string;
+}
+
 interface SearchDictionary {
   products: ProductIndexItem[];
   brands: string[];
   categories: Category[];
-  subcategories: { id: string; name: string; slug: string; categoryId: string }[];
+  subcategories: SubcategoryIndexItem[];
   synonyms: Record<string, string[]>;
   vocabulary: string[];
   lastFetched: number;
@@ -124,7 +132,7 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
         .order('sort_order', { ascending: true }),
       supabase
         .from('subcategories')
-        .select('id, name, slug, category_id')
+        .select('id, name, slug, category_id, image_url')
         .eq('is_active', true),
       supabase
         .from('trusted_brands')
@@ -169,13 +177,16 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
       description: c.description || '',
       gradient: c.gradient || '#10b981',
       isActive: c.is_active ?? true,
+      count: 0,
+      color: '',
     }));
 
-    const subcategories = (subcategoriesRes.data || []).map((s: any) => ({
+    const subcategories: SubcategoryIndexItem[] = (subcategoriesRes.data || []).map((s: any) => ({
       id: s.id,
       name: s.name?.trim() || '',
       slug: s.slug || '',
       categoryId: s.category_id,
+      imageUrl: s.image_url || '',
     }));
 
     const synonymsMap: Record<string, string[]> = {};
@@ -286,6 +297,7 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
         text: c.name,
         type: 'category',
         id: c.id,
+        imageUrl: c.image,
       })),
       matchedCategories: dict.categories.slice(0, 6),
       matchedBrands: dict.brands.slice(0, 4),
@@ -334,7 +346,13 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
   for (const c of dict.categories) {
     if (c.name.toLowerCase().startsWith(q)) {
       matchedCategories.push(c);
-      addUnique({ text: c.name, type: 'category', id: c.id, subText: 'Category' });
+      addUnique({
+        text: c.name,
+        type: 'category',
+        id: c.id,
+        subText: 'Category',
+        imageUrl: c.image,
+      });
     }
   }
 
@@ -351,7 +369,13 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     if (!matchedCategories.some((mc) => mc.id === c.id)) {
       if (queryTokens.some((t) => cLower.includes(t) || cSlug.includes(t))) {
         matchedCategories.push(c);
-        addUnique({ text: c.name, type: 'category', id: c.id, subText: 'Category' });
+        addUnique({
+          text: c.name,
+          type: 'category',
+          id: c.id,
+          subText: 'Category',
+          imageUrl: c.image,
+        });
       }
     }
   }
@@ -359,7 +383,13 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
   for (const sc of dict.subcategories) {
     const scLower = sc.name.toLowerCase();
     if (scLower.startsWith(q) || queryTokens.some((t) => scLower.includes(t))) {
-      addUnique({ text: sc.name, type: 'subcategory', id: sc.id, subText: 'Subcategory' });
+      addUnique({
+        text: sc.name,
+        type: 'subcategory',
+        id: sc.id,
+        subText: 'Subcategory',
+        imageUrl: sc.imageUrl,
+      });
     }
   }
 

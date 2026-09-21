@@ -16,7 +16,8 @@ import {
   MapPinned,
   MapPin,
   Check,
-  PlusCircle
+  PlusCircle,
+  Mic,          // ← ADD THIS
 } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -176,7 +177,13 @@ function BottomSheet({
 
 // --------------------------------------
 
-const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
+const HomeSearchBar = memo(function HomeSearchBar({
+  onSearchClick,
+  onVoiceClick,
+}: {
+  onSearchClick: () => void;
+  onVoiceClick: () => void;
+}) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
   const [keywordIndex, setKeywordIndex] = useState(0);
 
@@ -206,17 +213,33 @@ const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchC
   }, [displayKeywords]);
 
   return (
-    <div
-      onClick={onSearchClick}
-      className="relative flex-1 h-11 px-3.5 rounded-xl bg-white text-slate-900 flex items-center gap-2.5 cursor-pointer shadow-sm select-none"
-    >
-      <Search size={18} className="text-slate-400 shrink-0" />
-      <div className="text-sm text-slate-400 flex items-center truncate">
-        <span>Search for&nbsp;</span>
-        <span className="font-semibold text-slate-700">
-          '{displayKeywords[keywordIndex] || 'Groceries'}'
-        </span>
+    <div className="relative flex-1 h-11 rounded-xl bg-white text-slate-900 flex items-center shadow-sm select-none overflow-hidden">
+      {/* Search tap area */}
+      <div
+        onClick={onSearchClick}
+        className="flex-1 flex items-center gap-2.5 px-3.5 h-full min-w-0 cursor-pointer"
+      >
+        <Search size={18} className="text-slate-400 shrink-0" />
+        <div className="text-sm text-slate-400 flex items-center truncate">
+          <span>Search for&nbsp;</span>
+          <span className="font-semibold text-slate-700 truncate">
+            '{displayKeywords[keywordIndex] || 'Groceries'}'
+          </span>
+        </div>
       </div>
+
+      {/* Mic — opens search + auto-starts voice */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onVoiceClick();
+        }}
+        aria-label="Voice search"
+        className="h-full w-11 flex items-center justify-center text-slate-500 hover:text-[#02402c] hover:bg-emerald-50 active:scale-95 transition-all shrink-0 border-l border-slate-100"
+      >
+        <Mic size={17} strokeWidth={2.4} />
+      </button>
     </div>
   );
 });
@@ -805,8 +828,11 @@ export function HomeScreen({
         style={{ top: 'env(safe-area-inset-top, 0px)' }} 
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
-          <HomeSearchBar onSearchClick={() => navigate('/search')} />
-
+          <HomeSearchBar
+            onSearchClick={() => navigate('/search')}
+            onVoiceClick={() => navigate('/search?voice=1')}
+          />
+        
           <button
             onClick={() => navigate('/cart')}
             type="button"
@@ -815,13 +841,14 @@ export function HomeScreen({
           >
             <ShoppingBag size={20} className="text-white" />
             <span className="hidden sm:inline text-xs font-bold">Cart</span>
-
+        
             {cart.totalItems > 0 && (
               <span className="absolute -top-1 -right-1 z-10 flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-emerald-400 text-emerald-950 text-[11px] font-black shadow-md border border-[#02402c]">
                 {cart.totalItems}
               </span>
             )}
           </button>
+        </div>
         </div>
       </div>
 

@@ -883,7 +883,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <p className="text-[11.5px] font-black text-slate-900 tracking-[-0.01em] leading-none">Wallet</p>
+                <p className="text-[11.5px] font-black text-slate-900 tracking-[-0.01em] leading-none">CafKart Wallet</p>
                 {walletDeduction > 0 && (
                   <span className="text-[9.5px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-[1px] rounded leading-none tabular-nums">
                     −₹{walletDeduction.toLocaleString('en-IN')}
@@ -937,7 +937,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                   </div>
                   <div className="min-w-0">
                     <p className="text-[9px] font-black text-emerald-600 tracking-[0.12em] uppercase leading-none">Full payment</p>
-                    <p className="text-[13px] font-black text-emerald-700 tracking-[-0.01em] leading-tight mt-0.5">Wallet</p>
+                    <p className="text-[13px] font-black text-emerald-700 tracking-[-0.01em] leading-tight mt-0.5">CafKart Wallet</p>
                   </div>
                 </div>
               )}

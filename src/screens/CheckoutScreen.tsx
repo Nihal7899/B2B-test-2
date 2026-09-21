@@ -232,6 +232,50 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
   useEffect(() => { void loadData(); }, [loadData]);
 
+  // Address Background Sync[span_2](start_span)[span_2](end_span)
+  const refreshAddresses = useCallback(async () => {
+    try {
+      const list = await fetchAddresses();
+      setAddresses(list);
+      if (list.length > 0) {
+        setSelectedAddr((prev) => {
+          // Keep current selection if it still exists, otherwise use default
+          if (prev && list.some((a) => a.id === prev)) return prev;
+          const def = list.find((a) => a.is_default) || list[0];
+          return def.id;
+        });
+      } else {
+        setSelectedAddr(null);
+      }
+    } catch (error) {
+      console.warn('Failed to refresh addresses:', error);
+    }
+  }, []);
+
+  // Sync on navigation return or tab focus[span_3](start_span)[span_3](end_span)
+  useEffect(() => {
+    const handleKeepAlive = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key?: string }>;
+      if (customEvent.detail?.key === '/checkout' || !customEvent.detail?.key) {
+        void refreshAddresses();
+      }
+    };
+    
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && window.location.pathname.includes('/checkout')) {
+        void refreshAddresses();
+      }
+    };
+
+    window.addEventListener('keepalive:activated', handleKeepAlive);
+    window.addEventListener('visibilitychange', handleVisibility);
+    
+    return () => {
+      window.removeEventListener('keepalive:activated', handleKeepAlive);
+      window.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [refreshAddresses]);
+
   // Load available promo codes
   useEffect(() => {
     void (async () => {

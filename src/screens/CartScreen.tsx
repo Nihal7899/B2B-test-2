@@ -201,18 +201,54 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
     setPromoError(null);
   };
 
-  // Load all addresses
-  useEffect(() => {
-    async function loadAddresses() {
+  // Address Background Sync
+  const refreshAddresses = useCallback(async () => {
+    try {
       const list = await fetchAddresses();
       setAddresses(list);
       if (list.length > 0) {
-        const def = list.find((a) => a.is_default) || list[0];
-        setSelectedAddr(def.id);
+        setSelectedAddr((prev) => {
+          // Keep current selection if it still exists, otherwise use default
+          if (prev && list.some((a) => a.id === prev)) return prev;
+          const def = list.find((a) => a.is_default) || list[0];
+          return def.id;
+        });
+      } else {
+        setSelectedAddr(null);
       }
+    } catch (error) {
+      console.warn('Failed to refresh addresses:', error);
     }
-    loadAddresses();
   }, []);
+
+  // Initial load
+  useEffect(() => {
+    void refreshAddresses();
+  }, [refreshAddresses]);
+
+  // Sync on navigation return or tab focus
+  useEffect(() => {
+    const handleKeepAlive = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key?: string }>;
+      if (customEvent.detail?.key === '/cart' || !customEvent.detail?.key) {
+        void refreshAddresses();
+      }
+    };
+    
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && window.location.pathname.includes('/cart')) {
+        void refreshAddresses();
+      }
+    };
+
+    window.addEventListener('keepalive:activated', handleKeepAlive);
+    window.addEventListener('visibilitychange', handleVisibility);
+    
+    return () => {
+      window.removeEventListener('keepalive:activated', handleKeepAlive);
+      window.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [refreshAddresses]);
 
   const selectedAddress = addresses.find((a) => a.id === selectedAddr) || null;
 

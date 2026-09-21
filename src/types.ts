@@ -17,6 +17,7 @@ export interface Product {
   subcategory_id?: string;
   subcategory?: Subcategory;
   stock_threshold?: number;
+  barcode?: string;      // <-- NEW
 }
 
 export interface VolumePricingTier {

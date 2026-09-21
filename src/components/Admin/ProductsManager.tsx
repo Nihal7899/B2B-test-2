@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon, Search, ScanLine } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { fetchSubcategories, fetchDistinctBrands, deleteProductImage } from '@/services/catalog';
 import type { DbCategory, DbProduct, Subcategory } from '@/types';
@@ -9,6 +9,7 @@ import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
 import { uploadProductImage } from '@/services/catalog';
 import { CachedImage } from '@/components/CachedImage';
+import { BarcodeScanner } from '@/components/BarcodeScanner';
 
 export default function ProductsManager() {
   const [products, setProducts] = useState<DbProduct[]>([]);
@@ -229,7 +230,10 @@ function ProductForm({
     is_active: initial?.is_active ?? true,
     hsn_code: initial?.hsn_code ?? '',
     gst_percentage: initial?.gst_percentage ?? 0,
+    barcode: initial?.barcode ?? '',   // <-- NEW
   });
+  
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);  // <-- NEW
 
   const [imageUrls, setImageUrls] = useState<string[]>(initialImageUrls);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -566,6 +570,29 @@ function ProductForm({
       </div>
 
       <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Barcode</label>
+        <div className="flex gap-2">
+          <input
+            value={form.barcode}
+            onChange={(e) => setForm({ ...form, barcode: e.target.value.trim() })}
+            placeholder="e.g. 8901234567890"
+            inputMode="numeric"
+            className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 font-mono"
+          />
+          <button
+            type="button"
+            onClick={() => setShowBarcodeScanner(true)}
+            className="h-10 px-3.5 rounded-xl bg-brand-50 border border-brand-200 text-brand-700 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition"
+          >
+            <ScanLine size={14} /> Scan
+          </button>
+        </div>
+        <p className="text-[10px] text-ink-400 mt-1">
+          Scan or enter the product's barcode / EAN / UPC. Optional.
+        </p>
+      </div>
+
+      <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Images (max 5)</label>
         <div className="flex flex-wrap gap-2 mt-1">
           {previewUrls.map((url, idx) => (
@@ -625,6 +652,17 @@ function ProductForm({
       >
         {saving ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save</>}
       </button>
+      {showBarcodeScanner && (
+        <BarcodeScanner
+          title="Scan Product Barcode"
+          onClose={() => setShowBarcodeScanner(false)}
+          onDetected={(code) => {
+            setForm((prev) => ({ ...prev, barcode: code }));
+            setShowBarcodeScanner(false);
+          }}
+        />
+      )}     
+      
     </div>
   );
 }

@@ -43,7 +43,7 @@ export interface DbProduct {
   wholesale_price: number;
   moq: number;
   stock_quantity: number;
-  stock_threshold: number; // <-- NEW
+  stock_threshold: number;
   image_url: string;
   image_urls?: string[];
   description: string;
@@ -52,6 +52,7 @@ export interface DbProduct {
   hsn_code?: string;
   gst_percentage?: number;
   subcategory_id?: string;
+  barcode?: string;     // <-- NEW
 }
 
 export interface DbOrder {
@@ -172,7 +173,8 @@ export function mapProduct(db: DbProduct, categoryId: string, subcategory?: Subc
     gst_percentage: db.gst_percentage || 0,
     subcategory_id: db.subcategory_id,
     subcategory,
-    stock_threshold: db.stock_threshold ?? 0, // <-- NEW
+    stock_threshold: db.stock_threshold ?? 0,
+    barcode: db.barcode ?? '',   // <-- NEW
   };
 }
 
@@ -2332,4 +2334,20 @@ export async function updateProfileCurrentWarehouse(warehouseId: string): Promis
     .eq('id', user.id);
 
   if (error) throw error;
+}
+
+
+// ================================================================
+// BARCODE LOOKUP
+// ================================================================
+export async function fetchProductByBarcode(barcode: string): Promise<DbProduct | null> {
+  const code = barcode.trim();
+  if (!code) return null;
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('barcode', code)
+    .maybeSingle();
+  if (error) return null;
+  return data as DbProduct | null;
 }

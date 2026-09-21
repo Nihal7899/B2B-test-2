@@ -41,7 +41,9 @@ import {
   AlertOctagon,
   Layers,
   MapPin,           // NEW
+  ScanLine,
 } from 'lucide-react';
+import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { NearbyOrdersModal } from '@/components/NearbyOrdersModal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
@@ -79,6 +81,7 @@ interface ProductInventory {
   image_urls?: string[];
   is_available: boolean;
   category_id?: string;
+  barcode?: string;   // <-- NEW
 }
 
 interface PaymentRecord {
@@ -307,6 +310,16 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     driverId: string;
     driverName: string;
   } | null>(null);
+  
+  // --- Barcode Scan to Update Stock ---
+const [scanStockOpen, setScanStockOpen] = useState(false);
+const [scannedBarcode, setScannedBarcode] = useState('');
+const [scannedProduct, setScannedProduct] = useState<ProductInventory | null>(null);
+const [scanLookupStatus, setScanLookupStatus] = useState<
+  'idle' | 'searching' | 'found' | 'not_found'
+>('idle');
+const [scanStockValue, setScanStockValue] = useState(0);
+const [scanSaving, setScanSaving] = useState(false);
 
   const isStaffUnregistered = !profile?.staff_registration_status || profile.staff_registration_status === 'unregistered';
 
@@ -530,7 +543,7 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     try {
       const { data } = await supabase
         .from('products')
-        .select('id, name, brand, pack_size, stock_quantity, stock_threshold, wholesale_price, mrp, image_url, image_urls, is_available, category_id')
+        .select('id, name, brand, pack_size, stock_quantity, stock_threshold, wholesale_price, mrp, image_url, image_urls, is_available, category_id, barcode')
         .order('name', { ascending: true });
       setProducts((data as ProductInventory[]) || []);
     } catch {
@@ -844,6 +857,73 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
       setSavingStockId(null);
     }
   };
+  
+const resetScanFlow = () => {
+  setScannedBarcode('');
+  setScannedProduct(null);
+  setScanLookupStatus('idle');
+  setScanStockValue(0);
+  setScanSaving(false);
+};
+
+const closeScanFlow = () => {
+  setScanStockOpen(false);
+  resetScanFlow();
+};
+
+const handleBarcodeScanned = async (code: string) => {
+  const clean = code.trim();
+  setScannedBarcode(clean);
+  setScannedProduct(null);
+  setScanLookupStatus('searching');
+
+  const { data, error } = await supabase
+    .from('products')
+    .select(
+      'id, name, brand, pack_size, stock_quantity, stock_threshold, wholesale_price, mrp, image_url, image_urls, is_available, category_id, barcode'
+    )
+    .eq('barcode', clean)
+    .maybeSingle();
+
+  if (error || !data) {
+    setScanLookupStatus('not_found');
+    return;
+  }
+
+  const prod = data as ProductInventory;
+  setScannedProduct(prod);
+  setScanStockValue(prod.stock_quantity ?? 0);
+  setScanLookupStatus('found');
+};
+
+const handleScanSaveStock = async () => {
+  if (!scannedProduct) return;
+  const next = Math.max(0, Math.floor(scanStockValue));
+  setScanSaving(true);
+  try {
+    const { error } = await supabase
+      .from('products')
+      .update({ stock_quantity: next, updated_at: new Date().toISOString() })
+      .eq('id', scannedProduct.id);
+
+    if (error) {
+      showToast('Failed to update stock: ' + error.message, 'error');
+    } else {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === scannedProduct.id ? { ...p, stock_quantity: next } : p))
+      );
+      showToast(
+        `Stock updated: ${scannedProduct.brand} ${scannedProduct.name} → ${next}`,
+        'success'
+      );
+      void sendWarehouseUpdateBroadcast();
+      void loadStats();
+      closeScanFlow();
+    }
+  } finally {
+    setScanSaving(false);
+  }
+};
 
   const orderPills = [
     { id: 'all', label: 'All' },
@@ -2348,6 +2428,173 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           </div>
         </div>
       )}
+      
+      {scanStockOpen && (
+        <>
+          {scanLookupStatus === 'idle' && (
+            <BarcodeScanner
+              title="Scan to Update Stock"
+              onClose={closeScanFlow}
+              onDetected={handleBarcodeScanned}
+            />
+          )}
+      
+          {scanLookupStatus === 'searching' && (
+            <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3 text-white">
+              <Loader2 size={32} className="animate-spin text-[#59D9B6]" />
+              <p className="text-xs font-black tracking-widest text-emerald-200">
+                LOOKING UP {scannedBarcode}…
+              </p>
+            </div>
+          )}
+      
+          {scanLookupStatus === 'not_found' && (
+            <div className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-[28px] max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                <div className="text-center space-y-2 py-2">
+                  <div className="h-14 w-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto border border-red-200">
+                    <AlertCircle size={26} />
+                  </div>
+                  <h3 className="font-black text-sm text-slate-900">Barcode Not Registered</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    No product matched the code{' '}
+                    <span className="font-black text-slate-800 font-mono">{scannedBarcode}</span>.
+                    Add this barcode to the product in Products Manager first.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={resetScanFlow}
+                    className="flex-1 h-11 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white text-xs font-black active:scale-95 transition"
+                  >
+                    Scan Again
+                  </button>
+                  <button
+                    onClick={closeScanFlow}
+                    className="flex-1 h-11 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black active:scale-95 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+      
+          {scanLookupStatus === 'found' && scannedProduct && (
+            <div className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-[28px] max-w-md w-full p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
+                      <ScanLine size={16} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-sm text-slate-900">Stock Update</h3>
+                      <p className="text-[10px] text-slate-400 font-mono">{scannedBarcode}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={closeScanFlow}
+                    className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+      
+                <div className="flex items-center gap-3">
+                  <div className="h-16 w-16 rounded-2xl bg-slate-100 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center">
+                    {scannedProduct.image_url ||
+                    (scannedProduct.image_urls && scannedProduct.image_urls.length > 0) ? (
+                      <CachedImage
+                        src={scannedProduct.image_url || scannedProduct.image_urls![0]}
+                        alt={scannedProduct.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Package size={22} className="text-slate-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black text-slate-900 truncate">
+                      {scannedProduct.brand} {scannedProduct.name}
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                      Pack: {scannedProduct.pack_size} · MRP ₹{Number(scannedProduct.mrp).toFixed(2)}
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                      Current stock:{' '}
+                      <span className="font-black text-slate-700">{scannedProduct.stock_quantity}</span>{' '}
+                      · Threshold: {scannedProduct.stock_threshold || 0}
+                    </p>
+                  </div>
+                </div>
+      
+                <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 space-y-2">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    Set New Stock Quantity
+                  </label>
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => setScanStockValue((v) => Math.max(0, v - 1))}
+                      className="h-10 w-10 rounded-full bg-white border border-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
+                    >
+                      <Minus size={15} />
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={scanStockValue}
+                      onChange={(e) =>
+                        setScanStockValue(Math.max(0, parseInt(e.target.value || '0', 10) || 0))
+                      }
+                      className="flex-1 h-11 text-center text-lg font-black rounded-xl border border-slate-200 bg-white outline-none focus:border-[#0a382c]"
+                    />
+                    <button
+                      onClick={() => setScanStockValue((v) => v + 1)}
+                      className="h-10 w-10 rounded-full bg-white border border-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition"
+                    >
+                      <Plus size={15} />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-center gap-1.5 pt-1">
+                    {[5, 10, 25, 100].map((amt) => (
+                      <button
+                        key={amt}
+                        onClick={() => setScanStockValue((v) => v + amt)}
+                        className="h-8 px-3 rounded-full bg-white border border-slate-200 text-slate-700 text-[11px] font-black hover:bg-slate-100 active:scale-95 transition"
+                      >
+                        +{amt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+      
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={resetScanFlow}
+                    className="flex-1 h-11 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black active:scale-95 transition"
+                  >
+                    Scan Another
+                  </button>
+                  <button
+                    disabled={scanSaving || scanStockValue === scannedProduct.stock_quantity}
+                    onClick={handleScanSaveStock}
+                    className="flex-1 h-11 rounded-full bg-[#0a382c] hover:bg-[#082d23] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition disabled:opacity-50"
+                  >
+                    {scanSaving ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <>
+                        <Save size={14} /> Save Stock
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {inspectOrderId && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
@@ -2432,6 +2679,17 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
           }}
         />
       )}
+      {/* Floating: Scan barcode to update stock */}
+      <button
+        onClick={() => {
+          resetScanFlow();
+          setScanStockOpen(true);
+        }}
+        className="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-40 h-14 w-14 rounded-full bg-[#0a382c] text-[#59D9B6] shadow-2xl border border-emerald-500/40 flex items-center justify-center hover:bg-[#082d23] active:scale-95 transition"
+        title="Scan barcode to update stock"
+      >
+        <ScanLine size={22} />
+      </button>
 
       <StaffRegistrationModal isOpen={isStaffUnregistered} />
     </div>

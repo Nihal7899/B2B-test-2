@@ -9,7 +9,14 @@ import {
   Tag,
   RotateCcw,
   ChevronRight,
-  X
+  X,
+  Warehouse,
+  Home,
+  Briefcase,
+  MapPinned,
+  MapPin,
+  Check,
+  PlusCircle
 } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -38,8 +45,9 @@ import {
   fetchProducts,
   fetchStores,
   fetchTrustedBrands,
-  fetchWishlist,    // Added
-  toggleWishlist    // Added
+  fetchWishlist,    
+  toggleWishlist,
+  fetchAddresses    // Added for bottom sheet
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
 import { getHomeDataSync, updateHomeDataCache, type PreloadedHomeData } from '@/services/homePreload';
@@ -66,7 +74,7 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
-// --- Custom Premium SVGs (Upsized slightly for attractive UI) ---
+// --- Custom Premium SVGs ---
 const StandardModeIcon = ({ active }: { active: boolean }) => {
   const color = active ? "#02402c" : "#ffffff";
   return (
@@ -113,6 +121,58 @@ const SolidMapPin = () => (
   </svg>
 );
 // -----------------------------
+
+// --- Bottom Sheet & Address Helpers ---
+function getAddressIcon(label: string) {
+  const l = (label || '').toLowerCase();
+  if (l.includes('business') || l.includes('warehouse') || l.includes('shop')) return Warehouse;
+  if (l.includes('home')) return Home;
+  if (l.includes('office') || l.includes('work')) return Briefcase;
+  return MapPinned;
+}
+
+function BottomSheet({
+  open, onClose, title, subtitle, children,
+}: {
+  open: boolean; onClose: () => void; title: string; subtitle?: string; children: React.ReactNode;
+}) {
+  useEffect(() => {
+    if (open) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[200] flex items-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" />
+      <div
+        className="relative w-full max-w-lg mx-auto bg-white rounded-t-[28px] shadow-2xl animate-in slide-in-from-bottom-4 duration-300 flex flex-col max-h-[88vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex-shrink-0 pt-3">
+          <div className="h-1.5 w-12 bg-slate-200 rounded-full mx-auto" />
+        </div>
+        <div className="flex-shrink-0 px-5 pt-3 pb-4 flex items-start justify-between gap-3 border-b border-slate-100">
+          <div className="min-w-0">
+            <h3 className="text-[17px] font-black text-slate-900 tracking-[-0.02em]">{title}</h3>
+            {subtitle && <p className="text-[12px] text-slate-500 font-semibold mt-0.5">{subtitle}</p>}
+          </div>
+          <button
+            onClick={onClose}
+            className="h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center active:scale-95 transition-all shrink-0"
+          >
+            <X size={16} className="text-slate-600" strokeWidth={2.5} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+// --------------------------------------
 
 const HomeSearchBar = memo(function HomeSearchBar({ onSearchClick }: { onSearchClick: () => void }) {
   const [displayKeywords, setDisplayKeywords] = useState<string[]>(STATIC_B2B_KEYWORDS);
@@ -250,13 +310,35 @@ export function HomeScreen({
   const [limitedStock, setLimitedStock] = useState<Product[]>(initialCache.limitedStock);
   const [brandSpotlight, setBrandSpotlight] = useState(initialCache.brandSpotlight);
 
-  const [address] = useState<DbAddress | null>(initialCache.address);
   const [showPopup, setShowPopup] = useState(() => !sessionStorage.getItem('hasSeenBottomPopup'));
 
   const [deliveryMode, setDeliveryMode] = useState<'standard' | 'express'>('standard');
 
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const [locationCheckComplete, setLocationCheckComplete] = useState(false);
+
+  // Address bottom sheet states
+  const [addresses, setAddresses] = useState<DbAddress[]>([]);
+  const [selectedAddr, setSelectedAddr] = useState<string | null>(initialCache.address?.id || null);
+  const [showAddressSheet, setShowAddressSheet] = useState(false);
+
+  // Load all addresses
+  useEffect(() => {
+    async function loadAddresses() {
+      const list = await fetchAddresses();
+      setAddresses(list);
+      if (list.length > 0) {
+        const def = list.find((a) => a.is_default) || list[0];
+        if (!selectedAddr) setSelectedAddr(def.id);
+      }
+    }
+    loadAddresses();
+  }, [selectedAddr]);
+
+  const activeAddress = useMemo(() => {
+    return addresses.find(a => a.id === selectedAddr) || initialCache.address;
+  }, [addresses, selectedAddr, initialCache.address]);
+
 
   useEffect(() => {
     let active = true;
@@ -591,14 +673,14 @@ export function HomeScreen({
 
   // Derived Address Lines
   const locationLine1 = useMemo(() => {
-    if (!address) return 'Choose location';
-    return address.line1 || 'Current Location';
-  }, [address]);
+    if (!activeAddress) return 'Choose location';
+    return activeAddress.line1 || 'Current Location';
+  }, [activeAddress]);
 
   const locationLine2 = useMemo(() => {
-    if (!address) return 'Tap to select address';
-    return [address.city, address.state].filter(Boolean).join(', ') || 'Select a delivery address';
-  }, [address]);
+    if (!activeAddress) return 'Tap to select address';
+    return [activeAddress.city, activeAddress.state].filter(Boolean).join(', ') || 'Select a delivery address';
+  }, [activeAddress]);
 
   const getSlotBanners = useCallback(
     (slotPosition?: string) => {
@@ -626,7 +708,7 @@ export function HomeScreen({
           
           {/* Location Button */}
           <button
-            onClick={() => navigate('/addresses')}
+            onClick={() => setShowAddressSheet(true)}
             className="flex items-center gap-2 text-white flex-1 min-w-0 text-left py-1"
           >
             <SolidMapPin />
@@ -1064,6 +1146,81 @@ export function HomeScreen({
           </div>
         </div>
       )}
+
+      {/* ==================== ADDRESS SHEET ==================== */}
+      <BottomSheet
+        open={showAddressSheet}
+        onClose={() => setShowAddressSheet(false)}
+        title="Delivery Address"
+        subtitle={`${addresses.length} saved address${addresses.length !== 1 ? 'es' : ''}`}
+      >
+        <div className="p-4 space-y-2.5">
+          {addresses.length === 0 && (
+            <div className="py-6 text-center">
+              <div className="h-14 w-14 rounded-2xl bg-slate-100 mx-auto flex items-center justify-center">
+                <MapPin size={22} className="text-slate-400" strokeWidth={2.2} />
+              </div>
+              <p className="text-[13px] font-black text-slate-700 mt-3">No addresses yet</p>
+              <p className="text-[11.5px] text-slate-500 font-semibold mt-1">
+                Add one to get accurate delivery times
+              </p>
+            </div>
+          )}
+
+          {addresses.map((addr) => {
+            const isSel = selectedAddr === addr.id;
+            const Icon = getAddressIcon(addr.label);
+            return (
+              <button
+                key={addr.id}
+                onClick={() => { setSelectedAddr(addr.id); setShowAddressSheet(false); }}
+                className={`w-full text-left p-3.5 rounded-2xl border-2 transition-all ${
+                  isSel
+                    ? 'border-[#02402c] bg-gradient-to-br from-[#02402c]/[0.04] to-transparent shadow-[0_6px_20px_-12px_rgba(2,64,44,0.4)]'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    isSel ? 'bg-[#02402c] text-white' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    <Icon size={16} strokeWidth={2.4} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[14px] font-black text-slate-900 tracking-[-0.01em]">{addr.label}</p>
+                      {addr.is_default && (
+                        <span className="text-[9px] font-black bg-[#02402c]/10 text-[#02402c] rounded px-1.5 py-0.5 tracking-wide">DEFAULT</span>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-slate-600 mt-1 leading-relaxed font-medium">
+                      {addr.line1}, {addr.city}, {addr.state} – {addr.postal_code}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className="text-[10.5px] font-bold text-slate-700 bg-slate-100 rounded-md px-2 py-0.5">
+                        {addr.recipient_name}
+                      </span>
+                      <span className="text-[10.5px] font-semibold text-slate-500">{addr.phone}</span>
+                    </div>
+                  </div>
+                  {isSel && (
+                    <div className="h-5 w-5 rounded-full bg-[#02402c] flex items-center justify-center shrink-0 mt-1">
+                      <Check size={11} className="text-white" strokeWidth={4} />
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() => { setShowAddressSheet(false); navigate('/addresses'); }}
+            className="w-full h-14 rounded-2xl border-2 border-dashed border-[#02402c]/30 bg-gradient-to-br from-[#02402c]/[0.04] to-transparent text-[#02402c] text-[13px] font-black flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
+          >
+            <PlusCircle size={18} strokeWidth={2.4} /> Add new address
+          </button>
+        </div>
+      </BottomSheet>
 
       {bottomPopupBanner && showPopup && locationCheckComplete && !showLocationPrompt && (
         <div className="fixed inset-0 z-[200] flex flex-col justify-end pointer-events-none">

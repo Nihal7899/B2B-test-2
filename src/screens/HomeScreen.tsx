@@ -66,11 +66,11 @@ const STATIC_B2B_KEYWORDS = [
   'Tea Dust Bulk Bag',
 ];
 
-// --- Custom Premium SVGs ---
+// --- Custom Premium SVGs (Compact for small screens) ---
 const StandardModeIcon = ({ active }: { active: boolean }) => {
   const color = active ? "#02402c" : "#ffffff";
   return (
-    <svg width="24" height="22" viewBox="0 0 28 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="16" height="14" viewBox="0 0 28 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M10 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <rect x="4" y="7" width="20" height="14" rx="3" stroke={color} strokeWidth="2" />
       <path d="M4 12h20 M12 12l2 2.5 2-2.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -84,7 +84,7 @@ const ExpressModeIcon = ({ active }: { active: boolean }) => {
   const lightningColor = "#fde047"; 
   
   return (
-    <svg width="32" height="22" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="18" height="14" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M5 14h4 M3 10h3 M4 18h2" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <path 
         d="M 11 18 V 6.5 A 2.5 2.5 0 0 1 13.5 4 H 20.5 A 2.5 2.5 0 0 1 23 6.5 V 18 H 18 A 3 3 0 0 0 12 18 H 11 Z" 
@@ -108,7 +108,7 @@ const ExpressModeIcon = ({ active }: { active: boolean }) => {
 };
 
 const SolidMapPin = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="#ffffff" xmlns="http://www.w3.org/2000/svg" className="shrink-0 text-white">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff" xmlns="http://www.w3.org/2000/svg" className="shrink-0 text-white">
     <path fillRule="evenodd" clipRule="evenodd" d="M12 22C12 22 20 14.4183 20 10C20 5.58172 16.4183 2 12 2C7.58172 2 4 5.58172 4 10C4 14.4183 12 22 12 22ZM12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z" />
   </svg>
 );
@@ -614,42 +614,55 @@ export function HomeScreen({
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      {/* --- REVISED HEADER COMPONENT --- */}
-      <div className="bg-[#02402c] safe-top border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 pt-3 pb-3 flex items-center gap-3">
+      {/* Top Header Row: Clean Location & Compact Delivery Mode side-by-side */}
+      <div className="bg-[#02402c] safe-top">
+        <div className="max-w-7xl mx-auto px-3 pt-2 pb-2 flex items-center justify-between gap-2">
           
-          {/* Location Button */}
+          {/* Location Button (Clean icon & text without container pill) */}
           <button
             onClick={() => navigate('/addresses')}
-            className="flex-1 flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 px-3.5 py-2.5 overflow-hidden transition-colors"
+            className="flex items-center gap-1.5 text-white flex-1 min-w-0 text-left py-1"
           >
-            <div className="shrink-0 flex items-center justify-center">
-              <SolidMapPin />
-            </div>
-            <span className="text-[13px] font-medium text-white truncate text-left tracking-wide">
+            <SolidMapPin />
+            <span className="text-[12px] font-medium text-white truncate tracking-wide">
               {locationText}
             </span>
+            <ChevronDown size={14} className="text-white/80 shrink-0" strokeWidth={2} />
           </button>
 
-          {/* Delivery Mode Toggle */}
-          <button
-            onClick={() => handleDeliveryModeToggle(deliveryMode === 'standard' ? 'express' : 'standard')}
-            className="shrink-0 flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5 shadow-sm transition-transform active:scale-95"
-          >
-            <div className="flex items-center justify-center scale-90 origin-center">
-              {deliveryMode === 'standard' ? <StandardModeIcon active={true} /> : <ExpressModeIcon active={true} />}
-            </div>
-            <span className="text-[13px] font-bold text-[#02402c] tracking-wide">
-              {deliveryMode === 'standard' ? 'Standard' : 'Express'}
-            </span>
-          </button>
+          {/* Delivery Mode Buttons (Compact side-by-side row to fit small screens) */}
+          <div className="flex items-center bg-white/10 p-0.5 rounded-lg shrink-0 gap-0.5">
+            <button
+              onClick={() => handleDeliveryModeToggle('standard')}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all duration-200 ${
+                deliveryMode === 'standard' 
+                  ? 'bg-white shadow-sm text-[#02402c]' 
+                  : 'text-white/90 hover:text-white'
+              }`}
+            >
+              <StandardModeIcon active={deliveryMode === 'standard'} />
+              <span>Standard</span>
+            </button>
+
+            <button
+              onClick={() => handleDeliveryModeToggle('express')}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all duration-200 ${
+                deliveryMode === 'express' 
+                  ? 'bg-white shadow-sm text-[#02402c]' 
+                  : 'text-white/90 hover:text-white'
+              }`}
+            >
+              <ExpressModeIcon active={deliveryMode === 'express'} />
+              <span>Express</span>
+            </button>
+          </div>
 
         </div>
       </div>
-      {/* -------------------------------- */}
 
+      {/* Sticky Search & Cart Header */}
       <div 
-        className="sticky z-40 bg-[#02402c] text-white px-4 pt-1 pb-4 shadow-md rounded-b-3xl"
+        className="sticky z-40 bg-[#02402c] text-white px-4 pt-1 pb-3 shadow-md rounded-b-3xl"
         style={{ top: 'env(safe-area-inset-top, 0px)' }} 
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">

@@ -3,9 +3,9 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, Heart, ShoppingBag, Star, Truck, ShieldCheck,
-  Percent, Hash, Plus, Minus, Sparkles, Check, Zap, Package, Timer
+  Percent, Hash, Plus, Minus, Sparkles, Check, Zap, Package, Timer, Tag,
 } from 'lucide-react';
-import type { Product, VolumePricingTier } from '@/types';
+import type { Product, VolumePricingTier, PromoCode } from '@/types';
 import { useCart } from '@/store';
 import { OfferBadge } from '@/components/OfferBadge';
 import { ProductCard } from '@/components/ProductCard';
@@ -32,6 +32,19 @@ const defaultTheme = {
   borderColor: '#e5e7eb', buttonStyle: 'brand' as const, gradientFrom: '#02402c', gradientTo: '#03543a',
 };
 
+// ---------- Promo helper ----------
+function formatPromoTimer(endDate: string | null | undefined): string | null {
+  if (!endDate) return null;
+  const diff = new Date(endDate).getTime() - Date.now();
+  if (diff <= 0) return null;
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff / 3600000) % 24);
+  const mins = Math.floor((diff / 60000) % 60);
+  if (days > 0) return `${days}d ${hours}h left`;
+  if (hours > 0) return `${hours}h ${mins}m left`;
+  return `${mins}m left`;
+}
+
 export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }: ProductDetailScreenProps) {
   const navigate = useNavigate();
   const cart = useCart();
@@ -50,7 +63,11 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
-  
+
+  // Promo codes applicable to this product
+  const [applicablePromos, setApplicablePromos] = useState<PromoCode[]>([]);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
   // Delivery config state
   const [deliveryConfig, setDeliveryConfig] = useState<{ free_delivery_threshold: number | null; estimated_time?: string } | null>(null);
 
@@ -64,7 +81,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   // --- Strict Delivery Config Fetch ---
   useEffect(() => {
     let active = true;
-    
+
     const fetchDelivery = async () => {
       const { data, error } = await supabase
         .from('delivery_charges')
@@ -77,22 +94,16 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
       }
 
       if (data && data.length > 0 && active) {
-        // Sort tiers treating null min_order_value as 0
         const sortedTiers = data.sort((a, b) => (Number(a.min_order_value) || 0) - (Number(b.min_order_value) || 0));
-
-        // Find Estimated Time
         const timeTier = sortedTiers.find((d) => d.estimated_time && d.estimated_time.trim() !== '');
         const estTime = timeTier ? timeTier.estimated_time.trim() : undefined;
 
-        // Find Free Delivery Threshold
         let freeThreshold: number | null = null;
-        
         const freeTier = sortedTiers.find((d) => Number(d.charge) === 0);
         if (freeTier) {
           freeThreshold = Number(freeTier.min_order_value) || 0;
         } else {
           const lastTier = sortedTiers[sortedTiers.length - 1];
-          // STRICT CHECK: If max_order_value is actual null, string "null", or empty, this safely skips and leaves freeThreshold as null
           if (lastTier.max_order_value && String(lastTier.max_order_value).toLowerCase() !== 'null') {
             freeThreshold = Number(lastTier.max_order_value);
           }
@@ -106,12 +117,47 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
     };
 
     fetchDelivery();
-
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
   // ------------------------------------
+
+  // --- Fetch & filter applicable promo codes ---
+  const loadProductPromos = useCallback(async (prod: Product) => {
+    try {
+      const { data } = await supabase
+        .from('promo_codes')
+        .select('*')
+        .eq('is_active', true);
+
+      const now = Date.now();
+      const filtered = ((data as PromoCode[]) || []).filter((p) => {
+        if (p.start_date && new Date(p.start_date).getTime() > now) return false;
+        if (p.end_date && new Date(p.end_date).getTime() < now) return false;
+        if (p.usage_limit != null && p.used_count >= p.usage_limit) return false;
+
+        if (p.applies_to === 'all') return true;
+        if (p.applies_to === 'product') {
+          return (p.applies_to_ids || []).includes(prod.id);
+        }
+        if (p.applies_to === 'category') {
+          return prod.category_id ? (p.applies_to_ids || []).includes(prod.category_id) : false;
+        }
+        return false;
+      });
+
+      // Cheapest threshold first, then highest discount
+      filtered.sort((a, b) => {
+        const aMin = Number(a.min_order_value) || 0;
+        const bMin = Number(b.min_order_value) || 0;
+        if (aMin !== bMin) return aMin - bMin;
+        return (Number(b.discount_value) || 0) - (Number(a.discount_value) || 0);
+      });
+
+      setApplicablePromos(filtered);
+    } catch {
+      setApplicablePromos([]);
+    }
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -149,20 +195,21 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
       if (result) {
         setProduct(result.product);
         setRelated(result.related);
+        void loadProductPromos(result.product);
       }
       const tiers = await fetchVolumePricing(productId);
       setVolumeTiers(tiers.sort((a, b) => a.min_quantity - b.min_quantity));
     } catch (err) {
       console.warn('Failed to refresh product silently', err);
     }
-  }, [productId]);
+  }, [productId, loadProductPromos]);
 
   useEffect(() => {
     void (async () => {
       setLoading(true);
       await refreshProductData();
       void recordRecentlyViewed(productId);
-      
+
       const wl = await fetchWishlist();
       setWishlist(wl);
       setWishlisted(wl.includes(productId));
@@ -207,7 +254,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
         void refreshProductData();
       }
     };
-    
+
     const handleVisibilityChange = () => {
       const isCurrentlyActive = window.location.pathname === '/product' && window.location.search.includes(`id=${productId}`);
       if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
@@ -246,6 +293,16 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
     touchStartX.current = null;
     touchDeltaX.current = 0;
   }, [activeImageIndex, images.length]);
+
+  const handleCopyCode = useCallback(async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 1600);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -351,12 +408,12 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
               return (
                 <div key={idx} className="flex h-full w-full shrink-0 items-center justify-center overflow-hidden">
                   {!isInvalid ? (
-                    <CachedImage 
-                      src={imgUrl} 
-                      alt={`${product.name} - ${idx + 1}`} 
-                      onError={() => setImageErrors((prev) => ({ ...prev, [idx]: true }))} 
-                      className={`h-full w-full object-cover pointer-events-none transition-all ${!product.inStock ? 'grayscale opacity-70' : ''}`} 
-                      draggable={false} 
+                    <CachedImage
+                      src={imgUrl}
+                      alt={`${product.name} - ${idx + 1}`}
+                      onError={() => setImageErrors((prev) => ({ ...prev, [idx]: true }))}
+                      className={`h-full w-full object-cover pointer-events-none transition-all ${!product.inStock ? 'grayscale opacity-70' : ''}`}
+                      draggable={false}
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-slate-300"><Package size={64} strokeWidth={1.5} /></div>
@@ -372,8 +429,8 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
         {!product.inStock && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/30 backdrop-blur-[2px]">
             <div className="bg-white/95 px-5 py-2.5 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-2">
-               <Package size={18} className="text-slate-400" />
-               <span className="text-sm font-black tracking-widest text-slate-600 uppercase">Sold Out</span>
+              <Package size={18} className="text-slate-400" />
+              <span className="text-sm font-black tracking-widest text-slate-600 uppercase">Sold Out</span>
             </div>
           </div>
         )}
@@ -407,6 +464,121 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           {product.hsn_code && <p className="text-xs text-ink-400 mt-1 flex items-center gap-1"><Hash size={12} /> HSN: {product.hsn_code}</p>}
           {product.gst_percentage !== undefined && product.gst_percentage > 0 && <p className="text-xs text-ink-400 flex items-center gap-1"><Percent size={12} /> GST: {product.gst_percentage}%</p>}
         </div>
+
+        {/* ==================== PROMO OFFERS SECTION ==================== */}
+        {applicablePromos.length > 0 && product.inStock && (
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-1.5">
+              <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${primaryColor}15` }}>
+                <Tag size={14} style={{ color: primaryColor }} strokeWidth={2.5} />
+              </div>
+              <h2 className="text-sm font-bold text-ink-900 flex-1">
+                {applicablePromos.length === 1 ? 'Offer available on this product' : `${applicablePromos.length} Offers available`}
+              </h2>
+            </div>
+
+            <div className="space-y-2">
+              {applicablePromos.map((promo) => {
+                const isPercent = promo.discount_type === 'percentage';
+                const timer = formatPromoTimer(promo.end_date);
+                const minVal = Number(promo.min_order_value) || 0;
+                const maxDisc = promo.max_discount_amount ? Number(promo.max_discount_amount) : null;
+                const isCopied = copiedCode === promo.code;
+
+                return (
+                  <div
+                    key={promo.id}
+                    className="relative overflow-hidden rounded-2xl border shadow-[0_4px_18px_-12px_rgba(2,64,44,0.35)] bg-white"
+                    style={{ borderColor: `${primaryColor}25` }}
+                  >
+                    {/* Dashed ticket edges */}
+                    <div className="flex items-stretch">
+                      {/* Left accent strip */}
+                      <div className="w-1.5 shrink-0" style={{ backgroundColor: primaryColor }} />
+
+                      <div className="flex-1 p-3.5 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          {/* Row 1: code + timer */}
+                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyCode(promo.code)}
+                              className="text-[10.5px] font-black tracking-[0.08em] px-2 py-0.5 rounded-md border flex items-center gap-1 active:scale-95 transition-transform"
+                              style={{
+                                color: primaryColor,
+                                borderColor: `${primaryColor}40`,
+                                backgroundColor: `${primaryColor}0a`,
+                              }}
+                            >
+                              {isCopied ? <Check size={10} strokeWidth={3} /> : null}
+                              {isCopied ? 'COPIED' : promo.code}
+                            </button>
+
+                            {timer && (
+                              <span className="text-[9.5px] font-black bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 rounded-full px-2 py-0.5 flex items-center gap-1 border border-amber-200/60">
+                                <Timer size={9} strokeWidth={3} />
+                                {timer}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Row 2: sentence — "Above ₹X → Y% OFF" */}
+                          <p className="text-[13px] font-bold text-slate-800 leading-snug">
+                            {minVal > 0 ? (
+                              <>
+                                Above <span className="font-black text-slate-900">₹{minVal.toLocaleString('en-IN')}</span>
+                                <span className="mx-1.5 text-slate-400 font-normal">→</span>
+                                <span className="font-black" style={{ color: primaryColor }}>
+                                  {isPercent ? `${promo.discount_value}%` : `₹${promo.discount_value}`} OFF
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                Get{' '}
+                                <span className="font-black" style={{ color: primaryColor }}>
+                                  {isPercent ? `${promo.discount_value}%` : `₹${promo.discount_value}`} OFF
+                                </span>{' '}
+                                on this product
+                              </>
+                            )}
+                          </p>
+
+                          {/* Row 3: sub condition */}
+                          {isPercent && maxDisc && maxDisc > 0 && (
+                            <p className="text-[10.5px] text-slate-500 font-semibold mt-1">
+                              Save up to <span className="font-black text-slate-700">₹{maxDisc.toLocaleString('en-IN')}</span>
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Right: discount badge */}
+                        <div className="shrink-0 text-right">
+                          <div
+                            className="rounded-xl px-2.5 py-1.5 flex flex-col items-center justify-center min-w-[52px]"
+                            style={{ backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}25` }}
+                          >
+                            <span className="text-[15px] font-black leading-none tracking-[-0.02em]" style={{ color: primaryColor }}>
+                              {isPercent ? `${promo.discount_value}%` : `₹${promo.discount_value}`}
+                            </span>
+                            <span className="text-[8.5px] font-black tracking-widest mt-0.5" style={{ color: primaryColor, opacity: 0.75 }}>
+                              OFF
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <p className="text-[10.5px] text-slate-400 font-semibold flex items-center gap-1 px-1 pt-0.5">
+                <Sparkles size={11} className="text-amber-500" />
+                Tap a code to copy · Apply at checkout
+              </p>
+            </div>
+          </div>
+        )}
+        {/* ========================================================== */}
 
         <div className={`rounded-2xl p-4 transition-all ${!product.inStock ? 'bg-slate-50 border border-slate-100' : ''}`} style={product.inStock ? { backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}30` } : undefined}>
           <div className="flex items-end gap-2">
@@ -446,15 +618,15 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
                         <span className="text-[11px] text-ink-400 line-through">₹{product.price}</span>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => handleApplyTierQuantity(tier.min_quantity)} 
+                    <button
+                      onClick={() => handleApplyTierQuantity(tier.min_quantity)}
                       disabled={!product.inStock}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-transform shrink-0 ${!product.inStock ? 'cursor-not-allowed shadow-none' : 'shadow-xs active:scale-95 cursor-pointer'}`} 
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-transform shrink-0 ${!product.inStock ? 'cursor-not-allowed shadow-none' : 'shadow-xs active:scale-95 cursor-pointer'}`}
                       style={
-                        !product.inStock 
-                          ? { backgroundColor: '#f1f5f9', color: '#94a3b8' } 
-                          : isApplied 
-                            ? { backgroundColor: `${primaryColor}15`, color: primaryColor } 
+                        !product.inStock
+                          ? { backgroundColor: '#f1f5f9', color: '#94a3b8' }
+                          : isApplied
+                            ? { backgroundColor: `${primaryColor}15`, color: primaryColor }
                             : { backgroundColor: primaryColor, color: '#ffffff' }
                       }
                     >
@@ -487,8 +659,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
                 <Timer size={14} className={!product.inStock ? 'text-slate-400' : 'text-slate-400'} />
                 Delivery in <span className={!product.inStock ? '' : 'text-slate-900 font-black'}>{deliveryConfig?.estimated_time || '45 - 60 minutes'}</span>
               </p>
-              
-              {/* STRICT Type Check ensures it only renders if there's a valid integer threshold */}
+
               {typeof deliveryConfig?.free_delivery_threshold === 'number' && deliveryConfig.free_delivery_threshold > 0 && (
                 <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-slate-100">
                   <Sparkles size={14} className={!product.inStock ? 'text-slate-400' : 'text-amber-500'} />

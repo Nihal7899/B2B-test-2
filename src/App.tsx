@@ -291,6 +291,15 @@ function App() {
       active = false;
     };
   }, [user, authLoading]);
+  
+  useEffect(() => {
+    // If the data is ready and the primary splash screen is still covering the UI,
+    // instantly remove the redundant home loader so it doesn't flash underneath.
+    if (isHomeReady && showSplash) {
+      setShowHomeLoader(false);
+    }
+  }, [isHomeReady, showSplash]);
+
 
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');

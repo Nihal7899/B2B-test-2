@@ -32,7 +32,7 @@ const defaultTheme = {
   borderColor: '#e5e7eb', buttonStyle: 'brand' as const, gradientFrom: '#02402c', gradientTo: '#03543a',
 };
 
-// ---------- Promo helper ----------
+// ---------- Promo helpers ----------
 function formatPromoTimer(endDate: string | null | undefined): string | null {
   if (!endDate) return null;
   const diff = new Date(endDate).getTime() - Date.now();
@@ -43,6 +43,31 @@ function formatPromoTimer(endDate: string | null | undefined): string | null {
   if (days > 0) return `${days}d ${hours}h left`;
   if (hours > 0) return `${hours}h ${mins}m left`;
   return `${mins}m left`;
+}
+
+function buildPromoSentence(promo: PromoCode): string {
+  const isPercent = promo.discount_type === 'percentage';
+  const minVal = Number(promo.min_order_value) || 0;
+  const maxDisc = promo.max_discount_amount ? Number(promo.max_discount_amount) : null;
+  const discountText = isPercent ? `${promo.discount_value}%` : `₹${promo.discount_value}`;
+
+  // Min + capped percentage → "Shop above ₹500 to get 10% off, up to ₹200"
+  if (minVal > 0 && isPercent && maxDisc && maxDisc > 0) {
+    return `Shop above ₹${minVal.toLocaleString('en-IN')} to get ${discountText} off, up to ₹${maxDisc.toLocaleString('en-IN')}`;
+  }
+
+  // Min only → "Shop above ₹500 to get 10% off"
+  if (minVal > 0) {
+    return `Shop above ₹${minVal.toLocaleString('en-IN')} to get ${discountText} off`;
+  }
+
+  // Capped percentage, no min → "Get 10% off up to ₹200 on this product"
+  if (isPercent && maxDisc && maxDisc > 0) {
+    return `Get ${discountText} off up to ₹${maxDisc.toLocaleString('en-IN')} on this product`;
+  }
+
+  // Fallback → "Get 10% off on this product"
+  return `Get ${discountText} off on this product`;
 }
 
 export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }: ProductDetailScreenProps) {
@@ -328,7 +353,21 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
 
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const quantity = cart.getQuantity(product.id);
-  const activeTier = quantity > 0 ? volumeTiers.find((t) => quantity >= t.min_quantity && (t.max_quantity === null || quantity <= t.max_quantity)) : undefined;
+
+  // Pick the tier with the HIGHEST min_quantity that still matches the current cart qty.
+  // This prevents overlapping tiers (e.g. "10–30" and "30+") from both lighting up at qty=30.
+  const activeTier = quantity > 0
+    ? volumeTiers
+        .filter((t) => quantity >= t.min_quantity && (t.max_quantity === null || quantity <= t.max_quantity))
+        .sort((a, b) => {
+          if (b.min_quantity !== a.min_quantity) return b.min_quantity - a.min_quantity;
+          // Same min → prefer the tier with the smaller max (narrower, more specific)
+          const aMax = a.max_quantity ?? Infinity;
+          const bMax = b.max_quantity ?? Infinity;
+          return aMax - bMax;
+        })[0]
+    : undefined;
+
   const effectivePrice = activeTier ? activeTier.unit_price : product.price;
   const totalPrice = effectivePrice * quantity;
   const totalMrp = product.mrp * quantity;
@@ -481,9 +520,8 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
               {applicablePromos.map((promo) => {
                 const isPercent = promo.discount_type === 'percentage';
                 const timer = formatPromoTimer(promo.end_date);
-                const minVal = Number(promo.min_order_value) || 0;
-                const maxDisc = promo.max_discount_amount ? Number(promo.max_discount_amount) : null;
                 const isCopied = copiedCode === promo.code;
+                const sentence = buildPromoSentence(promo);
 
                 return (
                   <div
@@ -491,7 +529,6 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
                     className="relative overflow-hidden rounded-2xl border shadow-[0_4px_18px_-12px_rgba(2,64,44,0.35)] bg-white"
                     style={{ borderColor: `${primaryColor}25` }}
                   >
-                    {/* Dashed ticket edges */}
                     <div className="flex items-stretch">
                       {/* Left accent strip */}
                       <div className="w-1.5 shrink-0" style={{ backgroundColor: primaryColor }} />
@@ -499,7 +536,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
                       <div className="flex-1 p-3.5 flex items-center gap-3">
                         <div className="flex-1 min-w-0">
                           {/* Row 1: code + timer */}
-                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
                             <button
                               type="button"
                               onClick={() => void handleCopyCode(promo.code)}
@@ -522,45 +559,28 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
                             )}
                           </div>
 
-                          {/* Row 2: sentence — "Above ₹X → Y% OFF" */}
-                          <p className="text-[13px] font-bold text-slate-800 leading-snug">
-                            {minVal > 0 ? (
-                              <>
-                                Above <span className="font-black text-slate-900">₹{minVal.toLocaleString('en-IN')}</span>
-                                <span className="mx-1.5 text-slate-400 font-normal">→</span>
-                                <span className="font-black" style={{ color: primaryColor }}>
-                                  {isPercent ? `${promo.discount_value}%` : `₹${promo.discount_value}`} OFF
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                Get{' '}
-                                <span className="font-black" style={{ color: primaryColor }}>
-                                  {isPercent ? `${promo.discount_value}%` : `₹${promo.discount_value}`} OFF
-                                </span>{' '}
-                                on this product
-                              </>
-                            )}
+                          {/* Row 2: full grammatical sentence */}
+                          <p className="text-[12.5px] font-semibold text-slate-700 leading-relaxed">
+                            {sentence}
                           </p>
-
-                          {/* Row 3: sub condition */}
-                          {isPercent && maxDisc && maxDisc > 0 && (
-                            <p className="text-[10.5px] text-slate-500 font-semibold mt-1">
-                              Save up to <span className="font-black text-slate-700">₹{maxDisc.toLocaleString('en-IN')}</span>
-                            </p>
-                          )}
                         </div>
 
                         {/* Right: discount badge */}
                         <div className="shrink-0 text-right">
                           <div
-                            className="rounded-xl px-2.5 py-1.5 flex flex-col items-center justify-center min-w-[52px]"
+                            className="rounded-xl px-2.5 py-1.5 flex flex-col items-center justify-center min-w-[54px]"
                             style={{ backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}25` }}
                           >
-                            <span className="text-[15px] font-black leading-none tracking-[-0.02em]" style={{ color: primaryColor }}>
+                            <span
+                              className="text-[15px] font-black leading-none tracking-[-0.02em]"
+                              style={{ color: primaryColor }}
+                            >
                               {isPercent ? `${promo.discount_value}%` : `₹${promo.discount_value}`}
                             </span>
-                            <span className="text-[8.5px] font-black tracking-widest mt-0.5" style={{ color: primaryColor, opacity: 0.75 }}>
+                            <span
+                              className="text-[8.5px] font-black tracking-widest mt-0.5"
+                              style={{ color: primaryColor, opacity: 0.75 }}
+                            >
                               OFF
                             </span>
                           </div>
@@ -604,7 +624,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
             <div className="grid grid-cols-1 gap-2.5">
               {volumeTiers.map((tier) => {
                 const tierDiscount = tier.discount_percent || Math.round(((product.price - tier.unit_price) / product.price) * 100);
-                const isApplied = quantity > 0 && quantity >= tier.min_quantity && (tier.max_quantity === null || quantity <= tier.max_quantity);
+                const isApplied = activeTier?.id === tier.id; // ← only the winning tier is active
                 return (
                   <div key={tier.id} className={`relative rounded-2xl p-3.5 border transition-all flex items-center justify-between gap-3 ${!product.inStock ? 'bg-slate-50 border-slate-100 opacity-90' : isApplied ? 'shadow-md bg-white' : 'bg-white/60 hover:bg-white border-ink-200'}`} style={product.inStock ? { borderColor: isApplied ? primaryColor : undefined, borderWidth: isApplied ? '1.5px' : '1px' } : undefined}>
                     <div className="flex-1">

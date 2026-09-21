@@ -37,7 +37,7 @@ import {
 } from '@/services/catalog';
 import { ProductCard, ProductCarousel } from '@/components/ProductCard';
 import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
-import { PromoAdBanner } from '@/components/PromoAdBanner';
+import { TopPromoSlider } from '@/components/TopPromoSlider';
 
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'rating' | 'discount';
 
@@ -155,8 +155,8 @@ export function SearchScreen({
     };
   }, []);
 
-  const topBanner = useMemo(
-    () => banners.find((b) => b.position === 'top') || banners[0] || null,
+  const topSliderBanners = useMemo(
+    () => (Array.isArray(banners) ? banners.filter((b) => b?.position === 'top_slider') : []),
     [banners]
   );
   const carouselBanners = useMemo(
@@ -192,7 +192,7 @@ export function SearchScreen({
     setSubmittedQuery(q);
     setIsFocused(false);
     setLoading(true);
-    
+
     // Save to recents using functional state update to avoid dependency issues
     if (q) {
       setRecentSearches((prev) => {
@@ -521,9 +521,9 @@ export function SearchScreen({
         {/* Results Page */}
         {!isFocused && submittedQuery && (
           <div className="space-y-6">
-            {/* 1. Top Home Banner */}
-            {topBanner && (
-              <PromoAdBanner banner={topBanner} onAction={onBannerAction} />
+            {/* 1. Top Home Promo Slider */}
+            {topSliderBanners.length > 0 && (
+              <TopPromoSlider banners={topSliderBanners} onAction={onBannerAction} />
             )}
 
             {/* 2. Primary Product Grid */}
@@ -640,9 +640,7 @@ export function SearchScreen({
             {/* 6. Quick Reorder Carousel */}
             {reorderProducts.length > 0 && (
               <div className="pt-2">
-                
-
-<ProductCarousel
+                <ProductCarousel
                   title="Quick Reorder / Buy Again"
                   subtitle="Frequent purchases for your business"
                   products={reorderProducts}
@@ -660,9 +658,7 @@ export function SearchScreen({
             {/* 7. Recently Viewed Carousel */}
             {recentlyViewed.length > 0 && (
               <div className="pt-2">
-                
-
-<ProductCarousel
+                <ProductCarousel
                   title="Recently Viewed Products"
                   subtitle="Pick up where you left off"
                   products={recentlyViewed}
@@ -725,9 +721,7 @@ export function SearchScreen({
             {/* 9. Trending Wholesale Deals */}
             {trendingProducts.length > 0 && (
               <div className="pt-2">
-                
-
-<ProductCarousel
+                <ProductCarousel
                   title="Trending Wholesale Commodities"
                   subtitle="Best sellers and bulk deals across the catalog"
                   products={trendingProducts}

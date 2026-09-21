@@ -849,7 +849,7 @@ export function HomeScreen({
             )}
           </button>
         </div>
-        </div>
+        
       </div>
 
       <div className="space-y-6 pt-4 pb-16 transform-gpu">

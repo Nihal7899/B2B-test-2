@@ -8,6 +8,7 @@ import type { Product as AppProduct } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { getStoreIcon } from '@/data/storeIcons';
 import { CachedImage } from '@/components/CachedImage';
+import { AppLoader } from '@/components/AppLoader';
 import {
   Search,
   ChevronRight,
@@ -222,7 +223,7 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
     }
   };
 
-  if (loading || !config) return <StoreSkeleton />;
+  if (loading || !config) return           <AppLoader fullScreen="{false}" showStatus="{true}" size="md" type="general"/>
   if (productsLoading) return <StoreSkeleton />;
 
   const activeCategories = categories.filter((cat: any) =>

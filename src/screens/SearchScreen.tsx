@@ -21,6 +21,9 @@ import {
   RotateCcw,
   Filter,
   ShoppingBag,
+  Mic,
+  MicOff,
+  Image as ImageIcon,
 } from 'lucide-react';
 import type { Product, PromoBanner, Category } from '@/types';
 import { useCart } from '@/store';
@@ -38,6 +41,7 @@ import {
 import { ProductCard, ProductCarousel } from '@/components/ProductCard';
 import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
 import { TopPromoSlider } from '@/components/TopPromoSlider';
+import { CachedImage } from '@/components/CachedImage';
 
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'rating' | 'discount';
 
@@ -65,6 +69,20 @@ interface SearchScreenProps {
 }
 
 const RECENT_SEARCHES_KEY = 'stackknit_recent_searches_v1';
+
+// Type for the Web Speech API recognition instance
+type SpeechRecognitionInstance = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: any) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: any) => void) | null;
+  onstart: (() => void) | null;
+};
 
 export function SearchScreen({
   initialQuery = '',
@@ -106,6 +124,16 @@ export function SearchScreen({
   const [highRatingOnly, setHighRatingOnly] = useState(false);
   const [inStockOnly, setInStockOnly] = useState(false);
 
+  // Price range state
+  const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
+  const [priceTouched, setPriceTouched] = useState(false);
+
+  // Voice search state
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const voiceTimeoutRef = useRef<number | null>(null);
+
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
@@ -115,6 +143,18 @@ export function SearchScreen({
   });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Cleanup voice recognition on unmount
+  useEffect(() => {
+    return () => {
+      try {
+        recognitionRef.current?.abort?.();
+      } catch {}
+      if (voiceTimeoutRef.current) {
+        clearTimeout(voiceTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const resetAllSearchState = useCallback(() => {
     setQuery('');
@@ -128,6 +168,8 @@ export function SearchScreen({
     setDealsOnly(false);
     setHighRatingOnly(false);
     setInStockOnly(false);
+    setPriceRange(null);
+    setPriceTouched(false);
   }, []);
 
   useEffect(() => {
@@ -169,6 +211,7 @@ export function SearchScreen({
     localStorage.removeItem(RECENT_SEARCHES_KEY);
   };
 
+  // Debounced live suggestions
   useEffect(() => {
     let active = true;
     const timer = setTimeout(async () => {
@@ -178,7 +221,7 @@ export function SearchScreen({
         setSuggestions(res.suggestions);
         setDidYouMean(res.didYouMean);
       }
-    }, 100);
+    }, 120);
 
     return () => {
       active = false;
@@ -186,14 +229,12 @@ export function SearchScreen({
     };
   }, [query, isFocused, submittedQuery]);
 
-  // FIXED: No dependencies to ensure it never causes an infinite loop
   const performSearch = useCallback(async (searchTerm: string) => {
     const q = (searchTerm || '').trim();
     setSubmittedQuery(q);
     setIsFocused(false);
     setLoading(true);
 
-    // Save to recents using functional state update to avoid dependency issues
     if (q) {
       setRecentSearches((prev) => {
         const updated = [q, ...prev.filter((s) => s.toLowerCase() !== q.toLowerCase())].slice(0, 8);
@@ -213,7 +254,6 @@ export function SearchScreen({
     setLoading(false);
   }, []);
 
-  // Sync execution perfectly with URL param changes (like CTA buttons routing here)
   useEffect(() => {
     setQuery(urlQuery);
     if (urlQuery) {
@@ -230,10 +270,10 @@ export function SearchScreen({
     }
   };
 
-  const handleSelectKeyword = (text: string) => {
+  const handleSelectKeyword = useCallback((text: string) => {
     setQuery(text);
     setSearchParams({ q: text.trim() });
-  };
+  }, [setSearchParams]);
 
   const handleSlugClick = (slugItem: RelatedSlugItem) => {
     if (slugItem.type === 'category' && slugItem.id) {
@@ -243,6 +283,157 @@ export function SearchScreen({
       setSearchParams({ q: slugItem.name });
     }
   };
+
+  // ---------- VOICE SEARCH ----------
+  const stopVoiceSearch = useCallback(() => {
+    try {
+      recognitionRef.current?.stop?.();
+    } catch {}
+    try {
+      recognitionRef.current?.abort?.();
+    } catch {}
+    recognitionRef.current = null;
+    setIsListening(false);
+    if (voiceTimeoutRef.current) {
+      clearTimeout(voiceTimeoutRef.current);
+      voiceTimeoutRef.current = null;
+    }
+  }, []);
+
+  const startVoiceSearch = useCallback(() => {
+    setVoiceError(null);
+    const w = window as any;
+    const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setVoiceError('Voice search is not supported on this device.');
+      setTimeout(() => setVoiceError(null), 2400);
+      return;
+    }
+
+    if (isListening) {
+      stopVoiceSearch();
+      return;
+    }
+
+    try {
+      const recognition: SpeechRecognitionInstance = new SpeechRecognition();
+      recognition.lang = 'en-IN';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => setIsListening(true);
+
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        const cleaned = transcript.trim();
+        if (cleaned) {
+          setQuery(cleaned);
+        }
+        if (event.results[event.results.length - 1]?.isFinal) {
+          const finalText = cleaned;
+          if (finalText) {
+            setTimeout(() => {
+              handleSelectKeyword(finalText);
+              stopVoiceSearch();
+            }, 250);
+          }
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        const code = event?.error;
+        if (code === 'not-allowed' || code === 'service-not-allowed') {
+          setVoiceError('Microphone permission denied.');
+        } else if (code === 'no-speech') {
+          setVoiceError("Didn't catch that. Try again.");
+        } else if (code !== 'aborted') {
+          setVoiceError('Voice search failed. Try again.');
+        }
+        setTimeout(() => setVoiceError(null), 2400);
+        setIsListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        recognitionRef.current = null;
+        if (voiceTimeoutRef.current) {
+          clearTimeout(voiceTimeoutRef.current);
+          voiceTimeoutRef.current = null;
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+      setIsListening(true);
+
+      // Safety auto-stop after 8s
+      voiceTimeoutRef.current = window.setTimeout(() => {
+        try {
+          recognitionRef.current?.stop?.();
+        } catch {}
+      }, 8000);
+    } catch (err) {
+      setVoiceError('Could not start voice search.');
+      setTimeout(() => setVoiceError(null), 2400);
+      setIsListening(false);
+    }
+  }, [isListening, stopVoiceSearch, handleSelectKeyword]);
+  // --------------------------------
+
+  // ---------- PRICE BOUNDS ----------
+  const priceBounds = useMemo<[number, number]>(() => {
+    if (products.length === 0) return [0, 0];
+    let min = Infinity;
+    let max = 0;
+    for (const p of products) {
+      const v = Number(p.price) || 0;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    if (!isFinite(min)) min = 0;
+    return [Math.floor(min), Math.ceil(max)];
+  }, [products]);
+
+  // Auto-initialize price range when products change
+  useEffect(() => {
+    if (priceBounds[0] === priceBounds[1]) {
+      setPriceRange(null);
+      setPriceTouched(false);
+      return;
+    }
+    if (!priceTouched) {
+      setPriceRange([priceBounds[0], priceBounds[1]]);
+    }
+  }, [priceBounds, priceTouched]);
+
+  const currentRange: [number, number] = priceRange ?? priceBounds;
+
+  const handlePriceChange = (index: 0 | 1, value: number) => {
+    setPriceTouched(true);
+    setPriceRange((prev) => {
+      const base = prev ?? priceBounds;
+      const next: [number, number] = [...base] as [number, number];
+      next[index] = value;
+      // Ensure min <= max
+      if (next[0] > next[1]) {
+        if (index === 0) next[1] = next[0];
+        else next[0] = next[1];
+      }
+      return next;
+    });
+  };
+
+  const resetPriceRange = () => {
+    setPriceRange([priceBounds[0], priceBounds[1]]);
+    setPriceTouched(false);
+  };
+  // --------------------------------
 
   const filteredAndSortedProducts = useMemo(() => {
     let result = [...products];
@@ -255,6 +446,12 @@ export function SearchScreen({
     }
     if (inStockOnly) {
       result = result.filter((p) => p.inStock);
+    }
+    if (priceTouched && priceBounds[0] !== priceBounds[1]) {
+      result = result.filter((p) => {
+        const v = Number(p.price) || 0;
+        return v >= currentRange[0] && v <= currentRange[1];
+      });
     }
 
     switch (sortBy) {
@@ -279,13 +476,14 @@ export function SearchScreen({
     }
 
     return result;
-  }, [products, dealsOnly, highRatingOnly, inStockOnly, sortBy]);
+  }, [products, dealsOnly, highRatingOnly, inStockOnly, sortBy, priceTouched, currentRange, priceBounds]);
 
   const activeFiltersCount =
     (sortBy !== 'default' ? 1 : 0) +
     (dealsOnly ? 1 : 0) +
     (highRatingOnly ? 1 : 0) +
-    (inStockOnly ? 1 : 0);
+    (inStockOnly ? 1 : 0) +
+    (priceTouched ? 1 : 0);
 
   const hasActiveFilters = activeFiltersCount > 0;
 
@@ -294,14 +492,85 @@ export function SearchScreen({
     setDealsOnly(false);
     setHighRatingOnly(false);
     setInStockOnly(false);
+    resetPriceRange();
   };
 
   const currentSortLabel =
     SORT_OPTIONS.find((s) => s.id === sortBy)?.label || 'Relevancy';
 
+  // ---------- Suggestion item component (memoized) ----------
+  const SuggestionRow = useCallback(
+    ({ item }: { item: SearchSuggestionItem }) => {
+      const hasThumb = item.type === 'product' || item.type === 'sku';
+      return (
+        <button
+          type="button"
+          onClick={() => handleSelectKeyword(item.text)}
+          className="w-full px-4 py-2.5 flex items-center gap-3 text-left hover:bg-slate-50 active:bg-slate-100 transition-colors group"
+        >
+          {hasThumb ? (
+            <div className="h-10 w-10 rounded-xl overflow-hidden bg-slate-100 ring-1 ring-slate-100 shrink-0">
+              {item.imageUrl ? (
+                <CachedImage
+                  src={item.imageUrl}
+                  alt={item.text}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="h-full w-full flex items-center justify-center text-slate-300">
+                  <Package size={16} strokeWidth={2} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="h-9 w-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+              {item.type === 'category' ? (
+                <Layers size={15} className="text-emerald-600" strokeWidth={2.4} />
+              ) : item.type === 'brand' ? (
+                <Sparkle size={15} className="text-emerald-600" strokeWidth={2.4} />
+              ) : (
+                <Search size={15} className="text-emerald-600" strokeWidth={2.4} />
+              )}
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1">
+            <p className="text-[12.5px] font-bold text-slate-800 group-hover:text-emerald-900 truncate transition-colors">
+              {item.text}
+            </p>
+            {item.subText && (
+              <p className="text-[10.5px] text-slate-400 font-semibold truncate mt-0.5">
+                {item.subText}
+              </p>
+            )}
+          </div>
+
+          {item.type === 'category' && (
+            <span className="text-[9.5px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0 tracking-wide">
+              CATEGORY
+            </span>
+          )}
+          {item.type === 'brand' && (
+            <span className="text-[9.5px] font-black text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full shrink-0 tracking-wide">
+              BRAND
+            </span>
+          )}
+          {item.type === 'sku' && (
+            <span className="text-[9.5px] font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full shrink-0 tracking-wide">
+              SKU
+            </span>
+          )}
+
+          <ChevronRight size={14} className="text-slate-300 group-hover:text-emerald-600 shrink-0 transition-colors" />
+        </button>
+      );
+    },
+    [handleSelectKeyword]
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-24">
-      {/* Sticky Header with safe-top for native notch/status-bar spacing */}
+      {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-[#02402c] shadow-md safe-top">
         <div className="max-w-7xl mx-auto px-4 pt-3 pb-2.5 text-white">
           <form onSubmit={handleSubmit} className="flex items-center gap-2.5">
@@ -316,10 +585,31 @@ export function SearchScreen({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => setIsFocused(true)}
-                placeholder="Search beverages, brands, atta, oils, pulses..."
-                className="w-full h-11 pl-10 pr-9 rounded-xl bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-sm placeholder:text-slate-400"
+                placeholder={isListening ? 'Listening…' : 'Search beverages, brands, atta, oils, pulses...'}
+                className={`w-full h-11 pl-10 pr-24 rounded-xl bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 shadow-sm placeholder:text-slate-400 transition-all duration-200 ${
+                  isListening ? 'ring-2 ring-emerald-400 ring-offset-0' : 'focus:ring-emerald-400'
+                }`}
               />
 
+              {/* Mic — always visible on right side of input */}
+              <button
+                type="button"
+                onClick={startVoiceSearch}
+                aria-label={isListening ? 'Stop voice search' : 'Start voice search'}
+                className={`absolute right-9 h-8 w-8 rounded-lg flex items-center justify-center transition-all active:scale-90 ${
+                  isListening
+                    ? 'bg-emerald-500 text-white shadow-md animate-pulse'
+                    : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-50'
+                }`}
+              >
+                {isListening ? (
+                  <MicOff size={15} strokeWidth={2.5} />
+                ) : (
+                  <Mic size={15} strokeWidth={2.5} />
+                )}
+              </button>
+
+              {/* Clear button */}
               {query && (
                 <button
                   type="button"
@@ -329,7 +619,8 @@ export function SearchScreen({
                     setSearchParams({});
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-3 p-1 rounded-full text-slate-400 hover:text-slate-600 active:scale-90"
+                  className="absolute right-1.5 h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 active:scale-90 transition-all"
+                  aria-label="Clear search"
                 >
                   <X size={15} />
                 </button>
@@ -354,7 +645,27 @@ export function SearchScreen({
             </button>
           </form>
 
-          {/* Horizontal Filter Bar */}
+          {/* Listening strip */}
+          {isListening && (
+            <div className="mt-2 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 animate-in fade-in slide-in-from-top-1 duration-200">
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+              </span>
+              <p className="text-[11px] font-bold text-white/95">
+                Listening… speak now
+              </p>
+            </div>
+          )}
+
+          {voiceError && (
+            <div className="mt-2 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/20 backdrop-blur-md border border-red-300/30 animate-in fade-in slide-in-from-top-1 duration-200">
+              <AlertCircle size={12} className="text-red-100 shrink-0" />
+              <p className="text-[11px] font-bold text-white/95">{voiceError}</p>
+            </div>
+          )}
+
+          {/* Filter Bar */}
           <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
             <button
               type="button"
@@ -368,6 +679,21 @@ export function SearchScreen({
               <ArrowUpDown size={12} />
               <span>{currentSortLabel}</span>
               <ChevronDown size={11} className="opacity-70" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsSortSheetOpen(true)}
+              className={`flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
+                priceTouched
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
+              }`}
+            >
+              <SlidersHorizontal size={11} />
+              {priceTouched && priceBounds[0] !== priceBounds[1]
+                ? `₹${currentRange[0]}–₹${currentRange[1]}`
+                : 'Price'}
             </button>
 
             <button
@@ -411,7 +737,7 @@ export function SearchScreen({
           </div>
         </div>
 
-        {/* Slide-Down Reset Banner Strip */}
+        {/* Active Filters Reset Strip */}
         <div
           className={`overflow-hidden transition-all duration-300 ease-in-out ${
             hasActiveFilters ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
@@ -437,11 +763,11 @@ export function SearchScreen({
         </div>
       </header>
 
-      {/* Main Container */}
+      {/* Main Content */}
       <div className="flex-1 max-w-7xl w-full mx-auto py-3 space-y-6">
-        {/* Real-time Typing Suggestions & Recents Dropdown */}
+        {/* Suggestions Dropdown */}
         {isFocused && (
-          <div className="mx-4 bg-white rounded-2xl border border-slate-200/80 shadow-card divide-y divide-slate-100 overflow-hidden">
+          <div className="mx-4 bg-white rounded-2xl border border-slate-200/80 shadow-card divide-y divide-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
             {didYouMean && (
               <div
                 onClick={() => handleSelectKeyword(didYouMean)}
@@ -462,28 +788,12 @@ export function SearchScreen({
             )}
 
             {suggestions.length > 0 && (
-              <div className="py-2">
+              <div className="py-1.5">
                 <div className="px-4 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Suggestions
                 </div>
                 {suggestions.map((item, idx) => (
-                  <button
-                    key={`${item.text}-${idx}`}
-                    onClick={() => handleSelectKeyword(item.text)}
-                    className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-slate-50 transition-colors group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Search size={14} className="text-slate-400 group-hover:text-emerald-600 shrink-0 transition-colors" />
-                      <span className="text-xs font-semibold text-slate-800 group-hover:text-emerald-900 truncate">
-                        {item.text}
-                      </span>
-                    </div>
-                    {item.packSize && (
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Package size={11} /> {item.packSize}
-                      </span>
-                    )}
-                  </button>
+                  <SuggestionRow key={`${item.text}-${idx}`} item={item} />
                 ))}
               </div>
             )}
@@ -518,20 +828,42 @@ export function SearchScreen({
           </div>
         )}
 
-        {/* Results Page */}
+        {/* Results */}
         {!isFocused && submittedQuery && (
           <div className="space-y-6">
-            {/* 1. Top Home Promo Slider */}
             {topSliderBanners.length > 0 && (
               <TopPromoSlider banners={topSliderBanners} onAction={onBannerAction} />
             )}
 
-            {/* 2. Primary Product Grid */}
+            {/* Result count header */}
+            {!loading && products.length > 0 && (
+              <div className="px-4 flex items-center justify-between">
+                <p className="text-[11.5px] font-bold text-slate-500">
+                  <span className="text-slate-900">{filteredAndSortedProducts.length}</span>
+                  {' '}result{filteredAndSortedProducts.length !== 1 ? 's' : ''} for{' '}
+                  <span className="text-emerald-700">"{submittedQuery}"</span>
+                </p>
+                {priceTouched && priceBounds[0] !== priceBounds[1] && (
+                  <button
+                    onClick={resetPriceRange}
+                    className="text-[10.5px] font-black text-rose-600 flex items-center gap-1 active:scale-95"
+                  >
+                    <X size={11} strokeWidth={3} />
+                    ₹{currentRange[0]}–₹{currentRange[1]}
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="px-4">
               {loading ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {[...Array(6)].map((_, i) => (
-                    <div key={i} className="h-64 bg-slate-200 rounded-2xl animate-pulse" />
+                    <div key={i} className="space-y-2">
+                      <div className="aspect-square bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 rounded-2xl animate-pulse" />
+                      <div className="h-3 w-3/4 bg-slate-200 rounded animate-pulse" />
+                      <div className="h-3 w-1/2 bg-slate-200 rounded animate-pulse" />
+                    </div>
                   ))}
                 </div>
               ) : filteredAndSortedProducts.length > 0 ? (
@@ -573,7 +905,6 @@ export function SearchScreen({
               )}
             </div>
 
-            {/* 3. Middle Home Promo Carousel */}
             {carouselBanners.length > 0 && (
               <div className="pt-2">
                 {carouselBanners.length > 1 ? (
@@ -586,7 +917,6 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 4. Alternative Brand Products */}
             {alternativeProducts.length > 0 && (
               <div className="space-y-3 px-4 pt-2">
                 <div className="flex items-center gap-2">
@@ -614,7 +944,6 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 5. Related Slugs & Category Navigation */}
             {relatedSlugs.length > 0 && (
               <div className="px-4">
                 <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
@@ -637,7 +966,6 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 6. Quick Reorder Carousel */}
             {reorderProducts.length > 0 && (
               <div className="pt-2">
                 <ProductCarousel
@@ -655,7 +983,6 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 7. Recently Viewed Carousel */}
             {recentlyViewed.length > 0 && (
               <div className="pt-2">
                 <ProductCarousel
@@ -673,7 +1000,6 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 8. "Explore All Categories" Visual Grid */}
             {allCategories.length > 0 && (
               <div className="px-4">
                 <section className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
@@ -718,7 +1044,6 @@ export function SearchScreen({
               </div>
             )}
 
-            {/* 9. Trending Wholesale Deals */}
             {trendingProducts.length > 0 && (
               <div className="pt-2">
                 <ProductCarousel
@@ -739,9 +1064,9 @@ export function SearchScreen({
         )}
       </div>
 
-      {/* Sort Sheet Modal */}
+      {/* Sort & Filter Sheet */}
       {isSortSheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div
             className="absolute inset-0"
             onClick={() => setIsSortSheetOpen(false)}
@@ -753,10 +1078,10 @@ export function SearchScreen({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
-                  Sort & Filter Order
+                  Sort & Filter
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Choose how search products are presented
+                  Refine how search results are shown
                 </p>
               </div>
               <button
@@ -767,57 +1092,193 @@ export function SearchScreen({
               </button>
             </div>
 
-            <div className="mt-3 space-y-1.5 max-h-[60vh] overflow-y-auto">
-              {SORT_OPTIONS.map((opt) => {
-                const isSelected = sortBy === opt.id;
-                const Icon = opt.icon;
-                return (
-                  <button
-                    key={opt.id}
-                    onClick={() => {
-                      setSortBy(opt.id);
-                      setIsSortSheetOpen(false);
-                    }}
-                    className={`flex w-full items-center justify-between rounded-2xl p-3.5 text-left transition ${
-                      isSelected
-                        ? 'bg-emerald-50/60 ring-1.5 ring-emerald-600'
-                        : 'hover:bg-slate-50/70'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
+            <div className="mt-4 space-y-4 max-h-[64vh] overflow-y-auto overscroll-contain pr-1">
+              {/* Price Range */}
+              {priceBounds[0] !== priceBounds[1] && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-[13px] font-black text-slate-900 tracking-tight">
+                      Price Range
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={resetPriceRange}
+                      disabled={!priceTouched}
+                      className="text-[10.5px] font-black text-[#02402c] disabled:text-slate-300 active:scale-95 transition-all"
+                    >
+                      Reset
+                    </button>
+                  </div>
+
+                  {/* Price slider track */}
+                  <div className="px-1 pb-2">
+                    <div className="relative h-1.5 bg-slate-200 rounded-full">
                       <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                          isSelected ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        <Icon size={18} />
-                      </div>
-                      <div>
-                        <p
-                          className={`text-xs font-bold leading-none ${
-                            isSelected ? 'text-slate-900' : 'text-slate-700'
-                          }`}
-                        >
-                          {opt.label}
-                        </p>
-                        <p className="mt-1 text-[10px] text-slate-400">
-                          {opt.subLabel}
-                        </p>
-                      </div>
+                        className="absolute h-1.5 rounded-full bg-[#02402c] transition-all"
+                        style={{
+                          left: `${((currentRange[0] - priceBounds[0]) / Math.max(1, priceBounds[1] - priceBounds[0])) * 100}%`,
+                          right: `${100 - ((currentRange[1] - priceBounds[0]) / Math.max(1, priceBounds[1] - priceBounds[0])) * 100}%`,
+                        }}
+                      />
                     </div>
 
-                    {isSelected && (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-white shadow-sm">
-                        <Check size={14} strokeWidth={3} />
+                    <div className="relative -mt-3">
+                      <input
+                        type="range"
+                        min={priceBounds[0]}
+                        max={priceBounds[1]}
+                        value={currentRange[0]}
+                        onChange={(e) => handlePriceChange(0, Number(e.target.value))}
+                        aria-label="Minimum price"
+                        className="range-thumb absolute w-full h-6 appearance-none bg-transparent pointer-events-none"
+                      />
+                      <input
+                        type="range"
+                        min={priceBounds[0]}
+                        max={priceBounds[1]}
+                        value={currentRange[1]}
+                        onChange={(e) => handlePriceChange(1, Number(e.target.value))}
+                        aria-label="Maximum price"
+                        className="range-thumb absolute w-full h-6 appearance-none bg-transparent pointer-events-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex flex-col">
+                      <span className="text-[9.5px] font-black text-slate-400 tracking-wider uppercase">Min</span>
+                      <span className="text-[14px] font-black text-slate-900 tabular-nums">
+                        ₹{currentRange[0].toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="h-px flex-1 bg-slate-200 mx-3" />
+                    <div className="flex flex-col items-end">
+                      <span className="text-[9.5px] font-black text-slate-400 tracking-wider uppercase">Max</span>
+                      <span className="text-[14px] font-black text-slate-900 tabular-nums">
+                        ₹{currentRange[1].toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="h-px bg-slate-100" />
+
+              {/* Sort options */}
+              <div className="space-y-1.5">
+                <h4 className="text-[13px] font-black text-slate-900 tracking-tight mb-2">
+                  Sort Order
+                </h4>
+                {SORT_OPTIONS.map((opt) => {
+                  const isSelected = sortBy === opt.id;
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        setSortBy(opt.id);
+                        setIsSortSheetOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between rounded-2xl p-3.5 text-left transition ${
+                        isSelected
+                          ? 'bg-emerald-50/60 ring-1 ring-emerald-600'
+                          : 'hover:bg-slate-50/70'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                            isSelected ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          <Icon size={18} />
+                        </div>
+                        <div>
+                          <p
+                            className={`text-xs font-bold leading-none ${
+                              isSelected ? 'text-slate-900' : 'text-slate-700'
+                            }`}
+                          >
+                            {opt.label}
+                          </p>
+                          <p className="mt-1 text-[10px] text-slate-400">
+                            {opt.subLabel}
+                          </p>
+                        </div>
                       </div>
-                    )}
-                  </button>
-                );
-              })}
+
+                      {isSelected && (
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-white shadow-sm">
+                          <Check size={14} strokeWidth={3} />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Apply / Reset footer */}
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  resetFilters();
+                  setIsSortSheetOpen(false);
+                }}
+                className="flex-1 h-11 rounded-xl bg-slate-100 text-slate-700 text-[13px] font-black active:scale-95 transition-transform"
+              >
+                Reset All
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSortSheetOpen(false)}
+                className="flex-1 h-11 rounded-xl bg-[#02402c] text-white text-[13px] font-black active:scale-95 transition-transform shadow-md shadow-[#02402c]/25"
+              >
+                Show Results
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Inline style for range thumbs (kept local to the screen) */}
+      <style>{`
+        .range-thumb::-webkit-slider-thumb {
+          appearance: none;
+          -webkit-appearance: none;
+          pointer-events: auto;
+          height: 22px;
+          width: 22px;
+          border-radius: 9999px;
+          background: #ffffff;
+          border: 2.5px solid #02402c;
+          box-shadow: 0 2px 6px rgba(2,64,44,0.25);
+          cursor: grab;
+          margin-top: 0;
+          transition: transform 0.15s ease;
+        }
+        .range-thumb::-webkit-slider-thumb:active {
+          cursor: grabbing;
+          transform: scale(1.1);
+        }
+        .range-thumb::-moz-range-thumb {
+          pointer-events: auto;
+          height: 22px;
+          width: 22px;
+          border-radius: 9999px;
+          background: #ffffff;
+          border: 2.5px solid #02402c;
+          box-shadow: 0 2px 6px rgba(2,64,44,0.25);
+          cursor: grab;
+        }
+        .range-thumb::-moz-range-thumb:active {
+          cursor: grabbing;
+          transform: scale(1.1);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }

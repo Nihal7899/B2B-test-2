@@ -8,6 +8,7 @@ export interface SearchSuggestionItem {
   brand?: string;
   packSize?: string;
   id?: string;
+  imageUrl?: string;
 }
 
 export interface RelatedSlugItem {
@@ -46,6 +47,7 @@ interface ProductIndexItem {
   subcategoryId?: string;
   productCode?: string;
   description?: string;
+  imageUrl?: string;
 }
 
 interface SearchDictionary {
@@ -110,17 +112,34 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
 
   try {
     const [productsRes, categoriesRes, subcategoriesRes, brandsRes] = await Promise.all([
-      supabase.from('products').select('id, name, brand, pack_size, category_id, subcategory_id, product_code, description').eq('is_active', true).limit(3000),
-      supabase.from('categories').select('id, name, slug, image_url, description, gradient, is_active').eq('is_active', true).order('sort_order', { ascending: true }),
-      supabase.from('subcategories').select('id, name, slug, category_id').eq('is_active', true),
-      supabase.from('trusted_brands').select('name').eq('is_active', true),
+      supabase
+        .from('products')
+        .select('id, name, brand, pack_size, category_id, subcategory_id, product_code, description, image_url, image_urls')
+        .eq('is_active', true)
+        .limit(3000),
+      supabase
+        .from('categories')
+        .select('id, name, slug, image_url, description, gradient, is_active')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('subcategories')
+        .select('id, name, slug, category_id')
+        .eq('is_active', true),
+      supabase
+        .from('trusted_brands')
+        .select('name')
+        .eq('is_active', true),
     ]);
 
     let synonymsRes: any = { data: null };
     try {
-      synonymsRes = await supabase.from('search_synonyms').select('keyword, synonyms').eq('is_active', true);
+      synonymsRes = await supabase
+        .from('search_synonyms')
+        .select('keyword, synonyms')
+        .eq('is_active', true);
     } catch (e) {
-      console.warn("Synonyms table unavailable, falling back to local map.");
+      console.warn('Synonyms table unavailable, falling back to local map.');
     }
 
     const products: ProductIndexItem[] = (productsRes.data || []).map((p: any) => ({
@@ -132,6 +151,7 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
       subcategoryId: p.subcategory_id,
       productCode: p.product_code?.trim() || '',
       description: p.description?.trim() || '',
+      imageUrl: p.image_url || (p.image_urls && p.image_urls[0]) || '',
     }));
 
     const rawBrands = [
@@ -161,27 +181,62 @@ export async function getOrBuildSearchDictionary(): Promise<SearchDictionary> {
     const synonymsMap: Record<string, string[]> = {};
     const addSynonyms = (kw: string, syns: string[]) => {
       synonymsMap[kw] = Array.from(new Set([...(synonymsMap[kw] || []), ...syns]));
-      syns.forEach(s => {
+      syns.forEach((s) => {
         synonymsMap[s] = Array.from(new Set([...(synonymsMap[s] || []), kw, ...syns]));
       });
     };
-    
-    Object.entries(FALLBACK_SYNONYMS).forEach(([k, v]) => addSynonyms(k.toLowerCase(), v.map(s => s.toLowerCase())));
+
+    Object.entries(FALLBACK_SYNONYMS).forEach(([k, v]) =>
+      addSynonyms(k.toLowerCase(), v.map((s) => s.toLowerCase()))
+    );
     if (synonymsRes.data) {
-      synonymsRes.data.forEach((row: any) => addSynonyms(row.keyword.toLowerCase(), row.synonyms.map((s: string) => s.toLowerCase())));
+      synonymsRes.data.forEach((row: any) =>
+        addSynonyms(row.keyword.toLowerCase(), row.synonyms.map((s: string) => s.toLowerCase()))
+      );
     }
 
     const vocabSet = new Set<string>();
-    categories.forEach(c => c.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
-    brands.forEach(b => b.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
-    products.forEach(p => p.name.toLowerCase().split(/[\s,]+/).forEach(w => vocabSet.add(w.replace(/[^\w-]/g, ''))));
-    const vocabulary = Array.from(vocabSet).filter(w => w.length >= 3);
+    categories.forEach((c) =>
+      c.name
+        .toLowerCase()
+        .split(/[\s,]+/)
+        .forEach((w) => vocabSet.add(w.replace(/[^\w-]/g, '')))
+    );
+    brands.forEach((b) =>
+      b
+        .toLowerCase()
+        .split(/[\s,]+/)
+        .forEach((w) => vocabSet.add(w.replace(/[^\w-]/g, '')))
+    );
+    products.forEach((p) =>
+      p.name
+        .toLowerCase()
+        .split(/[\s,]+/)
+        .forEach((w) => vocabSet.add(w.replace(/[^\w-]/g, '')))
+    );
+    const vocabulary = Array.from(vocabSet).filter((w) => w.length >= 3);
 
-    dictionaryCache = { products, brands, categories, subcategories, synonyms: synonymsMap, vocabulary, lastFetched: now };
+    dictionaryCache = {
+      products,
+      brands,
+      categories,
+      subcategories,
+      synonyms: synonymsMap,
+      vocabulary,
+      lastFetched: now,
+    };
     return dictionaryCache;
   } catch (err) {
     console.error('Failed to build search dictionary:', err);
-    return { products: [], brands: [], categories: [], subcategories: [], synonyms: {}, vocabulary: [], lastFetched: 0 };
+    return {
+      products: [],
+      brands: [],
+      categories: [],
+      subcategories: [],
+      synonyms: {},
+      vocabulary: [],
+      lastFetched: 0,
+    };
   }
 }
 
@@ -195,7 +250,7 @@ function getLevenshteinDistance(a = '', b = ''): number {
   for (let j = 0; j <= an; j++) matrix[0][j] = j;
   for (let i = 1; i <= bn; i++) {
     for (let j = 1; j <= an; j++) {
-      if (b[i - 1] === a[i - 1]) {
+      if (b[i - 1] === a[j - 1]) {
         matrix[i][j] = matrix[i - 1][j - 1];
       } else {
         matrix[i][j] = Math.min(
@@ -227,17 +282,27 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
   if (!q) {
     return {
       didYouMean: null,
-      suggestions: dict.categories.slice(0, 6).map((c) => ({ text: c.name, type: 'category', id: c.id })),
+      suggestions: dict.categories.slice(0, 6).map((c) => ({
+        text: c.name,
+        type: 'category',
+        id: c.id,
+      })),
       matchedCategories: dict.categories.slice(0, 6),
       matchedBrands: dict.brands.slice(0, 4),
     };
   }
 
   // Split by comma to recognize multi-item lists like "tomato, potato"
-  const subQueries = q.split(',').map(s => s.trim()).filter(Boolean);
-  const queryTokens = q.split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
+  const subQueries = q
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const queryTokens = q
+    .split(/[\s,]+/)
+    .map((t) => t.replace(/[^\w-]/g, ''))
+    .filter(Boolean);
   const expandedTokens = expandQueryTokens(queryTokens, dict.synonyms);
-  
+
   const suggestionList: SearchSuggestionItem[] = [];
   const matchedCategories: Category[] = [];
   const matchedBrands: string[] = [];
@@ -251,11 +316,18 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     }
   };
 
-  const skuToken = queryTokens.find(t => SKU_REGEX.test(t));
+  const skuToken = queryTokens.find((t) => SKU_REGEX.test(t));
   if (skuToken) {
-    const skuMatches = dict.products.filter(p => p.productCode?.toLowerCase() === skuToken);
+    const skuMatches = dict.products.filter(
+      (p) => p.productCode?.toLowerCase() === skuToken
+    );
     for (const p of skuMatches) {
-      addUnique({ text: formatCompoundPhrase(p.brand, p.name, p.packSize), type: 'sku', subText: `SKU: ${p.productCode}` });
+      addUnique({
+        text: formatCompoundPhrase(p.brand, p.name, p.packSize),
+        type: 'sku',
+        subText: `SKU: ${p.productCode}`,
+        imageUrl: p.imageUrl,
+      });
     }
   }
 
@@ -276,8 +348,8 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
   for (const c of dict.categories) {
     const cLower = c.name.toLowerCase();
     const cSlug = c.slug.toLowerCase();
-    if (!matchedCategories.some(mc => mc.id === c.id)) {
-      if (queryTokens.some(t => cLower.includes(t) || cSlug.includes(t))) {
+    if (!matchedCategories.some((mc) => mc.id === c.id)) {
+      if (queryTokens.some((t) => cLower.includes(t) || cSlug.includes(t))) {
         matchedCategories.push(c);
         addUnique({ text: c.name, type: 'category', id: c.id, subText: 'Category' });
       }
@@ -293,16 +365,22 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
 
   // Product Evaluation supporting comma-separated multi-queries
   for (const p of dict.products) {
-    const searchable = `${p.brand} ${p.name} ${p.packSize} ${p.description}`.toLowerCase();
+    const searchable =
+      `${p.brand} ${p.name} ${p.packSize} ${p.description}`.toLowerCase();
     const pName = p.name.toLowerCase();
-    
+
     let matchedSubQuery = false;
     for (const sq of subQueries) {
-      const sqTokens = sq.split(/[\s]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
-      const matchesAllTokens = sqTokens.length > 0 && sqTokens.every(t => {
-        const equivalents = [t, ...(dict.synonyms[t] || [])];
-        return equivalents.some(eq => searchable.includes(eq));
-      });
+      const sqTokens = sq
+        .split(/[\s]+/)
+        .map((t) => t.replace(/[^\w-]/g, ''))
+        .filter(Boolean);
+      const matchesAllTokens =
+        sqTokens.length > 0 &&
+        sqTokens.every((t) => {
+          const equivalents = [t, ...(dict.synonyms[t] || [])];
+          return equivalents.some((eq) => searchable.includes(eq));
+        });
       if (pName.startsWith(sq) || matchesAllTokens) {
         matchedSubQuery = true;
         break;
@@ -310,19 +388,26 @@ export async function getLiveSearchSuggestions(query = ''): Promise<SearchAnalys
     }
 
     if (matchedSubQuery) {
-      addUnique({ text: formatCompoundPhrase(p.brand, p.name, p.packSize), type: 'product', brand: p.brand, packSize: p.packSize, subText: p.packSize || p.brand });
+      addUnique({
+        text: formatCompoundPhrase(p.brand, p.name, p.packSize),
+        type: 'product',
+        brand: p.brand,
+        packSize: p.packSize,
+        subText: p.packSize || p.brand,
+        imageUrl: p.imageUrl,
+      });
     }
     if (suggestionList.length >= 12) break;
   }
 
   let didYouMean: string | null = null;
   if (suggestionList.length === 0) {
-    const correctedTokens = queryTokens.map(token => {
+    const correctedTokens = queryTokens.map((token) => {
       if (token.length < 3) return token;
       if (dict.vocabulary.includes(token) || dict.synonyms[token]) return token;
-      
+
       let bestMatch = token;
-      let lowestDist = 3; 
+      let lowestDist = 3;
 
       for (const word of dict.vocabulary) {
         const dist = getLevenshteinDistance(token, word);
@@ -365,12 +450,20 @@ export async function executeFullSearch(
 
   try {
     // 1. Separate sub-queries by Comma to independently rank distinct list items
-    const subQueries = effectiveQuery.toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
-    const rawTokens = effectiveQuery.toLowerCase().split(/[\s,]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
-    
+    const subQueries = effectiveQuery
+      .toLowerCase()
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const rawTokens = effectiveQuery
+      .toLowerCase()
+      .split(/[\s,]+/)
+      .map((t) => t.replace(/[^\w-]/g, ''))
+      .filter(Boolean);
+
     const expanded = new Set<string>(rawTokens);
     for (const t of rawTokens) {
-      if (dict.synonyms[t]) dict.synonyms[t].forEach(s => expanded.add(s));
+      if (dict.synonyms[t]) dict.synonyms[t].forEach((s) => expanded.add(s));
     }
     const tokens = Array.from(expanded);
 
@@ -381,7 +474,11 @@ export async function executeFullSearch(
     for (const cat of dict.categories) {
       const cName = cat.name.toLowerCase();
       const cSlug = cat.slug.toLowerCase();
-      if (cName === effectiveQuery.toLowerCase() || cSlug.includes(effectiveQuery.toLowerCase()) || tokens.some((t) => cName.includes(t) || cSlug.includes(t))) {
+      if (
+        cName === effectiveQuery.toLowerCase() ||
+        cSlug.includes(effectiveQuery.toLowerCase()) ||
+        tokens.some((t) => cName.includes(t) || cSlug.includes(t))
+      ) {
         matchingCategoryIds.add(cat.id);
         if (!primaryCategory) primaryCategory = cat;
       }
@@ -410,16 +507,24 @@ export async function executeFullSearch(
         } else if (PACK_SIZE_REGEX.test(t)) {
           orConditions.push(`pack_size.ilike.%${t}%`);
         } else {
-          orConditions.push(`name.ilike.%${t}%`, `brand.ilike.%${t}%`, `description.ilike.%${t}%`);
+          orConditions.push(
+            `name.ilike.%${t}%`,
+            `brand.ilike.%${t}%`,
+            `description.ilike.%${t}%`
+          );
         }
       });
     }
 
     if (matchingCategoryIds.size > 0) {
-      Array.from(matchingCategoryIds).forEach((cId) => orConditions.push(`category_id.eq.${cId}`));
+      Array.from(matchingCategoryIds).forEach((cId) =>
+        orConditions.push(`category_id.eq.${cId}`)
+      );
     }
     if (matchingSubcategoryIds.size > 0) {
-      Array.from(matchingSubcategoryIds).forEach((scId) => orConditions.push(`subcategory_id.eq.${scId}`));
+      Array.from(matchingSubcategoryIds).forEach((scId) =>
+        orConditions.push(`subcategory_id.eq.${scId}`)
+      );
     }
 
     if (orConditions.length > 0) {
@@ -439,7 +544,7 @@ export async function executeFullSearch(
       const mrp = Number(p.mrp || 0);
       const price = Number(p.wholesale_price || 0);
       const marginPercent = mrp > price ? ((mrp - price) / mrp) * 100 : 0;
-      
+
       const stock = p.stock_quantity || 0;
       const moq = p.moq || p.min_order_quantity || 1;
       const isEffectivelyInStock = stock >= moq;
@@ -447,13 +552,23 @@ export async function executeFullSearch(
       // Evaluate the product against EACH distinct item the user searched for
       for (const sq of subQueries) {
         let currentScore = 0;
-        const sqRawTokens = sq.split(/[\s]+/).map(t => t.replace(/[^\w-]/g, '')).filter(Boolean);
+        const sqRawTokens = sq
+          .split(/[\s]+/)
+          .map((t) => t.replace(/[^\w-]/g, ''))
+          .filter(Boolean);
         const sqTokens = expandQueryTokens(sqRawTokens, dict.synonyms);
 
         if (pName === sq || pName.includes(` ${sq} `)) currentScore += 1000;
         if (p.product_code?.toLowerCase() === sq) currentScore += 2000;
 
-        const allTokensMatch = sqRawTokens.length > 0 && sqRawTokens.every(t => pName.includes(t) || pBrand.includes(t) || (dict.synonyms[t] && dict.synonyms[t].some(s => pName.includes(s))));
+        const allTokensMatch =
+          sqRawTokens.length > 0 &&
+          sqRawTokens.every(
+            (t) =>
+              pName.includes(t) ||
+              pBrand.includes(t) ||
+              (dict.synonyms[t] && dict.synonyms[t].some((s) => pName.includes(s)))
+          );
         if (allTokensMatch) currentScore += 500;
 
         if (pName.startsWith(sq)) currentScore += 300;
@@ -462,11 +577,11 @@ export async function executeFullSearch(
         sqTokens.forEach((t) => {
           const words = pName.split(/[\s,]+/);
           // Massive boost for exact word matching so explicit queries outrank category associations
-          if (words.includes(t)) currentScore += 200; 
-          else if (pName.includes(t)) currentScore += 50; 
-          
+          if (words.includes(t)) currentScore += 200;
+          else if (pName.includes(t)) currentScore += 50;
+
           if (pBrand.includes(t)) currentScore += 100;
-          if (pPack === t) currentScore += 50; 
+          if (pPack === t) currentScore += 50;
           if (pDesc.includes(t)) currentScore += 10;
         });
 
@@ -481,10 +596,10 @@ export async function executeFullSearch(
       if (p.category_id && matchingCategoryIds.has(p.category_id)) score += 100;
       if (p.subcategory_id && matchingSubcategoryIds.has(p.subcategory_id)) score += 150;
 
-      if (isEffectivelyInStock) score += 150; 
-      else score -= 500; 
-      
-      score += marginPercent; 
+      if (isEffectivelyInStock) score += 150;
+      else score -= 500;
+
+      score += marginPercent;
       score += Number(p.rating || 0) * 15;
 
       return {
@@ -509,25 +624,38 @@ export async function executeFullSearch(
     });
 
     scoredProducts.sort((a, b) => b.score - a.score);
-    
+
     let matchedProducts = scoredProducts.map((sp) => sp.product);
     if (filter?.inStockOnly) {
-      matchedProducts = matchedProducts.filter(p => p.inStock);
+      matchedProducts = matchedProducts.filter((p) => p.inStock);
     }
 
     const matchedIds = new Set(matchedProducts.map((p) => p.id));
-    const matchedBrandNames = new Set(matchedProducts.map((p) => (p.brand || '').toLowerCase().trim()).filter(Boolean));
-    const primaryCatIds = Array.from(new Set(matchedProducts.map((p) => p.category).filter(Boolean)));
+    const matchedBrandNames = new Set(
+      matchedProducts.map((p) => (p.brand || '').toLowerCase().trim()).filter(Boolean)
+    );
+    const primaryCatIds = Array.from(
+      new Set(matchedProducts.map((p) => p.category).filter(Boolean))
+    );
 
     let alternativeProducts: Product[] = [];
     if (primaryCatIds.length > 0) {
-      const { data: rawAlt } = await supabase.from('products').select('*').eq('is_active', true).in('category_id', primaryCatIds.slice(0, 3)).limit(20);
+      const { data: rawAlt } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .in('category_id', primaryCatIds.slice(0, 3))
+        .limit(20);
 
       alternativeProducts = (rawAlt || [])
         .filter((p: any) => {
-           const stock = p.stock_quantity || 0;
-           const moq = p.moq || p.min_order_quantity || 1;
-           return !matchedIds.has(p.id) && !matchedBrandNames.has((p.brand || '').toLowerCase()) && (stock >= moq);
+          const stock = p.stock_quantity || 0;
+          const moq = p.moq || p.min_order_quantity || 1;
+          return (
+            !matchedIds.has(p.id) &&
+            !matchedBrandNames.has((p.brand || '').toLowerCase()) &&
+            stock >= moq
+          );
         })
         .map((p: any) => ({
           id: p.id,
@@ -558,7 +686,10 @@ export async function executeFullSearch(
     }
 
     for (const sc of dict.subcategories) {
-      if (matchingSubcategoryIds.has(sc.id) || (sc.categoryId && primaryCatIds.includes(sc.categoryId))) {
+      if (
+        matchingSubcategoryIds.has(sc.id) ||
+        (sc.categoryId && primaryCatIds.includes(sc.categoryId))
+      ) {
         if (!seenSlugs.has(sc.slug)) {
           seenSlugs.add(sc.slug);
           relatedSlugs.push({ name: sc.name, slug: sc.slug, type: 'subcategory', id: sc.id });
@@ -567,33 +698,61 @@ export async function executeFullSearch(
     }
 
     const [bannerRes, trendingRes] = await Promise.all([
-      supabase.from('home_banners').select('*').eq('is_active', true).order('display_order', { ascending: true }).limit(6),
-      supabase.from('products').select('*').eq('is_active', true).order('rating', { ascending: false }).limit(10),
+      supabase
+        .from('home_banners')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })
+        .limit(6),
+      supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('rating', { ascending: false })
+        .limit(10),
     ]);
 
     const promoBanners: PromoBanner[] = (bannerRes.data || []).map((b: any) => ({
-      id: b.id, title: b.title, description: b.description || '', imageUrl: b.image_url || '',
-      backgroundColor: b.background_color || b.bg_color || '#02402c', buttonText: b.button_text || 'Shop now',
-      badge: b.badge || '', position: b.position || 'carousel', actionType: b.action_type || 'OPEN_SCREEN', actionConfig: b.action_config || {},
+      id: b.id,
+      title: b.title,
+      description: b.description || '',
+      imageUrl: b.image_url || '',
+      backgroundColor: b.background_color || b.bg_color || '#02402c',
+      buttonText: b.button_text || 'Shop now',
+      badge: b.badge || '',
+      position: b.position || 'carousel',
+      actionType: b.action_type || 'OPEN_SCREEN',
+      actionConfig: b.action_config || {},
     }));
 
     const topBanner = promoBanners.find((b) => b.position === 'top') || promoBanners[0] || null;
-    const middleBanners = promoBanners.filter((b) => b.position === 'carousel' || b.position === 'middle');
+    const middleBanners = promoBanners.filter(
+      (b) => b.position === 'carousel' || b.position === 'middle'
+    );
 
     const trendingProducts: Product[] = (trendingRes.data || []).map((p: any) => {
       const stock = p.stock_quantity || 0;
       const moq = p.moq || p.min_order_quantity || 1;
       return {
-        id: p.id, name: p.name, brand: p.brand, category: p.category_id, mrp: Number(p.mrp || 0), price: Number(p.wholesale_price || 0),
-        packSize: p.pack_size || '', moq, image: p.image_url || (p.image_urls && p.image_urls[0]) || '', rating: Number(p.rating || 4.5),
-        inStock: stock >= moq, description: p.description || '',
+        id: p.id,
+        name: p.name,
+        brand: p.brand,
+        category: p.category_id,
+        mrp: Number(p.mrp || 0),
+        price: Number(p.wholesale_price || 0),
+        packSize: p.pack_size || '',
+        moq,
+        image: p.image_url || (p.image_urls && p.image_urls[0]) || '',
+        rating: Number(p.rating || 4.5),
+        inStock: stock >= moq,
+        description: p.description || '',
       };
     });
 
     return {
       products: matchedProducts,
       totalCount: matchedProducts.length,
-      didYouMean: analysis.didYouMean, 
+      didYouMean: analysis.didYouMean,
       alternativeBrandProducts: alternativeProducts.slice(0, 10),
       relatedSlugs: relatedSlugs.slice(0, 8),
       matchedCategory: primaryCategory,
@@ -604,6 +763,17 @@ export async function executeFullSearch(
     };
   } catch (err) {
     console.error('Advanced search query failed:', err);
-    return { products: [], totalCount: 0, didYouMean: null, alternativeBrandProducts: [], relatedSlugs: [], matchedCategory: null, allCategories: dict.categories || [], trendingProducts: [], topBanner: null, middleBanners: [] };
+    return {
+      products: [],
+      totalCount: 0,
+      didYouMean: null,
+      alternativeBrandProducts: [],
+      relatedSlugs: [],
+      matchedCategory: null,
+      allCategories: dict.categories || [],
+      trendingProducts: [],
+      topBanner: null,
+      middleBanners: [],
+    };
   }
 }

@@ -614,48 +614,39 @@ export function HomeScreen({
         style={{ height: 'env(safe-area-inset-top, 0px)' }} 
       />
 
-      <div className="bg-[#02402c] safe-top">
-        <div className="max-w-7xl mx-auto px-4 pt-3 pb-3 flex flex-col gap-3">
+      {/* --- REVISED HEADER COMPONENT --- */}
+      <div className="bg-[#02402c] safe-top border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-4 pt-3 pb-3 flex items-center gap-3">
           
-          <div className="flex items-center w-full bg-white/10 p-1 rounded-2xl">
-            <button
-              onClick={() => handleDeliveryModeToggle('standard')}
-              className={`flex-1 h-12 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${
-                deliveryMode === 'standard' 
-                  ? 'bg-white shadow-sm text-[#02402c]' 
-                  : 'text-white'
-              }`}
-            >
-              <StandardModeIcon active={deliveryMode === 'standard'} />
-              <span className="font-semibold tracking-wide text-[13px]">Standard</span>
-            </button>
-
-            <button
-              onClick={() => handleDeliveryModeToggle('express')}
-              className={`flex-1 h-12 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${
-                deliveryMode === 'express' 
-                  ? 'bg-white shadow-sm text-[#02402c]' 
-                  : 'text-white'
-              }`}
-            >
-              <ExpressModeIcon active={deliveryMode === 'express'} />
-              <span className="font-semibold tracking-wide text-[13px]">Express</span>
-            </button>
-          </div>
-
+          {/* Location Button */}
           <button
             onClick={() => navigate('/addresses')}
-            className="flex items-center gap-2.5 rounded-full border border-white px-3.5 py-2.5 w-full text-white overflow-hidden"
+            className="flex-1 flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 px-3.5 py-2.5 overflow-hidden transition-colors"
           >
-            <SolidMapPin />
-            <span className="text-[14px] font-medium text-white truncate flex-1 text-left tracking-wide">
+            <div className="shrink-0 flex items-center justify-center">
+              <SolidMapPin />
+            </div>
+            <span className="text-[13px] font-medium text-white truncate text-left tracking-wide">
               {locationText}
             </span>
-            <ChevronDown size={18} className="text-white shrink-0" strokeWidth={2} />
+          </button>
+
+          {/* Delivery Mode Toggle */}
+          <button
+            onClick={() => handleDeliveryModeToggle(deliveryMode === 'standard' ? 'express' : 'standard')}
+            className="shrink-0 flex items-center gap-2 rounded-xl bg-white px-3.5 py-2.5 shadow-sm transition-transform active:scale-95"
+          >
+            <div className="flex items-center justify-center scale-90 origin-center">
+              {deliveryMode === 'standard' ? <StandardModeIcon active={true} /> : <ExpressModeIcon active={true} />}
+            </div>
+            <span className="text-[13px] font-bold text-[#02402c] tracking-wide">
+              {deliveryMode === 'standard' ? 'Standard' : 'Express'}
+            </span>
           </button>
 
         </div>
       </div>
+      {/* -------------------------------- */}
 
       <div 
         className="sticky z-40 bg-[#02402c] text-white px-4 pt-1 pb-4 shadow-md rounded-b-3xl"

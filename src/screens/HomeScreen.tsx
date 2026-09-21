@@ -47,7 +47,7 @@ import {
   fetchTrustedBrands,
   fetchWishlist,    
   toggleWishlist,
-  fetchAddresses    // Added for bottom sheet
+  fetchAddresses
 } from '@/services/catalog';
 import { getOrBuildSearchDictionary } from '@/services/searchEngine';
 import { getHomeDataSync, updateHomeDataCache, type PreloadedHomeData } from '@/services/homePreload';
@@ -322,18 +322,34 @@ export function HomeScreen({
   const [selectedAddr, setSelectedAddr] = useState<string | null>(initialCache.address?.id || null);
   const [showAddressSheet, setShowAddressSheet] = useState(false);
 
-  // Load all addresses
-  useEffect(() => {
-    async function loadAddresses() {
+  // Background Sync for Addresses
+  const refreshAddresses = useCallback(async () => {
+    try {
       const list = await fetchAddresses();
       setAddresses(list);
+      
       if (list.length > 0) {
-        const def = list.find((a) => a.is_default) || list[0];
-        if (!selectedAddr) setSelectedAddr(def.id);
+        setSelectedAddr((prevSelected) => {
+          // If previous selection still exists, keep it
+          if (prevSelected && list.some(a => a.id === prevSelected)) {
+            return prevSelected;
+          }
+          // Otherwise fallback to default or first
+          const def = list.find((a) => a.is_default) || list[0];
+          return def.id;
+        });
+      } else {
+        setSelectedAddr(null);
       }
+    } catch (error) {
+      console.warn('Failed to refresh addresses:', error);
     }
-    loadAddresses();
-  }, [selectedAddr]);
+  }, []);
+
+  // Initial load of addresses
+  useEffect(() => {
+    void refreshAddresses();
+  }, [refreshAddresses]);
 
   const activeAddress = useMemo(() => {
     return addresses.find(a => a.id === selectedAddr) || initialCache.address;
@@ -596,6 +612,7 @@ export function HomeScreen({
     });
   }, [products]);
 
+  // Handle all background syncs on focus/keepalive
   useEffect(() => {
     let active = true;
 
@@ -617,6 +634,7 @@ export function HomeScreen({
         void refreshDynamicSections();
         void refreshLayoutAndBanners();
         void refreshCatalogData();
+        void refreshAddresses();
       }
     };
     window.addEventListener('keepalive:activated', handleKeepAliveFocus);
@@ -626,6 +644,7 @@ export function HomeScreen({
         void refreshDynamicSections();
         void refreshLayoutAndBanners();
         void refreshCatalogData();
+        void refreshAddresses();
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);
@@ -636,7 +655,7 @@ export function HomeScreen({
       window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [refreshDynamicSections, refreshLayoutAndBanners, refreshCatalogData]);
+  }, [refreshDynamicSections, refreshLayoutAndBanners, refreshCatalogData, refreshAddresses]);
 
   const deals = useMemo(() => {
     if (!Array.isArray(products)) return [];

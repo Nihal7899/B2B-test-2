@@ -758,6 +758,9 @@ export function HomeScreen({
     },
     [banners]
   );
+  
+const isLoadingData = sections.length === 0 && products.length === 0;
+
 
   return (
     <div className="min-h-screen bg-slate-50 pb-36 safe-bottom">
@@ -840,16 +843,34 @@ export function HomeScreen({
         </div>
       </div>
 
-      <div className="space-y-6 pt-4 pb-16 transform-gpu">
-        {topBanner && <PromoAdBanner banner={topBanner} onAction={onBannerAction} />}
+      {/* 4. Main Catalog Content */}
+      <div className="space-y-6 pt-4 pb-16">
+        {isLoadingData ? (
+          // Restored Skeleton Loader from your old working app
+          <div className="space-y-4 p-4 animate-pulse pointer-events-none">
+            <div className="h-36 bg-slate-200 rounded-2xl w-full shadow-sm" />
+            <div className="grid grid-cols-4 gap-3">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="h-16 bg-slate-200 rounded-2xl shadow-sm" />
+              ))}
+            </div>
+            <div className="h-48 bg-slate-200 rounded-2xl w-full mt-6 shadow-sm" />
+            <div className="h-48 bg-slate-200 rounded-2xl w-full mt-6 shadow-sm" />
+          </div>
+        ) : (
+          <>
+            {topBanner && <PromoAdBanner banner={topBanner} onAction={onBannerAction} />}
 
-        {topSliderBanners.length > 0 && (
-          <TopPromoSlider banners={topSliderBanners} onAction={onBannerAction} />
-        )}
+            {topSliderBanners.length > 0 && (
+              <TopPromoSlider banners={topSliderBanners} onAction={onBannerAction} />
+            )}
 
-        {carouselBanners.length > 0 && (
-          <PromoCarousel banners={carouselBanners} onAction={onBannerAction} />
-        )}
+            {carouselBanners.length > 0 && (
+              <PromoCarousel banners={carouselBanners} onAction={onBannerAction} />
+            )}
+            
+
+
 
         {sections.map((section) => {
           switch (section.sectionType) {

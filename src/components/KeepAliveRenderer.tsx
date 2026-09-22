@@ -27,9 +27,6 @@ export function KeepAliveRenderer({
   const currentElementRef = useRef<ReactNode>(null);
   const prevKeyRef = useRef(currentKey);
   const [aliveKeys, setAliveKeys] = useState<string[]>([currentKey]);
-  
-  // 1. ADD THIS REF to track the initial app boot
-  const isInitialMount = useRef(true);
 
   const keyChanged = prevKeyRef.current !== currentKey;
   const isExcluded = excludeKeys.includes(currentKey);
@@ -46,6 +43,7 @@ export function KeepAliveRenderer({
         frozenElements.current.set(prevKeyRef.current, currentElementRef.current);
       }
     } else {
+      // Purge excluded routes immediately upon leaving
       frozenElements.current.delete(prevKeyRef.current);
       scrollPositions.current.delete(prevKeyRef.current);
     }
@@ -70,28 +68,19 @@ export function KeepAliveRenderer({
     prevKeyRef.current = currentKey;
   }
 
+  // FIX: Always call render() for the currently active tab.
+  // This guarantees that the active tab receives the latest global state (like Cart updates),
+  // while React's reconciliation engine naturally maintains the component's internal state.
   const currentElement = render() ?? null;
   currentElementRef.current = currentElement;
 
-  // 2. UPDATE THIS EFFECT to prevent the scroll collision
   useLayoutEffect(() => {
-    // Prevent the browser from fighting our scroll logic
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual';
-    }
-
     const saved = scrollPositions.current.get(currentKey);
     if (saved) {
-      // Restore position instantly if it exists
       window.scrollTo(saved.x, saved.y);
-    } else if (!isInitialMount.current) {
-      // ONLY force scroll to top on NEW page navigations.
-      // Doing this on the initial boot fights the user's touch and causes screen tearing.
+    } else {
       window.scrollTo(0, 0);
     }
-
-    // Mark the initial boot as complete
-    isInitialMount.current = false;
 
     window.dispatchEvent(new CustomEvent('keepalive:activated', { detail: { key: currentKey } }));
   }, [currentKey]);

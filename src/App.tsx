@@ -802,7 +802,7 @@ function App() {
   return (
     <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
       <div
-        className={`mx-auto flex-1 w-full bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col transition-all ${
+        className={`mx-auto flex-1 w-full bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col ${
           isLargeScreenView ? 'max-w-7xl' : 'max-w-[720px]'
         }`}
       >

@@ -181,17 +181,17 @@ const handleVoiceResult = useCallback(
     void stopVoiceSearch();
   }, [stopVoiceSearch]);
 
-  const handleVoiceConfirm = useCallback(
-    (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed) return;
-      setQuery(trimmed);
-      setSearchParams({ q: trimmed });
-      setShowVoiceModal(false);
-      void stopVoiceSearch();
-    },
-    [setSearchParams, stopVoiceSearch],
-  );
+const handleVoiceConfirm = useCallback(
+  (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setQuery(trimmed);
+    setSearchParams({ q: trimmed });
+    setShowVoiceModal(false);
+    void stopVoiceSearch();
+  },
+  [setSearchParams, stopVoiceSearch],
+);
 
   const handleVoiceRetry = useCallback(() => {
     resetVoiceSearch();

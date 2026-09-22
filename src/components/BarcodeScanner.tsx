@@ -66,18 +66,22 @@ export function BarcodeScanner({
     setError(null);
     setScanning(true);
     try {
+      // Request camera permission first
       const { camera } = await MLKitScanner.requestPermissions();
       if (camera !== 'granted') {
         setError('Camera permission was denied. Please enable it in settings.');
         setScanning(false);
         return;
       }
-
+  
+      // Open the ready-to-use native scanner UI.
+      // NOTE: We intentionally omit `formats` so the scanner defaults to
+      // detecting ALL supported barcode formats. Passing `BarcodeFormat.All`
+      // inside the formats array causes a native Android type-mismatch error.
       const { barcodes } = await MLKitScanner.scan({
-        formats: [BarcodeFormat.All],
         lensFacing: LensFacing.Back,
       });
-
+  
       if (barcodes && barcodes.length > 0 && barcodes[0]?.rawValue) {
         onDetected(barcodes[0].rawValue);
       } else {

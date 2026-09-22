@@ -22,7 +22,6 @@ import {
   Filter,
   ShoppingBag,
   Mic,
-  MicOff,
 } from 'lucide-react';
 import type { Product, PromoBanner, Category } from '@/types';
 import { useCart } from '@/store';
@@ -41,6 +40,7 @@ import { ProductCard, ProductCarousel } from '@/components/ProductCard';
 import { PromoCarousel, PromoBannerCard } from '@/components/PromoBanner';
 import { TopPromoSlider } from '@/components/TopPromoSlider';
 import { CachedImage } from '@/components/CachedImage';
+import { VoiceSearchModal } from '@/components/VoiceSearchModal';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'rating' | 'discount';
@@ -114,6 +114,9 @@ export function SearchScreen({
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
   const [priceTouched, setPriceTouched] = useState(false);
 
+  // Voice modal
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
@@ -136,6 +139,7 @@ export function SearchScreen({
       if (!trimmed) return;
       setQuery(trimmed);
       setSearchParams({ q: trimmed });
+      setShowVoiceModal(false);
     },
     [setSearchParams],
   );
@@ -143,7 +147,9 @@ export function SearchScreen({
   const {
     isListening,
     error: voiceError,
+    transcript: voiceTranscript,
     start: startVoiceSearch,
+    stop: stopVoiceSearch,
     isNative: isNativeVoice,
   } = useVoiceSearch({
     lang: 'en-IN',
@@ -152,16 +158,29 @@ export function SearchScreen({
     timeoutMs: 8000,
   });
 
+  const openVoiceModal = useCallback(() => {
+    setShowVoiceModal(true);
+    // small delay so the modal paints before mic prompt shows
+    setTimeout(() => {
+      void startVoiceSearch();
+    }, 300);
+  }, [startVoiceSearch]);
+
+  const closeVoiceModal = useCallback(() => {
+    setShowVoiceModal(false);
+    void stopVoiceSearch();
+  }, [stopVoiceSearch]);
+
   // Auto-trigger voice when arriving with ?voice=1
   useEffect(() => {
     if (voiceParam === '1' && !voiceAutoTriggeredRef.current) {
       voiceAutoTriggeredRef.current = true;
       const t = window.setTimeout(() => {
-        void startVoiceSearch();
+        openVoiceModal();
       }, 350);
       return () => window.clearTimeout(t);
     }
-  }, [voiceParam, startVoiceSearch]);
+  }, [voiceParam, openVoiceModal]);
   // ---------------------------------------------
 
   const resetAllSearchState = useCallback(() => {
@@ -484,25 +503,17 @@ export function SearchScreen({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => setIsFocused(true)}
-                placeholder={
-                  isListening ? 'Listening…' : 'Search beverages, brands, atta, oils, pulses...'
-                }
-                className={`w-full h-11 pl-10 pr-24 rounded-xl bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 shadow-sm placeholder:text-slate-400 transition-all duration-200 ${
-                  isListening ? 'ring-2 ring-emerald-400 ring-offset-0' : 'focus:ring-emerald-400'
-                }`}
+                placeholder="Search beverages, brands, atta, oils, pulses..."
+                className="w-full h-11 pl-10 pr-24 rounded-xl bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-sm placeholder:text-slate-400 transition-all duration-200"
               />
 
               <button
                 type="button"
-                onClick={() => void startVoiceSearch()}
-                aria-label={isListening ? 'Stop voice search' : 'Start voice search'}
-                className={`absolute right-9 h-8 w-8 rounded-lg flex items-center justify-center transition-all active:scale-90 ${
-                  isListening
-                    ? 'bg-emerald-500 text-white shadow-md animate-pulse'
-                    : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-50'
-                }`}
+                onClick={openVoiceModal}
+                aria-label="Voice search"
+                className="absolute right-9 h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 active:scale-90 transition-all"
               >
-                {isListening ? <MicOff size={15} strokeWidth={2.5} /> : <Mic size={15} strokeWidth={2.5} />}
+                <Mic size={15} strokeWidth={2.5} />
               </button>
 
               {query && (
@@ -538,25 +549,6 @@ export function SearchScreen({
               )}
             </button>
           </form>
-
-          {isListening && (
-            <div className="mt-2 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 animate-in fade-in slide-in-from-top-1 duration-200">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-              </span>
-              <p className="text-[11px] font-bold text-white/95">
-                Listening… speak now {isNativeVoice ? '' : '(browser)'}
-              </p>
-            </div>
-          )}
-
-          {voiceError && (
-            <div className="mt-2 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/20 backdrop-blur-md border border-red-300/30 animate-in fade-in slide-in-from-top-1 duration-200">
-              <AlertCircle size={12} className="text-red-100 shrink-0" />
-              <p className="text-[11px] font-bold text-white/95">{voiceError}</p>
-            </div>
-          )}
 
           <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
             <button
@@ -1124,6 +1116,17 @@ export function SearchScreen({
           </div>
         </div>
       )}
+
+      {/* ==================== VOICE SEARCH MODAL ==================== */}
+      <VoiceSearchModal
+        open={showVoiceModal}
+        onClose={closeVoiceModal}
+        isListening={isListening}
+        error={voiceError}
+        transcript={voiceTranscript}
+        onRetry={() => void startVoiceSearch()}
+        lang="en-IN"
+      />
 
       <style>{`
         .range-thumb::-webkit-slider-thumb {

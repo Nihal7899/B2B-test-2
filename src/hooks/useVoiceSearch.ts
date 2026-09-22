@@ -18,13 +18,9 @@ type SpeechRecognitionInstance = {
 };
 
 interface UseVoiceSearchOptions {
-  /** Language for recognition. Defaults to 'en-IN'. */
   lang?: string;
-  /** Called whenever we get a transcript (interim or final). */
   onTranscript?: (text: string) => void;
-  /** Called once a final result is available. */
   onResult?: (text: string) => void;
-  /** Safety timeout in ms. Defaults to 8000. */
   timeoutMs?: number;
 }
 
@@ -36,14 +32,27 @@ export function useVoiceSearch({
 }: UseVoiceSearchOptions = {}) {
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState('');
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const timeoutRef = useRef<number | null>(null);
   const nativeListenersRef = useRef<{ remove: () => void }[]>([]);
+  const transcriptRef = useRef('');
+  const onTranscriptRef = useRef(onTranscript);
+  const onResultRef = useRef(onResult);
+  const langRef = useRef(lang);
+
+  useEffect(() => { onTranscriptRef.current = onTranscript; }, [onTranscript]);
+  useEffect(() => { onResultRef.current = onResult; }, [onResult]);
+  useEffect(() => { langRef.current = lang; }, [lang]);
 
   const isNative = Capacitor.isNativePlatform();
 
-  // -------- Cleanup --------
+  const setTranscriptSafe = useCallback((text: string) => {
+    transcriptRef.current = text;
+    setTranscript(text);
+  }, []);
+
   const cleanup = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -69,7 +78,6 @@ export function useVoiceSearch({
     };
   }, [cleanup, isNative]);
 
-  // -------- Stop --------
   const stop = useCallback(async () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -77,33 +85,24 @@ export function useVoiceSearch({
     }
 
     if (isNative) {
-      try {
-        await NativeSpeechRecognition.stop();
-      } catch {}
+      try { await NativeSpeechRecognition.stop(); } catch {}
     } else if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {}
-      try {
-        recognitionRef.current.abort();
-      } catch {}
+      try { recognitionRef.current.stop(); } catch {}
+      try { recognitionRef.current.abort(); } catch {}
       recognitionRef.current = null;
     }
 
     setIsListening(false);
   }, [isNative]);
 
-  // -------- Start: Native (Android / iOS) --------
   const startNative = useCallback(async () => {
     try {
-      // 1. Check availability
       const { available } = await NativeSpeechRecognition.available();
       if (!available) {
         setError('Speech recognition is not available on this device.');
         return;
       }
 
-      // 2. Check + request permissions
       const check = await NativeSpeechRecognition.checkPermissions();
       if (check.speechRecognition !== 'granted') {
         const requested = await NativeSpeechRecognition.requestPermissions();
@@ -113,19 +112,18 @@ export function useVoiceSearch({
         }
       }
 
-      // 3. Listen for partial results
       const partialListener = await NativeSpeechRecognition.addListener(
         'partialResults',
         (data: { matches: string[] }) => {
           const text = data.matches?.[0]?.trim();
           if (text) {
-            onTranscript?.(text);
+            setTranscriptSafe(text);
+            onTranscriptRef.current?.(text);
           }
         },
       );
       nativeListenersRef.current.push(partialListener);
 
-      // 4. Listen for listening-state changes
       const stateListener = await NativeSpeechRecognition.addListener(
         'listeningState',
         (data: { status: 'started' | 'stopped' }) => {
@@ -136,20 +134,19 @@ export function useVoiceSearch({
       );
       nativeListenersRef.current.push(stateListener);
 
-      // 5. Start listening
       const result = await NativeSpeechRecognition.start({
-        language: lang,
+        language: langRef.current,
         maxResults: 1,
         prompt: 'Say something…',
         partialResults: true,
         popup: false,
       });
 
-      // 6. Fallback: if a final result came back immediately
       const finalText = result?.matches?.[0]?.trim();
       if (finalText) {
-        onTranscript?.(finalText);
-        onResult?.(finalText);
+        setTranscriptSafe(finalText);
+        onTranscriptRef.current?.(finalText);
+        onResultRef.current?.(finalText);
         await stop();
       }
     } catch (err: any) {
@@ -159,9 +156,8 @@ export function useVoiceSearch({
       }
       setIsListening(false);
     }
-  }, [lang, onTranscript, onResult, stop]);
+  }, [setTranscriptSafe, stop]);
 
-  // -------- Start: Web (browser) --------
   const startWeb = useCallback(() => {
     const w = window as any;
     const SpeechRecognitionCtor = w.SpeechRecognition || w.webkitSpeechRecognition;
@@ -173,7 +169,7 @@ export function useVoiceSearch({
 
     try {
       const recognition: SpeechRecognitionInstance = new SpeechRecognitionCtor();
-      recognition.lang = lang;
+      recognition.lang = langRef.current;
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
@@ -181,16 +177,19 @@ export function useVoiceSearch({
       recognition.onstart = () => setIsListening(true);
 
       recognition.onresult = (event: any) => {
-        let transcript = '';
+        let combined = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
+          combined += event.results[i][0].transcript;
         }
-        const cleaned = transcript.trim();
-        if (cleaned) onTranscript?.(cleaned);
+        const cleaned = combined.trim();
+        if (cleaned) {
+          setTranscriptSafe(cleaned);
+          onTranscriptRef.current?.(cleaned);
+        }
 
         const lastResult = event.results[event.results.length - 1];
         if (lastResult?.isFinal && cleaned) {
-          onResult?.(cleaned);
+          onResultRef.current?.(cleaned);
           setTimeout(() => stop(), 250);
         }
       };
@@ -220,13 +219,12 @@ export function useVoiceSearch({
       setError('Could not start voice search.');
       setIsListening(false);
     }
-  }, [lang, onTranscript, onResult, stop]);
+  }, [setTranscriptSafe, stop]);
 
-  // -------- Public start --------
   const start = useCallback(async () => {
     setError(null);
+    setTranscriptSafe('');
 
-    // If already listening → stop
     if (isListening) {
       await stop();
       return;
@@ -238,22 +236,17 @@ export function useVoiceSearch({
       startWeb();
     }
 
-    // Safety auto-stop
     timeoutRef.current = window.setTimeout(() => {
       void stop();
     }, timeoutMs);
-  }, [isListening, isNative, startNative, startWeb, stop, timeoutMs]);
+  }, [isListening, isNative, startNative, startWeb, stop, timeoutMs, setTranscriptSafe]);
 
   return {
-    /** True while actively listening. */
     isListening,
-    /** Error message from last attempt (auto-clears on next start). */
     error,
-    /** Start or stop listening. */
+    transcript,
     start,
-    /** Stop listening immediately. */
     stop,
-    /** True if running inside a native Capacitor shell (Android/iOS). */
     isNative,
   };
 }

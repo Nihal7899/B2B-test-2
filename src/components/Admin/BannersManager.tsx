@@ -16,6 +16,9 @@ import {
   LayoutTemplate,
   Palette,
   Maximize2,
+  Clock,
+  Sparkles,
+  Calendar,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ActionType, PromoBanner, BannerPosition, BannerSize, BannerBgType, HomeBanner } from '@/types';
@@ -33,15 +36,18 @@ import {
 import { PromoBannerCard } from '@/components/PromoBanner';
 import { PromoAdBanner } from '@/components/PromoAdBanner';
 import { TopPromoSlider } from '@/components/TopPromoSlider';
+import { ModernPopupBanner } from '@/components/ModernPopupBanner';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
+import { CachedImage } from '@/components/CachedImage';
 
 const ACTION_TYPES: ActionType[] = [
   'VIEW_CATEGORY',
-  'VIEW_PRODUCT',
   'VIEW_BRAND',
+  'OPEN_STORE' as ActionType,
+  'VIEW_PRODUCT',
   'VIEW_OFFER',
   'SEARCH',
   'FILTER_PRODUCTS',
@@ -54,7 +60,32 @@ const ACTION_TYPES: ActionType[] = [
   'OPEN_EXTERNAL_URL',
 ];
 
-type PositionTab = 'all' | 'top' | 'top_slider' | 'carousel' | 'middle' | 'bottom';
+type PositionTab = 'all' | 'top' | 'top_slider' | 'carousel' | 'middle' | 'bottom' | 'bottom_popup';
+
+function BottomPopupPreviewWrapper({ banner }: { banner: PromoBanner }) {
+  return (
+    <div className="relative w-full h-[600px] bg-ink-50 overflow-hidden flex flex-col justify-end rounded-2xl border border-ink-200 shadow-inner">
+      <div className="absolute inset-0 p-4 space-y-4 opacity-40">
+        <div className="w-full h-12 bg-ink-200 rounded-xl" />
+        <div className="w-3/4 h-8 bg-ink-200 rounded-lg" />
+        <div className="w-full h-32 bg-ink-200 rounded-xl" />
+        <div className="w-full h-32 bg-ink-200 rounded-xl" />
+      </div>
+
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+
+      <div className="relative w-full h-[55%] min-h-[380px] max-h-[480px] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden">
+        <div className="flex justify-end p-3 absolute top-0 right-0 z-50">
+          <div className="h-8 w-8 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+            <X size={16} strokeWidth={3} />
+          </div>
+        </div>
+
+        <ModernPopupBanner banner={banner} className="w-full h-full rounded-none" />
+      </div>
+    </div>
+  );
+}
 
 export default function BannersManager() {
   const [banners, setBanners] = useState<HomeBanner[]>([]);
@@ -65,7 +96,7 @@ export default function BannersManager() {
   const [defaultPositionForNew, setDefaultPositionForNew] = useState<BannerPosition>('middle_1');
   const [previewBanner, setPreviewBanner] = useState<HomeBanner | null>(null);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
-  
+
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     bannerId?: string;
@@ -107,6 +138,7 @@ export default function BannersManager() {
       carousel: banners.filter((b) => b.position === 'carousel').length,
       middle: banners.filter((b) => ['middle', 'middle_1', 'middle_2', 'middle_3'].includes(b.position || '')).length,
       bottom: banners.filter((b) => b.position === 'bottom').length,
+      bottom_popup: banners.filter((b) => b.position === 'bottom_popup').length,
     };
   }, [banners]);
 
@@ -117,6 +149,7 @@ export default function BannersManager() {
     else if (activeTab === 'carousel') list = list.filter((b) => b.position === 'carousel');
     else if (activeTab === 'middle') list = list.filter((b) => ['middle', 'middle_1', 'middle_2', 'middle_3'].includes(b.position || ''));
     else if (activeTab === 'bottom') list = list.filter((b) => b.position === 'bottom');
+    else if (activeTab === 'bottom_popup') list = list.filter((b) => b.position === 'bottom_popup');
 
     return list.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
   }, [banners, activeTab]);
@@ -232,7 +265,10 @@ export default function BannersManager() {
       image: b.image_url || '',
       badge: b.badge ?? undefined,
       actionType: b.action_type,
-      actionConfig: b.action_config,
+      actionConfig: {
+        ...(b.action_config || {}),
+        timerEndDate: (b.action_config as any)?.timerEndDate || b.end_at,
+      },
       position: b.position || 'middle_1',
       size: b.size || 'medium',
       bgType: b.bg_type || 'gradient',
@@ -247,6 +283,7 @@ export default function BannersManager() {
       showCta: b.show_cta !== false,
       displayOrder: b.display_order,
       isActive: b.is_active,
+      ...({ end_at: b.end_at } as any),
     };
   };
 
@@ -274,11 +311,10 @@ export default function BannersManager() {
         ))}
       </ToastContainer>
 
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-black text-ink-900">Banners Management</h2>
-          <p className="text-xs text-ink-500">Configure promotional banners across Top Ad, Top Slider, Carousel, Middle slots, and Bottom</p>
+          <p className="text-xs text-ink-500">Configure promotional banners across Top Ad, Top Slider, Carousel, Middle slots, Bottom, and Popup</p>
         </div>
         <button
           onClick={() => handleAddNew()}
@@ -288,7 +324,6 @@ export default function BannersManager() {
         </button>
       </div>
 
-      {/* Position Tabs */}
       <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 bg-ink-50/80 p-1.5 rounded-2xl border border-ink-100">
         {[
           { id: 'all', label: 'All Banners', count: tabCounts.all },
@@ -297,6 +332,7 @@ export default function BannersManager() {
           { id: 'carousel', label: 'Top Carousel', count: tabCounts.carousel },
           { id: 'middle', label: 'Middle Slots (1, 2, 3)', count: tabCounts.middle },
           { id: 'bottom', label: 'Bottom Banner', count: tabCounts.bottom },
+          { id: 'bottom_popup', label: 'Bottom Popup', count: tabCounts.bottom_popup },
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -322,7 +358,6 @@ export default function BannersManager() {
         })}
       </div>
 
-      {/* Banner Cards List */}
       {filteredBanners.length === 0 ? (
         <div className="bg-white border border-dashed border-ink-200 rounded-2xl p-8 text-center space-y-3">
           <LayoutTemplate className="mx-auto text-ink-300" size={36} />
@@ -342,7 +377,7 @@ export default function BannersManager() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">
                     {banner.image_url ? (
-                      <img src={banner.image_url} alt="" className="h-12 w-12 rounded-xl object-cover border border-ink-100" />
+                      <CachedImage src={banner.image_url} alt="" className="h-12 w-12 rounded-xl object-cover border border-ink-100" />
                     ) : (
                       <div
                         className="h-12 w-12 rounded-xl border border-ink-100 flex items-center justify-center text-[9px] font-black text-white shadow-inner text-center px-1"
@@ -382,6 +417,21 @@ export default function BannersManager() {
                     {banner.overlay_enabled && (
                       <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
                         Tint: {banner.overlay_opacity ?? 40}%
+                      </span>
+                    )}
+                    {Boolean(banner.action_config?.enableTimer) && (
+                      <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                        <Clock size={10} /> Timer On
+                      </span>
+                    )}
+                    {banner.action_config?.enableAnimation !== false && (
+                      <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 flex items-center gap-1">
+                        <Sparkles size={10} /> Animated
+                      </span>
+                    )}
+                    {banner.end_at && (
+                      <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200 flex items-center gap-1">
+                        <Calendar size={10} /> Ends: {new Date(banner.end_at).toLocaleDateString()}
                       </span>
                     )}
                     <span className="text-[9px] text-ink-400 bg-ink-50 px-2 py-0.5 rounded-full">
@@ -425,7 +475,7 @@ export default function BannersManager() {
                   <button
                     onClick={() => handleDuplicateClick(banner)}
                     className="h-8 w-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center hover:bg-brand-100"
-                    title="Duplicate with safe new storage image"
+                    title="Duplicate banner"
                   >
                     <Copy size={14} />
                   </button>
@@ -450,7 +500,6 @@ export default function BannersManager() {
         </div>
       )}
 
-      {/* Preview Modal */}
       {previewBanner && (
         <div
           className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
@@ -464,6 +513,8 @@ export default function BannersManager() {
                   ? `Top Slider (${previewBanner.size?.toUpperCase() || 'MEDIUM'})`
                   : previewBanner.position === 'top'
                   ? 'Top Promo Ad'
+                  : previewBanner.position === 'bottom_popup'
+                  ? 'Bottom Popup'
                   : previewBanner.size?.toUpperCase() || 'MEDIUM'}
                 )
               </h3>
@@ -475,6 +526,8 @@ export default function BannersManager() {
               <TopPromoSlider banners={[toPromoBanner(previewBanner)]} className="mx-0 w-full" />
             ) : previewBanner.position === 'top' ? (
               <PromoAdBanner banner={toPromoBanner(previewBanner)} className="mx-0 w-full" />
+            ) : previewBanner.position === 'bottom_popup' ? (
+              <BottomPopupPreviewWrapper banner={toPromoBanner(previewBanner)} />
             ) : (
               <PromoBannerCard banner={toPromoBanner(previewBanner)} className="w-full" />
             )}
@@ -482,7 +535,6 @@ export default function BannersManager() {
         </div>
       )}
 
-      {/* Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}
         title={confirmDialog.title}
@@ -514,7 +566,7 @@ function BannerForm({
     image_url: initial?.image_url ?? '',
     background_color: initial?.background_color ?? 'brand',
     button_text: initial?.button_text ?? 'Shop now',
-    action_type: (initial?.action_type ?? 'OPEN_SCREEN') as ActionType,
+    action_type: (initial?.action_type ?? 'VIEW_CATEGORY') as ActionType,
     action_config: (initial?.action_config ?? {}) as Record<string, unknown>,
     display_order: initial?.display_order ?? 0,
     is_active: initial?.is_active ?? true,
@@ -545,20 +597,38 @@ function BannerForm({
 
   const [categories, setCategories] = useState<DbCategory[]>([]);
   const [products, setProducts] = useState<DbProduct[]>([]);
-  const [brands, setBrands] = useState<string[]>([]);
+  const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
+  const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
   const [smartCollections, setSmartCollections] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     void (async () => {
-      const [{ data: cats }, { data: prods }, { data: sc }] = await Promise.all([
+      const [
+        { data: cats },
+        { data: prods },
+        { data: sc },
+        { data: brandData },
+        { data: storeData },
+      ] = await Promise.all([
         supabase.from('categories').select('*').order('name'),
         supabase.from('products').select('*').order('name'),
         supabase.from('smart_collections').select('id, name').eq('is_active', true).order('created_at', { ascending: false }),
+        supabase.from('trusted_brands').select('id, name').order('name'),
+        supabase.from('stores').select('id, name').order('name'),
       ]);
+
       setCategories((cats as DbCategory[]) ?? []);
       setProducts((prods as DbProduct[]) ?? []);
-      setBrands(Array.from(new Set((prods as DbProduct[] | null)?.map((p) => p.brand) ?? [])).sort());
       setSmartCollections((sc as { id: string; name: string }[]) ?? []);
+      
+      if (brandData && brandData.length > 0) {
+        setBrands(brandData as { id: string; name: string }[]);
+      } else {
+        const uniqueBrandNames = Array.from(new Set((prods as DbProduct[] | null)?.map((p) => p.brand).filter(Boolean) ?? [])).sort();
+        setBrands(uniqueBrandNames.map((b) => ({ id: b, name: b })));
+      }
+
+      setStores((storeData as { id: string; name: string }[]) ?? []);
     })();
   }, []);
 
@@ -584,6 +654,20 @@ function BannerForm({
     }));
   };
 
+  const isTopPromo = form.position === 'top';
+  const isBottomPopup = form.position === 'bottom_popup';
+  const showCtaControls = !isTopPromo && form.show_cta;
+
+  const needsCategory = form.action_type === 'VIEW_CATEGORY';
+  const needsProduct = form.action_type === 'VIEW_PRODUCT';
+  const needsBrand = form.action_type === 'VIEW_BRAND';
+  const needsStore = (form.action_type as string) === 'OPEN_STORE';
+  const needsSmartCollection = form.action_type === 'OPEN_SMART_COLLECTION';
+  const needsScreen = form.action_type === 'OPEN_SCREEN';
+  const needsUrl = form.action_type === 'OPEN_EXTERNAL_URL';
+  const needsSearch = form.action_type === 'SEARCH' || form.action_type === 'VIEW_OFFER';
+  const needsFilter = form.action_type === 'FILTER_PRODUCTS';
+
   const previewBannerObject = useMemo<PromoBanner>(() => {
     return {
       id: initial?.id || 'temp-id',
@@ -593,7 +677,10 @@ function BannerForm({
       image: previewUrl,
       badge: form.badge || undefined,
       actionType: form.action_type,
-      actionConfig: form.action_config,
+      actionConfig: {
+        ...form.action_config,
+        timerEndDate: form.end_at || form.action_config.timerEndDate,
+      },
       position: form.position,
       size: form.size,
       bgType: form.bg_type,
@@ -602,12 +689,13 @@ function BannerForm({
       gradientFrom: form.gradient_from,
       gradientTo: form.gradient_to,
       gradientDirection: form.gradient_direction,
-      overlayEnabled: form.overlay_enabled,
+      overlayEnabled: Boolean(form.overlay_enabled),
       overlayColor: form.overlay_color,
       overlayOpacity: form.overlay_opacity,
       showCta: form.show_cta,
       displayOrder: form.display_order,
       isActive: form.is_active,
+      ...({ end_at: form.end_at } as any),
     };
   }, [form, previewUrl, initial]);
 
@@ -659,15 +747,18 @@ function BannerForm({
         description: form.description,
         image_url: newImageUrl || null,
         background_color: form.background_color,
-        button_text: form.button_text,
+        button_text: isTopPromo ? null : form.button_text,
         action_type: form.action_type,
-        action_config: form.action_config,
+        action_config: {
+          ...form.action_config,
+          ...(form.action_config.enableTimer ? { timerEndDate: form.end_at || null } : {}),
+        },
         display_order: form.display_order,
         is_active: form.is_active,
         position: form.position,
-        size: form.size,
-        start_at: form.start_at || null,
-        end_at: form.end_at || null,
+        size: isTopPromo ? 'small' : form.size,
+        start_at: form.start_at ? new Date(form.start_at).toISOString() : null,
+        end_at: form.end_at ? new Date(form.end_at).toISOString() : null,
         bg_type: form.bg_type,
         bg_color: form.bg_color,
         bg_gradient: form.bg_gradient,
@@ -677,7 +768,7 @@ function BannerForm({
         overlay_enabled: form.overlay_enabled,
         overlay_color: form.overlay_color,
         overlay_opacity: form.overlay_opacity,
-        show_cta: form.show_cta,
+        show_cta: isTopPromo ? false : form.show_cta,
       };
 
       if (initial) {
@@ -708,18 +799,8 @@ function BannerForm({
     );
   }
 
-  const needsCategory = form.action_type === 'VIEW_CATEGORY' || form.action_type === 'FILTER_PRODUCTS';
-  const needsProduct = form.action_type === 'VIEW_PRODUCT';
-  const needsBrand = form.action_type === 'VIEW_BRAND' || form.action_type === 'FILTER_PRODUCTS';
-  const needsSmartCollection = form.action_type === 'OPEN_SMART_COLLECTION';
-  const needsScreen = form.action_type === 'OPEN_SCREEN';
-  const needsUrl = form.action_type === 'OPEN_EXTERNAL_URL';
-  const needsSearch = form.action_type === 'SEARCH' || form.action_type === 'VIEW_OFFER';
-  const needsFilter = form.action_type === 'FILTER_PRODUCTS';
-
   return (
     <div className="bg-white border border-brand-200 rounded-2xl p-4 sm:p-5 space-y-5 shadow-card">
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-ink-100 pb-3">
         <h3 className="text-sm font-black text-ink-900 flex items-center gap-1.5">
           <Sliders size={16} className="text-brand-600" />
@@ -730,7 +811,6 @@ function BannerForm({
             type="button"
             onClick={() => setIsModalPreviewOpen(true)}
             className="h-8 px-3 rounded-lg bg-sky-50 text-sky-600 text-xs font-bold flex items-center gap-1.5 hover:bg-sky-100 transition-colors"
-            title="Open Fullscreen Modal Preview"
           >
             <Eye size={14} /> Fullscreen Preview
           </button>
@@ -741,9 +821,7 @@ function BannerForm({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Form Inputs (Left Column) */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Position Slot Selection */}
           <div className="p-3 bg-brand-50/50 border border-brand-100 rounded-2xl">
             <label className="block text-xs font-bold text-brand-900 mb-1">Placement Slot</label>
             <select
@@ -758,10 +836,109 @@ function BannerForm({
               <option value="middle_2">Middle 2</option>
               <option value="middle_3">Middle 3</option>
               <option value="bottom">Bottom</option>
+              <option value="bottom_popup">Bottom Popup (30-40% Screen)</option>
             </select>
           </div>
 
-          {/* Title & Formatting */}
+          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
+                <Calendar size={13} className="text-brand-600" /> Schedule Banner Timing (Optional)
+              </label>
+              {(form.start_at || form.end_at) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm((f) => ({ ...f, start_at: '', end_at: '' }));
+                    setActionConfig('timerEndDate', '');
+                  }}
+                  className="text-[10px] font-bold text-red-500 hover:text-red-700"
+                >
+                  Clear Schedule
+                </button>
+              )}
+            </div>
+            <p className="text-[10px] text-ink-500">
+              Set when this banner should start and finish showing. If the countdown timer is turned on for the popup, it will countdown directly to the End Date.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-600 mb-1">Start Date & Time (From)</label>
+                <input
+                  type="datetime-local"
+                  value={form.start_at ? form.start_at.slice(0, 16) : ''}
+                  onChange={(e) => setForm({ ...form, start_at: e.target.value })}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white outline-none focus:border-brand-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-ink-600 mb-1">End Date & Time (To)</label>
+                <input
+                  type="datetime-local"
+                  value={form.end_at ? form.end_at.slice(0, 16) : ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm({ ...form, end_at: val });
+                    if (form.action_config.enableTimer) {
+                      setActionConfig('timerEndDate', val);
+                    }
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white outline-none focus:border-brand-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {isBottomPopup && (
+            <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-2xl space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                <Sparkles size={13} className="text-amber-600" /> Popup Enhancements
+              </p>
+
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-xs font-bold text-ink-800 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.action_config.enableTimer)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setActionConfig('enableTimer', checked);
+                      if (checked && form.end_at) {
+                        setActionConfig('timerEndDate', form.end_at);
+                      }
+                    }}
+                    className="accent-brand-600 rounded h-4 w-4"
+                  />
+                  Enable Live Countdown Timer
+                </label>
+
+                {Boolean(form.action_config.enableTimer) && (
+                  <div className="pl-6 pt-0.5">
+                    {form.end_at ? (
+                      <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                        ✓ Countdown will tick down to the scheduled <b>End Date & Time (To)</b> set above.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-red-600 font-bold flex items-center gap-1">
+                        ⚠️ Please select an <b>End Date & Time (To)</b> in the Schedule section above so the countdown knows when to finish.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <label className="flex items-center gap-2 text-xs font-bold text-ink-800 cursor-pointer select-none border-t border-amber-200/50 pt-2.5">
+                  <input
+                    type="checkbox"
+                    checked={form.action_config.enableAnimation !== false}
+                    onChange={(e) => setActionConfig('enableAnimation', e.target.checked)}
+                    className="accent-brand-600 rounded h-4 w-4"
+                  />
+                  Enable Micro-Animations (Floating Image & Button Shimmer)
+                </label>
+              </div>
+            </div>
+          )}
+
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-bold text-ink-700">Headline Title *</label>
@@ -782,7 +959,6 @@ function BannerForm({
             />
           </div>
 
-          {/* Description & Formatting */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-bold text-ink-700">Subtext / Description</label>
@@ -803,16 +979,63 @@ function BannerForm({
             />
           </div>
 
-          {/* Detailed Color Customization */}
+          {isTopPromo && (
+            <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2.5">
+              <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Promo Ad Details</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-ink-700 mb-1">Promo Code</label>
+                  <input
+                    value={(form.action_config.promoCode as string) || ''}
+                    onChange={(e) => setActionConfig('promoCode', e.target.value)}
+                    placeholder="e.g. HYPER10"
+                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-mono font-bold outline-none focus:border-brand-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-ink-700 mb-1">Discount Tag</label>
+                  <input
+                    value={(form.action_config.discount as string) || ''}
+                    onChange={(e) => setActionConfig('discount', e.target.value)}
+                    placeholder="e.g. 10% OFF"
+                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-bold outline-none focus:border-brand-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className={`grid ${!isTopPromo ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+            <div>
+              <label className="block text-xs font-bold text-ink-700 mb-1">Badge</label>
+              <input
+                value={form.badge}
+                onChange={(e) => setForm({ ...form, badge: e.target.value })}
+                placeholder="e.g. 20% OFF"
+                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
+              />
+            </div>
+            {!isTopPromo && form.show_cta && (
+              <div>
+                <label className="block text-xs font-bold text-ink-700 mb-1">CTA Button Text</label>
+                <input
+                  value={form.button_text}
+                  onChange={(e) => setForm({ ...form, button_text: e.target.value })}
+                  placeholder="Shop now"
+                  className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
+                />
+              </div>
+            )}
+          </div>
+
           <div className="p-3.5 bg-ink-50/70 border border-ink-100 rounded-2xl space-y-3.5">
             <p className="text-[10px] font-black uppercase tracking-wider text-ink-700 flex items-center gap-1.5">
               <Palette size={13} className="text-brand-600" /> Typography & Element Colors
             </p>
 
-            {/* 1. Headline & Description Colors */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Headline Text Color</label>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Headline Color</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -831,7 +1054,7 @@ function BannerForm({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Subtext / Desc Color</label>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Subtext Color</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -850,10 +1073,9 @@ function BannerForm({
               </div>
             </div>
 
-            {/* 2. Badge Pill & Text Colors */}
             <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Badge Pill Background</label>
+                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Badge Background</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -891,123 +1113,106 @@ function BannerForm({
               </div>
             </div>
 
-            {/* 3. CTA Button Background & Text Colors */}
-            <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Button Background</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={(form.action_config.ctaBg as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('ctaBg', e.target.value)}
-                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={(form.action_config.ctaBg as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('ctaBg', e.target.value)}
-                    placeholder="#ffffff"
-                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                  />
+            {showCtaControls && (
+              <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Background</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={(form.action_config.ctaBg as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('ctaBg', e.target.value)}
+                      className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={(form.action_config.ctaBg as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('ctaBg', e.target.value)}
+                      placeholder="#ffffff"
+                      className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Button Text Color</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={(form.action_config.ctaColor as string) || '#0f172a'}
-                    onChange={(e) => setActionConfig('ctaColor', e.target.value)}
-                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={(form.action_config.ctaColor as string) || '#0f172a'}
-                    onChange={(e) => setActionConfig('ctaColor', e.target.value)}
-                    placeholder="#0f172a"
-                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                  />
+                <div>
+                  <label className="block text-[11px] font-semibold text-ink-700 mb-1">CTA Text Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={(form.action_config.ctaColor as string) || '#0f172a'}
+                      onChange={(e) => setActionConfig('ctaColor', e.target.value)}
+                      className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={(form.action_config.ctaColor as string) || '#0f172a'}
+                      onChange={(e) => setActionConfig('ctaColor', e.target.value)}
+                      placeholder="#0f172a"
+                      className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* 4. Promo Code & Discount Tag Colors */}
-            <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Promo Code Text Color</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={(form.action_config.promoCodeColor as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
-                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={(form.action_config.promoCodeColor as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
-                    placeholder="#ffffff"
-                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                  />
+            {isTopPromo && (
+              <div className="pt-2 border-t border-ink-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-ink-700 mb-1">Promo Code Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={(form.action_config.promoCodeColor as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
+                      className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={(form.action_config.promoCodeColor as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('promoCodeColor', e.target.value)}
+                      placeholder="#ffffff"
+                      className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-ink-700 mb-1">Discount Tag Text Color</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={(form.action_config.discountColor as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('discountColor', e.target.value)}
-                    className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={(form.action_config.discountColor as string) || '#ffffff'}
-                    onChange={(e) => setActionConfig('discountColor', e.target.value)}
-                    placeholder="#ffffff"
-                    className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                  />
+                <div>
+                  <label className="block text-[11px] font-semibold text-ink-700 mb-1">Discount Tag Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={(form.action_config.discountColor as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('discountColor', e.target.value)}
+                      className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={(form.action_config.discountColor as string) || '#ffffff'}
+                      onChange={(e) => setActionConfig('discountColor', e.target.value)}
+                      placeholder="#ffffff"
+                      className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-ink-700 mb-1">Badge</label>
-              <input
-                value={form.badge}
-                onChange={(e) => setForm({ ...form, badge: e.target.value })}
-                placeholder="e.g. WHOLESALE"
-                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-ink-700 mb-1">CTA Button Text</label>
-              <input
-                value={form.button_text}
-                onChange={(e) => setForm({ ...form, button_text: e.target.value })}
-                placeholder="Shop now"
-                className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-ink-700 mb-1">Banner Size Preset</label>
-              <select
-                value={form.size}
-                onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
-                className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
-              >
-                <option value="small">Small (140-150px - Action Banner)</option>
-                <option value="medium">Medium (175-180px - Slider)</option>
-                <option value="large">Large (220px - Hero Banner)</option>
-              </select>
-            </div>
+          <div className={`grid ${!isTopPromo ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+            {!isTopPromo && (
+              <div>
+                <label className="block text-xs font-bold text-ink-700 mb-1">Banner Size Preset</label>
+                <select
+                  value={form.size}
+                  onChange={(e) => setForm({ ...form, size: e.target.value as BannerSize })}
+                  className="w-full h-10 rounded-xl border border-ink-200 px-2.5 text-xs font-bold bg-white outline-none focus:border-brand-500"
+                >
+                  <option value="small">Small (140-150px - Action Banner)</option>
+                  <option value="medium">Medium (175-180px - Slider)</option>
+                  <option value="large">Large (220px - Hero Banner)</option>
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-ink-700 mb-1">Background Style</label>
@@ -1021,98 +1226,6 @@ function BannerForm({
                 <option value="image">Full Image</option>
               </select>
             </div>
-          </div>
-
-          {/* Top Promo Ad specific configuration */}
-          {form.position === 'top' && (
-            <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2.5">
-              <p className="text-[10px] font-black uppercase tracking-wider text-ink-600">Promo Ad Details</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-ink-700 mb-1">Promo Code</label>
-                  <input
-                    value={(form.action_config.promoCode as string) || ''}
-                    onChange={(e) => setActionConfig('promoCode', e.target.value)}
-                    placeholder="e.g. HYPER10"
-                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-mono font-bold outline-none focus:border-brand-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-ink-700 mb-1">Discount Tag</label>
-                  <input
-                    value={(form.action_config.discount as string) || ''}
-                    onChange={(e) => setActionConfig('discount', e.target.value)}
-                    placeholder="e.g. 10% OFF"
-                    className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs font-bold outline-none focus:border-brand-500"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Tint / Overlay Opacity & Color Controls */}
-          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={form.overlay_enabled}
-                  onChange={(e) => setForm({ ...form, overlay_enabled: e.target.checked })}
-                  className="accent-brand-600 rounded h-4 w-4"
-                />
-                Enable Tint / Dark Overlay
-              </label>
-              {form.overlay_enabled && (
-                <span className="text-xs font-mono font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200">
-                  {form.overlay_opacity}% Opacity
-                </span>
-              )}
-            </div>
-
-            {form.overlay_enabled && (
-              <div className="space-y-3 pt-2.5 border-t border-ink-200/60">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-ink-600 mb-1">Tint Color</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={form.overlay_color}
-                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
-                        className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
-                      />
-                      <input
-                        type="text"
-                        value={form.overlay_color}
-                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
-                        className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="text-[11px] font-semibold text-ink-600">Opacity Slider</label>
-                      <span className="text-[10px] font-mono font-bold text-ink-500">{form.overlay_opacity}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={form.overlay_opacity}
-                      onChange={(e) => setForm({ ...form, overlay_opacity: Number(e.target.value) })}
-                      className="w-full accent-brand-600 cursor-pointer h-2 bg-ink-200 rounded-lg"
-                    />
-                    <div className="flex justify-between text-[9px] text-ink-400 mt-1 font-mono">
-                      <span>0% (Transparent)</span>
-                      <span>50%</span>
-                      <span>100% (Solid)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {form.bg_type === 'gradient' && (
@@ -1199,45 +1312,106 @@ function BannerForm({
             </div>
           )}
 
-          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
+          {(!isTopPromo || form.bg_type === 'image') && (
+            <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-ink-700">
+                  {form.bg_type === 'image' ? 'Background Image *' : 'Center / Side Image'}
+                </label>
+                {previewUrl && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="text-[11px] font-bold text-red-500 hover:text-red-700 flex items-center gap-1"
+                  >
+                    <Trash2 size={12} /> Remove Image
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  value={form.image_url}
+                  onChange={(e) => {
+                    setForm({ ...form, image_url: e.target.value });
+                    setPreviewUrl(e.target.value);
+                  }}
+                  placeholder="Image URL or upload..."
+                  className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
+                />
+                <label className="h-10 px-3.5 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:bg-brand-100 transition-colors">
+                  <ImageIcon size={14} /> Upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleFileSelect(f);
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
+          <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-ink-700">
-                Side Image {form.bg_type === 'image' && '<Required for Full Image>'}
+              <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.overlay_enabled}
+                  onChange={(e) => setForm({ ...form, overlay_enabled: e.target.checked })}
+                  className="accent-brand-600 rounded h-4 w-4"
+                />
+                Enable Tint / Dark Overlay
               </label>
-              {previewUrl && (
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  className="text-[11px] font-bold text-red-500 hover:text-red-700 flex items-center gap-1"
-                >
-                  <Trash2 size={12} /> Remove Image (Enable 100% text width)
-                </button>
+              {form.overlay_enabled && (
+                <span className="text-xs font-mono font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200">
+                  {form.overlay_opacity}% Opacity
+                </span>
               )}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                value={form.image_url}
-                onChange={(e) => {
-                  setForm({ ...form, image_url: e.target.value });
-                  setPreviewUrl(e.target.value);
-                }}
-                placeholder="Image URL or upload..."
-                className="flex-1 h-10 rounded-xl border border-ink-200 px-3 text-xs outline-none focus:border-brand-500"
-              />
-              <label className="h-10 px-3.5 rounded-xl bg-brand-50 text-brand-600 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:bg-brand-100 transition-colors">
-                <ImageIcon size={14} /> Upload
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleFileSelect(f);
-                  }}
-                />
-              </label>
-            </div>
+            {form.overlay_enabled && (
+              <div className="space-y-3 pt-2.5 border-t border-ink-200/60">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-ink-600 mb-1">Tint Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={form.overlay_color}
+                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                        className="h-8 w-10 rounded-lg border border-ink-200 p-0.5 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={form.overlay_color}
+                        onChange={(e) => setForm({ ...form, overlay_color: e.target.value })}
+                        className="flex-1 h-8 rounded-lg border border-ink-200 px-2 text-xs font-mono uppercase"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-[11px] font-semibold text-ink-600">Opacity Slider</label>
+                      <span className="text-[10px] font-mono font-bold text-ink-500">{form.overlay_opacity}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={form.overlay_opacity}
+                      onChange={(e) => setForm({ ...form, overlay_opacity: Number(e.target.value) })}
+                      className="w-full accent-brand-600 cursor-pointer h-2 bg-ink-200 rounded-lg"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="p-3.5 bg-ink-50/60 border border-ink-100 rounded-2xl space-y-3">
@@ -1245,7 +1419,12 @@ function BannerForm({
               <label className="block text-xs font-bold text-ink-700 mb-1">Click Action Type</label>
               <select
                 value={form.action_type}
-                onChange={(e) => setForm({ ...form, action_type: e.target.value as ActionType, action_config: {} })}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    action_type: e.target.value as ActionType,
+                  }))
+                }
                 className="w-full h-10 rounded-xl border border-ink-200 px-3 text-xs font-bold bg-white outline-none focus:border-brand-500"
               >
                 {ACTION_TYPES.map((t) => (
@@ -1255,6 +1434,94 @@ function BannerForm({
                 ))}
               </select>
             </div>
+
+            {needsCategory && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Category</label>
+                <select
+                  value={(form.action_config.category_id as string) ?? ''}
+                  onChange={(e) => {
+                    const selectedCat = categories.find((c) => c.id === e.target.value);
+                    setActionConfig('category_id', e.target.value);
+                    if (selectedCat) setActionConfig('category_name', selectedCat.name);
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select category to open</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsBrand && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Brand</label>
+                <select
+                  value={(form.action_config.brand_id as string) ?? ''}
+                  onChange={(e) => {
+                    const selectedBrand = brands.find((b) => b.id === e.target.value);
+                    setActionConfig('brand_id', e.target.value);
+                    if (selectedBrand) setActionConfig('brand_name', selectedBrand.name);
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select brand to open</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsStore && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Store</label>
+                <select
+                  value={(form.action_config.store_id as string) ?? ''}
+                  onChange={(e) => {
+                    const selectedStore = stores.find((s) => s.id === e.target.value);
+                    setActionConfig('store_id', e.target.value);
+                    if (selectedStore) setActionConfig('store_name', selectedStore.name);
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select store to open</option>
+                  {stores.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {needsProduct && (
+              <div>
+                <label className="block text-xs font-bold text-ink-600 mb-1">Select Product</label>
+                <select
+                  value={(form.action_config.product_id as string) ?? ''}
+                  onChange={(e) => {
+                    setActionConfig('product_id', e.target.value);
+                    const p = products.find((x) => x.id === e.target.value);
+                    if (p) setActionConfig('product_name', `${p.brand} ${p.name}`);
+                  }}
+                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
+                >
+                  <option value="">Select product</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.brand} {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {needsScreen && (
               <div>
@@ -1301,68 +1568,6 @@ function BannerForm({
               </div>
             )}
 
-            {needsProduct && (
-              <div>
-                <label className="block text-xs font-bold text-ink-600 mb-1">Select Product</label>
-                <select
-                  value={(form.action_config.product_id as string) ?? ''}
-                  onChange={(e) => {
-                    setActionConfig('product_id', e.target.value);
-                    const p = products.find((x) => x.id === e.target.value);
-                    if (p) setActionConfig('product_name', `${p.brand} ${p.name}`);
-                  }}
-                  className="w-full h-9 rounded-xl border border-ink-200 px-2.5 text-xs bg-white"
-                >
-                  <option value="">Select product</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.brand} {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {needsCategory && (
-              <div>
-                <label className="block text-xs font-bold text-ink-600 mb-1">Categories</label>
-                <select
-                  multiple
-                  value={(form.action_config.category_ids as string[]) ?? []}
-                  onChange={(e) =>
-                    setActionConfig('category_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
-                  }
-                  className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
-                >
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.slug}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {needsBrand && (
-              <div>
-                <label className="block text-xs font-bold text-ink-600 mb-1">Brands</label>
-                <select
-                  multiple
-                  value={(form.action_config.brand_ids as string[]) ?? []}
-                  onChange={(e) =>
-                    setActionConfig('brand_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
-                  }
-                  className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
-                >
-                  {brands.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             {needsSmartCollection && (
               <div>
                 <label className="block text-xs font-bold text-ink-600 mb-1">Smart Collection</label>
@@ -1386,35 +1591,56 @@ function BannerForm({
             )}
 
             {needsFilter && (
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <input
-                  type="number"
-                  value={(form.action_config.discount_min as number) ?? ''}
-                  onChange={(e) => setActionConfig('discount_min', e.target.value ? Number(e.target.value) : null)}
-                  placeholder="Min %"
-                  className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
-                />
-                <input
-                  type="number"
-                  value={(form.action_config.price_max as number) ?? ''}
-                  onChange={(e) => setActionConfig('price_max', e.target.value ? Number(e.target.value) : null)}
-                  placeholder="Max Price"
-                  className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
-                />
+              <div className="space-y-2 pt-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-ink-600 mb-1">Filter Categories</label>
+                  <select
+                    multiple
+                    value={(form.action_config.category_ids as string[]) ?? []}
+                    onChange={(e) =>
+                      setActionConfig('category_ids', Array.from(e.target.selectedOptions).map((o) => o.value))
+                    }
+                    className="w-full h-20 rounded-xl border border-ink-200 p-2 text-xs bg-white"
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.slug}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    value={(form.action_config.discount_min as number) ?? ''}
+                    onChange={(e) => setActionConfig('discount_min', e.target.value ? Number(e.target.value) : null)}
+                    placeholder="Min %"
+                    className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
+                  />
+                  <input
+                    type="number"
+                    value={(form.action_config.price_max as number) ?? ''}
+                    onChange={(e) => setActionConfig('price_max', e.target.value ? Number(e.target.value) : null)}
+                    placeholder="Max Price"
+                    className="h-8 rounded-lg border border-ink-200 px-2 text-xs"
+                  />
+                </div>
               </div>
             )}
           </div>
 
           <div className="flex flex-wrap items-center gap-4 pt-1">
-            <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.show_cta}
-                onChange={(e) => setForm({ ...form, show_cta: e.target.checked })}
-                className="accent-brand-600 rounded"
-              />
-              Show CTA
-            </label>
+            {!isTopPromo && (
+              <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.show_cta}
+                  onChange={(e) => setForm({ ...form, show_cta: e.target.checked })}
+                  className="accent-brand-600 rounded"
+                />
+                Show CTA
+              </label>
+            )}
             <label className="flex items-center gap-2 text-xs font-bold text-ink-700 cursor-pointer">
               <input
                 type="checkbox"
@@ -1427,7 +1653,6 @@ function BannerForm({
           </div>
         </div>
 
-        {/* Live Mobile Canvas Preview (Exact match to Eye button modal container) */}
         <div className="lg:col-span-5 lg:sticky lg:top-4 bg-ink-100/60 p-4 rounded-3xl border border-ink-200 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-black uppercase tracking-wider text-ink-600 flex items-center gap-1.5">
@@ -1442,37 +1667,19 @@ function BannerForm({
             </button>
           </div>
 
-          {/* EXACT wrapper: max-w-md w-full */}
           <div className="max-w-md w-full mx-auto space-y-3">
-            <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft border border-ink-100">
-              <h3 className="text-xs font-bold text-ink-900">
-                Live Preview (
-                {form.position === 'top_slider'
-                  ? `Top Slider (${previewBannerObject.size?.toUpperCase() || 'MEDIUM'})`
-                  : form.position === 'top'
-                  ? 'Top Promo Ad'
-                  : previewBannerObject.size?.toUpperCase() || 'MEDIUM'}
-                )
-              </h3>
-              <span className="text-[10px] font-mono font-bold bg-ink-100 text-ink-600 px-2 py-0.5 rounded-full">
-                {form.position}
-              </span>
-            </div>
-
             <div className="w-full">
               {form.position === 'top_slider' ? (
                 <TopPromoSlider banners={[previewBannerObject]} className="mx-0 w-full" />
               ) : form.position === 'top' ? (
                 <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
+              ) : form.position === 'bottom_popup' ? (
+                <BottomPopupPreviewWrapper banner={previewBannerObject} />
               ) : (
                 <PromoBannerCard banner={previewBannerObject} className="w-full" />
               )}
             </div>
           </div>
-
-          <p className="text-[10px] text-ink-500 text-center leading-relaxed">
-            Displays banner precisely as rendered on mobile devices with full edge-to-edge stretch.
-          </p>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-ink-200/80">
             <button
@@ -1494,7 +1701,6 @@ function BannerForm({
         </div>
       </div>
 
-      {/* Form Fullscreen Eye Preview Modal */}
       {isModalPreviewOpen && (
         <div
           className="fixed inset-0 z-[300] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
@@ -1502,26 +1708,12 @@ function BannerForm({
         >
           <div className="max-w-md w-full space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="bg-white rounded-2xl p-3 flex items-center justify-between shadow-soft">
-              <h3 className="text-sm font-bold text-ink-900">
-                Live Preview (
-                {form.position === 'top_slider'
-                  ? `Top Slider (${previewBannerObject.size?.toUpperCase() || 'MEDIUM'})`
-                  : form.position === 'top'
-                  ? 'Top Promo Ad'
-                  : previewBannerObject.size?.toUpperCase() || 'MEDIUM'}
-                )
-              </h3>
+              <h3 className="text-sm font-bold text-ink-900">Live Preview (Bottom Popup)</h3>
               <button onClick={() => setIsModalPreviewOpen(false)} className="text-ink-400 hover:text-ink-700">
                 <X size={18} />
               </button>
             </div>
-            {form.position === 'top_slider' ? (
-              <TopPromoSlider banners={[previewBannerObject]} className="mx-0 w-full" />
-            ) : form.position === 'top' ? (
-              <PromoAdBanner banner={previewBannerObject} className="mx-0 w-full" />
-            ) : (
-              <PromoBannerCard banner={previewBannerObject} className="w-full" />
-            )}
+            <BottomPopupPreviewWrapper banner={previewBannerObject} />
           </div>
         </div>
       )}

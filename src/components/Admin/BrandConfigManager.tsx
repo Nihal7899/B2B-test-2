@@ -1,4 +1,3 @@
-// components/Admin/BrandConfigManager.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { TrustedBrand } from '@/types';
@@ -7,6 +6,8 @@ import { uploadBrandIconImage, updateTrustedBrand, deleteBrandImage } from '@/se
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
+import { CachedImage } from '@/components/CachedImage';
+import { CtaActionEditor } from '@/components/CtaActionEditor';
 
 const ICON_OPTIONS = [
   'Apple', 'Wheat', 'Flame', 'Coffee', 'Cookie', 'Milk', 'Croissant',
@@ -40,9 +41,6 @@ function ColorInput({ value, onChange, label }: { value: string; onChange: (val:
   );
 }
 
-// ============================================================
-// MAIN COMPONENT
-// ============================================================
 export default function BrandConfigManager() {
   const [brands, setBrands] = useState<TrustedBrand[]>([]);
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
@@ -101,9 +99,6 @@ export default function BrandConfigManager() {
   );
 }
 
-// ============================================================
-// EDITOR WITH DRAFT & SAVE
-// ============================================================
 function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (msg: string, type: any) => void }) {
   const [brand, setBrand] = useState<TrustedBrand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,8 +127,8 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
         setDraft({
           highlights: config.highlights || [],
           categories: config.categories || [],
-          bulkDeal: config.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
-          trending: config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
+          bulkDeal: config.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
+          trending: config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
         });
         setPendingFiles({});
       }
@@ -202,7 +197,6 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
       const originalConfig = brand.config || {};
       await deleteOrphanedImages(originalConfig, finalDraft);
 
-      // Highlights icons
       for (let i = 0; i < finalDraft.highlights.length; i++) {
         const key = `highlights.${i}.icon`;
         if (pendingFiles[key]) {
@@ -222,7 +216,6 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
         }
       }
 
-      // Categories icons
       for (let i = 0; i < finalDraft.categories.length; i++) {
         const key = `categories.${i}.icon`;
         if (pendingFiles[key]) {
@@ -242,7 +235,6 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
         }
       }
 
-      // Trending icon buttons
       for (let i = 0; i < finalDraft.trending.iconButtons.length; i++) {
         const key = `trending.iconButtons.${i}.icon`;
         if (pendingFiles[key]) {
@@ -285,14 +277,6 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
   if (showUploadProgress) {
     return <UploadProgress progress={uploadProgress} statusText={uploadStatus} isComplete={uploadProgress >= 100} />;
   }
-
-  const config = brand.config || {};
-  const safeConfig = {
-    highlights: config.highlights || [],
-    categories: config.categories || [],
-    bulkDeal: config.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
-    trending: config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' },
-  };
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
@@ -360,9 +344,6 @@ function BrandConfigEditor({ brandId, addToast }: { brandId: string; addToast: (
   );
 }
 
-// ============================================================
-// HIGHLIGHTS EDITOR (draft)
-// ============================================================
 function HighlightsEditor({ draft, setDraft, setPendingFile, clearPendingFile, pendingFiles }: {
   draft: any;
   setDraft: (section: string, value: any) => void;
@@ -439,7 +420,7 @@ function HighlightsEditor({ draft, setDraft, setPendingFile, clearPendingFile, p
               <option value="__custom">Custom (upload)</option>
             </select>
             {h.icon?.startsWith('http') && (
-              <img src={h.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
+              <CachedImage src={h.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
             )}
             {pendingFiles[`highlights.${idx}.icon`] && (
               <span className="text-xs text-green-600">Pending</span>
@@ -463,9 +444,6 @@ function HighlightsEditor({ draft, setDraft, setPendingFile, clearPendingFile, p
   );
 }
 
-// ============================================================
-// CATEGORIES EDITOR (draft + brand filter)
-// ============================================================
 function CategoriesEditor({ draft, setDraft, setPendingFile, clearPendingFile, pendingFiles, brandName }: {
   draft: any;
   setDraft: (section: string, value: any) => void;
@@ -573,7 +551,7 @@ function CategoriesEditor({ draft, setDraft, setPendingFile, clearPendingFile, p
               <option value="__custom">Custom (upload)</option>
             </select>
             {c.icon?.startsWith('http') && (
-              <img src={c.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
+              <CachedImage src={c.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
             )}
             {pendingFiles[`categories.${idx}.icon`] && (
               <span className="text-xs text-green-600">Pending</span>
@@ -644,9 +622,6 @@ function CategoriesEditor({ draft, setDraft, setPendingFile, clearPendingFile, p
   );
 }
 
-// ============================================================
-// BULK DEAL EDITOR
-// ============================================================
 function BulkDealEditor({ draft, setDraft }: { draft: any; setDraft: (section: string, value: any) => void }) {
   const { bulkDeal } = draft;
 
@@ -670,6 +645,14 @@ function BulkDealEditor({ draft, setDraft }: { draft: any; setDraft: (section: s
       <div><label className="block text-sm font-medium text-gray-700">CTA Text</label><input value={bulkDeal.cta} onChange={e => updateBulkDeal('cta', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
       <div><label className="block text-sm font-medium text-gray-700">Icon</label><select value={bulkDeal.icon || 'Package'} onChange={e => updateBulkDeal('icon', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm">{ICON_OPTIONS.map(icon => <option key={icon} value={icon}>{icon}</option>)}</select></div>
 
+      <CtaActionEditor 
+        actionType={bulkDeal.actionType} 
+        actionConfig={bulkDeal.actionConfig || {}} 
+        onChange={(type, conf) => {
+          setDraft('bulkDeal', { ...bulkDeal, actionType: type, actionConfig: conf });
+        }} 
+      />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <ColorInput value={bulkDeal.ctaBgColor || '#ffffff'} onChange={(val) => updateBulkDeal('ctaBgColor', val)} label="CTA Background" />
         <ColorInput value={bulkDeal.ctaTextColor || '#065f46'} onChange={(val) => updateBulkDeal('ctaTextColor', val)} label="CTA Text Color" />
@@ -678,9 +661,6 @@ function BulkDealEditor({ draft, setDraft }: { draft: any; setDraft: (section: s
   );
 }
 
-// ============================================================
-// TRENDING EDITOR
-// ============================================================
 function TrendingEditor({ draft, setDraft, setPendingFile, clearPendingFile, pendingFiles }: {
   draft: any;
   setDraft: (section: string, value: any) => void;
@@ -688,7 +668,7 @@ function TrendingEditor({ draft, setDraft, setPendingFile, clearPendingFile, pen
   clearPendingFile: (path: string) => void;
   pendingFiles: Record<string, File>;
 }) {
-  const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [] } = draft;
+  const { trending = { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46' }, categories = [] } = draft;
   const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.title }));
 
   const updateTrending = (field: string, value: any) => {
@@ -757,6 +737,14 @@ function TrendingEditor({ draft, setDraft, setPendingFile, clearPendingFile, pen
       <div><label className="block text-sm font-medium text-gray-700">Subtitle</label><input value={trending.subtitle} onChange={e => updateTrending('subtitle', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
       <div><label className="block text-sm font-medium text-gray-700">CTA Text</label><input value={trending.ctaText} onChange={e => updateTrending('ctaText', e.target.value)} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" /></div>
 
+      <CtaActionEditor 
+        actionType={trending.actionType} 
+        actionConfig={trending.actionConfig || {}} 
+        onChange={(type, conf) => {
+          setDraft('trending', { ...trending, actionType: type, actionConfig: conf });
+        }} 
+      />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <ColorInput value={trending.ctaBgColor || '#ffffff'} onChange={(val) => updateTrending('ctaBgColor', val)} label="CTA Background" />
         <ColorInput value={trending.ctaTextColor || '#065f46'} onChange={(val) => updateTrending('ctaTextColor', val)} label="CTA Text Color" />
@@ -774,7 +762,7 @@ function TrendingEditor({ draft, setDraft, setPendingFile, clearPendingFile, pen
                 <option value="__custom">Custom (upload)</option>
               </select>
               {btn.icon?.startsWith('http') && (
-                <img src={btn.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
+                <CachedImage src={btn.icon} alt="custom" className="w-6 h-6 rounded object-cover" />
               )}
               {pendingFiles[`trending.iconButtons.${idx}.icon`] && (
                 <span className="text-xs text-green-600">Pending</span>

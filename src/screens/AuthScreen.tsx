@@ -1,6 +1,9 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { ArrowLeft, Delete } from 'lucide-react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { ArrowLeft, Delete, Loader2 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { AndroidSmsRetriever } from '@capgo/capacitor-android-sms-retriever';
 import { useAuth } from '@/auth';
+import { getOrFetchHomeData } from '@/services/homePreload';
 import heroImage from './hero.jpg';
 
 function normalizeIndianPhone(value: string): string {
@@ -17,26 +20,21 @@ function OtpIllustration() {
   return (
     <div className="relative mx-auto flex h-44 w-full items-center justify-center pt-2">
       <div className="absolute bottom-2 h-32 w-52 rounded-t-full bg-gradient-to-t from-[#0f7760]/15 to-[#0f7760]/5" />
-
       <div className="relative z-10 flex h-36 w-24 flex-col items-center justify-between rounded-2xl border-[3px] border-slate-800 bg-white p-2 shadow-xl shadow-slate-200/50">
         <div className="h-1 w-6 rounded-full bg-slate-300" />
-
         <div className="flex w-full flex-col gap-2">
           <div className="h-2.5 w-10 animate-pulse rounded-full bg-slate-100" />
           <div className="h-2.5 w-14 self-end rounded-full bg-[#0f7760]/20" />
           <div className="h-2.5 w-8 rounded-full bg-slate-100" />
         </div>
-
         <div className="h-1 w-7 rounded-full bg-slate-200" />
       </div>
-
       <div className="animate-float absolute z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#0f7760] text-white shadow-lg shadow-[#0f7760]/40 -translate-x-6">
         <div className="flex flex-col items-center justify-center">
           <span className="text-[10px] font-black uppercase tracking-wider">OTP</span>
           <span className="text-[8px] font-medium opacity-80">CODE</span>
         </div>
       </div>
-
       <div className="absolute left-[24%] bottom-2 z-10 hidden sm:block">
         <div className="h-16 w-5 rounded-t-full bg-slate-800" />
       </div>
@@ -67,17 +65,85 @@ function OtpVerificationView({
   seconds,
 }: OtpViewProps) {
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const hiddenInputRef = useRef<HTMLInputElement>(null);
+
+  const fillAndSubmitOtp = useCallback(
+    (code: string) => {
+      const sanitized = code.replace(/\D/g, '').slice(0, 6);
+      const arr = sanitized.split('');
+      while (arr.length < 6) arr.push('');
+      setDigits(arr);
+      
+      if (sanitized.length === 6) {
+        onVerify(sanitized);
+      }
+    },
+    [onVerify]
+  );
+
+  // 1. WebOTP API (Mobile Web Browsers)
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return;
+
+    if ('OTPCredential' in window) {
+      const ac = new AbortController();
+      navigator.credentials
+        .get({
+          otp: { transport: ['sms'] },
+          signal: ac.signal,
+        } as any)
+        .then((otp: any) => {
+          if (otp?.code) {
+            fillAndSubmitOtp(otp.code);
+          }
+        })
+        .catch(() => {});
+
+      return () => ac.abort();
+    }
+  }, [fillAndSubmitOtp]);
+
+  // 2. Capgo Capacitor Android SMS Retriever
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
+
+    let smsListener: any = null;
+
+    const setupSmsListener = async () => {
+      try {
+        smsListener = await AndroidSmsRetriever.addListener('smsReceived', ({ message }) => {
+          if (message) {
+            const matched = message.match(/\b\d{6}\b/);
+            if (matched) {
+              fillAndSubmitOtp(matched[0]);
+            }
+          }
+        });
+      } catch (err: any) {
+        console.warn('SMS Retriever listener failed:', err);
+      }
+    };
+
+    setupSmsListener();
+
+    return () => {
+      if (smsListener) {
+        smsListener.remove().catch(() => {});
+      }
+      // CRITICAL FIX: Do NOT call stopWatch() here. 
+      // It was killing the OS listener every time the countdown timer ticked.
+      // Let Google Play Services handle the natural 5-minute timeout.
+    };
+  }, [fillAndSubmitOtp]);
 
   const handleKeyPress = useCallback(
     (key: string) => {
       if (busy || verifyStatus === 'success') return;
-
       const firstEmptyIndex = digits.findIndex((d) => d === '');
       if (firstEmptyIndex !== -1) {
         const updated = [...digits];
         updated[firstEmptyIndex] = key;
         setDigits(updated);
-
         if (firstEmptyIndex === 5) {
           onVerify(updated.join(''));
         }
@@ -88,7 +154,6 @@ function OtpVerificationView({
 
   const handleDelete = useCallback(() => {
     if (busy || verifyStatus === 'success') return;
-
     const lastFilledIndex = [...digits].reverse().findIndex((d) => d !== '');
     if (lastFilledIndex !== -1) {
       const targetIndex = 5 - lastFilledIndex;
@@ -114,11 +179,7 @@ function OtpVerificationView({
     <div className="flex h-full flex-col justify-between px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] select-none">
       <div>
         <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 transition hover:text-slate-800"
-          >
+          <button type="button" onClick={onBack} className="flex items-center gap-1.5 text-xs font-bold text-slate-500 transition hover:text-slate-800">
             <ArrowLeft size={16} /> Edit number
           </button>
           <span className="text-xs font-bold text-[#0f7760]">{formattedPhone}</span>
@@ -127,24 +188,29 @@ function OtpVerificationView({
         <OtpIllustration />
 
         <div className="mt-3 text-center">
-          <h2 className="text-2xl font-black tracking-tight text-slate-900">
-            Enter Verification code
-          </h2>
+          <h2 className="text-2xl font-black tracking-tight text-slate-900">Enter Verification code</h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
             We have sent a 6-digit confirmation code to your mobile number
           </p>
         </div>
 
-        <div className="mt-6">
-          <div
-            className={`flex items-center justify-center gap-2 transition-transform ${
-              verifyStatus === 'error' ? 'animate-shake' : ''
-            }`}
-          >
+        <div className="relative mt-6">
+          <input
+            ref={hiddenInputRef}
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={digits.join('')}
+            onChange={(e) => fillAndSubmitOtp(e.target.value)}
+            className="absolute inset-0 z-20 h-full w-full opacity-0 cursor-text"
+            aria-label="Verification Code"
+          />
+
+          <div className={`flex items-center justify-center gap-2 transition-transform ${verifyStatus === 'error' ? 'animate-shake' : ''}`}>
             {digits.map((digit, i) => {
               const isFilled = digit !== '';
               const isCurrent = digits.findIndex((d) => d === '') === i;
-
               let style = 'bg-[#0f7760]/10 text-transparent border-transparent';
 
               if (verifyStatus === 'success') {
@@ -158,10 +224,7 @@ function OtpVerificationView({
               }
 
               return (
-                <div
-                  key={i}
-                  className={`flex h-12 w-11 sm:h-13 sm:w-12 items-center justify-center rounded-2xl text-xl font-black transition-all duration-200 ${style}`}
-                >
+                <div key={i} className={`flex h-12 w-11 sm:h-13 sm:w-12 items-center justify-center rounded-2xl text-xl font-black transition-all duration-200 ${style}`}>
                   {isFilled ? digit : ''}
                 </div>
               );
@@ -170,7 +233,7 @@ function OtpVerificationView({
 
           {error && <p className="mt-2 text-center text-xs font-bold text-red-500">{error}</p>}
 
-          <div className="mt-3.5 text-center">
+          <div className="mt-3.5 text-center relative z-30">
             <span className="text-xs text-slate-500">Didn&apos;t receive code? </span>
             <button
               type="button"
@@ -184,7 +247,7 @@ function OtpVerificationView({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-y-3 gap-x-6 px-4">
+      <div className="mt-4 grid grid-cols-3 gap-y-3 gap-x-6 px-4 relative z-30">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
           <button
             key={num}
@@ -223,6 +286,7 @@ export function AuthScreen() {
   const [seconds, setSeconds] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (seconds <= 0) return;
@@ -231,7 +295,40 @@ export function AuthScreen() {
   }, [seconds]);
 
   const isPhoneValid = phone.length === 10;
-  const formattedPhone = useMemo(() => `+91 ${phone.slice(0, 5)} ${phone.slice(5)}`.trim(), [phone]);
+  const formattedPhone = useMemo(() => `+91 ${phone.slice(0, 5)}${phone.slice(5)}`.trim(), [phone]);
+
+  const handleGetHash = async () => {
+    try {
+      const { hash } = await AndroidSmsRetriever.getHashString();
+      alert(`My App Hash: ${hash}\n\nPut this in Supabase!`);
+    } catch (e) {
+      alert("Failed to get hash. Are you running the Android native app?");
+    }
+  };
+
+  // MEMOIZED to prevent unnecessary re-renders cascading to the child
+  const handleVerifyOtp = useCallback(async (codeToVerify: string) => {
+    setBusy(true);
+    setVerifyStatus('verifying');
+    setError('');
+
+    try {
+      const result = await verifyOtp(`+91${phone}`, codeToVerify);
+      if (result?.error) {
+        setVerifyStatus('error');
+        setError(typeof result.error === 'string' ? result.error : result.error.message || 'Invalid verification code.');
+        setBusy(false);
+      } else {
+        setLoadingMessage('Setting up your wholesale dashboard...');
+        setVerifyStatus('success');
+        await getOrFetchHomeData(true).catch(() => {});
+      }
+    } catch (err: any) {
+      setVerifyStatus('error');
+      setError(err?.message || 'Verification failed. Please try again.');
+      setBusy(false);
+    }
+  }, [phone, verifyOtp]);
 
   const handleSendOtp = async () => {
     if (!isPhoneValid) {
@@ -242,37 +339,21 @@ export function AuthScreen() {
     setError('');
 
     try {
+      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+        await AndroidSmsRetriever.startWatch();
+      }
+
       const result = await sendOtp(`+91${phone}`);
       if (result?.error) {
         setError(typeof result.error === 'string' ? result.error : result.error.message || 'Failed to send OTP.');
         return;
       }
+      
       setStep('otp');
       setSeconds(30);
       setVerifyStatus('idle');
     } catch (err: any) {
       setError(err?.message || 'Failed to send OTP. Please check your number.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleVerifyOtp = async (codeToVerify: string) => {
-    setBusy(true);
-    setVerifyStatus('verifying');
-    setError('');
-
-    try {
-      const result = await verifyOtp(`+91${phone}`, codeToVerify);
-      if (result?.error) {
-        setVerifyStatus('error');
-        setError(typeof result.error === 'string' ? result.error : result.error.message || 'Invalid verification code.');
-      } else {
-        setVerifyStatus('success');
-      }
-    } catch (err: any) {
-      setVerifyStatus('error');
-      setError(err?.message || 'Verification failed. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -284,6 +365,10 @@ export function AuthScreen() {
     setError('');
 
     try {
+      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+        await AndroidSmsRetriever.startWatch();
+      }
+
       const result = await resendOtp(`+91${phone}`);
       if (result?.error) {
         setError(typeof result.error === 'string' ? result.error : result.error.message || 'Failed to resend code');
@@ -300,34 +385,37 @@ export function AuthScreen() {
 
   return (
     <div className="relative min-h-[100dvh] w-full bg-slate-900 sm:flex sm:items-center sm:justify-center sm:p-6">
-      {/* Container flush to top on mobile */}
+      {loadingMessage && (
+        <div className="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-[#011f1a] text-white px-6">
+          <Loader2 className="h-10 w-10 text-[#59D9B6] animate-spin mb-4" />
+          <p className="text-sm font-bold text-[#D3F6EB] tracking-wide text-center">{loadingMessage}</p>
+        </div>
+      )}
+
       <div className="relative flex h-[100dvh] w-full flex-col justify-between overflow-hidden bg-white sm:h-[844px] sm:max-w-[420px] sm:rounded-[40px] sm:shadow-2xl">
         {step === 'phone' ? (
           <div className="relative flex h-full flex-col justify-between bg-slate-900">
-            {/* Top Hero Image: Flush to the absolute top edge and extending 72% down to bleed behind bottom card */}
             <div className="absolute inset-x-0 top-0 h-[72%] w-full overflow-hidden">
-              <img
-                src={heroImage}
-                alt="Fresh ingredients"
-                className="h-full w-full object-cover object-top"
-              />
+              <img src={heroImage} alt="Fresh ingredients" className="h-full w-full object-cover object-top" />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/10" />
             </div>
 
-            {/* Bottom Card Sheet */}
             <div className="relative z-10 mt-auto flex w-full flex-col rounded-t-[36px] bg-white px-6 pt-7 pb-8 shadow-[0_-16px_40px_rgba(0,0,0,0.25)] [padding-bottom:max(2rem,env(safe-area-inset-bottom))]">
               <h1 className="text-center text-[23px] font-extrabold leading-snug tracking-tight text-[#1a2e26]">
                 All your restaurant needs <br /> delivered next day
               </h1>
 
               <div className="mt-8">
-                <div
-                  className={`flex h-14 items-center rounded-2xl border px-4 transition-all duration-200 ${
-                    error
-                      ? 'border-red-400 bg-red-50/20'
-                      : 'border-slate-200 bg-white focus-within:border-[#0f7760] focus-within:ring-4 focus-within:ring-[#0f7760]/10'
-                  }`}
+                {/* TEMPORARY BUTTON TO GET APP HASH */}
+                <button
+                  type="button"
+                  onClick={handleGetHash}
+                  className="mb-4 w-full rounded-xl bg-yellow-400 py-3 text-sm font-extrabold text-slate-900 shadow-sm"
                 >
+                  CLICK TO GET APP HASH
+                </button>
+
+                <div className={`flex h-14 items-center rounded-2xl border px-4 transition-all duration-200 ${error ? 'border-red-400 bg-red-50/20' : 'border-slate-200 bg-white focus-within:border-[#0f7760] focus-within:ring-4 focus-within:ring-[#0f7760]/10'}`}>
                   <div className="flex items-center gap-2 pr-3 text-base font-semibold text-slate-800">
                     <span className="text-xl leading-none">🇮🇳</span>
                     <span>+91</span>
@@ -400,6 +488,13 @@ export function AuthScreen() {
         }
         .animate-shake {
           animation: shake 0.5s ease-in-out;
+        }
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(15, 119, 96, 0.4); }
+          50% { box-shadow: 0 0 0 6px rgba(15, 119, 96, 0); }
+        }
+        .animate-pulse-glow {
+          animation: pulse-glow 2s infinite;
         }
       `}</style>
     </div>

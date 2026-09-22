@@ -1,4 +1,3 @@
-// src/components/admin/SubcategoriesManager.tsx
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -9,6 +8,7 @@ import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
+import { CachedImage } from '@/components/CachedImage';
 
 export default function SubcategoriesManager() {
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
@@ -27,7 +27,6 @@ export default function SubcategoriesManager() {
     title: '',
     message: '',
   });
-  // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
   const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
@@ -118,7 +117,6 @@ export default function SubcategoriesManager() {
         ))}
       </ToastContainer>
 
-      {/* Search Bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
         <input
@@ -139,7 +137,7 @@ export default function SubcategoriesManager() {
 
       {filteredSubcategories.map((s) => (
         <div key={s.id} className="bg-white border border-ink-100 rounded-2xl p-4 shadow-card flex items-center gap-3">
-          {s.image_url && <img src={s.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />}
+          {s.image_url && <CachedImage src={s.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-ink-800 truncate">{s.name}</p>
             <p className="text-xs text-ink-500">/{s.slug} · {categories.find(c => c.id === s.category_id)?.name || 'Unknown'}</p>
@@ -304,7 +302,6 @@ function SubcategoryForm({
         </div>
       </div>
 
-      {/* Image upload */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Image URL</label>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -332,7 +329,7 @@ function SubcategoryForm({
         </div>
         {previewUrl && (
           <div className="relative mt-2">
-            <img src={previewUrl} alt="Preview" className="h-20 w-full rounded-xl object-cover" />
+            <CachedImage src={previewUrl} alt="Preview" className="h-20 w-full rounded-xl object-cover" />
             {selectedFile && (
               <span className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
                 New

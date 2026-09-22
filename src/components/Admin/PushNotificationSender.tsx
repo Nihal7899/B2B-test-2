@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
 import toast from 'react-hot-toast';
-import { X, Plus, ChevronDown, ChevronRight, Upload, Trash2, Pencil, Save } from 'lucide-react';
+import { X, Plus, ChevronDown, ChevronRight, Upload, Trash2, Pencil, Save, Volume2 } from 'lucide-react';
 
 // ── Button presets ──
 const BUTTON_PRESETS = [
@@ -44,6 +44,7 @@ interface NotificationChannel {
   name: string;
   description?: string;
   small_icon?: string;
+  sound?: string;
 }
 
 export function PushNotificationSender() {
@@ -67,10 +68,11 @@ export function PushNotificationSender() {
   const [accentColor, setAccentColor] = useState('#007AFF');
 
   // ── Small icon state ──
-  // We'll store the selected small icon name (resource name) in `smallIcon`
   const [smallIcon, setSmallIcon] = useState('');
-  // All available small icon names from the channels table (distinct)
   const [availableSmallIcons, setAvailableSmallIcons] = useState<string[]>([]);
+
+  // ── Sound state ──
+  const [sound, setSound] = useState('');
 
   // ── Channel state ──
   const [channels, setChannels] = useState<NotificationChannel[]>([]);
@@ -83,6 +85,7 @@ export function PushNotificationSender() {
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelDescription, setNewChannelDescription] = useState('');
   const [newChannelSmallIcon, setNewChannelSmallIcon] = useState('');
+  const [newChannelSound, setNewChannelSound] = useState('');
   const [addingChannel, setAddingChannel] = useState(false);
 
   // ── Edit channel ──
@@ -90,6 +93,7 @@ export function PushNotificationSender() {
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editSmallIcon, setEditSmallIcon] = useState('');
+  const [editSound, setEditSound] = useState('');
   const [updatingChannel, setUpdatingChannel] = useState(false);
 
   // ── Crop selections ──
@@ -106,7 +110,6 @@ export function PushNotificationSender() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const largeIconInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Fetch channels and small icons on mount ──
   useEffect(() => {
     fetchChannelsAndIcons();
   }, []);
@@ -114,7 +117,6 @@ export function PushNotificationSender() {
   const fetchChannelsAndIcons = async () => {
     setLoadingChannels(true);
     try {
-      // Fetch channels
       const { data: channelsData, error: channelsError } = await supabase
         .from('notification_channels')
         .select('*')
@@ -122,7 +124,6 @@ export function PushNotificationSender() {
       if (channelsError) throw channelsError;
       setChannels(channelsData || []);
 
-      // Fetch distinct small_icon values
       const { data: iconData, error: iconError } = await supabase
         .from('notification_channels')
         .select('small_icon')
@@ -131,11 +132,9 @@ export function PushNotificationSender() {
       const icons = iconData
         .map(row => row.small_icon)
         .filter((icon): icon is string => typeof icon === 'string' && icon.trim() !== '');
-      // Remove duplicates
       const uniqueIcons = Array.from(new Set(icons));
       setAvailableSmallIcons(uniqueIcons);
 
-      // Auto‑select first channel if none selected
       if (channelsData && channelsData.length > 0 && !selectedChannelId) {
         const first = channelsData[0];
         setSelectedChannelId(first.channel_id);
@@ -144,6 +143,7 @@ export function PushNotificationSender() {
         } else {
           setSmallIcon('');
         }
+        setSound(first.sound || '');
       }
     } catch (err: any) {
       console.error('Failed to fetch data:', err);
@@ -153,33 +153,24 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Handle channel selection ──
   const handleChannelChange = (channelId: string) => {
     setSelectedChannelId(channelId);
     const channel = channels.find(ch => ch.channel_id === channelId);
-    if (channel?.small_icon && availableSmallIcons.includes(channel.small_icon)) {
+    if (channel?.small_icon) {
       setSmallIcon(channel.small_icon);
-    } else {
-      // If the channel's small icon is not in the list (e.g., it was just added but we haven't refreshed)
-      // We'll still set it if it exists, but we'll also refresh the list.
-      if (channel?.small_icon) {
-        setSmallIcon(channel.small_icon);
-        // Optionally add it to the available list if not present
-        if (!availableSmallIcons.includes(channel.small_icon)) {
-          setAvailableSmallIcons(prev => [...prev, channel.small_icon!]);
-        }
-      } else {
-        setSmallIcon('');
+      if (!availableSmallIcons.includes(channel.small_icon)) {
+        setAvailableSmallIcons(prev => [...prev, channel.small_icon!]);
       }
+    } else {
+      setSmallIcon('');
     }
+    setSound(channel?.sound || '');
   };
 
-  // ── Small icon dropdown change ──
   const handleSmallIconChange = (value: string) => {
     setSmallIcon(value);
   };
 
-  // ── Image upload helpers ──
   const uploadFile = async (
     file: File,
     setUrl: (url: string) => void,
@@ -219,7 +210,6 @@ export function PushNotificationSender() {
   const removeImage = () => setImage('');
   const removeLargeIcon = () => setLargeIcon('');
 
-  // ── Button management ──
   const addButton = () => {
     setButtons([...buttons, { id: '', text: '', preset: 'custom' }]);
   };
@@ -245,7 +235,6 @@ export function PushNotificationSender() {
     setButtons(updated);
   };
 
-  // ── iOS Category ──
   const handleIosCategoryPreset = (presetId: string) => {
     setIosCategoryPreset(presetId);
     if (presetId === 'custom') {
@@ -255,7 +244,7 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Add channel ──
+  // ── Add channel with sound support ──
   const handleAddChannel = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedId = newChannelId.trim();
@@ -273,6 +262,7 @@ export function PushNotificationSender() {
           name: trimmedName,
           description: newChannelDescription.trim() || null,
           small_icon: newChannelSmallIcon.trim() || null,
+          sound: newChannelSound.trim() || null,
         });
       if (error) throw error;
       toast.success('Channel added successfully');
@@ -280,12 +270,12 @@ export function PushNotificationSender() {
       setNewChannelName('');
       setNewChannelDescription('');
       setNewChannelSmallIcon('');
+      setNewChannelSound('');
       setShowAddChannel(false);
-      await fetchChannelsAndIcons(); // Refresh list and small icons
+      await fetchChannelsAndIcons();
       setSelectedChannelId(trimmedId);
-      if (newChannelSmallIcon.trim()) {
-        setSmallIcon(newChannelSmallIcon.trim());
-      }
+      if (newChannelSmallIcon.trim()) setSmallIcon(newChannelSmallIcon.trim());
+      if (newChannelSound.trim()) setSound(newChannelSound.trim());
     } catch (err: any) {
       toast.error(err.message || 'Failed to add channel');
     } finally {
@@ -293,12 +283,13 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Edit channel ──
+  // ── Edit channel with sound support ──
   const startEdit = (channel: NotificationChannel) => {
     setEditingChannelId(channel.id);
     setEditName(channel.name);
     setEditDescription(channel.description || '');
     setEditSmallIcon(channel.small_icon || '');
+    setEditSound(channel.sound || '');
   };
 
   const cancelEdit = () => {
@@ -306,6 +297,7 @@ export function PushNotificationSender() {
     setEditName('');
     setEditDescription('');
     setEditSmallIcon('');
+    setEditSound('');
   };
 
   const saveEdit = async (channelId: string) => {
@@ -322,20 +314,17 @@ export function PushNotificationSender() {
           name: trimmedName,
           description: editDescription.trim() || null,
           small_icon: editSmallIcon.trim() || null,
+          sound: editSound.trim() || null,
         })
         .eq('id', channelId);
       if (error) throw error;
       toast.success('Channel updated');
       cancelEdit();
       await fetchChannelsAndIcons();
-      // Update selected channel if needed
       const updated = channels.find(ch => ch.id === channelId);
       if (updated && updated.channel_id === selectedChannelId) {
-        if (updated.small_icon) {
-          setSmallIcon(updated.small_icon);
-        } else {
-          setSmallIcon('');
-        }
+        setSmallIcon(updated.small_icon || '');
+        setSound(editSound.trim() || '');
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to update channel');
@@ -344,7 +333,6 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Delete channel ──
   const deleteChannel = async (channel: NotificationChannel) => {
     if (!confirm(`Are you sure you want to delete the channel "${channel.name}"?`)) return;
     try {
@@ -357,6 +345,7 @@ export function PushNotificationSender() {
       if (channel.channel_id === selectedChannelId) {
         setSelectedChannelId('');
         setSmallIcon('');
+        setSound('');
       }
       await fetchChannelsAndIcons();
     } catch (err: any) {
@@ -364,7 +353,6 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── Send notification ──
   const sendNotification = async () => {
     if (!title.trim() || !body.trim()) {
       toast.error('Title and body are required');
@@ -379,7 +367,6 @@ export function PushNotificationSender() {
       return;
     }
 
-    // Prepare accent color: remove '#' if present
     let cleanAccent = accentColor.trim();
     if (cleanAccent.startsWith('#')) {
       cleanAccent = cleanAccent.slice(1);
@@ -403,14 +390,14 @@ export function PushNotificationSender() {
     if (largeIcon.trim()) payload.largeIcon = largeIcon.trim();
     if (iosCategory.trim()) payload.iosCategory = iosCategory.trim();
     if (selectedChannelId) payload.channelId = selectedChannelId;
-    if (cleanAccent) payload.accentColor = cleanAccent; // send without '#'
+    if (sound.trim()) payload.sound = sound.trim();
+    if (cleanAccent) payload.accentColor = cleanAccent;
 
     setLoading(true);
     try {
       const { error } = await supabase.functions.invoke('send-push-notification', { body: payload });
       if (error) throw error;
       toast.success('Notification sent successfully');
-      // Reset form (keep channel, accent, small icon)
       setTitle('');
       setBody('');
       setDataJson('{}');
@@ -429,7 +416,6 @@ export function PushNotificationSender() {
     }
   };
 
-  // ── UI ──
   return (
     <div className="p-4 bg-white rounded-2xl shadow-card space-y-4">
       <h2 className="text-xl font-bold text-ink-900">Send Push Notification</h2>
@@ -513,9 +499,6 @@ export function PushNotificationSender() {
             <img src={image} alt="Preview" className="h-32 w-auto rounded-xl object-cover border border-ink-100" />
           </div>
         )}
-        <p className="text-xs text-ink-400 mt-1">
-          Choose crop: <strong>Rich Media (2:1)</strong> for big picture (Android) / iOS attachments, <strong>Square (1:1)</strong> for icon‑like images.
-        </p>
       </div>
 
       {/* Deep Link */}
@@ -526,7 +509,7 @@ export function PushNotificationSender() {
           value={deepLink}
           onChange={(e) => setDeepLink(e.target.value)}
           className="w-full mt-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500"
-          placeholder="https://yourapp.com/deeplink or myapp://page"
+          placeholder="https://yourapp.com/deeplink or /order?id=123"
         />
       </div>
 
@@ -554,7 +537,7 @@ export function PushNotificationSender() {
                   value={btn.id}
                   onChange={(e) => updateCustomField(idx, 'id', e.target.value)}
                   className="flex-1 min-w-[100px] px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
-                  placeholder="Button ID (e.g. open_product)"
+                  placeholder="Button ID (e.g. view_order)"
                 />
                 <input
                   type="text"
@@ -590,7 +573,6 @@ export function PushNotificationSender() {
         >
           <Plus size={16} /> Add Button (max 3)
         </button>
-        <p className="text-xs text-ink-400 mt-1">Buttons work on both platforms. For iOS, set a Category below.</p>
       </div>
 
       {/* Badge, Schedule, Channel ID */}
@@ -615,10 +597,7 @@ export function PushNotificationSender() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-ink-700">
-            Android Channel
-            <span className="text-xs text-ink-400 ml-1">(for sound & importance)</span>
-          </label>
+          <label className="block text-sm font-medium text-ink-700">Channel</label>
           <select
             value={selectedChannelId}
             onChange={(e) => handleChannelChange(e.target.value)}
@@ -637,9 +616,6 @@ export function PushNotificationSender() {
               ))
             )}
           </select>
-          {channels.length === 0 && !loadingChannels && (
-            <p className="text-xs text-ink-400 mt-1">Add a channel below first.</p>
-          )}
         </div>
       </div>
 
@@ -647,7 +623,6 @@ export function PushNotificationSender() {
       <div>
         <label className="block text-sm font-medium text-ink-700">
           Accent Color (Android)
-          <span className="text-xs text-ink-400 ml-1">(used for buttons, etc.)</span>
         </label>
         <div className="flex items-center gap-3 mt-1">
           <input
@@ -678,12 +653,8 @@ export function PushNotificationSender() {
         </button>
         {showAndroid && (
           <div className="mt-3 space-y-4 bg-ink-50/30 p-3 rounded-xl border border-ink-100">
-            {/* Small Icon - dropdown from available icons */}
             <div>
-              <label className="block text-sm font-medium text-ink-700">
-                Small Icon (drawable resource name)
-                <span className="text-xs text-ink-400 ml-1">(select from available icons)</span>
-              </label>
+              <label className="block text-sm font-medium text-ink-700">Small Icon (drawable resource name)</label>
               <select
                 value={smallIcon}
                 onChange={(e) => handleSmallIconChange(e.target.value)}
@@ -696,19 +667,10 @@ export function PushNotificationSender() {
                   </option>
                 ))}
               </select>
-              {smallIcon && (
-                <p className="text-xs text-ink-400 mt-1">
-                  Using: <span className="font-mono">{smallIcon}</span>
-                </p>
-              )}
             </div>
 
-            {/* Large Icon */}
             <div>
-              <label className="block text-sm font-medium text-ink-700">
-                Large Icon (URL or resource name)
-                <span className="text-xs text-ink-400 ml-1">(can be URL or resource name)</span>
-              </label>
+              <label className="block text-sm font-medium text-ink-700">Large Icon (URL or resource name)</label>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <select
                   value={selectedLargeIconCrop}
@@ -758,14 +720,6 @@ export function PushNotificationSender() {
                   </button>
                 )}
               </div>
-              {largeIcon && (
-                <div className="mt-2">
-                  <img src={largeIcon} alt="Large icon preview" className="h-16 w-16 rounded-xl object-cover border border-ink-100" />
-                </div>
-              )}
-              <p className="text-xs text-ink-400 mt-1">
-                Uploaded images are cropped to <strong>1:1 square</strong> (256×256). Resource names are passed as‑is.
-              </p>
             </div>
           </div>
         )}
@@ -784,10 +738,18 @@ export function PushNotificationSender() {
         {showIos && (
           <div className="mt-3 space-y-3 bg-ink-50/30 p-3 rounded-xl border border-ink-100">
             <div>
-              <label className="block text-sm font-medium text-ink-700">
-                Category (for action buttons)
-                <span className="text-xs text-ink-400 ml-1">(required for buttons on iOS)</span>
-              </label>
+              <label className="block text-sm font-medium text-ink-700">Custom Sound File (e.g. delivery_alert.caf)</label>
+              <input
+                type="text"
+                value={sound}
+                onChange={(e) => setSound(e.target.value)}
+                className="w-full mt-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm"
+                placeholder="default or order_confirmed.caf"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-ink-700">Category (for action buttons)</label>
               <div className="flex items-center gap-2 mt-1">
                 <select
                   value={iosCategoryPreset}
@@ -806,15 +768,10 @@ export function PushNotificationSender() {
                     value={iosCategory}
                     onChange={(e) => setIosCategory(e.target.value)}
                     className="flex-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500 text-sm"
-                    placeholder="Custom category (e.g. MY_CATEGORY)"
+                    placeholder="Custom category (e.g. ORDER_STATUS)"
                   />
                 )}
               </div>
-              {iosCategoryPreset !== 'custom' && (
-                <p className="text-xs text-ink-400 mt-1">
-                  Using category: <span className="font-mono">{iosCategory || 'None'}</span>
-                </p>
-              )}
             </div>
           </div>
         )}
@@ -841,7 +798,7 @@ export function PushNotificationSender() {
           value={dataJson}
           onChange={(e) => setDataJson(e.target.value)}
           className="w-full mt-1 px-4 py-2 border border-ink-200 rounded-xl focus:ring-brand-500 focus:border-brand-500"
-          placeholder='{"order_id": "12345", "product_id": "abc"}'
+          placeholder='{"order_id": "12345"}'
         />
       </div>
 
@@ -853,7 +810,7 @@ export function PushNotificationSender() {
         {loading ? 'Sending...' : 'Send Notification'}
       </button>
 
-      {/* ── Channel Management ── */}
+      {/* ── Channel Management (with Sound support) ── */}
       <div className="border-t border-ink-100 pt-4 mt-2">
         <button
           type="button"
@@ -868,13 +825,13 @@ export function PushNotificationSender() {
           <form onSubmit={handleAddChannel} className="mt-3 p-3 bg-ink-50/50 rounded-xl border border-ink-100 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-ink-700">Channel ID <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-medium text-ink-700">Channel ID (OneSignal UUID) <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={newChannelId}
                   onChange={(e) => setNewChannelId(e.target.value)}
                   className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
-                  placeholder="e.g. orders"
+                  placeholder="e.g. 3fb65df7-8459-41b5-8f17-fb47dc25cd92"
                   required
                 />
               </div>
@@ -885,20 +842,32 @@ export function PushNotificationSender() {
                   value={newChannelName}
                   onChange={(e) => setNewChannelName(e.target.value)}
                   className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
-                  placeholder="e.g. Orders"
+                  placeholder="e.g. confirmed"
                   required
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-ink-700">Small Icon (resource name, optional)</label>
-              <input
-                type="text"
-                value={newChannelSmallIcon}
-                onChange={(e) => setNewChannelSmallIcon(e.target.value)}
-                className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
-                placeholder="e.g. ic_notification_logo"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-ink-700">Small Icon (drawable resource, optional)</label>
+                <input
+                  type="text"
+                  value={newChannelSmallIcon}
+                  onChange={(e) => setNewChannelSmallIcon(e.target.value)}
+                  className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
+                  placeholder="e.g. ic_notification_confirmed"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink-700">Sound File (iOS custom sound, optional)</label>
+                <input
+                  type="text"
+                  value={newChannelSound}
+                  onChange={(e) => setNewChannelSound(e.target.value)}
+                  className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
+                  placeholder="e.g. delivery_alert.caf"
+                />
+              </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-ink-700">Description (optional)</label>
@@ -929,7 +898,7 @@ export function PushNotificationSender() {
           </form>
         )}
 
-        {/* ── List of channels ── */}
+        {/* ── List of channels with Edit & Sound Support ── */}
         {channels.length > 0 && (
           <div className="mt-4 space-y-2">
             <h4 className="text-sm font-semibold text-ink-700">Existing Channels</h4>
@@ -956,15 +925,27 @@ export function PushNotificationSender() {
                         className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-ink-700">Small Icon</label>
-                      <input
-                        type="text"
-                        value={editSmallIcon}
-                        onChange={(e) => setEditSmallIcon(e.target.value)}
-                        className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
-                        placeholder="ic_notification_logo"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-ink-700">Small Icon</label>
+                        <input
+                          type="text"
+                          value={editSmallIcon}
+                          onChange={(e) => setEditSmallIcon(e.target.value)}
+                          className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
+                          placeholder="ic_notification_logo"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-ink-700">Sound File (iOS)</label>
+                        <input
+                          type="text"
+                          value={editSound}
+                          onChange={(e) => setEditSound(e.target.value)}
+                          className="w-full mt-1 px-3 py-1.5 border border-ink-200 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
+                          placeholder="delivery_alert.caf"
+                        />
+                      </div>
                     </div>
                     <div className="flex justify-end gap-2">
                       <button
@@ -992,6 +973,11 @@ export function PushNotificationSender() {
                       <span className="text-xs text-ink-400 ml-2">({channel.channel_id})</span>
                       {channel.small_icon && (
                         <span className="text-xs text-ink-400 ml-2">icon: {channel.small_icon}</span>
+                      )}
+                      {channel.sound && (
+                        <span className="text-xs text-emerald-600 font-mono ml-2 inline-flex items-center gap-0.5">
+                          <Volume2 size={11} /> {channel.sound}
+                        </span>
                       )}
                       {channel.description && (
                         <span className="text-xs text-ink-400 ml-2">— {channel.description}</span>

@@ -2,7 +2,17 @@ import { supabase } from '@/lib/supabase';
 import type { Business, BusinessOutlet, DeliveryAddress } from '@/types';
 
 export async function fetchBusinesses(): Promise<Business[]> {
-  const { data, error } = await supabase.from('businesses').select('*').order('created_at', { ascending: true });
+  // Explicitly scope to the current user. Admins bypass RLS on `businesses`,
+  // so without this filter they would receive every business row in the DB.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('businesses')
+    .select('*')
+    .eq('owner_user_id', user.id)
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: true });
   if (error) throw error;
   return (data as Business[]) ?? [];
 }
@@ -12,29 +22,110 @@ export async function createBusiness(input: {
   business_type?: string;
   gst_registered: boolean;
   gstin?: string;
+  is_default?: boolean;
+  address_line_1?: string;
+  address_line_2?: string;
+  city?: string;
+  state?: string;
+  landmark?: string;
+  pincode?: string;
 }): Promise<Business | null> {
-  const { data, error } = await supabase.from('businesses').insert({
-    business_name: input.business_name,
-    business_type: input.business_type ?? 'restaurant',
-    gst_registered: input.gst_registered,
-    gstin: input.gst_registered ? (input.gstin ?? null) : null,
-    gst_verification_status: input.gst_registered && input.gstin ? 'pending' : 'pending',
-  }).select().single();
+  const existing = await fetchBusinesses().catch(() => [] as Business[]);
+  const shouldBeDefault = input.is_default === true || existing.length === 0;
+
+  if (shouldBeDefault && existing.length > 0) {
+    // Only unset the default flag on this user's own businesses
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+    await supabase
+      .from('businesses')
+      .update({ is_default: false })
+      .eq('owner_user_id', user.id)
+      .eq('is_default', true);
+  }
+
+  const { data, error } = await supabase
+    .from('businesses')
+    .insert({
+      business_name: input.business_name,
+      business_type: input.business_type ?? 'restaurant',
+      gst_registered: input.gst_registered,
+      gstin: input.gst_registered ? (input.gstin ?? null) : null,
+      gst_verification_status: 'pending',
+      is_default: shouldBeDefault,
+      address_line_1: input.address_line_1 ?? null,
+      address_line_2: input.address_line_2 ?? null,
+      city: input.city ?? null,
+      state: input.state ?? null,
+      landmark: input.landmark ?? null,
+      pincode: input.pincode ?? null,
+    })
+    .select()
+    .single();
   if (error) throw error;
   return data as Business;
 }
 
-export async function updateBusiness(id: string, updates: Partial<Business>): Promise<void> {
-  const { error } = await supabase.from('businesses').update(updates).eq('id', id);
+export async function updateBusiness(
+  id: string,
+  updates: Partial<Business>
+): Promise<void> {
+  // Scope to the current user so admins (who bypass RLS) can never edit
+  // another owner's business record.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const payload: Record<string, unknown> = {};
+  if (updates.business_name !== undefined) payload.business_name = updates.business_name;
+  if (updates.business_type !== undefined) payload.business_type = updates.business_type;
+  if (updates.gst_registered !== undefined) payload.gst_registered = updates.gst_registered;
+  if (updates.gstin !== undefined) payload.gstin = updates.gstin;
+  if (updates.gst_verification_status !== undefined) {
+    payload.gst_verification_status = updates.gst_verification_status;
+  }
+  if (updates.address_line_1 !== undefined) payload.address_line_1 = updates.address_line_1;
+  if (updates.address_line_2 !== undefined) payload.address_line_2 = updates.address_line_2;
+  if (updates.city !== undefined) payload.city = updates.city;
+  if (updates.state !== undefined) payload.state = updates.state;
+  if (updates.landmark !== undefined) payload.landmark = updates.landmark;
+  if (updates.pincode !== undefined) payload.pincode = updates.pincode;
+
+  const { error } = await supabase
+    .from('businesses')
+    .update(payload)
+    .eq('id', id)
+    .eq('owner_user_id', user.id);
   if (error) throw error;
 }
 
 export async function deleteBusiness(id: string): Promise<void> {
-  await supabase.from('businesses').delete().eq('id', id);
+  // Scope to the current user so admins (who bypass RLS) can never delete
+  // another owner's business record.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('businesses')
+    .delete()
+    .eq('id', id)
+    .eq('owner_user_id', user.id);
+  if (error) throw error;
+}
+
+export async function setDefaultBusiness(id: string): Promise<void> {
+  const { error } = await supabase.rpc('set_default_business', {
+    p_business_id: id,
+  });
+  if (error) throw error;
 }
 
 export async function fetchOutlets(businessId: string): Promise<BusinessOutlet[]> {
-  const { data, error } = await supabase.from('business_outlets').select('*').eq('business_id', businessId).order('is_default', { ascending: false }).order('created_at', { ascending: false });
+  const { data, error } = await supabase
+    .from('business_outlets')
+    .select('*')
+    .eq('business_id', businessId)
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: false });
   if (error) throw error;
   return (data as BusinessOutlet[]) ?? [];
 }
@@ -55,24 +146,32 @@ export async function createOutlet(input: {
   is_default?: boolean;
 }): Promise<BusinessOutlet | null> {
   if (input.is_default) {
-    await supabase.from('business_outlets').update({ is_default: false }).eq('business_id', input.business_id).eq('is_default', true);
+    await supabase
+      .from('business_outlets')
+      .update({ is_default: false })
+      .eq('business_id', input.business_id)
+      .eq('is_default', true);
   }
-  const { data, error } = await supabase.from('business_outlets').insert({
-    business_id: input.business_id,
-    outlet_name: input.outlet_name,
-    outlet_type: input.outlet_type ?? 'shop',
-    phone: input.phone ?? null,
-    address_line_1: input.address_line_1,
-    address_line_2: input.address_line_2 ?? null,
-    city: input.city,
-    state: input.state,
-    pincode: input.pincode,
-    landmark: input.landmark ?? null,
-    latitude: input.latitude ?? null,
-    longitude: input.longitude ?? null,
-    is_default: input.is_default ?? false,
-    is_active: true,
-  }).select().single();
+  const { data, error } = await supabase
+    .from('business_outlets')
+    .insert({
+      business_id: input.business_id,
+      outlet_name: input.outlet_name,
+      outlet_type: input.outlet_type ?? 'shop',
+      phone: input.phone ?? null,
+      address_line_1: input.address_line_1,
+      address_line_2: input.address_line_2 ?? null,
+      city: input.city,
+      state: input.state,
+      pincode: input.pincode,
+      landmark: input.landmark ?? null,
+      latitude: input.latitude ?? null,
+      longitude: input.longitude ?? null,
+      is_default: input.is_default ?? false,
+      is_active: true,
+    })
+    .select()
+    .single();
   if (error) throw error;
   return data as BusinessOutlet;
 }
@@ -82,23 +181,34 @@ export async function deleteOutlet(id: string): Promise<void> {
 }
 
 export async function fetchDeliveryAddresses(businessId?: string): Promise<DeliveryAddress[]> {
-  let query = supabase.from('addresses').select('*').order('is_default', { ascending: false }).order('created_at', { ascending: false });
+  let query = supabase
+    .from('addresses')
+    .select('*')
+    .order('is_default', { ascending: false })
+    .order('created_at', { ascending: false });
   if (businessId) query = query.eq('business_id', businessId);
   const { data, error } = await query;
   if (error) return [];
   return (data as DeliveryAddress[]) ?? [];
 }
 
-export async function saveDeliveryAddress(addr: Partial<DeliveryAddress> & { recipient_name: string; phone: string; line1: string; city: string; state: string; postal_code: string }): Promise<DeliveryAddress | null> {
+export async function saveDeliveryAddress(
+  addr: Partial<DeliveryAddress> & {
+    recipient_name: string;
+    phone: string;
+    line1: string;
+    city: string;
+    state: string;
+    postal_code: string;
+  }
+): Promise<DeliveryAddress | null> {
   console.log('🔧 saveDeliveryAddress called with:', addr);
 
-  // 1. Handle "is_default" – unset any existing default for this user
   if (addr.is_default) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       throw new Error('User not authenticated');
     }
-    // Update all addresses for this user where is_default = true to false
     await supabase
       .from('addresses')
       .update({ is_default: false })
@@ -106,7 +216,6 @@ export async function saveDeliveryAddress(addr: Partial<DeliveryAddress> & { rec
       .eq('user_id', user.id);
   }
 
-  // 2. Build insert data
   const insertData: Record<string, unknown> = {
     label: addr.label ?? 'Business',
     recipient_name: addr.recipient_name,
@@ -122,12 +231,9 @@ export async function saveDeliveryAddress(addr: Partial<DeliveryAddress> & { rec
     is_default: addr.is_default ?? false,
   };
 
-  // Only set business_id if it's a non-empty string
   if (addr.business_id && addr.business_id.trim() !== '') {
     insertData.business_id = addr.business_id;
   }
-
-  // Do NOT set user_id explicitly – it defaults to auth.uid()
 
   console.log('📤 Inserting address with:', insertData);
 

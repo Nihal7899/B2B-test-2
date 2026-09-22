@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
-export type AppRole = 'admin' | 'warehouse_manager' | 'delivery_partner' | 'customer';
+export type AppRole = 'admin' | 'warehouse_manager' | 'delivery_partner' | 'investor' | 'customer';
 
 export interface ProfileData {
   id: string;
@@ -12,6 +12,9 @@ export interface ProfileData {
   business_name: string;
   avatar_url: string | null;
   registration_status: 'unregistered' | 'registered';
+  staff_registration_status: 'unregistered' | 'registered';
+  current_cod_balance: number;
+  current_warehouse_id: string | null;
 }
 
 interface AuthContextValue {
@@ -23,7 +26,7 @@ interface AuthContextValue {
   sendOtp: (phone: string) => Promise<{ error: string | null }>;
   verifyOtp: (phone: string, token: string) => Promise<{ error: string | null }>;
   resendOtp: (phone: string) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
+  logout: (options?: { scope?: 'local' | 'global' | 'others' }) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -50,14 +53,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadProfile = useCallback(async (userId: string) => {
-    const { data, error } = await supabase.from('profiles').select('id, personal_name, full_name, phone, business_name, avatar_url, registration_status').eq('id', userId).maybeSingle();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, personal_name, full_name, phone, business_name, avatar_url, registration_status, staff_registration_status, current_cod_balance, current_warehouse_id')
+      .eq('id', userId)
+      .maybeSingle();
+
     if (error) {
       console.error('Could not load profile', error);
       setProfile(null);
       return;
     }
     if (data) {
-      setProfile(data as ProfileData);
+      setProfile({
+        ...data,
+        current_cod_balance: Number(data.current_cod_balance) || 0,
+      } as ProfileData);
     }
   }, []);
 
@@ -88,7 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_OUT') setLoading(false);
     });
 
-    return () => { mounted = false; listener.subscription.unsubscribe(); };
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, [loadRole, loadProfile]);
 
   const sendOtp = useCallback(async (phone: string) => {
@@ -106,8 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? readableAuthError() : null };
   }, []);
 
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+  const logout = useCallback(async (options: { scope?: 'local' | 'global' | 'others' } = { scope: 'local' }) => {
+    await supabase.auth.signOut(options);
     setSession(null);
     setRole(null);
     setProfile(null);
@@ -117,7 +131,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session?.user) await loadProfile(session.user.id);
   }, [session, loadProfile]);
 
-  const value = useMemo(() => ({ session, user: session?.user ?? null, role, profile, loading, sendOtp, verifyOtp, resendOtp, signOut, refreshProfile }), [session, role, profile, loading, sendOtp, verifyOtp, resendOtp, signOut, refreshProfile]);
+  const value = useMemo(
+    () => ({
+      session,
+      user: session?.user ?? null,
+      role,
+      profile,
+      loading,
+      sendOtp,
+      verifyOtp,
+      resendOtp,
+      logout,
+      refreshProfile,
+    }),
+    [session, role, profile, loading, sendOtp, verifyOtp, resendOtp, logout, refreshProfile]
+  );
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

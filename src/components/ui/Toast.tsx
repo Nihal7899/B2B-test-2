@@ -34,10 +34,10 @@ export function Toast({ message, type = 'info', onClose, duration = 3000 }: Toas
   const Icon = icons[type];
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border-l-4 shadow-lg ${bgColors[type]}`}>
+    <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border-l-4 shadow-xl backdrop-blur-md ${bgColors[type]}`}>
       <Icon size={20} className="flex-shrink-0" />
-      <span className="text-sm font-medium flex-1">{message}</span>
-      <button onClick={onClose} className="text-ink-400 hover:text-ink-600">
+      <span className="text-xs sm:text-sm font-bold flex-1">{message}</span>
+      <button onClick={onClose} className="text-ink-400 hover:text-ink-600 active:scale-90 transition">
         <X size={18} />
       </button>
     </div>
@@ -46,8 +46,10 @@ export function Toast({ message, type = 'info', onClose, duration = 3000 }: Toas
 
 export function ToastContainer({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full">
-      {children}
+    <div className="fixed top-4 right-4 left-4 sm:left-auto pt-[env(safe-area-inset-top,0px)] z-[500] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+      <div className="pointer-events-auto flex flex-col gap-2 w-full">
+        {children}
+      </div>
     </div>
   );
 }

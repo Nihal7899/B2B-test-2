@@ -16,7 +16,8 @@ import type {
   DeliveryZone,
   DeliveryCharge,
   CartItem,
-  Subcategory, // <-- added
+  Subcategory,
+  Faq,  // <-- added
 } from '@/types';
 import { StoreConfig } from '@/types/storeConfig';
 import { getRecentlyViewedIds } from '@/lib/recentlyViewed';
@@ -43,7 +44,7 @@ export interface DbProduct {
   wholesale_price: number;
   moq: number;
   stock_quantity: number;
-  stock_threshold: number; // <-- NEW
+  stock_threshold: number;
   image_url: string;
   image_urls?: string[];
   description: string;
@@ -52,6 +53,7 @@ export interface DbProduct {
   hsn_code?: string;
   gst_percentage?: number;
   subcategory_id?: string;
+  barcode?: string | null;
 }
 
 export interface DbOrder {
@@ -172,7 +174,8 @@ export function mapProduct(db: DbProduct, categoryId: string, subcategory?: Subc
     gst_percentage: db.gst_percentage || 0,
     subcategory_id: db.subcategory_id,
     subcategory,
-    stock_threshold: db.stock_threshold ?? 0, // <-- NEW
+    stock_threshold: db.stock_threshold ?? 0,
+    barcode: db.barcode ?? '',   // normalize null → '' for the app
   };
 }
 
@@ -382,14 +385,27 @@ export async function toggleWishlist(productId: string, isWishlisted: boolean): 
 
 // ----- ADDRESSES -----
 export async function fetchAddresses(): Promise<DbAddress[]> {
+  // 1. Get the current authenticated user
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // If no user is logged in, return an empty array
+  if (!user) return [];
+
   const { data, error } = await supabase
     .from('addresses')
     .select('*')
+    .eq('user_id', user.id) // Explicitly filter by the logged-in admin's ID
     .order('is_default', { ascending: false })
     .order('created_at', { ascending: false });
-  if (error) return [];
+    
+  if (error) {
+    console.error('Error fetching addresses:', error);
+    return [];
+  }
+  
   return data as DbAddress[];
 }
+
 
 export async function deleteAddress(id: string): Promise<void> {
   await supabase.from('addresses').delete().eq('id', id);
@@ -1235,7 +1251,7 @@ export async function validatePromoCode(
   if (p.end_date && new Date(p.end_date) < new Date()) return { valid: false, discount: 0, error: 'Promo code has expired' };
   if (p.usage_limit !== null && p.used_count >= p.usage_limit) return { valid: false, discount: 0, error: 'Promo code usage limit reached' };
   if (p.min_order_value > 0 && subtotal < p.min_order_value) {
-    return { valid: false, discount: 0, error: `Minimum order value ₹${p.min_order_value} required` };
+    return { valid: false, discount: 0, error: `Minimum order value ₹${p.min_order_value} required before tax` };
   }
   if (p.applies_to === 'category' && p.applies_to_ids?.length) {
     const itemCategories = items.map(i => i.product.category);
@@ -1319,30 +1335,21 @@ export async function deleteDeliveryCharge(id: string): Promise<void> {
 export async function getDeliveryCharge(
   pincode: string,
   subtotal: number
-): Promise<{ charge: number; zoneId?: string }> {
-  console.log('[getDeliveryCharge] Calling RPC with:', { pincode, subtotal });
+): Promise<{ charge: number; zoneId?: string; estimatedTime?: string }> {
   const { data, error } = await supabase.rpc('get_delivery_charge', {
     p_pincode: pincode,
     p_subtotal: subtotal,
   });
 
-  console.log('[getDeliveryCharge] RPC response:', { data, error });
-
-  if (error) {
-    console.error('[getDeliveryCharge] RPC error:', error);
-    return { charge: 0 };
-  }
-
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    console.warn('[getDeliveryCharge] No charge returned');
+  if (error || !data || !Array.isArray(data) || data.length === 0) {
     return { charge: 0 };
   }
 
   const firstRow = data[0];
-  console.log('[getDeliveryCharge] Final charge:', firstRow.charge);
   return {
     charge: firstRow.charge,
     zoneId: firstRow.zone_id,
+    estimatedTime: firstRow.estimated_time,   // ← add this
   };
 }
 
@@ -2286,3 +2293,113 @@ export async function copyBannerImage(imageUrl: string): Promise<string> {
   return data.publicUrl;
 }
 
+// ================================================================
+// WAREHOUSE / DISTANCE HELPERS
+// ================================================================
+
+/**
+ * Great-circle distance between two coordinates in kilometres.
+ * Same Haversine math used by the warehouse batching RPC.
+ */
+export function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Persists the driver's currently selected warehouse onto their profile.
+ * `warehouseId` is a delivery_ranges.id (the "warehouse" concept reuses this table).
+ */
+export async function updateProfileCurrentWarehouse(warehouseId: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ current_warehouse_id: warehouseId })
+    .eq('id', user.id);
+
+  if (error) throw error;
+}
+
+
+// ================================================================
+// BARCODE LOOKUP
+// ================================================================
+export async function fetchProductByBarcode(barcode: string): Promise<DbProduct | null> {
+  const code = barcode.trim();
+  if (!code) return null;
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('barcode', code)
+    .maybeSingle();
+  if (error) return null;
+  return data as DbProduct | null;
+}
+
+
+// ================================================================
+// FAQS
+// ================================================================
+
+export async function fetchActiveFaqs(): Promise<Faq[]> {
+  const { data, error } = await supabase
+    .from('faqs')
+    .select('*')
+    .eq('is_active', true)
+    .order('category')
+    .order('sort_order');
+  if (error) return [];
+  return data as Faq[];
+}
+
+export async function fetchAllFaqs(): Promise<Faq[]> {
+  const { data, error } = await supabase
+    .from('faqs')
+    .select('*')
+    .order('category')
+    .order('sort_order');
+  if (error) throw error;
+  return data as Faq[];
+}
+
+export async function createFaq(
+  input: Omit<Faq, 'id' | 'created_at' | 'updated_at'>
+): Promise<Faq | null> {
+  const { data, error } = await supabase
+    .from('faqs')
+    .insert(input)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Faq;
+}
+
+export async function updateFaq(id: string, updates: Partial<Faq>): Promise<void> {
+  const { error } = await supabase
+    .from('faqs')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteFaq(id: string): Promise<void> {
+  const { error } = await supabase.from('faqs').delete().eq('id', id);
+  if (error) throw error;
+}

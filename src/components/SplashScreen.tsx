@@ -55,26 +55,28 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden bg-[#011f1a] transition-opacity duration-250 ease-out ${
+      className={`fixed inset-0 z-[9999] overflow-hidden bg-[#011f1a] transition-opacity duration-250 ease-out ${
         exiting ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
       <div className="absolute -top-32 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-[#5ce5b4]/10 blur-[130px]" />
 
-      <div className="flex flex-col items-center justify-center px-4 select-none">
-        <div className="relative flex items-center justify-center">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 1536 1535"
-            className="h-36 w-36 sm:h-44 sm:w-44"
-            fill="none"
-          >
-            <defs>
-              <linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#59D9B6" />
-                <stop offset="100%" stopColor="#58D5A5" />
-              </linearGradient>
-            </defs>
+      <div className="relative w-full h-full select-none">
+        
+        {/* LOGO EXACTLY ALIGNED TO HTML BRIDGE */}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 1536 1535"
+          className="absolute top-1/2 left-1/2 w-[288px] h-[288px] -translate-x-1/2 -translate-y-1/2"
+          fill="none"
+        >
+          <defs>
+            <linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#59D9B6" />
+              <stop offset="100%" stopColor="#58D5A5" />
+            </linearGradient>
+          </defs>
+          <g style={{ transformOrigin: 'center', transform: 'scale(0.5)' }}>
             <path
               d="M 391 199 L 331 241 288 282 264 310 242 341 216 386 193 441 183 475 170 552 169 598 173 648 190 722 210 772 233 815 278 877 304 905 343 939 375 962 413 984 478 1011 531 1024 604 1031 848 1031 881 1021 897 1007 904 993 907 979 904 956 895 940 828 872 814 862 777 850 598 850 566 846 521 833 490 819 436 780 399 738 386 718 367 678 351 612 353 545 373 479 402 429 439 388 491 352 537 333 594 322 962 322 979 319 997 312 1012 302 1028 285 1038 267 1045 243 1045 218 1035 186 1021 167 1008 156 985 144 967 140 610 139 546 144 488 157 434 177 Z"
               fill="#FFFFFF"
@@ -85,30 +87,33 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
               fill="url(#greenGradient)"
               fillRule="evenodd"
             />
-          </svg>
+          </g>
+        </svg>
+
+        {/* TEXT POSITIONED RELATIVE TO THE EXACT CENTER SO IT DOES NOT PUSH THE LOGO UP */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 mt-[90px] flex flex-col items-center justify-center w-full">
+          <h1 className="mt-2 flex items-center text-4xl sm:text-5xl font-black tracking-tight font-sans">
+            <span className="text-white">Caf</span>
+            <span className="text-[#59D9B6]">Kart</span>
+          </h1>
+
+          <div className="mt-3.5 flex items-center gap-2.5">
+            <div className="h-[1.5px] w-6 sm:w-8 bg-[#59D9B6]/80 rounded-full" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.32em] text-[#D3F6EB]">
+              B 2 B . H O R E C A
+            </span>
+            <div className="h-[1.5px] w-6 sm:w-8 bg-[#59D9B6]/80 rounded-full" />
+          </div>
         </div>
 
-        <h1 className="mt-2 flex items-center text-4xl sm:text-5xl font-black tracking-tight font-sans">
-          <span className="text-white">Caf</span>
-          <span className="text-[#59D9B6]">Kart</span>
-        </h1>
-
-        <div className="mt-3.5 flex items-center gap-2.5">
-          <div className="h-[1.5px] w-6 sm:w-8 bg-[#59D9B6]/80 rounded-full" />
-          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.32em] text-[#D3F6EB]">
-            B 2 B . H O R E C A
-          </span>
-          <div className="h-[1.5px] w-6 sm:w-8 bg-[#59D9B6]/80 rounded-full" />
+        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 h-[3px] w-32 overflow-hidden rounded-full bg-white/10">
+          <div className="splash-bar h-full rounded-full bg-gradient-to-r from-[#59D9B6] via-[#9af0d4] to-white" />
         </div>
-      </div>
 
-      <div className="absolute bottom-14 h-[3px] w-32 overflow-hidden rounded-full bg-white/10">
-        <div className="splash-bar h-full rounded-full bg-gradient-to-r from-[#59D9B6] via-[#9af0d4] to-white" />
+        <p className="absolute bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-semibold tracking-wider text-[#59D9B6]/70 uppercase w-full text-center">
+          Wholesale made simple
+        </p>
       </div>
-
-      <p className="absolute bottom-6 text-[10px] font-semibold tracking-wider text-[#59D9B6]/70 uppercase">
-        Wholesale made simple
-      </p>
     </div>
   );
 }

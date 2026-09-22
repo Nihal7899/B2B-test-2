@@ -758,9 +758,8 @@ export function HomeScreen({
     },
     [banners]
   );
-  
-const isLoadingData = sections.length === 0 && products.length === 0;
 
+  const isLoadingData = sections.length === 0 && products.length === 0;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-36 safe-bottom">
@@ -816,7 +815,7 @@ const isLoadingData = sections.length === 0 && products.length === 0;
 
       {/* Sticky Search & Cart Header */}
       <div
-        className="sticky z-40 bg-[#02402c] text-white px-4 pt-1 pb-3 shadow-md rounded-b-3xl"
+        className="sticky z-40 bg-[#02402c] text-white px-4 pt-1 pb-3 shadow-md rounded-b-3xl transform-gpu will-change-transform"
         style={{ top: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="max-w-7xl mx-auto flex items-center gap-2.5">
@@ -843,10 +842,8 @@ const isLoadingData = sections.length === 0 && products.length === 0;
         </div>
       </div>
 
-      {/* 4. Main Catalog Content */}
       <div className="space-y-6 pt-4 pb-16">
         {isLoadingData ? (
-          // Restored Skeleton Loader from your old working app
           <div className="space-y-4 p-4 animate-pulse pointer-events-none">
             <div className="h-36 bg-slate-200 rounded-2xl w-full shadow-sm" />
             <div className="grid grid-cols-4 gap-3">
@@ -868,286 +865,305 @@ const isLoadingData = sections.length === 0 && products.length === 0;
             {carouselBanners.length > 0 && (
               <PromoCarousel banners={carouselBanners} onAction={onBannerAction} />
             )}
-            
 
-
-
-        {sections.map((section) => {
-          switch (section.sectionType) {
-            case 'categories':
-              return (
-                <section key={section.id} className="px-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div>
-                      <h2 className="text-base font-black text-slate-900 tracking-tight">{section.title}</h2>
-                      <p className="text-[11px] text-slate-500">{section.subtitle}</p>
-                    </div>
-                    <button onClick={onViewAll} className="flex items-center text-xs font-bold text-emerald-600">
-                      See all <ChevronRight className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-4 gap-3">
-                    {categories.slice(0, 16).map((category) => (
-                      <button
-                        key={category.id}
-                        onClick={() => navigate(`/category?id=${category.id}`)}
-                        className="flex flex-col items-center gap-1.5"
-                      >
-                        <div
-                          className="relative h-16 w-16 overflow-hidden rounded-2xl p-0.5 shadow-sm ring-1 ring-slate-100"
-                          style={{ background: category.gradient || '#10b981' }}
-                        >
-                          <CachedImage
-                            src={category.image}
-                            alt={category.name}
-                            loading="eager"
-                            decoding="sync"
-                            className="h-full w-full rounded-[14px] object-cover"
-                          />
+            {sections.map((section) => {
+              switch (section.sectionType) {
+                case 'categories':
+                  return (
+                    <section key={section.id} className="px-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <div>
+                          <h2 className="text-base font-black text-slate-900 tracking-tight">{section.title}</h2>
+                          <p className="text-[11px] text-slate-500">{section.subtitle}</p>
                         </div>
-                        <span className="line-clamp-2 text-center text-[10px] font-bold leading-tight text-slate-700">
-                          {category.name}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              );
+                        <button onClick={onViewAll} className="flex items-center text-xs font-bold text-emerald-600">
+                          See all <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-3">
+                        {categories.slice(0, 16).map((category) => (
+                          <button
+                            key={category.id}
+                            onClick={() => navigate(`/category?id=${category.id}`)}
+                            className="flex flex-col items-center gap-1.5"
+                          >
+                            <div
+                              className="relative h-16 w-16 overflow-hidden rounded-2xl p-0.5 shadow-sm ring-1 ring-slate-100"
+                              style={{ background: category.gradient || '#10b981' }}
+                            >
+                              <CachedImage
+                                src={category.image}
+                                alt={category.name}
+                                loading="eager"
+                                decoding="sync"
+                                className="h-full w-full rounded-[14px] object-cover"
+                              />
+                            </div>
+                            <span className="line-clamp-2 text-center text-[10px] font-bold leading-tight text-slate-700">
+                              {category.name}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  );
 
-            case 'quick_reorder':
-              return reorderProducts.length > 0 ? (
-                <ProductCarousel
-                  key={section.id}
-                  title={section.title || 'Buy Again'}
-                  products={reorderProducts}
-                  getQuantity={handleGetQuantity}
-                  onAdd={handleAddToCart}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                  onProductClick={onProduct}
-                  onViewAll={onViewAll}
-                  wishlist={wishlist}
-                  onWishlistToggle={handleWishlistToggle}
-                />
-              ) : null;
+                case 'quick_reorder':
+                  return reorderProducts.length > 0 ? (
+                    
 
-            case 'recently_viewed':
-              return recentlyViewed.length > 0 ? (
-                <ProductCarousel
-                  key={section.id}
-                  title={section.title || 'Recently Viewed'}
-                  products={recentlyViewed}
-                  getQuantity={handleGetQuantity}
-                  onAdd={handleAddToCart}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                  onProductClick={onProduct}
-                  onViewAll={onViewAll}
-                  wishlist={wishlist}
-                  onWishlistToggle={handleWishlistToggle}
-                />
-              ) : null;
+<ProductCarousel
+                      key={section.id}
+                      title={section.title || 'Buy Again'}
+                      products={reorderProducts}
+                      getQuantity={handleGetQuantity}
+                      onAdd={handleAddToCart}
+                      onIncrement={handleIncrement}
+                      onDecrement={handleDecrement}
+                      onProductClick={onProduct}
+                      onViewAll={onViewAll}
+                      wishlist={wishlist}
+                      onWishlistToggle={handleWishlistToggle}
+                    />
+                  ) : null;
 
-            case 'popular_products':
-              return popularProducts.length > 0 ? (
-                <ProductCarousel
-                  key={section.id}
-                  title={section.title || 'Popular Products'}
-                  products={popularProducts}
-                  getQuantity={handleGetQuantity}
-                  onAdd={handleAddToCart}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                  onProductClick={onProduct}
-                  onViewAll={onViewAll}
-                  wishlist={wishlist}
-                  onWishlistToggle={handleWishlistToggle}
-                />
-              ) : null;
+                case 'recently_viewed':
+                  return recentlyViewed.length > 0 ? (
+                    
 
-            case 'volume_deals':
-              return volumeDeals.length > 0 ? (
-                <ProductCarousel
-                  key={section.id}
-                  title={section.title || 'Volume Savings'}
-                  products={volumeDeals}
-                  getQuantity={handleGetQuantity}
-                  onAdd={handleAddToCart}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                  onProductClick={onProduct}
-                  onViewAll={onViewAll}
-                  wishlist={wishlist}
-                  onWishlistToggle={handleWishlistToggle}
-                />
-              ) : null;
+<ProductCarousel
+                      key={section.id}
+                      title={section.title || 'Recently Viewed'}
+                      products={recentlyViewed}
+                      getQuantity={handleGetQuantity}
+                      onAdd={handleAddToCart}
+                      onIncrement={handleIncrement}
+                      onDecrement={handleDecrement}
+                      onProductClick={onProduct}
+                      onViewAll={onViewAll}
+                      wishlist={wishlist}
+                      onWishlistToggle={handleWishlistToggle}
+                    />
+                  ) : null;
 
-            case 'deals':
-              return deals.length > 0 ? (
-                <ProductCarousel
-                  key={section.id}
-                  title={section.title || 'Wholesale Deals'}
-                  products={deals}
-                  getQuantity={handleGetQuantity}
-                  onAdd={handleAddToCart}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                  onProductClick={onProduct}
-                  onViewAll={onViewAll}
-                  wishlist={wishlist}
-                  onWishlistToggle={handleWishlistToggle}
-                />
-              ) : null;
+                case 'popular_products':
+                  return popularProducts.length > 0 ? (
+                    
 
-            case 'new_arrivals':
-              return newArrivals.length > 0 ? (
-                <ProductCarousel
-                  key={section.id}
-                  title={section.title || 'New Arrivals'}
-                  products={newArrivals}
-                  getQuantity={handleGetQuantity}
-                  onAdd={handleAddToCart}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                  onProductClick={onProduct}
-                  onViewAll={onViewAll}
-                  wishlist={wishlist}
-                  onWishlistToggle={handleWishlistToggle}
-                />
-              ) : null;
+<ProductCarousel
+                      key={section.id}
+                      title={section.title || 'Popular Products'}
+                      products={popularProducts}
+                      getQuantity={handleGetQuantity}
+                      onAdd={handleAddToCart}
+                      onIncrement={handleIncrement}
+                      onDecrement={handleDecrement}
+                      onProductClick={onProduct}
+                      onViewAll={onViewAll}
+                      wishlist={wishlist}
+                      onWishlistToggle={handleWishlistToggle}
+                    />
+                  ) : null;
 
-            case 'top_rated':
-              return topRated.length > 0 ? (
-                <ProductCarousel
-                  key={section.id}
-                  title={section.title || 'Top Rated by Businesses'}
-                  products={topRated}
-                  getQuantity={handleGetQuantity}
-                  onAdd={handleAddToCart}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                  onProductClick={onProduct}
-                  onViewAll={onViewAll}
-                  wishlist={wishlist}
-                  onWishlistToggle={handleWishlistToggle}
-                />
-              ) : null;
+                case 'volume_deals':
+                  return volumeDeals.length > 0 ? (
+                    
 
-            case 'limited_stock':
-              return limitedStock.length > 0 ? (
-                <ProductCarousel
-                  key={section.id}
-                  title={section.title || 'Fast Selling / Low Stock'}
-                  products={limitedStock}
-                  getQuantity={handleGetQuantity}
-                  onAdd={handleAddToCart}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                  onProductClick={onProduct}
-                  onViewAll={onViewAll}
-                  wishlist={wishlist}
-                  onWishlistToggle={handleWishlistToggle}
-                />
-              ) : null;
+<ProductCarousel
+                      key={section.id}
+                      title={section.title || 'Volume Savings'}
+                      products={volumeDeals}
+                      getQuantity={handleGetQuantity}
+                      onAdd={handleAddToCart}
+                      onIncrement={handleIncrement}
+                      onDecrement={handleDecrement}
+                      onProductClick={onProduct}
+                      onViewAll={onViewAll}
+                      wishlist={wishlist}
+                      onWishlistToggle={handleWishlistToggle}
+                    />
+                  ) : null;
 
-            case 'brand_spotlight':
-              return brandSpotlight && brandSpotlight.products.length > 0 ? (
-                <ProductCarousel
-                  key={section.id}
-                  title={section.title || `Spotlight: ${brandSpotlight.brandName}`}
-                  products={brandSpotlight.products}
-                  getQuantity={handleGetQuantity}
-                  onAdd={handleAddToCart}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                  onProductClick={onProduct}
-                  onViewAll={onViewAll}
-                  wishlist={wishlist}
-                  onWishlistToggle={handleWishlistToggle}
-                />
-              ) : null;
+                case 'deals':
+                  return deals.length > 0 ? (
+                    
 
-            case 'essentials':
-              return essentials.length > 0 ? (
-                <ProductCarousel
-                  key={section.id}
-                  title={section.title || 'Everyday Essentials'}
-                  products={essentials}
-                  getQuantity={handleGetQuantity}
-                  onAdd={handleAddToCart}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                  onProductClick={onProduct}
-                  onViewAll={onViewAll}
-                  wishlist={wishlist}
-                  onWishlistToggle={handleWishlistToggle}
-                />
-              ) : null;
+<ProductCarousel
+                      key={section.id}
+                      title={section.title || 'Wholesale Deals'}
+                      products={deals}
+                      getQuantity={handleGetQuantity}
+                      onAdd={handleAddToCart}
+                      onIncrement={handleIncrement}
+                      onDecrement={handleDecrement}
+                      onProductClick={onProduct}
+                      onViewAll={onViewAll}
+                      wishlist={wishlist}
+                      onWishlistToggle={handleWishlistToggle}
+                    />
+                  ) : null;
 
-            case 'banner_slot': {
-              const matching = getSlotBanners(section.bannerPosition);
-              if (matching.length === 0) return null;
-              return (
-                <section key={section.id}>
-                  {matching.length > 1 ? (
-                    <PromoCarousel banners={matching} size={section.bannerSize} onAction={onBannerAction} />
-                  ) : (
-                    <div className="px-3">
-                      <PromoBannerCard banner={matching[0]} size={section.bannerSize} onAction={onBannerAction} />
+                case 'new_arrivals':
+                  return newArrivals.length > 0 ? (
+                    
+
+<ProductCarousel
+                      key={section.id}
+                      title={section.title || 'New Arrivals'}
+                      products={newArrivals}
+                      getQuantity={handleGetQuantity}
+                      onAdd={handleAddToCart}
+                      onIncrement={handleIncrement}
+                      onDecrement={handleDecrement}
+                      onProductClick={onProduct}
+                      onViewAll={onViewAll}
+                      wishlist={wishlist}
+                      onWishlistToggle={handleWishlistToggle}
+                    />
+                  ) : null;
+
+                case 'top_rated':
+                  return topRated.length > 0 ? (
+                    
+
+<ProductCarousel
+                      key={section.id}
+                      title={section.title || 'Top Rated by Businesses'}
+                      products={topRated}
+                      getQuantity={handleGetQuantity}
+                      onAdd={handleAddToCart}
+                      onIncrement={handleIncrement}
+                      onDecrement={handleDecrement}
+                      onProductClick={onProduct}
+                      onViewAll={onViewAll}
+                      wishlist={wishlist}
+                      onWishlistToggle={handleWishlistToggle}
+                    />
+                  ) : null;
+
+                case 'limited_stock':
+                  return limitedStock.length > 0 ? (
+                    
+
+<ProductCarousel
+                      key={section.id}
+                      title={section.title || 'Fast Selling / Low Stock'}
+                      products={limitedStock}
+                      getQuantity={handleGetQuantity}
+                      onAdd={handleAddToCart}
+                      onIncrement={handleIncrement}
+                      onDecrement={handleDecrement}
+                      onProductClick={onProduct}
+                      onViewAll={onViewAll}
+                      wishlist={wishlist}
+                      onWishlistToggle={handleWishlistToggle}
+                    />
+                  ) : null;
+
+                case 'brand_spotlight':
+                  return brandSpotlight && brandSpotlight.products.length > 0 ? (
+                    
+
+<ProductCarousel
+                      key={section.id}
+                      title={section.title || `Spotlight: ${brandSpotlight.brandName}`}
+                      products={brandSpotlight.products}
+                      getQuantity={handleGetQuantity}
+                      onAdd={handleAddToCart}
+                      onIncrement={handleIncrement}
+                      onDecrement={handleDecrement}
+                      onProductClick={onProduct}
+                      onViewAll={onViewAll}
+                      wishlist={wishlist}
+                      onWishlistToggle={handleWishlistToggle}
+                    />
+                  ) : null;
+
+                case 'essentials':
+                  return essentials.length > 0 ? (
+                    
+
+<ProductCarousel
+                      key={section.id}
+                      title={section.title || 'Everyday Essentials'}
+                      products={essentials}
+                      getQuantity={handleGetQuantity}
+                      onAdd={handleAddToCart}
+                      onIncrement={handleIncrement}
+                      onDecrement={handleDecrement}
+                      onProductClick={onProduct}
+                      onViewAll={onViewAll}
+                      wishlist={wishlist}
+                      onWishlistToggle={handleWishlistToggle}
+                    />
+                  ) : null;
+
+                case 'banner_slot': {
+                  const matching = getSlotBanners(section.bannerPosition);
+                  if (matching.length === 0) return null;
+                  return (
+                    <section key={section.id}>
+                      {matching.length > 1 ? (
+                        <PromoCarousel banners={matching} size={section.bannerSize} onAction={onBannerAction} />
+                      ) : (
+                        <div className="px-3">
+                          <PromoBannerCard banner={matching[0]} size={section.bannerSize} onAction={onBannerAction} />
+                        </div>
+                      )}
+                    </section>
+                  );
+                }
+
+                case 'stores':
+                  return stores.length > 0 ? (
+                    <div key={section.id}>
+                      <SectionHeader title={section.title} subtitle={section.subtitle} accent="bg-purple-600" />
+                      <StoreCarousel stores={stores} onStoreClick={onStoreClick} onPrefetch={() => {}} />
                     </div>
-                  )}
-                </section>
-              );
-            }
+                  ) : null;
 
-            case 'stores':
-              return stores.length > 0 ? (
-                <div key={section.id}>
-                  <SectionHeader title={section.title} subtitle={section.subtitle} accent="bg-purple-600" />
-                  <StoreCarousel stores={stores} onStoreClick={onStoreClick} onPrefetch={() => {}} />
-                </div>
-              ) : null;
+                case 'brands':
+                  return brands.length > 0 ? (
+                    <div key={section.id}>
+                      <SectionHeader title={section.title} subtitle={section.subtitle} accent="bg-blue-600" />
+                      <BrandCarousel brands={brands} onBrandClick={(b) => navigate(`/brand?id=${b.id}`)} />
+                    </div>
+                  ) : null;
 
-            case 'brands':
-              return brands.length > 0 ? (
-                <div key={section.id}>
-                  <SectionHeader title={section.title} subtitle={section.subtitle} accent="bg-blue-600" />
-                  <BrandCarousel brands={brands} onBrandClick={(b) => navigate(`/brand?id=${b.id}`)} />
-                </div>
-              ) : null;
+                case 'perks':
+                  return (
+                    <section key={section.id} className="px-4">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-3.5">
+                          <Truck className="text-emerald-600" size={20} />
+                          <h3 className="font-bold text-xs text-emerald-900 mt-2">Fast delivery</h3>
+                          <p className="text-[10px] text-emerald-700">Same day dispatch</p>
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3.5">
+                          <ShieldCheck className="text-slate-600" size={20} />
+                          <h3 className="font-bold text-xs text-slate-800 mt-2">Quality assured</h3>
+                          <p className="text-[10px] text-slate-600">Verified brands</p>
+                        </div>
+                        <div className="rounded-2xl bg-orange-50 border border-orange-100 p-3.5">
+                          <Tag className="text-orange-600" size={20} />
+                          <h3 className="font-bold text-xs text-orange-900 mt-2">Best prices</h3>
+                          <p className="text-[10px] text-orange-700">Wholesale deals</p>
+                        </div>
+                        <div className="rounded-2xl bg-sky-50 border border-sky-100 p-3.5">
+                          <RotateCcw className="text-sky-600" size={20} />
+                          <h3 className="font-bold text-xs text-sky-900 mt-2">Easy returns</h3>
+                          <p className="text-[10px] text-sky-700">Hassle-free guarantee</p>
+                        </div>
+                      </div>
+                    </section>
+                  );
 
-            case 'perks':
-              return (
-                <section key={section.id} className="px-4">
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-3.5">
-                      <Truck className="text-emerald-600" size={20} />
-                      <h3 className="font-bold text-xs text-emerald-900 mt-2">Fast delivery</h3>
-                      <p className="text-[10px] text-emerald-700">Same day dispatch</p>
-                    </div>
-                    <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3.5">
-                      <ShieldCheck className="text-slate-600" size={20} />
-                      <h3 className="font-bold text-xs text-slate-800 mt-2">Quality assured</h3>
-                      <p className="text-[10px] text-slate-600">Verified brands</p>
-                    </div>
-                    <div className="rounded-2xl bg-orange-50 border border-orange-100 p-3.5">
-                      <Tag className="text-orange-600" size={20} />
-                      <h3 className="font-bold text-xs text-orange-900 mt-2">Best prices</h3>
-                      <p className="text-[10px] text-orange-700">Wholesale deals</p>
-                    </div>
-                    <div className="rounded-2xl bg-sky-50 border border-sky-100 p-3.5">
-                      <RotateCcw className="text-sky-600" size={20} />
-                      <h3 className="font-bold text-xs text-sky-900 mt-2">Easy returns</h3>
-                      <p className="text-[10px] text-sky-700">Hassle-free guarantee</p>
-                    </div>
-                  </div>
-                </section>
-              );
-
-            default:
-              return null;
-          }
-        })}
+                default:
+                  return null;
+              }
+            })}
+          </>
+        )}
       </div>
 
       {showLocationPrompt && (

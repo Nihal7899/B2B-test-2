@@ -87,16 +87,13 @@ export function SearchScreen({
   const [submittedQuery, setSubmittedQuery] = useState(urlQuery);
   const [isFocused, setIsFocused] = useState(!urlQuery);
 
-  // Suggestions
   const [suggestions, setSuggestions] = useState<SearchSuggestionItem[]>([]);
   const [didYouMean, setDidYouMean] = useState<string | null>(null);
 
-  // Data
   const [banners, setBanners] = useState<PromoBanner[]>([]);
   const [reorderProducts, setReorderProducts] = useState<Product[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
 
-  // Results
   const [products, setProducts] = useState<Product[]>([]);
   const [alternativeProducts, setAlternativeProducts] = useState<Product[]>([]);
   const [relatedSlugs, setRelatedSlugs] = useState<RelatedSlugItem[]>([]);
@@ -104,7 +101,6 @@ export function SearchScreen({
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Filters
   const [sortBy, setSortBy] = useState<SortOption>('default');
   const [isSortSheetOpen, setIsSortSheetOpen] = useState(false);
   const [dealsOnly, setDealsOnly] = useState(false);
@@ -114,7 +110,6 @@ export function SearchScreen({
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
   const [priceTouched, setPriceTouched] = useState(false);
 
-  // Voice modal
   const [showVoiceModal, setShowVoiceModal] = useState(false);
 
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
@@ -128,7 +123,7 @@ export function SearchScreen({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const voiceAutoTriggeredRef = useRef(false);
 
-  // ---------- CROSS-PLATFORM VOICE HOOK ----------
+  // ---------- VOICE HOOK ----------
   const handleVoiceTranscript = useCallback((text: string) => {
     setQuery(text);
   }, []);
@@ -150,26 +145,47 @@ export function SearchScreen({
     transcript: voiceTranscript,
     start: startVoiceSearch,
     stop: stopVoiceSearch,
+    reset: resetVoiceSearch,
     isNative: isNativeVoice,
   } = useVoiceSearch({
     lang: 'en-IN',
     onTranscript: handleVoiceTranscript,
     onResult: handleVoiceResult,
-    timeoutMs: 8000,
+    timeoutMs: 12000,
+    nativeSilenceMs: 1500,
   });
 
   const openVoiceModal = useCallback(() => {
+    resetVoiceSearch();
     setShowVoiceModal(true);
-    // small delay so the modal paints before mic prompt shows
     setTimeout(() => {
       void startVoiceSearch();
     }, 300);
-  }, [startVoiceSearch]);
+  }, [startVoiceSearch, resetVoiceSearch]);
 
   const closeVoiceModal = useCallback(() => {
     setShowVoiceModal(false);
     void stopVoiceSearch();
   }, [stopVoiceSearch]);
+
+  const handleVoiceConfirm = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      setQuery(trimmed);
+      setSearchParams({ q: trimmed });
+      setShowVoiceModal(false);
+      void stopVoiceSearch();
+    },
+    [setSearchParams, stopVoiceSearch],
+  );
+
+  const handleVoiceRetry = useCallback(() => {
+    resetVoiceSearch();
+    setTimeout(() => {
+      void startVoiceSearch();
+    }, 120);
+  }, [startVoiceSearch, resetVoiceSearch]);
 
   // Auto-trigger voice when arriving with ?voice=1
   useEffect(() => {
@@ -181,7 +197,7 @@ export function SearchScreen({
       return () => window.clearTimeout(t);
     }
   }, [voiceParam, openVoiceModal]);
-  // ---------------------------------------------
+  // --------------------------------
 
   const resetAllSearchState = useCallback(() => {
     setQuery('');
@@ -238,7 +254,6 @@ export function SearchScreen({
     localStorage.removeItem(RECENT_SEARCHES_KEY);
   };
 
-  // Live suggestions
   useEffect(() => {
     let active = true;
     const timer = setTimeout(async () => {
@@ -419,7 +434,6 @@ export function SearchScreen({
   const currentSortLabel =
     SORT_OPTIONS.find((s) => s.id === sortBy)?.label || 'Relevancy';
 
-  // Suggestion row
   const SuggestionRow = useCallback(
     ({ item }: { item: SearchSuggestionItem }) => {
       const hasThumb = Boolean(item.imageUrl);
@@ -1124,7 +1138,8 @@ export function SearchScreen({
         isListening={isListening}
         error={voiceError}
         transcript={voiceTranscript}
-        onRetry={() => void startVoiceSearch()}
+        onRetry={handleVoiceRetry}
+        onConfirm={handleVoiceConfirm}
         lang="en-IN"
       />
 

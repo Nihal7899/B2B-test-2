@@ -16,6 +16,10 @@ import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import toast from 'react-hot-toast';
 
+import { supabase } from '@/lib/supabase';
+import { isVersionOutdated } from '@/utils/version';
+import { AppUpdateBottomSheet, type AppVersionData } from '@/components/AppUpdateBottomSheet';
+
 import { SplashScreen } from '@/components/SplashScreen';
 import { BottomNavigation } from '@/components/BottomNavigation';
 import { KeepAliveRenderer } from '@/components/KeepAliveRenderer';
@@ -42,9 +46,8 @@ import { AuthScreen } from '@/screens/AuthScreen';
 import StoreScreen from '@/screens/StoreScreen';
 import { CategoryScreen } from '@/screens/CategoryScreen';
 import { BrandScreen } from '@/screens/BrandScreen';
-import { BannerScreen } from '@/screens/BannerScreen';
 import { WalletScreen } from '@/screens/WalletScreen';
-import { HomeLoadingScreen } from '@/components/HomeLoadingScreen';
+
 import type {
   Category,
   Product,
@@ -74,6 +77,9 @@ import {
 } from '@/services/push';
 
 import { getOrFetchHomeData, getHomeDataSync } from '@/services/homePreload';
+import { startContinuousLocationWatch, stopContinuousLocationWatch } from '@/services/location';
+
+export const CURRENT_APP_VERSION = '1.0.0';
 
 const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   home: '/',
@@ -98,7 +104,6 @@ const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   store: '/store',
   categoryDetail: '/category',
   brand: '/brand',
-  banner: '/banner',
   wallet: '/wallet',
 };
 
@@ -204,6 +209,46 @@ function App() {
     const cache = getHomeDataSync();
     return Boolean(cache && cache._userId);
   });
+  
+  const [versionData, setVersionData] = useState<AppVersionData | null>(null);
+  const [needsForceUpdate, setNeedsForceUpdate] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!Capacitor.isNativePlatform()) return;
+
+    const checkAppVersion = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('app_versions')
+          .select('app_version, playstore_link, app_store_link, release_notes')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          console.warn('Failed to fetch app version:', error);
+          return;
+        }
+
+        if (data && active) {
+          setVersionData(data);
+          if (isVersionOutdated(CURRENT_APP_VERSION, data.app_version)) {
+            setNeedsForceUpdate(true);
+          }
+        }
+      } catch (err) {
+        console.warn('App version check exception:', err);
+      }
+    };
+
+    checkAppVersion();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -243,7 +288,15 @@ function App() {
   const isDeliveryPartner = role === 'delivery_partner';
   const isWarehouseManager = role === 'warehouse_manager';
   const isInvestor = role === 'investor';
-  const isDedicatedStaff = isDeliveryPartner || isWarehouseManager || isInvestor;
+  const isDedicatedStaff = isDeliveryPartner || isWarehouseManager;
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || !user || isDedicatedStaff) return;
+    void startContinuousLocationWatch();
+    return () => {
+      void stopContinuousLocationWatch();
+    };
+  }, [user, isDedicatedStaff]);
 
   const deliveryTab = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -256,7 +309,7 @@ function App() {
 
   const handlePushNavigation = useCallback(
     (data: any) => {
-      if (!data) return;
+      if (!data || needsForceUpdate) return;
 
       const targetTab = data.tab;
       const targetScreen = data.screen;
@@ -281,7 +334,7 @@ function App() {
         navigate(data.url);
       }
     },
-    [navigate]
+    [navigate, needsForceUpdate]
   );
 
   useEffect(() => {
@@ -295,6 +348,7 @@ function App() {
     let urlListener: Promise<{ remove: () => void }> | null = null;
     if (Capacitor.isNativePlatform()) {
       urlListener = CapApp.addListener('appUrlOpen', ({ url }) => {
+        if (needsForceUpdate) return;
         try {
           const parsed = new URL(url);
           const path = parsed.pathname || parsed.host;
@@ -325,7 +379,7 @@ function App() {
       }
       window.removeEventListener('push_notification_click' as any, onPushClick);
     };
-  }, [handlePushNavigation, navigate]);
+  }, [handlePushNavigation, navigate, needsForceUpdate]);
 
   const key = useMemo(() => {
     if (isDeliveryPartner) return `delivery_dedicated_${deliveryTab}`;
@@ -360,13 +414,13 @@ function App() {
     screen === 'categories' ||
     screen === 'categoryDetail' ||
     screen === 'brand' ||
-    screen === 'banner' ||
     screen === 'search' ||
-    screen === 'product';
+    screen === 'product' ||
+    screen === 'investor'; 
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product'];
+    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product', 'investor']; 
     const isDarkBg = darkHeaderScreens.includes(screen);
     setFullScreenSystemBars(!isDarkBg);
   }, [screen]);
@@ -384,10 +438,10 @@ function App() {
 
   const goTo = useCallback(
     (next: ScreenName | 'investor') => {
-      if (isDedicatedStaff) return;
+      if (isDedicatedStaff || needsForceUpdate) return;
       navigate(pathFor(next));
     },
-    [isDedicatedStaff, navigate]
+    [isDedicatedStaff, navigate, needsForceUpdate]
   );
 
   const goToCategories = useCallback(() => {
@@ -396,6 +450,7 @@ function App() {
 
   const openProduct = useCallback(
     (product: Product | { id: string; name?: string }) => {
+      if (needsForceUpdate) return;
       const productId = (product as any)?.id || (product as any)?.product_id || (product as any)?._id;
       if (!productId) {
         navigate('/');
@@ -403,41 +458,48 @@ function App() {
       }
       navigate(pathFor('product', { id: productId }));
     },
-    [navigate]
+    [navigate, needsForceUpdate]
   );
 
   const openCategory = useCallback(
     (category: Category | { id: string; name?: string }) => {
+      if (needsForceUpdate) return;
       navigate(pathFor('categoryDetail', { id: category.id }));
     },
-    [navigate]
+    [navigate, needsForceUpdate]
   );
 
   const openStore = useCallback(
     (store: Store | { id: string }) => {
+      if (needsForceUpdate) return;
       navigate(pathFor('store', { storeId: store.id }));
     },
-    [navigate]
+    [navigate, needsForceUpdate]
   );
 
   const openBrand = useCallback(
     (brand: { id: string }) => {
+      if (needsForceUpdate) return;
       navigate(pathFor('brand', { id: brand.id }));
     },
-    [navigate]
+    [navigate, needsForceUpdate]
   );
 
   const actionCtx: ActionContext = useMemo(
     () => ({
       setScreen: goTo as any,
       setSearch: (query: string) => {
+        if (needsForceUpdate) return;
         navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
       },
       openProduct,
       openCategory,
       openBrand,
       openStore,
-      navigate: (path: string) => navigate(path),
+      navigate: (path: string) => {
+        if (needsForceUpdate) return;
+        navigate(path);
+      },
       setFilterConfig: (config) => {
         filterConfigRef.current = config;
       },
@@ -445,14 +507,15 @@ function App() {
         filterTitleRef.current = title;
       },
     }),
-    [goTo, openProduct, openCategory, openBrand, openStore, navigate]
+    [goTo, openProduct, openCategory, openBrand, openStore, navigate, needsForceUpdate]
   );
 
   const handleBannerAction = useCallback(
     async (banner: PromoBanner) => {
+      if (needsForceUpdate) return;
       await handleHomeAction(banner.actionType, banner.actionConfig, actionCtx);
     },
-    [actionCtx]
+    [actionCtx, needsForceUpdate]
   );
 
   const handleBusinessRegistered = useCallback(
@@ -464,13 +527,15 @@ function App() {
 
   const openOrder = useCallback(
     (orderId: string) => {
+      if (needsForceUpdate) return;
       navigate(pathFor('orderDetail', { id: orderId }));
     },
-    [navigate]
+    [navigate, needsForceUpdate]
   );
 
   const openProtected = useCallback(
     (next: ScreenName | 'investor') => {
+      if (needsForceUpdate) return;
       const allowed =
         next === 'admin'
           ? role === 'admin'
@@ -484,7 +549,7 @@ function App() {
 
       goTo(allowed ? next : 'home');
     },
-    [role, goTo]
+    [role, goTo, needsForceUpdate]
   );
 
   if (authLoading) {
@@ -506,10 +571,6 @@ function App() {
 
     if (isWarehouseManager) {
       return <WarehouseScreen isDedicatedRole={true} />;
-    }
-
-    if (isInvestor) {
-      return <InvestorScreen />; 
     }
 
     switch (screen) {
@@ -555,7 +616,7 @@ function App() {
         if (profile?.registration_status !== 'registered') {
           return (
             <BusinessRegistrationScreen
-              onBack={() => goTo('cart')}
+              onBack={() => navigate(-1)}
               onRegistered={handleBusinessRegistered}
             />
           );
@@ -563,9 +624,9 @@ function App() {
         return (
           <CheckoutScreen
             cart={cart}
-            onBack={() => goTo('cart')}
+            onBack={() => navigate(-1)}
             onOrderPlaced={openOrder}
-            onAddAddress={() => goTo('addresses')}
+            onAddAddress={() => navigate(pathFor('addresses', { from: 'checkout' }))} 
           />
         );
 
@@ -575,8 +636,19 @@ function App() {
         return <OrderDetailScreen orderId={orderId} onBack={() => goTo('orders')} />;
       }
 
-      case 'addresses':
-        return <AddressesScreen onBack={() => goTo('account')} onSaved={() => goTo('checkout')} />;
+      case 'addresses': {
+        const isFromCheckout = new URLSearchParams(location.search).get('from') === 'checkout';
+        return (
+          <AddressesScreen 
+            onBack={() => navigate(-1)} 
+            onSaved={() => {
+              if (isFromCheckout) {
+                navigate(-1);
+              }
+            }} 
+          />
+        );
+      }
 
       case 'wishlist':
         return <WishlistScreen cart={cart} onProduct={openProduct} onShop={() => goTo('home')} />;
@@ -672,9 +744,6 @@ function App() {
       case 'brand':
         return <BrandScreen />;
 
-      case 'banner':
-        return <BannerScreen />;
-
       case 'categoryDetail':
         return <CategoryScreen onBack={() => navigate(-1)} onProduct={openProduct} cart={cart} />;
 
@@ -705,28 +774,27 @@ function App() {
   return (
     <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
       <div
-        className={`mx-auto flex-1 w-full bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col transition-all ${
+        className={`mx-auto flex-1 w-full bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col transition-[max-width] duration-300 ${
           isLargeScreenView ? 'max-w-7xl' : 'max-w-[720px]'
         }`}
       >
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
-          <BackButtonHandler disableBack={isDedicatedStaff} />
-          {isHomeReady ? (
-            <KeepAliveRenderer
-              currentKey={key}
-              render={renderScreen}
-              excludeKeys={['/wallet', '/account', '/order', '/investor']}
-            />
-          ) : (
-            <HomeLoadingScreen />
-          )}
+          <BackButtonHandler disableBack={isDedicatedStaff || needsForceUpdate} />
+          
+          <KeepAliveRenderer
+            currentKey={key}
+            render={renderScreen}
+            excludeKeys={['/wallet', '/account', '/order', '/investor', '/cart']}
+          />
         </main>
 
         {!isDedicatedStaff &&
+          !needsForceUpdate &&
           screen !== 'categoryDetail' &&
           screen !== 'search' &&
           screen !== 'product' &&
           screen !== 'cart' &&
+          screen !== 'checkout' &&
           screen !== 'warehouse' &&
           screen !== 'investor' &&
           screen !== 'delivery' &&
@@ -739,6 +807,13 @@ function App() {
               />
             </div>
           )}
+
+        {!showSplash && needsForceUpdate && versionData && (
+          <AppUpdateBottomSheet
+            versionData={versionData}
+            currentVersion={CURRENT_APP_VERSION}
+          />
+        )}
 
         {showSplash && (
           <SplashScreen

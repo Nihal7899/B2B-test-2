@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
-export type AppRole = 'admin' | 'warehouse_manager' | 'delivery_partner' | 'customer';
+export type AppRole = 'admin' | 'warehouse_manager' | 'delivery_partner' | 'investor' | 'customer';
 
 export interface ProfileData {
   id: string;
@@ -14,6 +14,7 @@ export interface ProfileData {
   registration_status: 'unregistered' | 'registered';
   staff_registration_status: 'unregistered' | 'registered';
   current_cod_balance: number;
+  current_warehouse_id: string | null;
 }
 
 interface AuthContextValue {
@@ -25,7 +26,7 @@ interface AuthContextValue {
   sendOtp: (phone: string) => Promise<{ error: string | null }>;
   verifyOtp: (phone: string, token: string) => Promise<{ error: string | null }>;
   resendOtp: (phone: string) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
+  logout: (options?: { scope?: 'local' | 'global' | 'others' }) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -54,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, personal_name, full_name, phone, business_name, avatar_url, registration_status, staff_registration_status, current_cod_balance')
+      .select('id, personal_name, full_name, phone, business_name, avatar_url, registration_status, staff_registration_status, current_cod_balance, current_warehouse_id')
       .eq('id', userId)
       .maybeSingle();
 
@@ -119,8 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? readableAuthError() : null };
   }, []);
 
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+  const logout = useCallback(async (options: { scope?: 'local' | 'global' | 'others' } = { scope: 'local' }) => {
+    await supabase.auth.signOut(options);
     setSession(null);
     setRole(null);
     setProfile(null);
@@ -140,10 +141,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sendOtp,
       verifyOtp,
       resendOtp,
-      signOut,
+      logout,
       refreshProfile,
     }),
-    [session, role, profile, loading, sendOtp, verifyOtp, resendOtp, signOut, refreshProfile]
+    [session, role, profile, loading, sendOtp, verifyOtp, resendOtp, logout, refreshProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -17,6 +17,17 @@ export interface PaymentBreakdown {
   providers: string[];
 }
 
+export interface BillingAddressSnapshot {
+  business_name?: string;
+  gstin?: string | null;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  landmark?: string | null;
+  pincode?: string | null;
+}
+
 export interface OrderBillData {
   order: DbOrder;
   items: (DbOrderItem & { hsn_code?: string; gst_percentage?: number })[];
@@ -24,6 +35,8 @@ export interface OrderBillData {
   customerName: string;
   customerPhone: string;
   customerGst?: string;
+  billingAddress?: BillingAddressSnapshot | null;
+  billingAddressLine?: string;
   payments: { id: string; provider: string; status: string; amount: number }[];
   paymentBreakdown: PaymentBreakdown;
 }
@@ -67,29 +80,35 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
   let totalPaid = 0;
   const providers: string[] = [];
 
+  // Provider values observed in DB: 'wallet' | 'razorpay' | 'cod'
+  // payment_status enum: pending, authorized, paid, failed, refunded, cancelled, processing_refund, refund_failed
   payments.forEach((p) => {
     const amt = Number(p.amount) || 0;
     if (!providers.includes(p.provider)) providers.push(p.provider);
 
-    if (p.provider === 'wallet' && (p.status === 'paid' || p.status === 'completed')) {
+    if (p.provider === 'wallet' && p.status === 'paid') {
       walletPaid += amt;
       totalPaid += amt;
-    } else if (p.provider === 'razorpay' && (p.status === 'paid' || p.status === 'completed')) {
+    } else if (p.provider === 'razorpay' && p.status === 'paid') {
       onlinePaid += amt;
       totalPaid += amt;
     } else if (p.provider === 'cod') {
-      if (p.status === 'paid' || p.status === 'completed') {
+      if (p.status === 'paid') {
         codPaid += amt;
         totalPaid += amt;
-      } else {
+      } else if (p.status === 'pending') {
         codPending += amt;
       }
+      // 'cancelled' | 'refunded' | 'failed' | 'processing_refund' | 'refund_failed' → ignore
     }
   });
 
   const orderTotal = Number(order.total) || 0;
   const isDelivered = order.status === 'delivered';
-  const amountToCollect = isDelivered ? 0 : Math.max(0, codPending > 0 ? codPending : (orderTotal - totalPaid));
+  const isCancelled = order.status === 'cancelled';
+  const amountToCollect = (isDelivered || isCancelled)
+    ? 0
+    : Math.max(0, codPending > 0 ? codPending : (orderTotal - totalPaid));
   const isSplit = providers.length > 1;
 
   let paymentStatusText = 'PAID';
@@ -140,15 +159,42 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     providers,
   };
 
-  const { data: business } = await supabase
-    .from('businesses')
-    .select('business_name, gstin')
-    .eq('owner_user_id', order.user_id)
-    .maybeSingle();
-
-  let customerName = business?.business_name || null;
-  let customerGst = business?.gstin || null;
+  // ---- Customer / business resolution ----
+  // Priority:
+  //   1. order.business_snapshot (immune to later business edits/deletes)
+  //   2. latest business row for the user (fallback for pre-snapshot orders)
+  //   3. profile
+  let customerName: string | null = null;
+  let customerGst: string | null = null;
   let customerPhone = '';
+
+  const businessSnapshot = (order as {
+    business_snapshot?: { business_name?: string; gstin?: string } | null;
+  }).business_snapshot;
+  if (businessSnapshot && (businessSnapshot.business_name || businessSnapshot.gstin)) {
+    customerName = businessSnapshot.business_name || null;
+    customerGst = businessSnapshot.gstin || null;
+  }
+
+  if (!customerName || !customerGst) {
+    const { data: businesses, error: bizErr } = await supabase
+      .from('businesses')
+      .select('business_name, gstin, is_default, created_at')
+      .eq('owner_user_id', order.user_id)
+      .order('is_default', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (bizErr) {
+      console.warn('[fetchOrderBillData] businesses lookup failed:', bizErr);
+    }
+
+    const business = businesses?.[0];
+    if (business) {
+      if (!customerName) customerName = business.business_name || null;
+      if (!customerGst) customerGst = business.gstin || null;
+    }
+  }
 
   if (!customerName) {
     const { data: profile } = await supabase
@@ -162,6 +208,36 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     }
   }
 
+  // ---- Billing address snapshot (registered business address at order time) ----
+  const rawBilling = (order as { billing_address_snapshot?: BillingAddressSnapshot | null })
+    .billing_address_snapshot;
+  const billingAddress: BillingAddressSnapshot | null =
+    rawBilling && (rawBilling.address_line_1 || rawBilling.city || rawBilling.pincode)
+      ? rawBilling
+      : null;
+
+  const billingParts = billingAddress
+    ? [
+        billingAddress.address_line_1,
+        billingAddress.address_line_2,
+        billingAddress.landmark,
+        billingAddress.city && billingAddress.state
+          ? `${billingAddress.city}, ${billingAddress.state}`
+          : billingAddress.city || billingAddress.state,
+        billingAddress.pincode,
+      ].filter((p): p is string => !!p && String(p).trim().length > 0)
+    : [];
+
+  const billingAddressLine = billingParts.join(', ');
+
+  // If a billing business snapshot exists, prefer its name/GST over inferred values
+  if (billingAddress?.business_name) {
+    customerName = billingAddress.business_name;
+  }
+  if (billingAddress?.gstin) {
+    customerGst = billingAddress.gstin;
+  }
+
   return {
     order: order as DbOrder,
     items: (items || []) as (DbOrderItem & { hsn_code?: string; gst_percentage?: number })[],
@@ -169,6 +245,8 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     customerName: customerName || address?.recipient_name || 'Customer',
     customerPhone: customerPhone || address?.phone || '',
     customerGst: customerGst || '',
+    billingAddress,
+    billingAddressLine,
     payments,
     paymentBreakdown,
   };
@@ -186,7 +264,17 @@ function buildA4InvoiceHtml(
   config: InvoiceConfig | null,
   design: InvoiceDesignSettings
 ): string {
-  const { order, items, address, customerName, customerPhone, customerGst, paymentBreakdown } = data;
+  const {
+    order,
+    items,
+    address,
+    customerName,
+    customerPhone,
+    customerGst,
+    billingAddress,
+    billingAddressLine,
+    paymentBreakdown,
+  } = data;
 
   const totalDiscount = Number(order.discount || 0);
   const deliveryFee = Number(order.delivery_fee || 0);
@@ -202,7 +290,6 @@ function buildA4InvoiceHtml(
     paymentStatusColor,
   } = paymentBreakdown;
 
-  // 1. Pro-rata discount per line item under Section 15(3) CGST Act
   const itemsWithDetails = items.map((item, idx) => {
     const lineTotal = Number(item.line_total || 0);
     const unitPrice = Number(item.unit_price || 0);
@@ -234,7 +321,6 @@ function buildA4InvoiceHtml(
     };
   });
 
-  // 2. Delivery Fee SAC 9968
   if (deliveryFee > 0) {
     const deliveryTaxable = deliveryFee / 1.18;
     const deliveryGst = deliveryFee - deliveryTaxable;
@@ -283,6 +369,9 @@ function buildA4InvoiceHtml(
   const customerNameDisplay = customerName || 'Customer';
   const customerPhoneDisplay = customerPhone || '';
   const customerGstDisplay = customerGst || '';
+  const billingAddressDisplay =
+    billingAddressLine ||
+    (address ? `${address.line1}, ${address.city} - ${address.postal_code}` : '');
   const currentDate = new Date(order.created_at).toLocaleDateString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric'
   });
@@ -434,7 +523,7 @@ function buildA4InvoiceHtml(
           <div style="flex:1;padding:6px;font-size:10.5px;line-height:1.4;">
             <div style="font-size:9px;font-weight:bold;text-transform:uppercase;color:#555;">Details of Recipient / Buyer</div>
             <div style="font-size:13px;font-weight:bold;margin-top:2px;">${customerNameDisplay}</div>
-            <div>${address ? `${address.line1}, ${address.city} - ${address.postal_code}` : 'Walk-in'}</div>
+            <div>${billingAddressDisplay || 'Walk-in'}</div>
             <div><strong>GSTIN:</strong> ${customerGstDisplay || 'Unregistered'}</div>
             <div><strong>Invoice No:</strong> ${invoiceNumber} | <strong>Date:</strong> ${currentDate}</div>
             <div style="margin-top:3px;"><span style="background:${paymentStatusBg};color:${paymentStatusColor};font-weight:800;padding:1px 6px;border-radius:4px;font-size:9.5px;">${paymentStatusText}</span></div>
@@ -537,7 +626,7 @@ function buildA4InvoiceHtml(
           <div style="flex:1.2;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:10.5px;">
             <span style="font-size:9px;font-weight:800;color:${primaryColor};text-transform:uppercase;">Billed To</span>
             <div style="font-size:13px;font-weight:800;color:#0f172a;margin-top:1px;">${customerNameDisplay}</div>
-            ${address ? `<div style="color:#475569;margin-top:2px;">${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
+            ${billingAddressDisplay ? `<div style="color:#475569;margin-top:2px;">${billingAddressDisplay}</div>` : ''}
             <div style="color:#64748b;margin-top:2px;">Phone: ${customerPhoneDisplay || '-'} | GSTIN: ${customerGstDisplay || 'Unregistered'}</div>
           </div>
           <div style="flex:0.8;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:10.5px;text-align:right;">
@@ -561,7 +650,7 @@ function buildA4InvoiceHtml(
             </div>
             ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Paid via Wallet:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
             ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#1d4ed8;font-weight:600;"><span>Paid Online (Razorpay):</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
-            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Paid on Delivery:</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
+            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Paid on Delivery (COD):</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
             ${amountToCollect > 0 ? `
               <div style="display:flex;justify-content:space-between;font-weight:900;font-size:13px;color:#b45309;background:#fef3c7;padding:4px 8px;border-radius:6px;margin-top:4px;">
                 <span>COLLECT COD:</span><span>₹${amountToCollect.toFixed(2)}</span>
@@ -650,7 +739,7 @@ function buildA4InvoiceHtml(
           <div>
             <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:#94a3b8;text-transform:uppercase;">Billed To</div>
             <div style="font-weight:700;color:#0f172a;">${customerNameDisplay}</div>
-            ${address ? `<div>${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
+            ${billingAddressDisplay ? `<div>${billingAddressDisplay}</div>` : ''}
             <div>Phone: ${customerPhoneDisplay || '-'} | GST: ${customerGstDisplay || 'Unregistered'}</div>
           </div>
           <div style="text-align:right;">
@@ -673,6 +762,7 @@ function buildA4InvoiceHtml(
             </div>
             ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;"><span>Paid via Wallet:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
             ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#2563eb;"><span>Paid Online:</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
+            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;"><span>Paid on Delivery (COD):</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
             ${amountToCollect > 0 ? `
               <div style="display:flex;justify-content:space-between;font-weight:800;font-size:13px;color:#b45309;border-top:1px solid #0f172a;padding-top:4px;margin-top:4px;">
                 <span>BALANCE DUE (COD):</span><span>₹${amountToCollect.toFixed(2)}</span>
@@ -772,7 +862,7 @@ function buildA4InvoiceHtml(
           <div style="flex:1.2;border:1px solid #cbd5e1;border-top:3.5px solid ${primaryColor};border-radius:6px;padding:8px 10px;background:#f8fafc;">
             <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;color:${primaryColor};">Billed To / Consignee</div>
             <div style="font-size:12.5px;font-weight:800;color:#0f172a;margin-top:1px;">${customerNameDisplay}</div>
-            ${address ? `<div style="font-size:10.5px;color:#334155;margin-top:2px;">${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
+            ${billingAddressDisplay ? `<div style="font-size:10.5px;color:#334155;margin-top:2px;">${billingAddressDisplay}</div>` : ''}
             <div style="font-size:10px;color:#475569;margin-top:3px;">Phone: ${customerPhoneDisplay || '-'} | GSTIN: ${customerGstDisplay || 'Unregistered'}</div>
           </div>
           <div style="flex:1;border:1px solid #cbd5e1;border-top:3.5px solid #0f172a;border-radius:6px;padding:8px 10px;background:#f8fafc;font-size:10.5px;">
@@ -797,6 +887,7 @@ function buildA4InvoiceHtml(
             </div>
             ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Wallet Deduction:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
             ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#1d4ed8;font-weight:600;"><span>Online Payment:</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
+            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Paid on Delivery (COD):</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
             ${amountToCollect > 0 ? `
               <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.15em;border-top:2px solid #b45309;padding-top:4px;margin-top:4px;color:#b45309;">
                 <span>COLLECT ON DELIVERY:</span><span>₹${amountToCollect.toFixed(2)}</span>
@@ -879,7 +970,7 @@ function buildA4InvoiceHtml(
         </div>
 
         <div style="display:flex;justify-content:space-between;background:#f8fafc;border:1px solid #cbd5e1;padding:4px 6px;margin-bottom:4px;font-size:8.5px;">
-          <div><strong>Customer:</strong> ${customerNameDisplay} (${customerPhoneDisplay || '-'}) | GST: ${customerGstDisplay || 'Unreg'}</div>
+          <div><strong>Customer:</strong> ${customerNameDisplay} (${customerPhoneDisplay || '-'})${billingAddressDisplay ? ` · ${billingAddressDisplay}` : ''} | GST: ${customerGstDisplay || 'Unreg'}</div>
           <div><strong>Status:</strong> ${paymentStatusText}</div>
         </div>
 
@@ -895,6 +986,7 @@ function buildA4InvoiceHtml(
             </div>
             ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;"><span>Wallet Paid:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
             ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#1d4ed8;"><span>Online Paid:</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
+            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;"><span>COD Paid:</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
             ${amountToCollect > 0 ? `
               <div style="display:flex;justify-content:space-between;font-weight:900;color:#b45309;border-top:1px dashed #cbd5e1;margin-top:2px;padding-top:2px;">
                 <span>DUE (COD):</span><span>₹${amountToCollect.toFixed(2)}</span>

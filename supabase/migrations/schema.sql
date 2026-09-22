@@ -156,6 +156,7 @@ CREATE TABLE public.orders (
   delivery_zone_id uuid,
   cgst_amount numeric DEFAULT 0,
   sgst_amount numeric DEFAULT 0,
+  cancel_reason text,
   CONSTRAINT orders_pkey PRIMARY KEY (id),
   CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT orders_address_id_fkey FOREIGN KEY (address_id) REFERENCES public.addresses(id),
@@ -261,7 +262,7 @@ CREATE TABLE public.home_banners (
   end_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  position text DEFAULT 'top'::text CHECK ("position" = ANY (ARRAY['top'::text, 'top_slider'::text, 'carousel'::text, 'middle'::text, 'middle_1'::text, 'middle_2'::text, 'middle_3'::text, 'bottom'::text])),
+  position text DEFAULT 'top'::text CHECK ("position" = ANY (ARRAY['top'::text, 'top_slider'::text, 'carousel'::text, 'middle'::text, 'middle_1'::text, 'middle_2'::text, 'middle_3'::text, 'bottom'::text, 'bottom_popup'::text])),
   bg_type text DEFAULT 'color'::text,
   bg_color text DEFAULT '#16a34a'::text,
   bg_gradient text DEFAULT 'from-brand-600 to-brand-800'::text,
@@ -494,6 +495,7 @@ CREATE TABLE public.notification_channels (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   small_icon text,
+  sound text,
   CONSTRAINT notification_channels_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.app_settings (
@@ -599,4 +601,18 @@ CREATE TABLE public.delivery_partner_cod_settlements (
   CONSTRAINT delivery_partner_cod_settlements_pkey PRIMARY KEY (id),
   CONSTRAINT delivery_partner_cod_settlements_delivery_partner_id_fkey FOREIGN KEY (delivery_partner_id) REFERENCES auth.users(id),
   CONSTRAINT delivery_partner_cod_settlements_cleared_by_fkey FOREIGN KEY (cleared_by) REFERENCES auth.users(id)
+);
+CREATE TABLE public.search_synonyms (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  keyword character varying NOT NULL UNIQUE,
+  synonyms ARRAY NOT NULL DEFAULT '{}'::text[],
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT search_synonyms_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.warehouse_sync_signals (
+  id integer NOT NULL DEFAULT 1,
+  last_updated timestamp with time zone DEFAULT now(),
+  CONSTRAINT warehouse_sync_signals_pkey PRIMARY KEY (id)
 );

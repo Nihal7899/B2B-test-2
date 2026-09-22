@@ -1,15 +1,18 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, ChevronRight, ShieldCheck, Truck, Star, Search, X } from 'lucide-react';
+import { ArrowLeft, TrendingUp, ChevronRight, ShieldCheck, Truck, Star, Search, X, ShoppingBag } from 'lucide-react';
 import { fetchBrandById, fetchProducts, fetchWishlist, toggleWishlist } from '@/services/catalog';
+import { handleHomeAction, type ActionContext } from '@/services/actionResolver';
 import type { TrustedBrand, Product } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { useCart } from '@/store';
 import { getStoreIcon } from '@/data/storeIcons';
-
+import { CachedImage } from '@/components/CachedImage';
+import { AppLoader } from '@/components/AppLoader';
 function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {
   if (iconName?.startsWith('http') || iconName?.startsWith('data:')) {
-    return <img src={iconName} alt="icon" className={className + " object-contain"} />;
+    // Replaced raw <img> with CachedImage
+    return <CachedImage src={iconName} alt="icon" className={className + " object-contain"} />;
   }
   const Icon = getStoreIcon(iconName);
   return <Icon className={className} style={{ color }} />;
@@ -81,7 +84,18 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
+
+  const actionCtx: ActionContext = useMemo(() => ({
+    setScreen: (screen) => navigate(`/${screen}`),
+    setSearch: (query) => navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search'),
+    openProduct: (p: any) => navigate(`/product?id=${p.id}`),
+    openCategory: (c: any) => navigate(`/category?id=${c.id}`),
+    openBrand: (b: any) => navigate(`/brand?id=${b.id}`),
+    openStore: (s: any) => navigate(`/store?storeId=${s.id}`),
+    navigate: (path) => navigate(path),
+    setFilterConfig: () => {}, 
+    setFilterTitle: () => {},
+  }), [navigate]);
 
   const loadWishlist = useCallback(async () => {
     try {
@@ -94,11 +108,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   useEffect(() => {
     void loadWishlist();
-
-    const handleWishlistChange = () => {
-      void loadWishlist();
-    };
-
+    const handleWishlistChange = () => void loadWishlist();
     window.addEventListener('wishlist-updated', handleWishlistChange);
     window.addEventListener('focus', handleWishlistChange);
     return () => {
@@ -107,24 +117,59 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
     };
   }, [loadWishlist]);
 
-  useEffect(() => {
-    if (!brandId) {
-      navigate('/');
-      return;
-    }
-    (async () => {
+  // Background Data Refresh Logic
+  const refreshBrandData = useCallback(async (silent = false) => {
+    if (!brandId) return;
+    try {
       const b = await fetchBrandById(brandId);
       if (!b) {
-        navigate('/');
+        if (!silent) navigate('/');
         return;
       }
       setBrand(b);
       const { products: allProducts } = await fetchProducts();
       const filtered = allProducts.filter(p => p.brand.toLowerCase() === b.name.toLowerCase());
       setProducts(filtered);
-      setLoading(false);
-    })();
+    } catch (err) {
+      console.warn('Failed to refresh brand data silently', err);
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, [brandId, navigate]);
+
+  // Initial Load
+  useEffect(() => {
+    void refreshBrandData(false);
+  }, [refreshBrandData]);
+
+  // Background Fetch Event Listeners (Keepalive & Visibility)
+  useEffect(() => {
+    let active = true;
+    const expectedKey = `brand|${brandId}`;
+
+    const handleKeepAliveFocus = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key?: string }>;
+      if (active && customEvent.detail?.key === expectedKey) {
+        void refreshBrandData(true);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      const isCurrentlyActive = window.location.pathname.includes('/brand') && window.location.search.includes(`id=${brandId}`);
+      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
+        void refreshBrandData(true);
+      }
+    };
+
+    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      active = false;
+      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshBrandData, brandId]);
 
   const handleWishlistToggle = async (productId: string) => {
     const isWishlisted = wishlist.includes(productId);
@@ -160,21 +205,11 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   const clearFilter = () => {
     setSearchQuery('');
-    setSearchOpen(false);
-  };
-
-  const toggleSearch = () => {
-    setSearchOpen(!searchOpen);
-    if (!searchOpen) {
-      setTimeout(() => searchInputRef.current?.focus(), 300);
-    }
   };
 
   if (loading || !brand) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh] safe-top safe-bottom">
-        <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
-      </div>
+          <AppLoader fullScreen="{false}" showStatus="{true}" size="md" type="general"/>
     );
   }
 
@@ -197,8 +232,8 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
   const highlights = config.highlights || [];
   const categories = config.categories || [];
-  const bulkDeal = config.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' };
-  const trending = config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', ctaBgColor: '#ffffff', ctaTextColor: '#065f46' };
+  const bulkDeal = config.bulkDeal || { enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package', actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46' };
+  const trending = config.trending || { enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most', iconButtons: [], ctaText: 'Browse all categories', actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46' };
 
   const productCardTheme = {
     primaryColor: primary_color,
@@ -225,8 +260,8 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
-      <div className="relative overflow-hidden pt-12 pb-8 px-4 isolate safe-top">
+    <div className="min-h-screen bg-gray-50 pb-10 relative">
+      <div className="relative overflow-hidden pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-6 px-4 isolate">
         <div
           className="absolute inset-0"
           style={{
@@ -275,8 +310,9 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         </button>
 
         <div className="relative z-20 flex flex-col items-center text-center" style={{ color: textColor }}>
-          <div className="h-24 w-24 rounded-2xl border-2 border-white/40 bg-white p-2 shadow-lg mb-4 flex items-center justify-center">
-            <img src={logo_url} alt={name} className="max-h-full max-w-full object-contain" />
+          <div className="h-24 w-24 rounded-2xl border-2 border-white/40 bg-white p-2 shadow-lg mb-4 mt-6 flex items-center justify-center">
+            {/* Replaced raw <img> with CachedImage */}
+            <CachedImage src={logo_url} alt={name} className="max-h-full max-w-full object-contain" />
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight">{name}</h1>
           {tagline && <p className="mt-1 text-sm opacity-90">{tagline}</p>}
@@ -324,10 +360,16 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         </div>
       )}
 
-      <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg safe-top">
-        <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-white p-2 shadow-md ring-1 ring-black/5">
-          <div className="flex flex-1 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
-            <Search size={16} className="text-gray-400" />
+      <div 
+        className="sticky top-0 z-30 bg-gray-50/95 px-4 pb-3 mt-5 backdrop-blur-lg"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+      >
+        <div className="mx-auto flex max-w-md items-center gap-2">
+          <div
+            className="flex flex-1 items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm border"
+            style={{ borderColor: primary_color }}
+          >
+            <Search size={16} style={{ color: primary_color }} />
             <input
               ref={searchInputRef}
               value={searchQuery}
@@ -335,26 +377,31 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
               placeholder="Search this brand…"
               className="flex-1 bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
             />
-          </div>
-          <div className="flex items-center gap-1">
             {searchQuery && (
               <button onClick={clearFilter} className="text-gray-400 hover:text-gray-600">
                 <X size={16} />
               </button>
             )}
-            <button
-              onClick={toggleSearch}
-              className="rounded-xl p-2 text-gray-500 hover:bg-gray-100"
-            >
-              <Search size={18} />
-            </button>
           </div>
+          <button
+            onClick={() => navigate('/cart')}
+            className="relative flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-white shadow-sm border transition active:scale-95"
+            style={{ borderColor: primary_color }}
+            aria-label="View Cart"
+          >
+            <ShoppingBag size={18} style={{ color: primary_color }} />
+            {cart.totalItems > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white animate-pulse">
+                {cart.totalItems}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
-      <div className="mx-auto max-w-md px-4 mt-4 space-y-6">
+      <div className="mx-auto max-w-md px-4">
         {bulkDeal.enabled && !hasActiveFilter && (
-          <div>
+          <div className="mt-3">
             <div
               className="relative overflow-hidden rounded-2xl p-4 shadow-lg"
               style={{ background: `linear-gradient(120deg, ${primary_color}, ${secondary_color})` }}
@@ -374,6 +421,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
                 </div>
               </div>
               <button
+                onClick={() => handleHomeAction(bulkDeal.actionType, bulkDeal.actionConfig, actionCtx)}
                 className="mt-3 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
                 style={{ backgroundColor: bulkDeal.ctaBgColor || '#ffffff', color: bulkDeal.ctaTextColor || '#065f46' }}
               >
@@ -384,7 +432,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         )}
 
         {hasActiveFilter ? (
-          <div>
+          <div className="mt-4">
             <h3 className="mb-3 text-sm font-bold text-gray-800">Search results ({filteredProducts.length})</h3>
             {filteredProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -411,7 +459,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
             )}
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="mt-4 space-y-6">
             {activeCategories.map((category: any, index: number) => {
               const categoryProducts = products.filter(p => category.productIds?.includes(p.id));
               if (categoryProducts.length === 0) return null;
@@ -497,6 +545,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
                           </div>
 
                           <button
+                            onClick={() => handleHomeAction(trending.actionType, trending.actionConfig, actionCtx)}
                             className="mt-4 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
                             style={{ backgroundColor: trending.ctaBgColor || '#ffffff', color: trending.ctaTextColor || '#065f46' }}
                           >
@@ -530,7 +579,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
 export const BrandScreen = React.memo(() => {
   const [searchParams] = useSearchParams();
-  const [brandId] = useState(() => searchParams.get('id'));
+  const [brandId] = useState(() => searchParams.get('id')); // Already correctly frozen
   const navigate = useNavigate();
 
   if (!brandId) {

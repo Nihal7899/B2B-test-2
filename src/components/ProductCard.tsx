@@ -26,7 +26,7 @@ const DEFAULT_THEME: ThemeProps = {};
 interface ProductCardProps {
   product: Product;
   quantity: number;
-  onAdd: (product: Product) => void;
+  onAdd: (product: Product, quantity?: number) => void;
   onIncrement: (product: Product) => void;
   onDecrement: (product: Product) => void;
   onClick: (product: Product) => void;
@@ -72,7 +72,8 @@ export const ProductCard = React.memo(function ProductCard({
   const handleAdd = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onAdd(product);
+      if (!product.inStock) return;
+      onAdd(product, product.moq);
       setAdded(true);
       setTimeout(() => {
         setAdded(false);
@@ -121,7 +122,7 @@ export const ProductCard = React.memo(function ProductCard({
             src={product.image}
             alt={product.name}
             decoding="async"
-            className="h-full w-full object-cover"
+            className={`h-full w-full object-cover transition-all ${!product.inStock ? 'grayscale opacity-75' : ''}`}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-slate-300">
@@ -129,10 +130,20 @@ export const ProductCard = React.memo(function ProductCard({
           </div>
         )}
 
-        <div className="absolute left-2 top-2">
+        {/* Elegant Out of Stock Overlay */}
+        {!product.inStock && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/40 backdrop-blur-[2px]">
+            <div className="bg-white/95 px-2.5 py-1.5 rounded-lg shadow-sm border border-slate-100 flex items-center gap-1.5">
+              <Package size={12} className="text-slate-400" />
+              <span className="text-[9px] font-black tracking-widest text-slate-600 uppercase">Sold Out</span>
+            </div>
+          </div>
+        )}
+
+        <div className="absolute left-2 top-2 z-10">
           {discount > 0 ? (
             <div
-              className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[8px] font-black tracking-wide text-white shadow-xs"
+              className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[8px] font-black tracking-wide text-white shadow-xs ${!product.inStock ? 'grayscale' : ''}`}
               style={{ backgroundColor: primaryColor }}
             >
               <Sparkles size={8} strokeWidth={2.5} />
@@ -148,7 +159,7 @@ export const ProductCard = React.memo(function ProductCard({
         <button
           type="button"
           onClick={handleWishlistClick}
-          className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-500 shadow-xs active:scale-90"
+          className="absolute right-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-500 shadow-xs active:scale-90"
           aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
         >
           <Heart
@@ -158,11 +169,11 @@ export const ProductCard = React.memo(function ProductCard({
           />
         </button>
 
-        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full border border-white bg-white/95 px-1.5 py-0.5 shadow-xs">
-          <ShieldCheck size={8} strokeWidth={2.5} style={{ color: primaryColor }} />
+        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full border border-white bg-white/95 px-1.5 py-0.5 shadow-xs z-10">
+          <ShieldCheck size={8} strokeWidth={2.5} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
           <span
-            className="text-[7px] font-extrabold uppercase max-w-[65px] truncate"
-            style={{ color: primaryColor }}
+            className={`text-[7px] font-extrabold uppercase max-w-[65px] truncate ${!product.inStock ? 'text-slate-500' : ''}`}
+            style={product.inStock ? { color: primaryColor } : undefined}
           >
             {productQuality}
           </span>
@@ -173,39 +184,39 @@ export const ProductCard = React.memo(function ProductCard({
         <div>
           <div className="flex items-center gap-1">
             <p
-              className="max-w-[100px] truncate text-[8.5px] font-black uppercase tracking-[0.03em]"
-              style={{ color: primaryColor }}
+              className={`max-w-[100px] truncate text-[8.5px] font-black uppercase tracking-[0.03em] ${!product.inStock ? 'text-slate-400' : ''}`}
+              style={product.inStock ? { color: primaryColor } : undefined}
             >
               {product.brand}
             </p>
             <div
               className="flex h-3 w-3 items-center justify-center rounded-full"
-              style={{ backgroundColor: `${primaryColor}18` }}
+              style={{ backgroundColor: product.inStock ? `${primaryColor}18` : '#f1f5f9' }}
             >
-              <ShieldCheck size={8} strokeWidth={2.8} style={{ color: primaryColor }} />
+              <ShieldCheck size={8} strokeWidth={2.8} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
             </div>
           </div>
 
           <h3
-            className="mt-0.5 line-clamp-1 text-[11px] font-extrabold leading-tight tracking-[-0.1px]"
-            style={{ color: textColor }}
+            className={`mt-0.5 line-clamp-1 text-[11px] font-extrabold leading-tight tracking-[-0.1px] ${!product.inStock ? 'text-slate-500' : ''}`}
+            style={product.inStock ? { color: textColor } : undefined}
           >
             {product.name}
           </h3>
 
           <div className="mt-1 flex items-center justify-between gap-1">
             <div className="flex items-center gap-1">
-              <span className="rounded bg-slate-100 px-1 py-0.5 text-[7.5px] font-bold text-slate-600">
+              <span className="rounded bg-slate-100 px-1 py-0.5 text-[7.5px] font-bold text-slate-500">
                 {product.packSize}
               </span>
-              <span className="rounded bg-slate-100 px-1 py-0.5 text-[7.5px] font-bold text-slate-600">
+              <span className="rounded bg-slate-100 px-1 py-0.5 text-[7.5px] font-bold text-slate-500">
                 MOQ {product.moq}
               </span>
             </div>
 
-            <div className="flex items-center gap-0.5 rounded-full bg-amber-50 px-1 py-0.5">
-              <Star size={8} className="fill-amber-400 text-amber-400" />
-              <span className="text-[8px] font-bold text-slate-700">{product.rating}</span>
+            <div className={`flex items-center gap-0.5 rounded-full px-1 py-0.5 ${!product.inStock ? 'bg-slate-100' : 'bg-amber-50'}`}>
+              <Star size={8} className={!product.inStock ? 'fill-slate-400 text-slate-400' : 'fill-amber-400 text-amber-400'} />
+              <span className={`text-[8px] font-bold ${!product.inStock ? 'text-slate-500' : 'text-slate-700'}`}>{product.rating}</span>
             </div>
           </div>
 
@@ -217,7 +228,7 @@ export const ProductCard = React.memo(function ProductCard({
                   key={feature.label}
                   className="flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded bg-slate-50 px-0.5 py-0.5"
                 >
-                  <Icon size={8} strokeWidth={2.2} style={{ color: primaryColor }} />
+                  <Icon size={8} strokeWidth={2.2} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
                   <span className="truncate text-[6.5px] font-bold text-slate-500">
                     {feature.label}
                   </span>
@@ -234,7 +245,7 @@ export const ProductCard = React.memo(function ProductCard({
                 ₹{product.mrp}
               </p>
               {discount > 0 && (
-                <span className="text-[6.5px] font-extrabold text-red-500">
+                <span className={`text-[6.5px] font-extrabold ${!product.inStock ? 'text-slate-400' : 'text-red-500'}`}>
                   {discount}% OFF
                 </span>
               )}
@@ -242,8 +253,8 @@ export const ProductCard = React.memo(function ProductCard({
 
             <div className="flex items-baseline gap-0.5">
               <span
-                className="text-[15px] font-black leading-none tracking-tight"
-                style={{ color: primaryColor }}
+                className={`text-[15px] font-black leading-none tracking-tight ${!product.inStock ? 'text-slate-500' : ''}`}
+                style={product.inStock ? { color: primaryColor } : undefined}
               >
                 ₹{product.price}
               </span>
@@ -260,6 +271,14 @@ export const ProductCard = React.memo(function ProductCard({
               onDecrement={handleDecrement}
               theme={quantityTheme}
             />
+          ) : !product.inStock ? (
+            <button
+              type="button"
+              disabled
+              className="flex h-7 items-center justify-center rounded-lg bg-slate-50 border border-slate-100 px-2.5 text-[9px] font-extrabold text-slate-400 shadow-none cursor-not-allowed"
+            >
+              Out of stock
+            </button>
           ) : added ? (
             <span
               className="flex h-7 items-center gap-1 rounded-lg px-2 text-[8.5px] font-extrabold text-white shadow-sm"
@@ -367,7 +386,7 @@ interface ProductCarouselProps {
   subtitle?: string;
   products: Product[];
   getQuantity: (id: string) => number;
-  onAdd: (product: Product) => void;
+  onAdd: (product: Product, quantity?: number) => void;
   onIncrement: (product: Product) => void;
   onDecrement: (product: Product) => void;
   onProductClick: (product: Product) => void;

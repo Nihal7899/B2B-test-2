@@ -17,6 +17,7 @@ export interface Product {
   subcategory_id?: string;
   subcategory?: Subcategory;
   stock_threshold?: number;
+  barcode?: string | null;
 }
 
 export interface VolumePricingTier {
@@ -60,6 +61,7 @@ export interface DeliveryCharge {
   min_order_value: number | null;
   max_order_value: number | null;
   charge: number;
+  estimated_time: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -158,7 +160,8 @@ export type ScreenName =
   | 'brand'
   | 'banner'
   | 'search'
-  | 'wallet';
+  | 'wallet'
+  | 'helpCenter';   // <-- NEW
 
 export interface Business {
   id: string;
@@ -169,6 +172,13 @@ export interface Business {
   gstin: string | null;
   gst_verification_status: 'pending' | 'verified' | 'failed';
   gst_verified_at: string | null;
+  is_default?: boolean;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  landmark?: string | null;
+  pincode?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -353,7 +363,6 @@ export interface DeliveryRange {
 export type BannerSize = 'small' | 'medium' | 'large';
 export type BannerPosition = 'top' | 'top_slider' | 'carousel' | 'middle_1' | 'middle_2' | 'middle_3' | 'bottom' | 'bottom_popup';
 
-
 export type BannerBgType = 'color' | 'gradient' | 'image';
 
 export type HomeSectionType =
@@ -407,4 +416,15 @@ export interface WalletTransaction {
   description: string;
   balance_after: number;
   created_at: string;
+}
+
+export interface Faq {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }

@@ -1,5 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { NavigationBar } from '@capawesome/capacitor-navigation-bar';
+import { HomeIndicator } from '@capawesome/capacitor-home-indicator';
 import type { PromoBanner } from '@/types';
 import { CachedImage } from '@/components/CachedImage';
 import { useCachedImage } from '@/lib/imageCache';
@@ -32,6 +35,36 @@ export const ModernPopupBanner = React.memo(function ModernPopupBanner({
   const cachedBgUrl = useCachedImage(banner?.bgType === 'image' ? banner?.image : undefined);
 
   const [timeLeft, setTimeLeft] = useState<{ hours: string; minutes: string; seconds: string } | null>(null);
+
+  // Maintain hidden system navigation with a failsafe for the Capacitor OS reset
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const hideSystemNav = async () => {
+      try {
+        if (Capacitor.getPlatform() === 'android') await NavigationBar.hide();
+        if (Capacitor.getPlatform() === 'ios') await HomeIndicator.hide();
+      } catch (e) {
+        console.warn(e);
+      }
+    };
+
+    hideSystemNav();
+    const enforceHideTimer = setTimeout(hideSystemNav, 2500);
+
+    return () => {
+      clearTimeout(enforceHideTimer);
+      const showSystemNav = async () => {
+        try {
+          if (Capacitor.getPlatform() === 'android') await NavigationBar.show();
+          if (Capacitor.getPlatform() === 'ios') await HomeIndicator.show();
+        } catch (e) {
+          console.warn(e);
+        }
+      };
+      showSystemNav();
+    };
+  }, []);
 
   useEffect(() => {
     if (!isTimerEnabled) return;

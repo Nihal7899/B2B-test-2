@@ -325,11 +325,14 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
 
   return (
     <div className="fixed inset-0 z-[200] bg-white flex flex-col">
-      <div className="flex items-center gap-2 px-4 h-14 border-b border-ink-100 shrink-0">
-        <button onClick={onCancel} className="h-9 w-9 flex items-center justify-center rounded-lg text-ink-600 hover:bg-ink-50">
-          <X size={20} />
-        </button>
-        <h2 className="text-base font-bold text-ink-900">Select location</h2>
+      {/* HEADER WITH SAFE TOP */}
+      <div className="shrink-0 border-b border-ink-100 bg-white safe-top">
+        <div className="flex items-center gap-2 px-4 h-14">
+          <button onClick={onCancel} className="h-9 w-9 flex items-center justify-center rounded-lg text-ink-600 hover:bg-ink-50">
+            <X size={20} />
+          </button>
+          <h2 className="text-base font-bold text-ink-900">Select location</h2>
+        </div>
       </div>
 
       <div className="relative px-4 py-3 border-b border-ink-100 shrink-0">
@@ -448,37 +451,40 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
         </div>
       )}
 
-      <div className="shrink-0 border-t border-ink-100 px-4 py-3 space-y-3 bg-white">
-        {address ? (
-          <div className="flex items-start gap-2.5">
-            <MapPin size={17} className="text-brand-600 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-ink-800 truncate">{address.line1 || 'Selected location'}</p>
-              <p className="text-xs text-ink-500 mt-0.5 truncate">
-                {address.city && address.state ? `${address.city}, ${address.state}` : ''}{' '}
-                {address.postal_code ? `- ${address.postal_code}` : ''}
-              </p>
-              <p className="text-[10px] text-ink-400 mt-0.5">{lat.toFixed(5)}, {lng.toFixed(5)}</p>
+      {/* FOOTER WITH SAFE BOTTOM */}
+      <div className="shrink-0 border-t border-ink-100 px-4 pt-3 bg-white safe-bottom">
+        <div className="space-y-3 pb-3">
+          {address ? (
+            <div className="flex items-start gap-2.5">
+              <MapPin size={17} className="text-brand-600 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-ink-800 truncate">{address.line1 || 'Selected location'}</p>
+                <p className="text-xs text-ink-500 mt-0.5 truncate">
+                  {address.city && address.state ? `${address.city}, ${address.state}` : ''}{' '}
+                  {address.postal_code ? `- ${address.postal_code}` : ''}
+                </p>
+                <p className="text-[10px] text-ink-400 mt-0.5">{lat.toFixed(5)}, {lng.toFixed(5)}</p>
+              </div>
             </div>
-          </div>
-        ) : !geocoding && mapReady ? (
-          <div className="flex items-start gap-2.5">
-            <MapPin size={17} className="text-ink-300 shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-ink-400">No address resolved</p>
-              <p className="text-xs text-ink-400 mt-0.5">Drag the pin or tap on the map to set your location.</p>
-              <p className="text-[10px] text-ink-400 mt-0.5">{lat.toFixed(5)}, {lng.toFixed(5)}</p>
+          ) : !geocoding && mapReady ? (
+            <div className="flex items-start gap-2.5">
+              <MapPin size={17} className="text-ink-300 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-ink-400">No address resolved</p>
+                <p className="text-xs text-ink-400 mt-0.5">Drag the pin or tap on the map to set your location.</p>
+                <p className="text-[10px] text-ink-400 mt-0.5">{lat.toFixed(5)}, {lng.toFixed(5)}</p>
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        <button
-          onClick={handleConfirm}
-          disabled={!mapReady || isInDeliveryRange === false || checkingRange}
-          className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
-        >
-          <Check size={18} /> Confirm location
-        </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!mapReady || isInDeliveryRange === false || checkingRange}
+            className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            <Check size={18} /> Confirm location
+          </button>
+        </div>
       </div>
     </div>
   );

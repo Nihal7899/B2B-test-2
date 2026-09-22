@@ -13,7 +13,10 @@ import {
   Building2,
   RefreshCw,
   BadgeCheck,
+  TrendingUp,
+  Headphones,   // <-- NEW
 } from 'lucide-react';
+
 import { useAuth } from '@/auth';
 import { fetchWallet } from '@/services/wallet';
 import type { Wallet, ScreenName } from '@/types';
@@ -23,7 +26,7 @@ interface AccountScreenProps {
 }
 
 export function AccountScreen({ onNavigate }: AccountScreenProps) {
-  const { user, profile, role, signOut } = useAuth();
+  const { user, profile, role, logout } = useAuth();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [walletLoading, setWalletLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,7 +58,8 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
     profile?.business_name?.trim() ||
     'Valued Merchant';
 
-  const isStaff = role === 'admin' || role === 'warehouse_manager' || role === 'delivery_partner';
+  const isStaff = role === 'admin' || role === 'warehouse_manager' || role === 'delivery_partner' || role === 'investor';
+
 
   return (
     <div className="safe-top px-4 pb-12 space-y-4 max-w-lg mx-auto">
@@ -188,6 +192,24 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
                 <ChevronRight size={16} className="text-ink-400" />
               </button>
             )}
+            
+            {(role === 'investor') && (
+              <button
+                onClick={() => onNavigate('investor')}
+                className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <TrendingUp size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-ink-900">Investor Dashboard</p>
+                    <p className="text-[10px] text-ink-400">Live performance & analytics</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-ink-400" />
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -244,6 +266,7 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
             <ChevronRight size={16} className="text-ink-400" />
           </button>
 
+          {/* Business management — always visible */}
           <button
             onClick={() => onNavigate('businessRegistration')}
             className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
@@ -253,8 +276,30 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
                 <Building2 size={18} />
               </div>
               <div>
-                <p className="text-xs font-bold text-ink-900">Business Profile</p>
-                <p className="text-[10px] text-ink-400">GSTIN verification & company details</p>
+                <p className="text-xs font-bold text-ink-900">My Businesses</p>
+                <p className="text-[10px] text-ink-400">Billing profiles, GSTIN & defaults</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-ink-400" />
+          </button>
+        </div>
+      {/* Help & Support */}
+      <div className="space-y-2">
+        <p className="text-[11px] font-extrabold text-ink-400 uppercase tracking-wider px-1">
+          Help & Support
+        </p>
+        <div className="bg-white border border-ink-100 rounded-2xl divide-y divide-ink-50 shadow-card overflow-hidden">
+          <button
+            onClick={() => onNavigate('helpCenter')}
+            className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                <Headphones size={18} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-ink-900">Help Center</p>
+                <p className="text-[10px] text-ink-400">FAQs, chat support & contact options</p>
               </div>
             </div>
             <ChevronRight size={16} className="text-ink-400" />
@@ -262,14 +307,26 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
         </div>
       </div>
 
-      {/* Logout Action */}
-      <button
-        onClick={() => void signOut()}
-        className="w-full h-12 rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center gap-2 border border-red-200 shadow-xs active:scale-[0.99] transition"
-      >
-        <LogOut size={16} />
-        Sign Out from Account
-      </button>
+      </div>
+      
+
+      {/* Logout Actions */}
+      <div className="space-y-2.5 pt-2">
+        <button
+          onClick={() => void logout({ scope: 'local' })}
+          className="w-full h-12 rounded-2xl bg-white hover:bg-red-50 text-red-600 font-bold text-xs flex items-center justify-center gap-2 border border-red-200 shadow-xs active:scale-[0.99] transition"
+        >
+          <LogOut size={16} />
+          Log Out (This Device)
+        </button>
+        <button
+          onClick={() => void logout({ scope: 'global' })}
+          className="w-full h-12 rounded-2xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs flex items-center justify-center gap-2 border border-red-200 shadow-xs active:scale-[0.99] transition"
+        >
+          <LogOut size={16} />
+          Log Out All Devices
+        </button>
+      </div>
     </div>
   );
 }

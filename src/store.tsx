@@ -132,7 +132,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addToCart = useCallback(async (product: Product, quantity = 1) => {
     if (!cartId) return;
     const existing = items.find((i) => i.product.id === product.id);
-    const newQty = (existing?.quantity ?? 0) + quantity;
+    
+    // Check MOQ: If it's a new addition, use the MOQ. If adding to an existing item, just append.
+    const addQty = !existing ? Math.max(quantity, product.moq) : quantity;
+    const newQty = (existing?.quantity ?? 0) + addQty;
+    
     const effectivePrice = await getEffectiveUnitPrice(product, newQty);
 
     setItems((prev) => {

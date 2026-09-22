@@ -5,12 +5,10 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
-    overscroll-behavior-y: none;
   }
   body {
     @apply bg-ink-100 text-ink-900 font-sans antialiased;
     text-rendering: optimizeLegibility;
-    overscroll-behavior-y: none;
   }
   *, *::before, *::after {
     -webkit-font-smoothing: antialiased;

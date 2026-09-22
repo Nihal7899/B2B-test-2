@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   MapPin,
@@ -17,6 +18,8 @@ import {
   Building2,
   Receipt,
   FileText,
+  Headphones,
+  ChevronRight,
 } from 'lucide-react';
 import { fetchOrderDetail } from '@/services/catalog';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
@@ -132,6 +135,8 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
   });
   const [loading, setLoading] = useState(true);
   const [isPrinting, setIsPrinting] = useState(false);
+  
+  const navigate = useNavigate();
 
   const loadData = useCallback(async () => {
     try {
@@ -756,6 +761,27 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           )}
         </button>
       )}
+      
+      {/* Need help with this order */}
+      <button
+        onClick={() =>
+          navigate(
+            `/help?orderId=${order.id}&orderNumber=${encodeURIComponent(order.order_number)}`
+          )
+        }
+        className="w-full rounded-2xl bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 p-4 flex items-center gap-3 text-left hover:border-indigo-200 active:scale-[0.995] transition"
+      >
+        <div className="h-10 w-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center border border-indigo-200 shrink-0">
+          <Headphones size={18} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-black text-ink-900">Need help with this order?</p>
+          <p className="text-[11px] text-ink-500 mt-0.5">
+            Cancel, update address, or ask delivery questions
+          </p>
+        </div>
+        <ChevronRight size={18} className="text-indigo-500 shrink-0" />
+      </button>
     </div>
   );
 }

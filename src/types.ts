@@ -160,7 +160,8 @@ export type ScreenName =
   | 'brand'
   | 'banner'
   | 'search'
-  | 'wallet';
+  | 'wallet'
+  | 'helpCenter';   // <-- NEW
 
 export interface Business {
   id: string;
@@ -415,4 +416,15 @@ export interface WalletTransaction {
   description: string;
   balance_after: number;
   created_at: string;
+}
+
+export interface Faq {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }

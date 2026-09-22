@@ -21,7 +21,8 @@ import {
   MessageSquare,
   Banknote,
   BookOpen,
-  CreditCard
+  CreditCard,
+  HelpCircle,
 } from 'lucide-react';
 import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import InvoiceSettings from '@/components/InvoiceSettings';
@@ -50,6 +51,7 @@ import CodSettlementManager from '@/components/Admin/CodSettlementManager';
 import SynonymsManager from '@/components/Admin/SynonymsManager';
 import RefundManager from '@/components/Admin/RefundManager';
 import AdminSettingsManager from '@/components/Admin/AdminSettingsManager';
+import FaqsManager from '@/components/Admin/FaqsManager';
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -81,7 +83,8 @@ type Tab =
   | 'compression'
   | 'synonyms'
   | 'refunds'
-  | 'settings';
+  | 'settings'
+  | 'faqs';    
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -156,6 +159,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     { id: 'synonyms', label: 'Search Synonyms', icon: BookOpen },
     { id: 'refunds', label: 'Refunds', icon: CreditCard },
     { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'faqs', label: 'Help Center FAQs', icon: HelpCircle },
   ];
 
   return (
@@ -243,6 +247,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
         {tab === 'synonyms' && <SynonymsManager />}
         {tab === 'refunds' && <RefundManager />}
         {tab === 'settings' && <AdminSettingsManager />}
+        {tab === 'faqs' && <FaqsManager />}
       </div>
     </div>
   );

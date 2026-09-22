@@ -78,6 +78,7 @@ import {
 
 import { getOrFetchHomeData, getHomeDataSync } from '@/services/homePreload';
 import { startContinuousLocationWatch, stopContinuousLocationWatch } from '@/services/location';
+import HelpCenterScreen from '@/screens/HelpCenterScreen';
 
 // ----------------------------------------------------
 // CURRENT APP VERSION CONSTANT
@@ -108,6 +109,7 @@ const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   categoryDetail: '/category',
   brand: '/brand',
   wallet: '/wallet',
+  helpCenter: '/help',
 };
 
 const PATH_TO_SCREEN: Record<string, ScreenName | 'investor'> =
@@ -763,6 +765,9 @@ function App() {
 
       case 'store':
         return <StoreScreen goTo={goTo as any} />;
+        
+      case 'helpCenter':
+        return <HelpCenterScreen />;
 
       case 'brand':
         return <BrandScreen />;

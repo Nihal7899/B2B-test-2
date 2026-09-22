@@ -13,7 +13,8 @@ import {
   Building2,
   RefreshCw,
   BadgeCheck,
-  TrendingUp, // <--- Add this import
+  TrendingUp,
+  Headphones,   // <-- NEW
 } from 'lucide-react';
 
 import { useAuth } from '@/auth';
@@ -282,7 +283,32 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
             <ChevronRight size={16} className="text-ink-400" />
           </button>
         </div>
+      {/* Help & Support */}
+      <div className="space-y-2">
+        <p className="text-[11px] font-extrabold text-ink-400 uppercase tracking-wider px-1">
+          Help & Support
+        </p>
+        <div className="bg-white border border-ink-100 rounded-2xl divide-y divide-ink-50 shadow-card overflow-hidden">
+          <button
+            onClick={() => onNavigate('helpCenter')}
+            className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                <Headphones size={18} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-ink-900">Help Center</p>
+                <p className="text-[10px] text-ink-400">FAQs, chat support & contact options</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-ink-400" />
+          </button>
+        </div>
       </div>
+
+      </div>
+      
 
       {/* Logout Actions */}
       <div className="space-y-2.5 pt-2">

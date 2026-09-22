@@ -301,7 +301,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
   if (cart.items.length === 0) {
     return (
       <div className="min-h-screen bg-[#f6f7f9] flex flex-col">
-        <header className="px-3 pt-3">
+        <header className="sticky top-0 z-40 px-3 safe-top pb-2 bg-gradient-to-b from-[#f6f7f9] via-[#f6f7f9] to-[#f6f7f9]/0">
           <div className="rounded-2xl bg-[#02402c] p-1.5 flex items-center gap-1.5 shadow-[0_10px_28px_-12px_rgba(2,64,44,0.55)]">
             <button
               type="button"
@@ -348,7 +348,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
   return (
     <div className="min-h-screen bg-[#f6f7f9] pb-32 scroll-smooth">
       {/* ==================== STICKY HEADER ==================== */}
-      <header className="sticky top-0 z-40 px-3 pt-3 pb-2 bg-gradient-to-b from-[#f6f7f9] via-[#f6f7f9] to-[#f6f7f9]/0">
+      <header className="sticky top-0 z-40 px-3 safe-top pb-2 bg-gradient-to-b from-[#f6f7f9] via-[#f6f7f9] to-[#f6f7f9]/0">
         <div className="rounded-2xl bg-[#02402c] p-1.5 flex items-center gap-1.5 shadow-[0_10px_28px_-12px_rgba(2,64,44,0.55)]">
           <button
             type="button"
@@ -622,7 +622,8 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
       {/* ==================== FIXED BOTTOM BAR ==================== */}
       <div className="fixed bottom-0 inset-x-0 z-50">
         <div className="max-w-lg mx-auto">
-          <div className="bg-white border-t border-slate-100 px-3 py-3 shadow-[0_-12px_36px_-12px_rgba(15,23,42,0.15)]">
+          {/* pt-3 keeps the pills off the top border; safe-bottom adds the home-indicator inset below */}
+          <div className="bg-white border-t border-slate-100 px-3 pt-3 safe-bottom shadow-[0_-12px_36px_-12px_rgba(15,23,42,0.15)]">
             <div className="flex items-center gap-2.5">
               <div className="flex-1 h-[52px] rounded-2xl bg-slate-50 border border-slate-200 px-3.5 flex items-center gap-3">
                 <div className="h-8 w-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">

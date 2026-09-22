@@ -151,8 +151,8 @@ export function SearchScreen({
     lang: 'en-IN',
     onTranscript: handleVoiceTranscript,
     onResult: handleVoiceResult,
-    timeoutMs: 15000,
-    nativeSilenceMs: 2600,
+    timeoutMs: 10000,
+    nativeSilenceMs: 1200,
   });
 
   const openVoiceModal = useCallback(() => {
@@ -160,19 +160,17 @@ export function SearchScreen({
     try {
       searchInputRef.current?.blur();
     } catch {}
-    // Also blur whatever else might be focused
     try {
       (document.activeElement as HTMLElement | null)?.blur?.();
     } catch {}
 
     resetVoiceSearch();
-    // Small delay so keyboard-close animation completes cleanly
+    setShowVoiceModal(true);
+
+    // Short delay so the modal can paint before the mic turns on
     setTimeout(() => {
-      setShowVoiceModal(true);
-      setTimeout(() => {
-        void startVoiceSearch();
-      }, 250);
-    }, 60);
+      void startVoiceSearch();
+    }, 150);
   }, [startVoiceSearch, resetVoiceSearch]);
 
   const closeVoiceModal = useCallback(() => {

@@ -232,7 +232,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
   useEffect(() => { void loadData(); }, [loadData]);
 
-  // Address Background Sync[span_2](start_span)[span_2](end_span)
+  // Address Background Sync
   const refreshAddresses = useCallback(async () => {
     try {
       const list = await fetchAddresses();
@@ -252,7 +252,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     }
   }, []);
 
-  // Sync on navigation return or tab focus[span_3](start_span)[span_3](end_span)
+  // Sync on navigation return or tab focus
   useEffect(() => {
     const handleKeepAlive = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
@@ -554,7 +554,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f6f7f9] flex flex-col">
-        <div className="px-3 pt-3">
+        <div className="px-3 safe-top">
           <div className="h-14 rounded-2xl bg-[#02402c] animate-pulse" />
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -572,7 +572,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   return (
     <div className="min-h-screen bg-[#f6f7f9] pb-40 scroll-smooth">
       {/* ==================== STICKY HEADER ==================== */}
-      <header className="sticky top-0 z-40 px-3 pt-3 pb-2 bg-gradient-to-b from-[#f6f7f9] via-[#f6f7f9] to-[#f6f7f9]/0">
+      <header className="sticky top-0 z-40 px-3 safe-top pb-2 bg-gradient-to-b from-[#f6f7f9] via-[#f6f7f9] to-[#f6f7f9]/0">
         <div className="rounded-2xl bg-[#02402c] p-1.5 flex items-center gap-1.5 shadow-[0_10px_28px_-12px_rgba(2,64,44,0.55)]">
           <button
             onClick={onBack}
@@ -906,8 +906,8 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
             </label>
           </div>
 
-          {/* Bottom bar */}
-          <div className="bg-white border-t border-slate-100 px-3 py-3 shadow-[0_-12px_36px_-12px_rgba(15,23,42,0.15)]">
+          {/* Bottom bar — pt-3 keeps the pills off the top border; safe-bottom adds the home-indicator inset below */}
+          <div className="bg-white border-t border-slate-100 px-3 pt-3 safe-bottom shadow-[0_-12px_36px_-12px_rgba(15,23,42,0.15)]">
             <div className="flex items-center gap-2.5">
               {/* Payment selector — larger */}
               {!isFullWalletPayment ? (

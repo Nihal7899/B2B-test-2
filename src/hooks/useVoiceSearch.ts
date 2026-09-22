@@ -21,11 +21,12 @@ interface UseVoiceSearchOptions {
   lang?: string;
   onTranscript?: (text: string) => void;
   onResult?: (text: string) => void;
+  /** Overall safety auto-stop timeout. Defaults to 10000ms. */
   timeoutMs?: number;
   /**
    * Silence window (ms) after last partial result before treating as final.
-   * Only used on native as a fallback when `start()` doesn't resolve cleanly.
-   * Longer = better for natural pauses in speech.
+   * Only used on native as a fallback when listeningState 'stopped' doesn't fire.
+   * Defaults to 1200ms.
    */
   nativeSilenceMs?: number;
 }
@@ -34,8 +35,8 @@ export function useVoiceSearch({
   lang = 'en-IN',
   onTranscript,
   onResult,
-  timeoutMs = 15000,
-  nativeSilenceMs = 2600,
+  timeoutMs = 10000,
+  nativeSilenceMs = 1200,
 }: UseVoiceSearchOptions = {}) {
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +167,7 @@ export function useVoiceSearch({
         }
       }
 
-      // Partial results stream live
+      // Live partial results
       const partialListener = await NativeSpeechRecognition.addListener(
         'partialResults',
         (data: { matches: string[] }) => {
@@ -176,7 +177,7 @@ export function useVoiceSearch({
           setTranscriptSafe(text);
           onTranscriptRef.current?.(text);
 
-          // Reset the silence timer every time we get a partial
+          // Reset the silence timer every time we get a new partial
           clearNativeSilenceTimer();
           nativeSilenceTimerRef.current = window.setTimeout(() => {
             if (!hasFiredResultRef.current && transcriptRef.current) {
@@ -187,13 +188,15 @@ export function useVoiceSearch({
       );
       nativeListenersRef.current.push(partialListener);
 
-      // Recognizer stopped
+      // Listening state changes
       const stateListener = await NativeSpeechRecognition.addListener(
         'listeningState',
         (data: { status: 'started' | 'stopped' }) => {
-          if (data.status === 'stopped') {
+          if (data.status === 'started') {
+            setIsListening(true);
+          } else if (data.status === 'stopped') {
             setIsListening(false);
-
+            // Recognizer stopped naturally → fire pending transcript immediately
             if (!hasFiredResultRef.current && transcriptRef.current) {
               fireFinalResult(transcriptRef.current);
             }
@@ -202,7 +205,12 @@ export function useVoiceSearch({
       );
       nativeListenersRef.current.push(stateListener);
 
-      // Start listening
+      // ✅ FIX: Optimistically set isListening = true BEFORE calling native start().
+      // The plugin does not reliably emit a 'started' event on Android, so without
+      // this the modal renders the idle "Start Speaking" state even though the mic
+      // is actually recording.
+      setIsListening(true);
+
       const result = await NativeSpeechRecognition.start({
         language: langRef.current,
         maxResults: 1,
@@ -211,6 +219,7 @@ export function useVoiceSearch({
         popup: false,
       });
 
+      // If start() resolved with matches, fire immediately
       const finalText = result?.matches?.[0]?.trim() || transcriptRef.current;
       if (finalText) {
         setTranscriptSafe(finalText);

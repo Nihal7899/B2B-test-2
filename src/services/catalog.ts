@@ -16,7 +16,8 @@ import type {
   DeliveryZone,
   DeliveryCharge,
   CartItem,
-  Subcategory, // <-- added
+  Subcategory,
+  Faq,  // <-- added
 } from '@/types';
 import { StoreConfig } from '@/types/storeConfig';
 import { getRecentlyViewedIds } from '@/lib/recentlyViewed';
@@ -2350,4 +2351,55 @@ export async function fetchProductByBarcode(barcode: string): Promise<DbProduct 
     .maybeSingle();
   if (error) return null;
   return data as DbProduct | null;
+}
+
+
+// ================================================================
+// FAQS
+// ================================================================
+
+export async function fetchActiveFaqs(): Promise<Faq[]> {
+  const { data, error } = await supabase
+    .from('faqs')
+    .select('*')
+    .eq('is_active', true)
+    .order('category')
+    .order('sort_order');
+  if (error) return [];
+  return data as Faq[];
+}
+
+export async function fetchAllFaqs(): Promise<Faq[]> {
+  const { data, error } = await supabase
+    .from('faqs')
+    .select('*')
+    .order('category')
+    .order('sort_order');
+  if (error) throw error;
+  return data as Faq[];
+}
+
+export async function createFaq(
+  input: Omit<Faq, 'id' | 'created_at' | 'updated_at'>
+): Promise<Faq | null> {
+  const { data, error } = await supabase
+    .from('faqs')
+    .insert(input)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Faq;
+}
+
+export async function updateFaq(id: string, updates: Partial<Faq>): Promise<void> {
+  const { error } = await supabase
+    .from('faqs')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteFaq(id: string): Promise<void> {
+  const { error } = await supabase.from('faqs').delete().eq('id', id);
+  if (error) throw error;
 }

@@ -66,3 +66,17 @@
   100% { width: 100%; }
 }
 .splash-bar { animation: splash-bar 2.2s ease-in-out 0.5s both; }
+
+/* Compositor-ghosting fix: AppLoader runs several infinite transform
+   animations at the same moment isHomeReady flips true and the real
+   HomeScreen mounts underneath it. Fading out a subtree that's still
+   actively animating is expensive to composite, and on iOS a scroll
+   gesture landing in that window can leave a stale, frozen frame of
+   the loader stuck on top of the live, scrolling HomeScreen. Freezing
+   every animation the instant the loader starts exiting makes the
+   fade-out act on a static layer instead — cheap and reliable to tear down.
+   Applied via the `home-loader-exiting` class in HomeLoadingScreen.tsx. */
+.home-loader-exiting,
+.home-loader-exiting * {
+  animation-play-state: paused !important;
+}

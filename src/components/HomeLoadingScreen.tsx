@@ -31,7 +31,7 @@ export function HomeLoadingScreen({ isReady = false, onFinish }: HomeLoadingScre
       fullScreen={true}
       size="lg"
       showStatus={true}
-      type="home"
+      
       // FIX: Added `!opacity-0` (important modifier) to override the `animate-fade-in` forwards property
       className={`transition-opacity duration-300 ease-out ${
         exiting ? '!opacity-0 pointer-events-none' : 'opacity-100'

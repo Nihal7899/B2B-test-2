@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.cafkart.app"
+    namespace = "com.stackknit.test"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.cafkart.app"
+        applicationId "com.stackknit.test"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 2
@@ -21,14 +21,6 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
-    }
-
-    // Required by @capacitor-mlkit/barcode-scanning
-    buildFeatures {
-        dataBinding true
-    }
-    dataBinding {
-        enabled = true
     }
 }
 

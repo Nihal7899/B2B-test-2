@@ -29,8 +29,12 @@ export function KeepAliveRenderer({
   const [aliveKeys, setAliveKeys] = useState<string[]>([currentKey]);
 
   const keyChanged = prevKeyRef.current !== currentKey;
+  const isPop = navigationType === 'POP';
   const isExcluded = excludeKeys.includes(currentKey);
   const wasExcluded = excludeKeys.includes(prevKeyRef.current);
+
+  const hasFrozen = frozenElements.current.has(currentKey);
+  const useFrozen = !isExcluded && isPop && hasFrozen;
 
   if (keyChanged) {
     if (!wasExcluded) {
@@ -68,10 +72,9 @@ export function KeepAliveRenderer({
     prevKeyRef.current = currentKey;
   }
 
-  // FIX: Always call render() for the currently active tab.
-  // This guarantees that the active tab receives the latest global state (like Cart updates),
-  // while React's reconciliation engine naturally maintains the component's internal state.
-  const currentElement = render() ?? null;
+  const currentElement = useFrozen
+    ? (frozenElements.current.get(currentKey) ?? null)
+    : render() ?? null;
   currentElementRef.current = currentElement;
 
   useLayoutEffect(() => {

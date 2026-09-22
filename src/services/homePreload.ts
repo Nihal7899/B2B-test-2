@@ -64,16 +64,6 @@ export function getHomeDataSync(): PreloadedHomeData | null {
   return null;
 }
 
-export function updateHomeDataCache(updates: Partial<PreloadedHomeData>): void {
-  if (!memoryHomeData) return;
-  
-  memoryHomeData = { ...memoryHomeData, ...updates };
-  
-  try {
-    sessionStorage.setItem('cafkart_home_cache', JSON.stringify(memoryHomeData));
-  } catch {}
-}
-
 export async function preloadImages(urls: string[], timeoutMs = 4000): Promise<void> {
   if (!Array.isArray(urls)) return;
   const validUrls = Array.from(
@@ -190,10 +180,8 @@ export async function getOrFetchHomeData(force = false): Promise<PreloadedHomeDa
       if (fullData.brandSpotlight?.products) {
         fullData.brandSpotlight.products.forEach((p) => p?.image && allImageUrls.push(p.image));
       }
-      
-      // Fixed store and brand image properties
-      fullData.stores.forEach((s) => s?.image_url && allImageUrls.push(s.image_url));
-      fullData.brands.forEach((b) => b?.logo_url && allImageUrls.push(b.logo_url));
+      fullData.stores.forEach((s) => s?.logo && allImageUrls.push(s.logo));
+      fullData.brands.forEach((b) => b?.logo && allImageUrls.push(b.logo));
 
       await preloadImages(allImageUrls, 4500);
 

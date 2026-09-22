@@ -1,190 +1,126 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { ClipboardList, Package, RefreshCw, Loader2 } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { ClipboardList, Package, RefreshCw } from 'lucide-react';
 import type { Order } from '@/types';
+import { fetchOrders } from '@/services/catalog';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/auth';
 import { OrderCard } from '@/components/OrderCard';
 
 interface OrdersScreenProps {
   onOrderClick: (orderId: string) => void;
 }
 
-const ITEMS_PER_PAGE = 20;
-
 export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled'>('all');
 
-  // Pagination State
-  const [page, setPage] = useState(1);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-
-  const observer = useRef<IntersectionObserver | null>(null);
-
-  const fetchPaginatedOrders = useCallback(async (currentPage: number, currentFilter: string) => {
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (!authUser) return { orders: [], count: 0 };
-
-    const from = (currentPage - 1) * ITEMS_PER_PAGE;
-    const to = currentPage * ITEMS_PER_PAGE - 1;
-
-    let query = supabase
-      .from('orders')
-      .select('*', { count: 'exact' })
-      .eq('user_id', authUser.id)
-      .order('created_at', { ascending: false });
-
-    // Apply strict filtering at the database query level
-    if (currentFilter !== 'all') {
-      if (currentFilter === 'Processing') {
-        query = query.in('status', ['pending', 'confirmed', 'packed', 'ready_for_pickup']);
-      } else if (currentFilter === 'Out for Delivery') {
-        query = query.eq('status', 'out_for_delivery');
-      } else if (currentFilter === 'Delivered') {
-        query = query.eq('status', 'delivered');
-      } else if (currentFilter === 'Cancelled') {
-        query = query.eq('status', 'cancelled');
-      }
-    }
-
-    const { data: orderData, count, error } = await query.range(from, to);
-
-    if (error || !orderData || orderData.length === 0) return { orders: [], count: 0 };
-
-    const orderIds = orderData.map((o) => o.id);
-
-    const [itemsRes, paymentsRes] = await Promise.all([
-      supabase.from('order_items').select('*').in('order_id', orderIds),
-      supabase.from('payments').select('order_id, provider, status').in('order_id', orderIds),
-    ]);
-
-    const itemsByOrder: Record<string, any[]> = {};
-    (itemsRes.data || []).forEach((item) => {
-      if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
-      itemsByOrder[item.order_id].push(item);
-    });
-
-    const paymentsByOrder = Object.fromEntries(
-      (paymentsRes.data || []).map((p) => [p.order_id, p])
-    );
-
-    const statusMap: Record<string, Order['status']> = {
-      pending: 'Processing',
-      confirmed: 'Processing',
-      packed: 'Processing',
-      ready_for_pickup: 'Processing',
-      out_for_delivery: 'Out for Delivery',
-      delivered: 'Delivered',
-      cancelled: 'Cancelled',
-    };
-
-    const validOrders: Order[] = [];
-    
-    orderData.forEach((db) => {
-      const p = paymentsByOrder[db.id];
-      // Hide failed payments to keep view clean
-      if (p && p.provider === 'razorpay' && p.status === 'failed') return;
-
-      const items = itemsByOrder[db.id] || [];
-      validOrders.push({
-        id: db.id,
-        orderNo: db.order_number,
-        date: new Date(db.created_at).toLocaleDateString('en-IN', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        }),
-        itemCount: items.reduce((sum: number, i: any) => sum + i.quantity, 0),
-        total: Number(db.total),
-        status: statusMap[db.status] ?? 'Processing',
-        items: items.map((i: any) => `${i.brand} ${i.product_name}`),
-      });
-    });
-
-    return { orders: validOrders, count: count || 0 };
-  }, []);
-
-  const loadOrders = useCallback(async (targetPage = 1, silent = false) => {
-    if (!silent) {
-      if (targetPage === 1) setLoading(true);
-      else setLoadingMore(true);
-    }
-
+  const loadOrders = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
-      const { orders: newOrders, count } = await fetchPaginatedOrders(targetPage, filter);
+      const data = await fetchOrders();
+      const orderIds = (data || []).map((o) => o.id);
 
-      if (targetPage === 1) {
-        setOrders(newOrders);
+      if (orderIds.length > 0) {
+        const { data: payments } = await supabase
+          .from('payments')
+          .select('order_id, provider, status')
+          .in('order_id', orderIds);
+
+        const paymentsByOrder = Object.fromEntries(
+          (payments || []).map((p) => [p.order_id, p])
+        );
+
+        // Keep all valid orders (Wallet, COD, Razorpay)
+        const validOrders = (data || []).filter((order) => {
+          const p = paymentsByOrder[order.id];
+          if (p && p.provider === 'razorpay' && p.status === 'failed') {
+            return false;
+          }
+          return true;
+        });
+
+        setOrders(validOrders);
       } else {
-        setOrders((prev) => [...prev, ...newOrders]);
+        setOrders([]);
       }
-
-      setPage(targetPage);
-      setHasMore(targetPage * ITEMS_PER_PAGE < count);
     } catch (err) {
       console.error('Failed to load orders', err);
     } finally {
-      if (!silent) {
-        setLoading(false);
-        setLoadingMore(false);
-      }
+      setLoading(false);
       setRefreshing(false);
     }
-  }, [filter, fetchPaginatedOrders]);
+  }, []);
 
-  // Fetch when filter tab changes
+  // 1. Initial Load & Realtime Subscription
   useEffect(() => {
-    void loadOrders(1, false);
-  }, [filter, loadOrders]);
+    void loadOrders();
 
-  // Sentinel Ref for Intersection Observer
-  const sentinelRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (loadingMore) return;
-      if (observer.current) observer.current.disconnect();
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMore) {
-          void loadOrders(page + 1, false);
+    if (!user?.id) return;
+
+    // Instant channel subscription using synchronous auth user ID
+    const channel = supabase
+      .channel(`user_orders_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void loadOrders(true);
         }
-      });
-      if (node) observer.current.observe(node);
-    },
-    [loadingMore, hasMore, page, loadOrders]
-  );
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void loadOrders(true);
+        }
+      )
+      .subscribe();
 
-  // Background Data Refresh Listeners (Restores page 1 quietly to update order statuses)
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.id, loadOrders]);
+
+  // 2. KeepAlive Re-Activation Listener (Instant refresh on screen switch)
   useEffect(() => {
-    let active = true;
-
-    const handleKeepAliveFocus = (e: Event) => {
+    const handleActivated = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
-      if (active && (customEvent.detail?.key === '/orders' || customEvent.detail?.key === 'orders')) {
-        void loadOrders(1, true);
+      if (customEvent.detail?.key === '/orders' || customEvent.detail?.key === 'orders') {
+        void loadOrders(true);
       }
     };
 
     const handleVisibilityChange = () => {
-      const isCurrentlyActive = window.location.pathname.includes('/orders');
-      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
-        void loadOrders(1, true);
+      if (document.visibilityState === 'visible') {
+        void loadOrders(true);
       }
     };
 
-    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
+    window.addEventListener('keepalive:activated', handleActivated);
     window.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      active = false;
-      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
+      window.removeEventListener('keepalive:activated', handleActivated);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [loadOrders]);
 
   const handleManualRefresh = () => {
     setRefreshing(true);
-    void loadOrders(1, true);
+    void loadOrders(true);
   };
 
   const filters: ('all' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled')[] = [
@@ -194,6 +130,8 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     'Delivered',
     'Cancelled',
   ];
+
+  const filtered = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
 
   if (loading && orders.length === 0) {
     return (
@@ -219,16 +157,14 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
         </button>
       </div>
 
-      {orders.length === 0 && !loadingMore ? (
+      {orders.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
           <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600">
             <Package size={36} strokeWidth={1.5} />
           </div>
-          <h2 className="text-lg font-extrabold text-ink-900 mt-5">No orders found</h2>
+          <h2 className="text-lg font-extrabold text-ink-900 mt-5">No orders yet</h2>
           <p className="text-sm text-ink-500 mt-1 max-w-[250px]">
-            {filter === 'all' 
-              ? 'Your order history will appear here once you place your first order.'
-              : `You don't have any orders with the status "${filter}".`}
+            Your order history will appear here once you place your first order.
           </p>
         </div>
       ) : (
@@ -250,21 +186,16 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
           </div>
 
           <div className="space-y-3">
-            {orders.map((order) => (
+            {filtered.map((order) => (
               <OrderCard key={order.id} order={order} onClick={() => onOrderClick(order.id)} />
             ))}
-            
-            {/* Sentinel Div for Intersection Observer (Triggers loadOrders when scrolled into view) */}
-            <div ref={sentinelRef} className="h-10 flex items-center justify-center mt-4">
-              {loadingMore && <Loader2 size={24} className="animate-spin text-brand-600" />}
-            </div>
           </div>
 
-          <div className="rounded-2xl bg-brand-50 p-4 text-center mt-6">
+          <div className="rounded-2xl bg-brand-50 p-4 text-center">
             <ClipboardList size={23} className="mx-auto text-brand-600" />
             <p className="text-sm font-bold text-brand-900 mt-2">Need help with an order?</p>
             <p className="text-xs text-brand-700 mt-1">Our support team is here for you</p>
-            <button className="mt-3 text-xs font-bold text-brand-700 hover:underline">Contact support</button>
+            <button className="mt-3 text-xs font-bold text-brand-700">Contact support</button>
           </div>
         </>
       )}

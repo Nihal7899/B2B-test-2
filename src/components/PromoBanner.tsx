@@ -105,8 +105,7 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
 
   return (
     <div
-      onClick={() => onAction?.(banner)}
-      className={`relative cursor-pointer overflow-hidden rounded-2xl flex shadow-soft transform-gpu ${sizeConfig.container} ${tailwindBgClass} ${className}`}
+      className={`relative overflow-hidden rounded-2xl flex shadow-soft transform-gpu ${sizeConfig.container} ${tailwindBgClass} ${className}`}
     >
       <div className="absolute inset-0 z-0 transition-opacity duration-300" style={computedBgStyle} />
 

@@ -46,9 +46,11 @@ const downloadExcel = async (wb: XLSX.WorkBook, filename: string) => {
       (window as any).Capacitor?.isNativePlatform?.();
 
     if (isCapacitorNative) {
+      // 1. Generate Base64 string for Capacitor Filesystem
       const wboutBase64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
       const fileName = `${filename}.xlsx`;
 
+      // Try reading plugins from window or dynamic imports
       let Filesystem = (window as any).Capacitor?.Plugins?.Filesystem;
       let Directory = (window as any).Capacitor?.Plugins?.Directory || { Cache: 'CACHE' };
       let Share = (window as any).Capacitor?.Plugins?.Share;
@@ -88,6 +90,7 @@ const downloadExcel = async (wb: XLSX.WorkBook, filename: string) => {
       }
     }
 
+    // 2. Standard Web Browser Fallback
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -103,6 +106,7 @@ const downloadExcel = async (wb: XLSX.WorkBook, filename: string) => {
     toast.success('Excel downloaded!');
   } catch (err) {
     console.error('Download error:', err);
+    // Ultimate fallback for browser
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -261,7 +265,7 @@ export default function Reports() {
       const { fromUTC, toUTC } = getDateRange();
       let query = supabase
         .from('orders')
-        .select('id, total, created_at, updated_at, user_id, order_number, subtotal, discount, delivery_fee, gst_amount, cgst_amount, sgst_amount, business_snapshot')
+        .select('id, total, created_at, updated_at, user_id, order_number, subtotal, discount, delivery_fee, gst_amount, cgst_amount, sgst_amount')
         .eq('status', 'delivered')
         .gte('updated_at', fromUTC)
         .order('updated_at', { ascending: true });
@@ -362,67 +366,28 @@ export default function Reports() {
           .in('id', userIds);
         const { data: businesses } = await supabase
           .from('businesses')
-          .select('owner_user_id, business_name, gstin, is_default, created_at')
+          .select('owner_user_id, business_name, gstin')
           .in('owner_user_id', userIds);
 
-        const profileMap = new Map<string, { name: string; phone: string }>();
+        const nameMap = new Map();
+        const phoneMap = new Map();
+        const gstMap = new Map();
         profiles?.forEach((p) => {
-          profileMap.set(p.id, {
-            name: p.business_name || p.full_name || 'Customer',
-            phone: p.phone || '',
-          });
+          nameMap.set(p.id, p.business_name || p.full_name || 'Customer');
+          phoneMap.set(p.id, p.phone || '');
         });
-
-        const businessByOwner = new Map<string, { business_name: string; gstin: string }>();
-        (businesses || [])
-          .sort((a: any, b: any) => {
-            const ad = a.is_default ? 1 : 0;
-            const bd = b.is_default ? 1 : 0;
-            if (ad !== bd) return bd - ad;
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-          })
-          .forEach((b: any) => {
-            if (!businessByOwner.has(b.owner_user_id)) {
-              businessByOwner.set(b.owner_user_id, {
-                business_name: b.business_name || '',
-                gstin: b.gstin || '',
-              });
-            }
-          });
+        businesses?.forEach((b) => {
+          nameMap.set(b.owner_user_id, b.business_name);
+          gstMap.set(b.owner_user_id, b.gstin || '');
+        });
 
         gstData = gstData.map((g) => {
           const order = orders.find((o) => o.id === g.id);
-          if (!order) return g;
-
-          // 1. Prefer the immutable snapshot
-          const snap = (order as any).business_snapshot as
-            | { business_name?: string; gstin?: string | null }
-            | null
-            | undefined;
-
-          if (snap?.business_name) {
-            g.customer_name = snap.business_name;
-            g.customer_gst = snap.gstin || '';
-            const prof = profileMap.get(order.user_id);
-            g.customer_phone = prof?.phone || '';
-            return g;
+          if (order) {
+            g.customer_name = nameMap.get(order.user_id) || 'Customer';
+            g.customer_phone = phoneMap.get(order.user_id) || '';
+            g.customer_gst = gstMap.get(order.user_id) || '';
           }
-
-          // 2. Latest business fallback
-          const biz = businessByOwner.get(order.user_id);
-          if (biz && biz.business_name) {
-            g.customer_name = biz.business_name;
-            g.customer_gst = biz.gstin;
-            const prof = profileMap.get(order.user_id);
-            g.customer_phone = prof?.phone || '';
-            return g;
-          }
-
-          // 3. Profile fallback
-          const prof = profileMap.get(order.user_id);
-          g.customer_name = prof?.name || 'Customer';
-          g.customer_phone = prof?.phone || '';
-          g.customer_gst = '';
           return g;
         });
       }

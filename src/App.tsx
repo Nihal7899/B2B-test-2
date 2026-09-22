@@ -47,7 +47,7 @@ import StoreScreen from '@/screens/StoreScreen';
 import { CategoryScreen } from '@/screens/CategoryScreen';
 import { BrandScreen } from '@/screens/BrandScreen';
 import { WalletScreen } from '@/screens/WalletScreen';
-
+import { HomeLoadingScreen } from '@/components/HomeLoadingScreen';
 import type {
   Category,
   Product,
@@ -78,7 +78,11 @@ import {
 
 import { getOrFetchHomeData, getHomeDataSync } from '@/services/homePreload';
 import { startContinuousLocationWatch, stopContinuousLocationWatch } from '@/services/location';
+import HelpCenterScreen from '@/screens/HelpCenterScreen';
 
+// ----------------------------------------------------
+// CURRENT APP VERSION CONSTANT
+// ----------------------------------------------------
 export const CURRENT_APP_VERSION = '1.0.0';
 
 const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
@@ -105,6 +109,7 @@ const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   categoryDetail: '/category',
   brand: '/brand',
   wallet: '/wallet',
+  helpCenter: '/help',
 };
 
 const PATH_TO_SCREEN: Record<string, ScreenName | 'investor'> =
@@ -210,12 +215,19 @@ function App() {
     return Boolean(cache && cache._userId);
   });
   
+  const [showHomeLoader, setShowHomeLoader] = useState(() => {
+    const cache = getHomeDataSync();
+    return !Boolean(cache && cache._userId);
+  });
+
+  // --- APP UPDATE STATE ---
   const [versionData, setVersionData] = useState<AppVersionData | null>(null);
   const [needsForceUpdate, setNeedsForceUpdate] = useState(false);
 
   useEffect(() => {
     let active = true;
 
+    // 1. Exit immediately if running in a web browser
     if (!Capacitor.isNativePlatform()) return;
 
     const checkAppVersion = async () => {
@@ -249,6 +261,7 @@ function App() {
       active = false;
     };
   }, []);
+  // ------------------------
 
   useEffect(() => {
     let active = true;
@@ -258,6 +271,7 @@ function App() {
     if (!user) {
       setShowSplash(false);
       setIsHomeReady(false);
+      setShowHomeLoader(true);
       return;
     }
 
@@ -280,6 +294,8 @@ function App() {
     };
   }, [user, authLoading]);
 
+
+
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
 
@@ -290,13 +306,18 @@ function App() {
   const isInvestor = role === 'investor';
   const isDedicatedStaff = isDeliveryPartner || isWarehouseManager;
 
+  // --- ZOMATO-STYLE CONTINUOUS FOREGROUND GPS STREAM ---
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || !user || isDedicatedStaff) return;
+
+    // Start continuous hardware watch
     void startContinuousLocationWatch();
+
     return () => {
       void stopContinuousLocationWatch();
     };
   }, [user, isDedicatedStaff]);
+  // -----------------------------------------------------
 
   const deliveryTab = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -630,6 +651,8 @@ function App() {
           />
         );
 
+
+
       case 'orderDetail': {
         const orderId = new URLSearchParams(location.search).get('id');
         if (!orderId) return <Navigate to="/orders" replace />;
@@ -643,12 +666,14 @@ function App() {
             onBack={() => navigate(-1)} 
             onSaved={() => {
               if (isFromCheckout) {
-                navigate(-1);
+                navigate(-1); // Safely returns to checkout without creating a loop
               }
+              // If not from checkout, do nothing (stays on the addresses screen)
             }} 
           />
         );
       }
+
 
       case 'wishlist':
         return <WishlistScreen cart={cart} onProduct={openProduct} onShop={() => goTo('home')} />;
@@ -740,6 +765,9 @@ function App() {
 
       case 'store':
         return <StoreScreen goTo={goTo as any} />;
+        
+      case 'helpCenter':
+        return <HelpCenterScreen />;
 
       case 'brand':
         return <BrandScreen />;
@@ -774,18 +802,27 @@ function App() {
   return (
     <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
       <div
-        className={`mx-auto flex-1 w-full bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col transition-[max-width] duration-300 ${
+        className={`mx-auto flex-1 w-full bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col transition-all ${
           isLargeScreenView ? 'max-w-7xl' : 'max-w-[720px]'
         }`}
       >
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
           <BackButtonHandler disableBack={isDedicatedStaff || needsForceUpdate} />
           
-          <KeepAliveRenderer
-            currentKey={key}
-            render={renderScreen}
-            excludeKeys={['/wallet', '/account', '/order', '/investor', '/cart']}
-          />
+          {isHomeReady && (
+            <KeepAliveRenderer
+              currentKey={key}
+              render={renderScreen}
+              excludeKeys={['/wallet', '/account', '/order', '/investor', '/cart']}
+            />
+          )}
+
+          {showHomeLoader && (
+            <HomeLoadingScreen 
+              isReady={isHomeReady} 
+              onFinish={() => setShowHomeLoader(false)} 
+            />
+          )}
         </main>
 
         {!isDedicatedStaff &&
@@ -794,7 +831,7 @@ function App() {
           screen !== 'search' &&
           screen !== 'product' &&
           screen !== 'cart' &&
-          screen !== 'checkout' &&
+          screen !== 'checkout' &&   // <-- add this
           screen !== 'warehouse' &&
           screen !== 'investor' &&
           screen !== 'delivery' &&
@@ -808,6 +845,7 @@ function App() {
             </div>
           )}
 
+        {/* Forced Update Bottom Sheet - Displays after splash screen finishes */}
         {!showSplash && needsForceUpdate && versionData && (
           <AppUpdateBottomSheet
             versionData={versionData}

@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { SplashScreen as CapSplash } from '@capacitor/splash-screen';
+import { NavigationBar } from '@capawesome/capacitor-navigation-bar';
+import { HomeIndicator } from '@capawesome/capacitor-home-indicator';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -14,6 +18,21 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
   }, [onFinish]);
 
   useEffect(() => {
+    // Safely hide the native splash screen and system bars on mobile
+    if (Capacitor.isNativePlatform()) {
+      CapSplash.hide().catch(console.warn);
+      
+      const hideSystemNav = async () => {
+        try {
+          if (Capacitor.getPlatform() === 'android') await NavigationBar.hide();
+          if (Capacitor.getPlatform() === 'ios') await HomeIndicator.hide();
+        } catch (e) {
+          console.warn(e);
+        }
+      };
+      hideSystemNav();
+    }
+
     const fallbackTimer = setTimeout(() => {
       setExiting(true);
       setTimeout(() => onFinishRef.current(), 300);
@@ -25,6 +44,7 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
     if (!isReady || exiting) return;
 
     setExiting(true);
+    // 250ms matches the duration-250 in the CSS below perfectly
     const doneTimer = setTimeout(() => {
       onFinishRef.current();
     }, 250);

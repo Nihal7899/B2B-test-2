@@ -34,6 +34,7 @@ export default function DeliverySettingsManager() {
     void loadZones();
   }, [loadZones]);
 
+  // Load charges when zone changes
   useEffect(() => {
     if (!selectedZoneId) return;
     async function loadCharges() {
@@ -158,10 +159,6 @@ export default function DeliverySettingsManager() {
                     {charge.min_order_value !== null && charge.min_order_value > 0 && ` (min ₹${charge.min_order_value})`}
                     {charge.max_order_value !== null && ` - max ₹${charge.max_order_value}`}
                   </p>
-                  {/* Display the newly added estimated time safely */}
-                  {(charge as any).estimated_time && (
-                    <p className="text-xs text-brand-600 font-medium">ETA: {(charge as any).estimated_time}</p>
-                  )}
                 </div>
                 <div className="flex gap-1">
                   <button
@@ -187,6 +184,7 @@ export default function DeliverySettingsManager() {
   );
 }
 
+// ---- ZoneForm ----
 function ZoneForm({
   initial,
   onClose,
@@ -255,6 +253,7 @@ function ZoneForm({
   );
 }
 
+// ---- ChargeForm ----
 function ChargeForm({
   zoneId,
   initial,
@@ -270,7 +269,6 @@ function ChargeForm({
     min_order_value: initial?.min_order_value ?? '',
     max_order_value: initial?.max_order_value ?? '',
     charge: initial?.charge ?? 0,
-    estimated_time: (initial as any)?.estimated_time ?? '',
     is_active: initial?.is_active ?? true,
   });
   const [saving, setSaving] = useState(false);
@@ -279,16 +277,15 @@ function ChargeForm({
     setSaving(true);
     const payload = {
       zone_id: zoneId,
-      min_order_value: form.min_order_value ? parseFloat(form.min_order_value as string) : null,
-      max_order_value: form.max_order_value ? parseFloat(form.max_order_value as string) : null,
+      min_order_value: form.min_order_value ? parseFloat(form.min_order_value) : null,
+      max_order_value: form.max_order_value ? parseFloat(form.max_order_value) : null,
       charge: form.charge,
-      estimated_time: form.estimated_time,
       is_active: form.is_active,
     };
     if (initial) {
-      await updateDeliveryCharge(initial.id, payload as any);
+      await updateDeliveryCharge(initial.id, payload);
     } else {
-      await createDeliveryCharge(payload as any);
+      await createDeliveryCharge(payload);
     }
     setSaving(false);
     onSaved();
@@ -324,30 +321,16 @@ function ChargeForm({
           />
         </div>
       </div>
-      
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-bold text-ink-600 mb-1">Charge (₹) *</label>
-          <input
-            type="number"
-            step="0.01"
-            value={form.charge}
-            onChange={(e) => setForm({ ...form, charge: Number(e.target.value) })}
-            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-ink-600 mb-1">Estimated Time</label>
-          <input
-            type="text"
-            value={form.estimated_time}
-            onChange={(e) => setForm({ ...form, estimated_time: e.target.value })}
-            placeholder="e.g., 45 mins"
-            className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
-          />
-        </div>
+      <div>
+        <label className="block text-xs font-bold text-ink-600 mb-1">Charge (₹) *</label>
+        <input
+          type="number"
+          step="0.01"
+          value={form.charge}
+          onChange={(e) => setForm({ ...form, charge: Number(e.target.value) })}
+          className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
+        />
       </div>
-
       <label className="flex items-center gap-2 text-sm text-ink-700">
         <input
           type="checkbox"

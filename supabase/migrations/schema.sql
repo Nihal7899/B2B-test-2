@@ -11,8 +11,6 @@ CREATE TABLE public.profiles (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   personal_name text,
   registration_status text NOT NULL DEFAULT 'unregistered'::text CHECK (registration_status = ANY (ARRAY['unregistered'::text, 'registered'::text])),
-  staff_registration_status text NOT NULL DEFAULT 'unregistered'::text CHECK (staff_registration_status = ANY (ARRAY['unregistered'::text, 'registered'::text])),
-  current_cod_balance numeric NOT NULL DEFAULT 0 CHECK (current_cod_balance >= 0::numeric),
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
@@ -63,7 +61,6 @@ CREATE TABLE public.products (
   product_code text UNIQUE,
   subcategory_id uuid,
   image_urls ARRAY DEFAULT '{}'::text[],
-  stock_threshold integer NOT NULL DEFAULT 0,
   CONSTRAINT products_pkey PRIMARY KEY (id),
   CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id),
   CONSTRAINT products_subcategory_id_fkey FOREIGN KEY (subcategory_id) REFERENCES public.subcategories(id)
@@ -156,7 +153,6 @@ CREATE TABLE public.orders (
   delivery_zone_id uuid,
   cgst_amount numeric DEFAULT 0,
   sgst_amount numeric DEFAULT 0,
-  cancel_reason text,
   CONSTRAINT orders_pkey PRIMARY KEY (id),
   CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT orders_address_id_fkey FOREIGN KEY (address_id) REFERENCES public.addresses(id),
@@ -198,7 +194,7 @@ CREATE TABLE public.delivery_assignments (
 );
 CREATE TABLE public.payments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  order_id uuid,
+  order_id uuid NOT NULL UNIQUE,
   user_id uuid NOT NULL DEFAULT auth.uid(),
   provider text NOT NULL DEFAULT 'razorpay'::text,
   provider_order_id text,
@@ -251,7 +247,7 @@ CREATE TABLE public.home_banners (
   badge text,
   title text NOT NULL,
   description text NOT NULL DEFAULT ''::text,
-  image_url text DEFAULT ''::text,
+  image_url text NOT NULL DEFAULT ''::text,
   background_color text NOT NULL DEFAULT 'brand'::text,
   button_text text NOT NULL DEFAULT 'Shop now'::text,
   action_type text NOT NULL DEFAULT 'OPEN_SCREEN'::text,
@@ -262,7 +258,7 @@ CREATE TABLE public.home_banners (
   end_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  position text DEFAULT 'top'::text CHECK ("position" = ANY (ARRAY['top'::text, 'top_slider'::text, 'carousel'::text, 'middle'::text, 'middle_1'::text, 'middle_2'::text, 'middle_3'::text, 'bottom'::text, 'bottom_popup'::text])),
+  position text DEFAULT 'top'::text CHECK ("position" = ANY (ARRAY['top'::text, 'carousel'::text, 'middle'::text, 'bottom'::text])),
   bg_type text DEFAULT 'color'::text,
   bg_color text DEFAULT '#16a34a'::text,
   bg_gradient text DEFAULT 'from-brand-600 to-brand-800'::text,
@@ -270,10 +266,6 @@ CREATE TABLE public.home_banners (
   overlay_color text DEFAULT '#000000'::text,
   overlay_opacity integer DEFAULT 50,
   show_cta boolean DEFAULT true,
-  size text DEFAULT 'medium'::text CHECK (size = ANY (ARRAY['small'::text, 'medium'::text, 'large'::text])),
-  gradient_from text DEFAULT '#065f46'::text,
-  gradient_to text DEFAULT '#10b981'::text,
-  gradient_direction text DEFAULT 'to right'::text,
   CONSTRAINT home_banners_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.smart_collections (
@@ -495,7 +487,6 @@ CREATE TABLE public.notification_channels (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   small_icon text,
-  sound text,
   CONSTRAINT notification_channels_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.app_settings (
@@ -504,115 +495,4 @@ CREATE TABLE public.app_settings (
   value jsonb NOT NULL,
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT app_settings_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.whatsapp_campaigns (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  template_name text NOT NULL,
-  audience_type text NOT NULL DEFAULT 'all'::text,
-  total_recipients integer NOT NULL DEFAULT 0,
-  successful_sends integer NOT NULL DEFAULT 0,
-  failed_sends integer NOT NULL DEFAULT 0,
-  template_params jsonb NOT NULL DEFAULT '{}'::jsonb,
-  button_param text,
-  status text NOT NULL DEFAULT 'completed'::text,
-  sent_by uuid,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT whatsapp_campaigns_pkey PRIMARY KEY (id),
-  CONSTRAINT whatsapp_campaigns_sent_by_fkey FOREIGN KEY (sent_by) REFERENCES auth.users(id)
-);
-CREATE TABLE public.whatsapp_message_logs (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  campaign_id uuid,
-  user_id uuid,
-  recipient_phone text NOT NULL,
-  status text NOT NULL DEFAULT 'queued'::text,
-  whatsapp_message_id text,
-  error_message text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT whatsapp_message_logs_pkey PRIMARY KEY (id),
-  CONSTRAINT whatsapp_message_logs_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES public.whatsapp_campaigns(id),
-  CONSTRAINT whatsapp_message_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
-);
-CREATE TABLE public.home_sections (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  subtitle text DEFAULT ''::text,
-  section_type text NOT NULL CHECK (section_type = ANY (ARRAY['categories'::text, 'popular_products'::text, 'quick_reorder'::text, 'recently_viewed'::text, 'volume_deals'::text, 'new_arrivals'::text, 'top_rated'::text, 'limited_stock'::text, 'brand_spotlight'::text, 'deals'::text, 'essentials'::text, 'stores'::text, 'brands'::text, 'perks'::text, 'banner_slot'::text, 'custom_products'::text])),
-  banner_position text DEFAULT 'middle_1'::text,
-  banner_size text DEFAULT 'medium'::text CHECK (banner_size = ANY (ARRAY['small'::text, 'medium'::text, 'large'::text])),
-  sort_order integer NOT NULL DEFAULT 0,
-  is_active boolean NOT NULL DEFAULT true,
-  config jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT home_sections_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.whatsapp_templates (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  template_name text NOT NULL UNIQUE,
-  display_name text NOT NULL,
-  description text DEFAULT ''::text,
-  language text NOT NULL DEFAULT 'en'::text,
-  has_header boolean NOT NULL DEFAULT false,
-  header_type text NOT NULL DEFAULT 'NONE'::text CHECK (header_type = ANY (ARRAY['NONE'::text, 'IMAGE'::text, 'DOCUMENT'::text, 'VIDEO'::text, 'TEXT'::text])),
-  body_text text NOT NULL,
-  variables_config jsonb NOT NULL DEFAULT '[]'::jsonb,
-  has_dynamic_button boolean NOT NULL DEFAULT false,
-  button_label text DEFAULT 'Visit Website'::text,
-  button_default_param text DEFAULT ''::text,
-  is_active boolean NOT NULL DEFAULT true,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT whatsapp_templates_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.wallets (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL UNIQUE,
-  balance numeric NOT NULL DEFAULT 0 CHECK (balance >= 0::numeric),
-  currency text NOT NULL DEFAULT 'INR'::text,
-  is_active boolean NOT NULL DEFAULT true,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT wallets_pkey PRIMARY KEY (id),
-  CONSTRAINT wallets_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
-);
-CREATE TABLE public.wallet_transactions (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  wallet_id uuid NOT NULL,
-  user_id uuid NOT NULL,
-  amount numeric NOT NULL CHECK (amount > 0::numeric),
-  type text NOT NULL CHECK (type = ANY (ARRAY['credit'::text, 'debit'::text])),
-  purpose text NOT NULL CHECK (purpose = ANY (ARRAY['topup'::text, 'order_payment'::text, 'refund'::text, 'cashback'::text, 'adjustment'::text])),
-  reference_id text,
-  description text NOT NULL DEFAULT ''::text,
-  balance_after numeric NOT NULL CHECK (balance_after >= 0::numeric),
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT wallet_transactions_pkey PRIMARY KEY (id),
-  CONSTRAINT wallet_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id),
-  CONSTRAINT wallet_transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
-);
-CREATE TABLE public.delivery_partner_cod_settlements (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  delivery_partner_id uuid NOT NULL,
-  amount numeric NOT NULL CHECK (amount > 0::numeric),
-  cleared_by uuid NOT NULL,
-  payment_mode text NOT NULL DEFAULT 'cash'::text CHECK (payment_mode = ANY (ARRAY['cash'::text, 'bank_transfer'::text, 'upi'::text])),
-  notes text DEFAULT ''::text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT delivery_partner_cod_settlements_pkey PRIMARY KEY (id),
-  CONSTRAINT delivery_partner_cod_settlements_delivery_partner_id_fkey FOREIGN KEY (delivery_partner_id) REFERENCES auth.users(id),
-  CONSTRAINT delivery_partner_cod_settlements_cleared_by_fkey FOREIGN KEY (cleared_by) REFERENCES auth.users(id)
-);
-CREATE TABLE public.search_synonyms (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  keyword character varying NOT NULL UNIQUE,
-  synonyms ARRAY NOT NULL DEFAULT '{}'::text[],
-  is_active boolean DEFAULT true,
-  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
-  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
-  CONSTRAINT search_synonyms_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.warehouse_sync_signals (
-  id integer NOT NULL DEFAULT 1,
-  last_updated timestamp with time zone DEFAULT now(),
-  CONSTRAINT warehouse_sync_signals_pkey PRIMARY KEY (id)
 );

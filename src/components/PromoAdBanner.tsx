@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import type { PromoBanner } from '@/types';
-import { useCachedImage } from '@/lib/imageCache';
 
 interface PromoAdBannerProps {
   banner: PromoBanner;
@@ -16,6 +15,7 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
   const promoCode = (banner.actionConfig?.promoCode as string) || '';
   const discount = (banner.actionConfig?.discount as string) || '';
 
+  // Customizable colors from actionConfig
   const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
   const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
   const badgeBg = (banner.actionConfig?.badgeBg as string) || '';
@@ -24,15 +24,13 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
   const promoCodeColor = (banner.actionConfig?.promoCodeColor as string) || '#ffffff';
   const discountColor = (banner.actionConfig?.discountColor as string) || '#ffffff';
 
-  const cachedBgUrl = useCachedImage(banner?.bgType === 'image' ? banner?.image : undefined);
-
   const { computedBgStyle, tailwindBgClass } = useMemo(() => {
     let computedBgStyle: React.CSSProperties = {};
     let tailwindBgClass = '';
 
     if (banner.bgType === 'image') {
       computedBgStyle = {
-        backgroundImage: cachedBgUrl ? `url(${cachedBgUrl})` : 'none',
+        backgroundImage: `url(${banner.image})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       };
@@ -54,12 +52,12 @@ export const PromoAdBanner = React.memo(function PromoAdBanner({
     }
 
     return { computedBgStyle, tailwindBgClass };
-  }, [banner, cachedBgUrl]);
+  }, [banner]);
 
   return (
     <div
       onClick={() => onAction?.(banner)}
-      className={`rounded-2xl overflow-hidden relative min-h-[110px] shadow-card transform-gpu p-4 flex flex-col justify-center cursor-pointer transition-all duration-300 ${tailwindBgClass} ${className}`}
+      className={`rounded-2xl overflow-hidden relative min-h-[110px] shadow-card transform-gpu p-4 flex flex-col justify-center cursor-pointer ${tailwindBgClass} ${className}`}
       style={computedBgStyle}
     >
       {banner.overlayEnabled && (

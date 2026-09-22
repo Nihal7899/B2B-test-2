@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Heart,
   Star,
@@ -11,14 +11,18 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { Product } from '@/types';
-import { CachedImage } from '@/components/CachedImage';
+import { toggleWishlist } from '@/services/catalog';
 
-export interface ThemeProps {
+interface ThemeProps {
   primaryColor?: string;
   secondaryColor?: string;
   textColor?: string;
   borderColor?: string;
   buttonStyle?: 'brand' | 'outline' | 'ghost';
+  cardRadius?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  shadowIntensity?: 'none' | 'sm' | 'md' | 'lg';
+  gradientFrom?: string;
+  gradientTo?: string;
 }
 
 const DEFAULT_THEME: ThemeProps = {};
@@ -26,7 +30,7 @@ const DEFAULT_THEME: ThemeProps = {};
 interface ProductCardProps {
   product: Product;
   quantity: number;
-  onAdd: (product: Product, quantity?: number) => void;
+  onAdd: (product: Product) => void;
   onIncrement: (product: Product) => void;
   onDecrement: (product: Product) => void;
   onClick: (product: Product) => void;
@@ -55,8 +59,8 @@ export const ProductCard = React.memo(function ProductCard({
   onWishlistToggle,
 }: ProductCardProps) {
   const {
-    primaryColor = '#02402c',
-    secondaryColor = '#03543a',
+    primaryColor = '#10b981',
+    secondaryColor = '#059669',
     textColor = '#172033',
     borderColor = '#e8edf0',
     buttonStyle = 'brand',
@@ -67,28 +71,56 @@ export const ProductCard = React.memo(function ProductCard({
       ? Math.round(((product.mrp - product.price) / product.mrp) * 100)
       : 0;
 
+  const [localWishlisted, setLocalWishlisted] = useState(isWishlisted);
   const [added, setAdded] = useState(false);
 
-  const handleAdd = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (!product.inStock) return;
-      onAdd(product, product.moq);
-      setAdded(true);
-      setTimeout(() => {
-        setAdded(false);
-      }, 1000);
-    },
-    [onAdd, product]
-  );
+  // Synchronize local state with prop updates
+  useEffect(() => {
+    setLocalWishlisted(isWishlisted);
+  }, [isWishlisted]);
 
-  const handleWishlistClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onWishlistToggle?.(product.id);
-    },
-    [onWishlistToggle, product.id]
-  );
+  // Synchronize with external wishlist events without reloading
+  useEffect(() => {
+    const handleGlobalUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ productId: string; wishlisted: boolean }>;
+      if (customEvent.detail?.productId === product.id) {
+        setLocalWishlisted(customEvent.detail.wishlisted);
+      }
+    };
+    window.addEventListener('wishlist-updated', handleGlobalUpdate);
+    return () => window.removeEventListener('wishlist-updated', handleGlobalUpdate);
+  }, [product.id]);
+
+  const handleAdd = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onAdd(product);
+    setAdded(true);
+    setTimeout(() => {
+      setAdded(false);
+    }, 1200);
+  }, [onAdd, product]);
+
+  const handleWishlistClick = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextState = !localWishlisted;
+    setLocalWishlisted(nextState);
+
+    try {
+      if (onWishlistToggle) {
+        onWishlistToggle(product.id);
+      } else {
+        await toggleWishlist(product.id, localWishlisted);
+      }
+      window.dispatchEvent(
+        new CustomEvent('wishlist-updated', {
+          detail: { productId: product.id, wishlisted: nextState },
+        })
+      );
+    } catch (err) {
+      console.error('Failed to toggle wishlist', err);
+      setLocalWishlisted(!nextState); // Rollback optimistic update
+    }
+  }, [localWishlisted, onWishlistToggle, product.id]);
 
   const handleIncrement = useCallback(() => onIncrement(product), [onIncrement, product]);
   const handleDecrement = useCallback(() => onDecrement(product), [onDecrement, product]);
@@ -109,115 +141,226 @@ export const ProductCard = React.memo(function ProductCard({
       onClick={() => onClick(product)}
       className={`
         group relative flex flex-col overflow-hidden
-        cursor-pointer bg-white border
-        ${horizontal ? 'w-[172px] shrink-0' : 'w-full'}
-        rounded-2xl shadow-sm
-        active:scale-[0.985] transform-gpu
+        cursor-pointer bg-white
+        border
+        ${horizontal ? 'w-[184px] shrink-0' : 'w-full'}
+        rounded-[22px]
+        transition-transform duration-300
+        hover:-translate-y-1
+        active:scale-[0.985]
+        transform-gpu
       `}
-      style={{ borderColor }}
+      style={{
+        borderColor,
+        boxShadow: '0 4px 16px rgba(15, 23, 42, 0.08)',
+      }}
     >
-      <div className="relative flex h-[135px] w-full items-center justify-center overflow-hidden bg-slate-50">
-        {product.image ? (
-          <CachedImage
-            src={product.image}
-            alt={product.name}
-            decoding="async"
-            className={`h-full w-full object-cover transition-all ${!product.inStock ? 'grayscale opacity-75' : ''}`}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-slate-300">
-            <Package size={34} strokeWidth={1.5} />
-          </div>
-        )}
+      {/* Product Image */}
+      <div className="relative h-[144px] w-full overflow-hidden bg-slate-50">
+        <img
+          src={product.image}
+          alt={product.name}
+          decoding="async"
+          className="
+            h-full
+            w-full
+            object-cover
+            transition-transform
+            duration-500
+            group-hover:scale-[1.05]
+          "
+        />
 
-        {/* Elegant Out of Stock Overlay */}
-        {!product.inStock && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/40 backdrop-blur-[2px]">
-            <div className="bg-white/95 px-2.5 py-1.5 rounded-lg shadow-sm border border-slate-100 flex items-center gap-1.5">
-              <Package size={12} className="text-slate-400" />
-              <span className="text-[9px] font-black tracking-widest text-slate-600 uppercase">Sold Out</span>
-            </div>
-          </div>
-        )}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-20"
+          style={{
+            background: `linear-gradient(
+              145deg,
+              ${primaryColor}55,
+              transparent 55%,
+              ${secondaryColor}22
+            )`,
+          }}
+        />
 
-        <div className="absolute left-2 top-2 z-10">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/20 to-transparent" />
+
+        {/* Deal Badge */}
+        <div className="absolute left-2.5 top-2.5">
           {discount > 0 ? (
             <div
-              className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[8px] font-black tracking-wide text-white shadow-xs ${!product.inStock ? 'grayscale' : ''}`}
-              style={{ backgroundColor: primaryColor }}
+              className="
+                flex items-center gap-1
+                rounded-full
+                px-2.5 py-1
+                text-[8px]
+                font-black
+                tracking-wide
+                text-white
+                shadow-sm
+              "
+              style={{
+                backgroundColor: primaryColor,
+              }}
             >
-              <Sparkles size={8} strokeWidth={2.5} />
+              <Sparkles size={9} strokeWidth={2.5} />
               {discount}% OFF
             </div>
           ) : (
-            <div className="rounded-full bg-white/95 px-2 py-0.5 text-[8px] font-black tracking-wide text-slate-700 shadow-xs">
+            <div className="rounded-full bg-white/95 px-2.5 py-1 text-[8px] font-black tracking-wide text-slate-700 shadow-sm">
               {productTag}
             </div>
           )}
         </div>
 
+        {/* Wishlist Button */}
         <button
           type="button"
           onClick={handleWishlistClick}
-          className="absolute right-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-500 shadow-xs active:scale-90"
-          aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          className="
+            absolute right-2.5 top-2.5 z-10
+            flex h-8 w-8
+            items-center justify-center
+            rounded-full
+            border border-white/70
+            bg-white/95
+            text-slate-500
+            shadow-sm
+            transition-transform
+            hover:scale-105
+            active:scale-90
+          "
+          aria-label={
+            localWishlisted
+              ? 'Remove from wishlist'
+              : 'Add to wishlist'
+          }
         >
           <Heart
-            size={13}
+            size={14}
             strokeWidth={2.2}
-            className={isWishlisted ? 'fill-red-500 text-red-500' : 'text-slate-600'}
+            className={
+              localWishlisted
+                ? 'fill-red-500 text-red-500'
+                : 'text-slate-600'
+            }
           />
         </button>
 
-        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full border border-white bg-white/95 px-1.5 py-0.5 shadow-xs z-10">
-          <ShieldCheck size={8} strokeWidth={2.5} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
+        {/* Quality Floating Badge */}
+        <div
+          className="
+            absolute
+            bottom-2
+            right-2
+            flex
+            items-center
+            gap-1
+            rounded-full
+            border
+            border-white
+            bg-white/95
+            px-2
+            py-1
+            shadow-sm
+          "
+        >
+          <ShieldCheck
+            size={9}
+            strokeWidth={2.5}
+            style={{ color: primaryColor }}
+          />
+
           <span
-            className={`text-[7px] font-extrabold uppercase max-w-[65px] truncate ${!product.inStock ? 'text-slate-500' : ''}`}
-            style={product.inStock ? { color: primaryColor } : undefined}
+            className="text-[7px] font-extrabold uppercase max-w-[80px] truncate"
+            style={{ color: primaryColor }}
           >
             {productQuality}
           </span>
         </div>
       </div>
 
-      <div className="relative p-2.5 flex flex-col justify-between flex-1 bg-white">
-        <div>
+      {/* Curved Content Top */}
+      <div className="relative bg-white">
+        <div
+          className="absolute -top-[17px] left-0 h-[25px] w-full"
+          style={{
+            backgroundColor: 'white',
+            clipPath: 'ellipse(70% 75% at 25% 100%)',
+          }}
+        />
+
+        <div
+          className="absolute -top-[3px] left-4 h-[3px] w-9 rounded-full opacity-80"
+          style={{
+            backgroundColor: primaryColor,
+          }}
+        />
+
+        {/* Content */}
+        <div className="relative px-3 pb-2 pt-1">
           <div className="flex items-center gap-1">
             <p
-              className={`max-w-[100px] truncate text-[8.5px] font-black uppercase tracking-[0.03em] ${!product.inStock ? 'text-slate-400' : ''}`}
-              style={product.inStock ? { color: primaryColor } : undefined}
+              className="
+                max-w-[105px]
+                truncate
+                text-[9px]
+                font-black
+                uppercase
+                tracking-[0.04em]
+              "
+              style={{ color: primaryColor }}
             >
               {product.brand}
             </p>
+
             <div
-              className="flex h-3 w-3 items-center justify-center rounded-full"
-              style={{ backgroundColor: product.inStock ? `${primaryColor}18` : '#f1f5f9' }}
+              className="flex h-3.5 w-3.5 items-center justify-center rounded-full"
+              style={{
+                backgroundColor: `${primaryColor}18`,
+              }}
             >
-              <ShieldCheck size={8} strokeWidth={2.8} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
+              <ShieldCheck
+                size={9}
+                strokeWidth={2.8}
+                style={{ color: primaryColor }}
+              />
             </div>
           </div>
 
           <h3
-            className={`mt-0.5 line-clamp-1 text-[11px] font-extrabold leading-tight tracking-[-0.1px] ${!product.inStock ? 'text-slate-500' : ''}`}
-            style={product.inStock ? { color: textColor } : undefined}
+            className="
+              mt-0.5
+              line-clamp-2
+              min-h-[29px]
+              text-[12px]
+              font-extrabold
+              leading-[1.2]
+              tracking-[-0.15px]
+            "
+            style={{ color: textColor }}
           >
             {product.name}
           </h3>
 
-          <div className="mt-1 flex items-center justify-between gap-1">
-            <div className="flex items-center gap-1">
-              <span className="rounded bg-slate-100 px-1 py-0.5 text-[7.5px] font-bold text-slate-500">
-                {product.packSize}
-              </span>
-              <span className="rounded bg-slate-100 px-1 py-0.5 text-[7.5px] font-bold text-slate-500">
-                MOQ {product.moq}
-              </span>
-            </div>
+          <div className="mt-1 flex items-center gap-1">
+            <span className="rounded-md bg-slate-50 px-1.5 py-1 text-[8px] font-bold text-slate-500">
+              {product.packSize}
+            </span>
+            <span className="text-[9px] text-slate-300">•</span>
+            <span className="rounded-md bg-slate-50 px-1.5 py-1 text-[8px] font-bold text-slate-500">
+              MOQ {product.moq}
+            </span>
+          </div>
 
-            <div className={`flex items-center gap-0.5 rounded-full px-1 py-0.5 ${!product.inStock ? 'bg-slate-100' : 'bg-amber-50'}`}>
-              <Star size={8} className={!product.inStock ? 'fill-slate-400 text-slate-400' : 'fill-amber-400 text-amber-400'} />
-              <span className={`text-[8px] font-bold ${!product.inStock ? 'text-slate-500' : 'text-slate-700'}`}>{product.rating}</span>
+          <div className="mt-1 flex items-center gap-1.5">
+            <div className="flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5">
+              <Star size={9} className="fill-amber-400 text-amber-400" />
+              <span className="text-[9px] font-bold text-slate-700">
+                {product.rating}
+              </span>
             </div>
+            <span className="text-[8px] text-slate-400">Trusted</span>
           </div>
 
           <div className="mt-1 flex items-center gap-1">
@@ -226,93 +369,125 @@ export const ProductCard = React.memo(function ProductCard({
               return (
                 <div
                   key={feature.label}
-                  className="flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded bg-slate-50 px-0.5 py-0.5"
+                  className="
+                    flex
+                    min-w-0
+                    flex-1
+                    items-center
+                    justify-center
+                    gap-1
+                    rounded-lg
+                    bg-slate-50
+                    px-1
+                    py-1.5
+                  "
                 >
-                  <Icon size={8} strokeWidth={2.2} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
-                  <span className="truncate text-[6.5px] font-bold text-slate-500">
+                  <Icon
+                    size={9}
+                    strokeWidth={2.3}
+                    style={{ color: primaryColor }}
+                  />
+                  <span className="truncate text-[7px] font-bold text-slate-500">
                     {feature.label}
                   </span>
                 </div>
               );
             })}
           </div>
-        </div>
 
-        <div className="mt-2 flex items-end justify-between gap-1">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1">
-              <p className="text-[7.5px] font-medium text-slate-400 line-through">
-                ₹{product.mrp}
-              </p>
-              {discount > 0 && (
-                <span className={`text-[6.5px] font-extrabold ${!product.inStock ? 'text-slate-400' : 'text-red-500'}`}>
-                  {discount}% OFF
+          <div className="mt-1.5 flex items-end justify-between gap-1">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1">
+                <p className="text-[8px] font-medium text-slate-400 line-through">
+                  MRP ₹{product.mrp}
+                </p>
+                {discount > 0 && (
+                  <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[7px] font-extrabold text-red-500">
+                    {discount}% OFF
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-0.5 flex items-baseline gap-0.5">
+                <span
+                  className="text-[18px] font-black leading-none tracking-[-0.5px]"
+                  style={{ color: primaryColor }}
+                >
+                  ₹{product.price}
                 </span>
-              )}
+                <span className="text-[7px] font-semibold text-slate-400">
+                  /{product.packSize}
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-baseline gap-0.5">
+            {quantity > 0 ? (
+              <QuantitySelector
+                quantity={quantity}
+                onIncrement={handleIncrement}
+                onDecrement={handleDecrement}
+                theme={quantityTheme}
+              />
+            ) : added ? (
               <span
-                className={`text-[15px] font-black leading-none tracking-tight ${!product.inStock ? 'text-slate-500' : ''}`}
-                style={product.inStock ? { color: primaryColor } : undefined}
+                className="
+                  flex
+                  h-8
+                  items-center
+                  gap-1
+                  rounded-xl
+                  px-2.5
+                  text-[9px]
+                  font-extrabold
+                  text-white
+                  shadow-sm
+                "
+                style={{
+                  backgroundColor: primaryColor,
+                }}
               >
-                ₹{product.price}
+                ✓ Added
               </span>
-              <span className="text-[7px] font-semibold text-slate-400">
-                /{product.packSize}
-              </span>
-            </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleAdd}
+                className="
+                  flex
+                  h-8
+                  items-center
+                  gap-1
+                  rounded-xl
+                  px-2.5
+                  text-[10px]
+                  font-extrabold
+                  shadow-sm
+                  transition-transform
+                  active:scale-95
+                "
+                style={
+                  buttonStyle === 'outline'
+                    ? {
+                        backgroundColor: 'white',
+                        border: `1px solid ${primaryColor}`,
+                        color: primaryColor,
+                      }
+                    : buttonStyle === 'ghost'
+                    ? {
+                        backgroundColor: `${primaryColor}12`,
+                        color: primaryColor,
+                      }
+                    : {
+                        backgroundColor: primaryColor,
+                        color: 'white',
+                      }
+                }
+              >
+                <ShoppingCart size={12} strokeWidth={2.6} />
+                Add
+              </button>
+            )}
           </div>
-
-          {quantity > 0 ? (
-            <QuantitySelector
-              quantity={quantity}
-              onIncrement={handleIncrement}
-              onDecrement={handleDecrement}
-              theme={quantityTheme}
-            />
-          ) : !product.inStock ? (
-            <button
-              type="button"
-              disabled
-              className="flex h-7 items-center justify-center rounded-lg bg-slate-50 border border-slate-100 px-2.5 text-[9px] font-extrabold text-slate-400 shadow-none cursor-not-allowed"
-            >
-              Out of stock
-            </button>
-          ) : added ? (
-            <span
-              className="flex h-7 items-center gap-1 rounded-lg px-2 text-[8.5px] font-extrabold text-white shadow-sm"
-              style={{ backgroundColor: primaryColor }}
-            >
-              ✓ Added
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={handleAdd}
-              className="flex h-7 items-center gap-1 rounded-lg px-2.5 text-[9.5px] font-extrabold shadow-sm active:scale-95"
-              style={
-                buttonStyle === 'outline'
-                  ? {
-                      backgroundColor: 'white',
-                      border: `1px solid ${primaryColor}`,
-                      color: primaryColor,
-                    }
-                  : buttonStyle === 'ghost'
-                  ? {
-                      backgroundColor: `${primaryColor}12`,
-                      color: primaryColor,
-                    }
-                  : {
-                      backgroundColor: primaryColor,
-                      color: 'white',
-                    }
-              }
-            >
-              <ShoppingCart size={11} strokeWidth={2.6} />
-              Add
-            </button>
-          )}
         </div>
       </div>
     </article>
@@ -337,13 +512,22 @@ export const QuantitySelector = React.memo(function QuantitySelector({
   size = 'sm',
   theme = DEFAULT_THEME,
 }: QuantitySelectorProps) {
-  const { primaryColor = '#02402c' } = theme;
-  const buttonSize = size === 'md' ? 'h-6 w-6' : 'h-5.5 w-5.5';
+  const { primaryColor = '#10b981' } = theme;
+  const buttonSize = size === 'md' ? 'h-7 w-7' : 'h-6 w-6';
 
   return (
     <div
-      className="flex items-center gap-0.5 rounded-lg p-0.5 shadow-2xs"
-      style={{ backgroundColor: `${primaryColor}18` }}
+      className="
+        flex
+        items-center
+        gap-0.5
+        rounded-xl
+        p-0.5
+        shadow-sm
+      "
+      style={{
+        backgroundColor: `${primaryColor}18`,
+      }}
     >
       <button
         type="button"
@@ -351,15 +535,30 @@ export const QuantitySelector = React.memo(function QuantitySelector({
           e.stopPropagation();
           onDecrement();
         }}
-        className={`flex ${buttonSize} items-center justify-center rounded-md bg-white shadow-2xs active:scale-90`}
+        className={`
+          flex
+          ${buttonSize}
+          items-center
+          justify-center
+          rounded-lg
+          bg-white
+          shadow-sm
+          transition-transform
+          active:scale-90
+        `}
         style={{ color: primaryColor }}
         aria-label="Decrease quantity"
       >
-        <Minus size={9} />
+        <Minus size={12} />
       </button>
 
       <span
-        className="min-w-[15px] text-center text-[9.5px] font-black"
+        className="
+          min-w-[18px]
+          text-center
+          text-[10px]
+          font-black
+        "
         style={{ color: primaryColor }}
       >
         {quantity}
@@ -371,11 +570,21 @@ export const QuantitySelector = React.memo(function QuantitySelector({
           e.stopPropagation();
           onIncrement();
         }}
-        className={`flex ${buttonSize} items-center justify-center rounded-md bg-white shadow-2xs active:scale-90`}
+        className={`
+          flex
+          ${buttonSize}
+          items-center
+          justify-center
+          rounded-lg
+          bg-white
+          shadow-sm
+          transition-transform
+          active:scale-90
+        `}
         style={{ color: primaryColor }}
         aria-label="Increase quantity"
       >
-        <Plus size={9} />
+        <Plus size={12} />
       </button>
     </div>
   );
@@ -383,14 +592,13 @@ export const QuantitySelector = React.memo(function QuantitySelector({
 
 interface ProductCarouselProps {
   title: string;
-  subtitle?: string;
   products: Product[];
   getQuantity: (id: string) => number;
-  onAdd: (product: Product, quantity?: number) => void;
+  onAdd: (product: Product) => void;
   onIncrement: (product: Product) => void;
   onDecrement: (product: Product) => void;
   onProductClick: (product: Product) => void;
-  onViewAll?: () => void;
+  onViewAll: () => void;
   theme?: ThemeProps;
   wishlist?: string[];
   onWishlistToggle?: (id: string) => void;
@@ -398,7 +606,6 @@ interface ProductCarouselProps {
 
 export const ProductCarousel = React.memo(function ProductCarousel({
   title,
-  subtitle,
   products,
   getQuantity,
   onAdd,
@@ -410,44 +617,54 @@ export const ProductCarousel = React.memo(function ProductCarousel({
   wishlist = [],
   onWishlistToggle,
 }: ProductCarouselProps) {
-  const activePrimary = theme.primaryColor || '#02402c';
-
   return (
     <section className="transform-gpu">
-      <div className="mb-2.5 flex items-center justify-between px-4">
+      <div className="mb-3 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <div
-            className="h-4 w-1 rounded-full"
-            style={{ backgroundColor: activePrimary }}
+            className="h-6 w-1 rounded-full"
+            style={{
+              backgroundColor: theme.primaryColor || '#10b981',
+            }}
           />
           <div>
             <h2 className="text-base font-black tracking-tight text-slate-900">
               {title}
             </h2>
             <p className="text-[9px] font-medium text-slate-400">
-              {subtitle || 'Fresh deals for your business'}
+              Fresh deals for your business
             </p>
           </div>
         </div>
 
-        {onViewAll && (
-          <button
-            type="button"
-            onClick={onViewAll}
-            className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-[9.5px] font-extrabold active:scale-95"
-            style={{
-              color: activePrimary,
-              borderColor: `${activePrimary}35`,
-              backgroundColor: `${activePrimary}08`,
-            }}
-          >
-            View All
-            <span className="text-[10px]">→</span>
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onViewAll}
+          className="
+            flex
+            items-center
+            gap-1
+            rounded-full
+            border
+            px-3
+            py-1.5
+            text-[10px]
+            font-extrabold
+            transition-transform
+            active:scale-95
+          "
+          style={{
+            color: theme.primaryColor || '#059669',
+            borderColor: `${theme.primaryColor || '#10b981'}35`,
+            backgroundColor: `${theme.primaryColor || '#10b981'}08`,
+          }}
+        >
+          View All
+          <span className="text-[12px]">→</span>
+        </button>
       </div>
 
-      <div className="flex gap-2.5 overflow-x-auto px-4 pb-2 no-scrollbar scroll-touch transform-gpu">
+      <div className="flex gap-3 overflow-x-auto px-4 pb-2 no-scrollbar scroll-touch transform-gpu">
         {products.map((product) => (
           <ProductCard
             key={product.id}

@@ -3,31 +3,6 @@ import { supabase } from '@/lib/supabase';
 import { getInvoiceConfig, getInvoiceDesign, type InvoiceConfig, type InvoiceDesignSettings } from './invoice.service';
 import type { DbOrder, DbOrderItem, DbAddress } from './catalog';
 
-export interface PaymentBreakdown {
-  walletPaid: number;
-  onlinePaid: number;
-  codPending: number;
-  codPaid: number;
-  totalPaid: number;
-  amountToCollect: number;
-  isSplit: boolean;
-  paymentStatusText: string;
-  paymentStatusBg: string;
-  paymentStatusColor: string;
-  providers: string[];
-}
-
-export interface BillingAddressSnapshot {
-  business_name?: string;
-  gstin?: string | null;
-  address_line_1?: string | null;
-  address_line_2?: string | null;
-  city?: string | null;
-  state?: string | null;
-  landmark?: string | null;
-  pincode?: string | null;
-}
-
 export interface OrderBillData {
   order: DbOrder;
   items: (DbOrderItem & { hsn_code?: string; gst_percentage?: number })[];
@@ -35,10 +10,7 @@ export interface OrderBillData {
   customerName: string;
   customerPhone: string;
   customerGst?: string;
-  billingAddress?: BillingAddressSnapshot | null;
-  billingAddressLine?: string;
-  payments: { id: string; provider: string; status: string; amount: number }[];
-  paymentBreakdown: PaymentBreakdown;
+  payment?: { status: string; provider: string } | null;
 }
 
 export async function fetchOrderBillData(orderId: string): Promise<OrderBillData> {
@@ -65,136 +37,22 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     address = addr as DbAddress | null;
   }
 
-  // Fetch all payment records for this order (handles Wallet, COD, and Razorpay split records)
-  const { data: paymentsData } = await supabase
+  // Fetch payment record to verify true payment status (COD vs Prepaid)
+  const { data: payment } = await supabase
     .from('payments')
-    .select('id, provider, status, amount')
-    .eq('order_id', orderId);
+    .select('status, provider')
+    .eq('order_id', orderId)
+    .maybeSingle();
 
-  const payments = (paymentsData || []) as { id: string; provider: string; status: string; amount: number }[];
+  const { data: business } = await supabase
+    .from('businesses')
+    .select('business_name, gstin')
+    .eq('owner_user_id', order.user_id)
+    .maybeSingle();
 
-  let walletPaid = 0;
-  let onlinePaid = 0;
-  let codPending = 0;
-  let codPaid = 0;
-  let totalPaid = 0;
-  const providers: string[] = [];
-
-  // Provider values observed in DB: 'wallet' | 'razorpay' | 'cod'
-  // payment_status enum: pending, authorized, paid, failed, refunded, cancelled, processing_refund, refund_failed
-  payments.forEach((p) => {
-    const amt = Number(p.amount) || 0;
-    if (!providers.includes(p.provider)) providers.push(p.provider);
-
-    if (p.provider === 'wallet' && p.status === 'paid') {
-      walletPaid += amt;
-      totalPaid += amt;
-    } else if (p.provider === 'razorpay' && p.status === 'paid') {
-      onlinePaid += amt;
-      totalPaid += amt;
-    } else if (p.provider === 'cod') {
-      if (p.status === 'paid') {
-        codPaid += amt;
-        totalPaid += amt;
-      } else if (p.status === 'pending') {
-        codPending += amt;
-      }
-      // 'cancelled' | 'refunded' | 'failed' | 'processing_refund' | 'refund_failed' → ignore
-    }
-  });
-
-  const orderTotal = Number(order.total) || 0;
-  const isDelivered = order.status === 'delivered';
-  const isCancelled = order.status === 'cancelled';
-  const amountToCollect = (isDelivered || isCancelled)
-    ? 0
-    : Math.max(0, codPending > 0 ? codPending : (orderTotal - totalPaid));
-  const isSplit = providers.length > 1;
-
-  let paymentStatusText = 'PAID';
-  let paymentStatusBg = '#dcfce7'; // green-100
-  let paymentStatusColor = '#15803d'; // green-700
-
-  if (order.status === 'cancelled') {
-    paymentStatusText = 'CANCELLED';
-    paymentStatusBg = '#fee2e2';
-    paymentStatusColor = '#b91c1c';
-  } else if (amountToCollect > 0) {
-    if (walletPaid > 0) {
-      paymentStatusText = `PARTIALLY PAID (COLLECT COD: ₹${amountToCollect.toFixed(2)})`;
-    } else if (providers.includes('cod')) {
-      paymentStatusText = 'CASH ON DELIVERY (PENDING)';
-    } else {
-      paymentStatusText = 'PAYMENT PENDING';
-    }
-    paymentStatusBg = '#fef3c7'; // amber-100
-    paymentStatusColor = '#b45309'; // amber-700
-  } else {
-    if (walletPaid > 0 && onlinePaid > 0) {
-      paymentStatusText = 'PAID (WALLET + ONLINE)';
-    } else if (walletPaid > 0 && codPaid > 0) {
-      paymentStatusText = 'PAID (WALLET + COD)';
-    } else if (walletPaid > 0 && walletPaid >= orderTotal) {
-      paymentStatusText = 'PAID (WALLET)';
-    } else if (onlinePaid > 0) {
-      paymentStatusText = 'PAID (ONLINE)';
-    } else if (codPaid > 0) {
-      paymentStatusText = 'PAID (COD)';
-    } else {
-      paymentStatusText = 'PAID';
-    }
-  }
-
-  const paymentBreakdown: PaymentBreakdown = {
-    walletPaid,
-    onlinePaid,
-    codPending,
-    codPaid,
-    totalPaid,
-    amountToCollect,
-    isSplit,
-    paymentStatusText,
-    paymentStatusBg,
-    paymentStatusColor,
-    providers,
-  };
-
-  // ---- Customer / business resolution ----
-  // Priority:
-  //   1. order.business_snapshot (immune to later business edits/deletes)
-  //   2. latest business row for the user (fallback for pre-snapshot orders)
-  //   3. profile
-  let customerName: string | null = null;
-  let customerGst: string | null = null;
+  let customerName = business?.business_name || null;
+  let customerGst = business?.gstin || null;
   let customerPhone = '';
-
-  const businessSnapshot = (order as {
-    business_snapshot?: { business_name?: string; gstin?: string } | null;
-  }).business_snapshot;
-  if (businessSnapshot && (businessSnapshot.business_name || businessSnapshot.gstin)) {
-    customerName = businessSnapshot.business_name || null;
-    customerGst = businessSnapshot.gstin || null;
-  }
-
-  if (!customerName || !customerGst) {
-    const { data: businesses, error: bizErr } = await supabase
-      .from('businesses')
-      .select('business_name, gstin, is_default, created_at')
-      .eq('owner_user_id', order.user_id)
-      .order('is_default', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (bizErr) {
-      console.warn('[fetchOrderBillData] businesses lookup failed:', bizErr);
-    }
-
-    const business = businesses?.[0];
-    if (business) {
-      if (!customerName) customerName = business.business_name || null;
-      if (!customerGst) customerGst = business.gstin || null;
-    }
-  }
 
   if (!customerName) {
     const { data: profile } = await supabase
@@ -208,36 +66,6 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     }
   }
 
-  // ---- Billing address snapshot (registered business address at order time) ----
-  const rawBilling = (order as { billing_address_snapshot?: BillingAddressSnapshot | null })
-    .billing_address_snapshot;
-  const billingAddress: BillingAddressSnapshot | null =
-    rawBilling && (rawBilling.address_line_1 || rawBilling.city || rawBilling.pincode)
-      ? rawBilling
-      : null;
-
-  const billingParts = billingAddress
-    ? [
-        billingAddress.address_line_1,
-        billingAddress.address_line_2,
-        billingAddress.landmark,
-        billingAddress.city && billingAddress.state
-          ? `${billingAddress.city}, ${billingAddress.state}`
-          : billingAddress.city || billingAddress.state,
-        billingAddress.pincode,
-      ].filter((p): p is string => !!p && String(p).trim().length > 0)
-    : [];
-
-  const billingAddressLine = billingParts.join(', ');
-
-  // If a billing business snapshot exists, prefer its name/GST over inferred values
-  if (billingAddress?.business_name) {
-    customerName = billingAddress.business_name;
-  }
-  if (billingAddress?.gstin) {
-    customerGst = billingAddress.gstin;
-  }
-
   return {
     order: order as DbOrder,
     items: (items || []) as (DbOrderItem & { hsn_code?: string; gst_percentage?: number })[],
@@ -245,10 +73,7 @@ export async function fetchOrderBillData(orderId: string): Promise<OrderBillData
     customerName: customerName || address?.recipient_name || 'Customer',
     customerPhone: customerPhone || address?.phone || '',
     customerGst: customerGst || '',
-    billingAddress,
-    billingAddressLine,
-    payments,
-    paymentBreakdown,
+    payment: payment || null,
   };
 }
 
@@ -264,32 +89,39 @@ function buildA4InvoiceHtml(
   config: InvoiceConfig | null,
   design: InvoiceDesignSettings
 ): string {
-  const {
-    order,
-    items,
-    address,
-    customerName,
-    customerPhone,
-    customerGst,
-    billingAddress,
-    billingAddressLine,
-    paymentBreakdown,
-  } = data;
+  const { order, items, address, customerName, customerPhone, customerGst, payment } = data;
 
   const totalDiscount = Number(order.discount || 0);
   const deliveryFee = Number(order.delivery_fee || 0);
   const rawSubtotal = items.reduce((sum, item) => sum + Number(item.line_total || 0), 0);
 
-  const {
-    walletPaid,
-    onlinePaid,
-    codPaid,
-    amountToCollect,
-    paymentStatusText,
-    paymentStatusBg,
-    paymentStatusColor,
-  } = paymentBreakdown;
+  // Dynamic Payment & Order Status Calculation
+  const isCod = (order as any).payment_method === 'cod' || payment?.provider === 'cod';
+  const isPaid = payment?.status === 'paid' || order.status === 'delivered';
 
+  let paymentStatusText = 'PAID';
+  let paymentStatusBg = '#dcfce7'; // green-100
+  let paymentStatusColor = '#15803d'; // green-700
+
+  if (order.status === 'cancelled') {
+    paymentStatusText = 'CANCELLED';
+    paymentStatusBg = '#fee2e2';
+    paymentStatusColor = '#b91c1c';
+  } else if (isCod && !isPaid) {
+    paymentStatusText = 'CASH ON DELIVERY (PENDING)';
+    paymentStatusBg = '#fef3c7'; // amber-100
+    paymentStatusColor = '#b45309'; // amber-700
+  } else if (isCod && isPaid) {
+    paymentStatusText = 'PAID (COD)';
+    paymentStatusBg = '#dcfce7';
+    paymentStatusColor = '#15803d';
+  } else if (!isPaid) {
+    paymentStatusText = 'PAYMENT PENDING';
+    paymentStatusBg = '#fef3c7';
+    paymentStatusColor = '#b45309';
+  }
+
+  // 1. Pro-rata discount per line item under Section 15(3) CGST Act
   const itemsWithDetails = items.map((item, idx) => {
     const lineTotal = Number(item.line_total || 0);
     const unitPrice = Number(item.unit_price || 0);
@@ -321,6 +153,7 @@ function buildA4InvoiceHtml(
     };
   });
 
+  // 2. Delivery Fee SAC 9968
   if (deliveryFee > 0) {
     const deliveryTaxable = deliveryFee / 1.18;
     const deliveryGst = deliveryFee - deliveryTaxable;
@@ -369,9 +202,6 @@ function buildA4InvoiceHtml(
   const customerNameDisplay = customerName || 'Customer';
   const customerPhoneDisplay = customerPhone || '';
   const customerGstDisplay = customerGst || '';
-  const billingAddressDisplay =
-    billingAddressLine ||
-    (address ? `${address.line1}, ${address.city} - ${address.postal_code}` : '');
   const currentDate = new Date(order.created_at).toLocaleDateString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric'
   });
@@ -434,6 +264,7 @@ function buildA4InvoiceHtml(
       ${design.showAuthorisedSignature ? `<div style="border-top:1px solid #0f172a;padding-top:4px;width:32%;text-align:center;">Authorised Signatory</div>` : '<div></div>'}
     </div>` : '';
 
+  // Critical Print Styles (Forces exact background colors & cleans margins)
   const sharedPrintRules = `
     @page { 
       size: A4 portrait; 
@@ -523,7 +354,7 @@ function buildA4InvoiceHtml(
           <div style="flex:1;padding:6px;font-size:10.5px;line-height:1.4;">
             <div style="font-size:9px;font-weight:bold;text-transform:uppercase;color:#555;">Details of Recipient / Buyer</div>
             <div style="font-size:13px;font-weight:bold;margin-top:2px;">${customerNameDisplay}</div>
-            <div>${billingAddressDisplay || 'Walk-in'}</div>
+            <div>${address ? `${address.line1}, ${address.city} - ${address.postal_code}` : 'Walk-in'}</div>
             <div><strong>GSTIN:</strong> ${customerGstDisplay || 'Unregistered'}</div>
             <div><strong>Invoice No:</strong> ${invoiceNumber} | <strong>Date:</strong> ${currentDate}</div>
             <div style="margin-top:3px;"><span style="background:${paymentStatusBg};color:${paymentStatusColor};font-weight:800;padding:1px 6px;border-radius:4px;font-size:9.5px;">${paymentStatusText}</span></div>
@@ -531,17 +362,13 @@ function buildA4InvoiceHtml(
         </div>
         ${tablesHtml}
         <div style="display:flex;justify-content:flex-end;margin-top:8px;">
-          <table style="width:320px;border:1px solid #000;border-collapse:collapse;font-size:10.5px;">
+          <table style="width:300px;border:1px solid #000;border-collapse:collapse;font-size:10.5px;">
             <tr><td style="border:1px solid #000;padding:3px 6px;">Gross Amount:</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;">₹${rawSubtotal.toFixed(2)}</td></tr>
             ${totalDiscount > 0 ? `<tr><td style="border:1px solid #000;padding:3px 6px;color:green;">Discount:</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;color:green;">-₹${totalDiscount.toFixed(2)}</td></tr>` : ''}
             <tr><td style="border:1px solid #000;padding:3px 6px;font-weight:bold;">Total Taxable:</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;font-weight:bold;">₹${overallTaxable.toFixed(2)}</td></tr>
             <tr><td style="border:1px solid #000;padding:3px 6px;">Total CGST:</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;">₹${overallCgst.toFixed(2)}</td></tr>
             <tr><td style="border:1px solid #000;padding:3px 6px;">Total SGST:</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;">₹${overallSgst.toFixed(2)}</td></tr>
-            <tr style="background:#e2e8f0;font-weight:bold;font-size:11.5px;"><td style="border:1px solid #000;padding:4px 6px;">Invoice Total:</td><td style="border:1px solid #000;padding:4px 6px;text-align:right;">₹${overallGrand.toFixed(2)}</td></tr>
-            ${walletPaid > 0 ? `<tr><td style="border:1px solid #000;padding:3px 6px;color:#15803d;font-weight:600;">Paid via Wallet:</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;color:#15803d;font-weight:600;">-₹${walletPaid.toFixed(2)}</td></tr>` : ''}
-            ${onlinePaid > 0 ? `<tr><td style="border:1px solid #000;padding:3px 6px;color:#1d4ed8;font-weight:600;">Paid Online (Razorpay):</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;color:#1d4ed8;font-weight:600;">-₹${onlinePaid.toFixed(2)}</td></tr>` : ''}
-            ${codPaid > 0 ? `<tr><td style="border:1px solid #000;padding:3px 6px;color:#15803d;font-weight:600;">Paid on Delivery (COD):</td><td style="border:1px solid #000;padding:3px 6px;text-align:right;color:#15803d;font-weight:600;">-₹${codPaid.toFixed(2)}</td></tr>` : ''}
-            ${amountToCollect > 0 ? `<tr style="background:#fef3c7;color:#b45309;font-weight:bold;"><td style="border:1px solid #000;padding:4px 6px;">Balance Due (Collect COD):</td><td style="border:1px solid #000;padding:4px 6px;text-align:right;">₹${amountToCollect.toFixed(2)}</td></tr>` : ''}
+            <tr style="background:#e2e8f0;font-weight:bold;font-size:12px;"><td style="border:1px solid #000;padding:4px 6px;">Grand Total:</td><td style="border:1px solid #000;padding:4px 6px;text-align:right;">₹${overallGrand.toFixed(2)}</td></tr>
           </table>
         </div>
         ${bankSection}
@@ -626,7 +453,7 @@ function buildA4InvoiceHtml(
           <div style="flex:1.2;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:10.5px;">
             <span style="font-size:9px;font-weight:800;color:${primaryColor};text-transform:uppercase;">Billed To</span>
             <div style="font-size:13px;font-weight:800;color:#0f172a;margin-top:1px;">${customerNameDisplay}</div>
-            ${billingAddressDisplay ? `<div style="color:#475569;margin-top:2px;">${billingAddressDisplay}</div>` : ''}
+            ${address ? `<div style="color:#475569;margin-top:2px;">${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
             <div style="color:#64748b;margin-top:2px;">Phone: ${customerPhoneDisplay || '-'} | GSTIN: ${customerGstDisplay || 'Unregistered'}</div>
           </div>
           <div style="flex:0.8;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:10.5px;text-align:right;">
@@ -639,25 +466,15 @@ function buildA4InvoiceHtml(
         ${tablesHtml}
 
         <div style="display:flex;justify-content:flex-end;margin-top:12px;">
-          <div style="width:310px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:11px;line-height:1.6;">
+          <div style="width:300px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:11px;line-height:1.6;">
             <div style="display:flex;justify-content:space-between;color:#475569;"><span>Gross Subtotal:</span><span>₹${rawSubtotal.toFixed(2)}</span></div>
             ${totalDiscount > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;font-weight:600;"><span>Promo Discount:</span><span>-₹${totalDiscount.toFixed(2)}</span></div>` : ''}
             <div style="display:flex;justify-content:space-between;color:#0f172a;font-weight:700;border-top:1px dashed #cbd5e1;padding-top:2px;margin-top:2px;"><span>Net Taxable:</span><span>₹${overallTaxable.toFixed(2)}</span></div>
             <div style="display:flex;justify-content:space-between;color:#64748b;"><span>CGST:</span><span>₹${overallCgst.toFixed(2)}</span></div>
             <div style="display:flex;justify-content:space-between;color:#64748b;"><span>SGST:</span><span>₹${overallSgst.toFixed(2)}</span></div>
-            <div style="display:flex;justify-content:space-between;font-weight:800;font-size:12px;color:#0f172a;border-top:1px solid #cbd5e1;padding-top:3px;margin-top:3px;">
-              <span>Invoice Total:</span><span>₹${overallGrand.toFixed(2)}</span>
+            <div style="display:flex;justify-content:space-between;font-weight:900;font-size:14px;color:#ffffff;background:${primaryRgba};padding:4px 8px;border-radius:6px;margin-top:6px;">
+              <span>TOTAL DUE:</span><span>₹${overallGrand.toFixed(2)}</span>
             </div>
-            ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Paid via Wallet:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
-            ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#1d4ed8;font-weight:600;"><span>Paid Online (Razorpay):</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
-            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Paid on Delivery (COD):</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
-            ${amountToCollect > 0 ? `
-              <div style="display:flex;justify-content:space-between;font-weight:900;font-size:13px;color:#b45309;background:#fef3c7;padding:4px 8px;border-radius:6px;margin-top:4px;">
-                <span>COLLECT COD:</span><span>₹${amountToCollect.toFixed(2)}</span>
-              </div>` : `
-              <div style="display:flex;justify-content:space-between;font-weight:900;font-size:13px;color:#ffffff;background:${primaryRgba};padding:4px 8px;border-radius:6px;margin-top:4px;">
-                <span>FULLY SETTLED:</span><span>₹0.00</span>
-              </div>`}
           </div>
         </div>
 
@@ -739,7 +556,7 @@ function buildA4InvoiceHtml(
           <div>
             <div style="font-size:9px;font-weight:700;letter-spacing:0.5px;color:#94a3b8;text-transform:uppercase;">Billed To</div>
             <div style="font-weight:700;color:#0f172a;">${customerNameDisplay}</div>
-            ${billingAddressDisplay ? `<div>${billingAddressDisplay}</div>` : ''}
+            ${address ? `<div>${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
             <div>Phone: ${customerPhoneDisplay || '-'} | GST: ${customerGstDisplay || 'Unregistered'}</div>
           </div>
           <div style="text-align:right;">
@@ -752,24 +569,14 @@ function buildA4InvoiceHtml(
         ${tablesHtml}
 
         <div style="display:flex;justify-content:flex-end;margin-top:16px;">
-          <div style="width:280px;font-size:10.5px;line-height:1.7;">
+          <div style="width:260px;font-size:10.5px;line-height:1.7;">
             <div style="display:flex;justify-content:space-between;color:#64748b;"><span>Taxable Amount:</span><span>₹${overallTaxable.toFixed(2)}</span></div>
             ${totalDiscount > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;"><span>Total Discount:</span><span>-₹${totalDiscount.toFixed(2)}</span></div>` : ''}
             <div style="display:flex;justify-content:space-between;color:#64748b;"><span>CGST:</span><span>₹${overallCgst.toFixed(2)}</span></div>
             <div style="display:flex;justify-content:space-between;color:#64748b;"><span>SGST:</span><span>₹${overallSgst.toFixed(2)}</span></div>
-            <div style="display:flex;justify-content:space-between;font-weight:700;font-size:11.5px;color:#0f172a;border-top:1px solid #e2e8f0;padding-top:3px;margin-top:2px;">
-              <span>Invoice Total:</span><span>₹${overallGrand.toFixed(2)}</span>
+            <div style="display:flex;justify-content:space-between;font-weight:800;font-size:14px;color:#0f172a;border-top:1px solid #0f172a;padding-top:4px;margin-top:4px;">
+              <span>TOTAL DUE:</span><span>₹${overallGrand.toFixed(2)}</span>
             </div>
-            ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;"><span>Paid via Wallet:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
-            ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#2563eb;"><span>Paid Online:</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
-            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;"><span>Paid on Delivery (COD):</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
-            ${amountToCollect > 0 ? `
-              <div style="display:flex;justify-content:space-between;font-weight:800;font-size:13px;color:#b45309;border-top:1px solid #0f172a;padding-top:4px;margin-top:4px;">
-                <span>BALANCE DUE (COD):</span><span>₹${amountToCollect.toFixed(2)}</span>
-              </div>` : `
-              <div style="display:flex;justify-content:space-between;font-weight:800;font-size:13px;color:#0f172a;border-top:1px solid #0f172a;padding-top:4px;margin-top:4px;">
-                <span>BALANCE DUE:</span><span>₹0.00</span>
-              </div>`}
           </div>
         </div>
 
@@ -862,7 +669,7 @@ function buildA4InvoiceHtml(
           <div style="flex:1.2;border:1px solid #cbd5e1;border-top:3.5px solid ${primaryColor};border-radius:6px;padding:8px 10px;background:#f8fafc;">
             <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;color:${primaryColor};">Billed To / Consignee</div>
             <div style="font-size:12.5px;font-weight:800;color:#0f172a;margin-top:1px;">${customerNameDisplay}</div>
-            ${billingAddressDisplay ? `<div style="font-size:10.5px;color:#334155;margin-top:2px;">${billingAddressDisplay}</div>` : ''}
+            ${address ? `<div style="font-size:10.5px;color:#334155;margin-top:2px;">${address.line1}, ${address.city} - ${address.postal_code}</div>` : ''}
             <div style="font-size:10px;color:#475569;margin-top:3px;">Phone: ${customerPhoneDisplay || '-'} | GSTIN: ${customerGstDisplay || 'Unregistered'}</div>
           </div>
           <div style="flex:1;border:1px solid #cbd5e1;border-top:3.5px solid #0f172a;border-radius:6px;padding:8px 10px;background:#f8fafc;font-size:10.5px;">
@@ -876,25 +683,15 @@ function buildA4InvoiceHtml(
         ${tablesHtml}
 
         <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-          <div style="width:310px;font-size:${fontSize}px;line-height:1.65;border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;background:#f8fafc;">
+          <div style="width:290px;font-size:${fontSize}px;line-height:1.65;border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;background:#f8fafc;">
             <div style="display:flex;justify-content:space-between;color:#475569;"><span>Gross Total:</span><span>₹${rawSubtotal.toFixed(2)}</span></div>
             ${totalDiscount > 0 ? `<div style="display:flex;justify-content:space-between;color:#16a34a;font-weight:600;"><span>Total Discount:</span><span>-₹${totalDiscount.toFixed(2)}</span></div>` : ''}
             <div style="display:flex;justify-content:space-between;border-top:1px dashed #cbd5e1;padding-top:3px;margin-top:2px;font-weight:600;"><span>Net Taxable Value:</span><span>₹${overallTaxable.toFixed(2)}</span></div>
             <div style="display:flex;justify-content:space-between;color:#475569;"><span>Total CGST:</span><span>₹${overallCgst.toFixed(2)}</span></div>
             <div style="display:flex;justify-content:space-between;color:#475569;"><span>Total SGST:</span><span>₹${overallSgst.toFixed(2)}</span></div>
-            <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.05em;border-top:1px solid #cbd5e1;padding-top:3px;margin-top:3px;color:#0f172a;">
-              <span>Invoice Amount:</span><span>₹${overallGrand.toFixed(2)}</span>
+            <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.18em;border-top:2px solid #0f172a;padding-top:4px;margin-top:4px;color:#0f172a;">
+              <span>GRAND TOTAL:</span><span>₹${overallGrand.toFixed(2)}</span>
             </div>
-            ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Wallet Deduction:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
-            ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#1d4ed8;font-weight:600;"><span>Online Payment:</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
-            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;font-weight:600;"><span>Paid on Delivery (COD):</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
-            ${amountToCollect > 0 ? `
-              <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.15em;border-top:2px solid #b45309;padding-top:4px;margin-top:4px;color:#b45309;">
-                <span>COLLECT ON DELIVERY:</span><span>₹${amountToCollect.toFixed(2)}</span>
-              </div>` : `
-              <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.15em;border-top:2px solid #0f172a;padding-top:4px;margin-top:4px;color:#0f172a;">
-                <span>NET BALANCE DUE:</span><span>₹0.00</span>
-              </div>`}
           </div>
         </div>
 
@@ -970,30 +767,20 @@ function buildA4InvoiceHtml(
         </div>
 
         <div style="display:flex;justify-content:space-between;background:#f8fafc;border:1px solid #cbd5e1;padding:4px 6px;margin-bottom:4px;font-size:8.5px;">
-          <div><strong>Customer:</strong> ${customerNameDisplay} (${customerPhoneDisplay || '-'})${billingAddressDisplay ? ` · ${billingAddressDisplay}` : ''} | GST: ${customerGstDisplay || 'Unreg'}</div>
+          <div><strong>Customer:</strong> ${customerNameDisplay} (${customerPhoneDisplay || '-'}) | GST: ${customerGstDisplay || 'Unreg'}</div>
           <div><strong>Status:</strong> ${paymentStatusText}</div>
         </div>
 
         ${tablesHtml}
 
         <div style="display:flex;justify-content:flex-end;margin-top:6px;">
-          <div style="width:250px;border:1px solid #cbd5e1;padding:4px 6px;background:#f8fafc;font-size:9px;line-height:1.5;">
+          <div style="width:230px;border:1px solid #cbd5e1;padding:4px 6px;background:#f8fafc;font-size:9px;line-height:1.5;">
             <div style="display:flex;justify-content:space-between;"><span>Taxable Subtotal:</span><span>₹${overallTaxable.toFixed(2)}</span></div>
             ${totalDiscount > 0 ? `<div style="display:flex;justify-content:space-between;color:green;"><span>Discount:</span><span>-₹${totalDiscount.toFixed(2)}</span></div>` : ''}
             <div style="display:flex;justify-content:space-between;"><span>Total Tax:</span><span>₹${overallGst.toFixed(2)}</span></div>
-            <div style="display:flex;justify-content:space-between;font-weight:800;border-top:1px solid #000;margin-top:2px;padding-top:2px;">
-              <span>Total:</span><span>₹${overallGrand.toFixed(2)}</span>
+            <div style="display:flex;justify-content:space-between;font-weight:900;border-top:1px solid #000;margin-top:2px;padding-top:2px;font-size:11px;">
+              <span>TOTAL DUE:</span><span>₹${overallGrand.toFixed(2)}</span>
             </div>
-            ${walletPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;"><span>Wallet Paid:</span><span>-₹${walletPaid.toFixed(2)}</span></div>` : ''}
-            ${onlinePaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#1d4ed8;"><span>Online Paid:</span><span>-₹${onlinePaid.toFixed(2)}</span></div>` : ''}
-            ${codPaid > 0 ? `<div style="display:flex;justify-content:space-between;color:#15803d;"><span>COD Paid:</span><span>-₹${codPaid.toFixed(2)}</span></div>` : ''}
-            ${amountToCollect > 0 ? `
-              <div style="display:flex;justify-content:space-between;font-weight:900;color:#b45309;border-top:1px dashed #cbd5e1;margin-top:2px;padding-top:2px;">
-                <span>DUE (COD):</span><span>₹${amountToCollect.toFixed(2)}</span>
-              </div>` : `
-              <div style="display:flex;justify-content:space-between;font-weight:900;color:#15803d;border-top:1px dashed #cbd5e1;margin-top:2px;padding-top:2px;">
-                <span>BALANCE:</span><span>₹0.00</span>
-              </div>`}
           </div>
         </div>
 

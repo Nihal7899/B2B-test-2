@@ -1,166 +1,112 @@
 import { Geolocation, type Position } from '@capacitor/geolocation';
-import { Capacitor } from '@capacitor/core';
 
 export interface LocationCoords {
   latitude: number;
   longitude: number;
   accuracy?: number;
-  timestamp?: number;
 }
 
 interface LocationOptions {
+  /** Maximum wait time before giving up. Default is 30,000ms (30 seconds). */
   timeoutMs?: number;
-}
-
-// In-memory hot cache updated continuously by the background Zomato-style watch stream
-let hotCoords: LocationCoords | null = null;
-let activeWatchId: string | null = null;
-
-export function getLatestCachedCoords(): LocationCoords | null {
-  return hotCoords;
+  /** Desired accuracy in meters to instantly accept without waiting for refinement. */
+  desiredAccuracy?: number;
 }
 
 /**
- * Starts the continuous foreground GPS stream (Zomato style).
- * Keeps the GPS hardware hot and keeps coordinates fresh in real time.
- */
-export async function startContinuousLocationWatch(): Promise<void> {
-  if (activeWatchId) return; // Stream already active
-
-  try {
-    if (Capacitor.isNativePlatform()) {
-      const perm = await Geolocation.checkPermissions();
-      if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
-        return; // Don't trigger unexpected native dialog until user prompts
-      }
-    }
-
-    activeWatchId = await Geolocation.watchPosition(
-      {
-        enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 0,
-      },
-      (position: Position | null, err: any) => {
-        if (err || !position?.coords) return;
-
-        hotCoords = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: Date.now(),
-        };
-      }
-    );
-  } catch (error) {
-    console.warn('Could not start continuous GPS stream:', error);
-  }
-}
-
-/**
- * Stops the continuous GPS stream to free up hardware resources when not needed.
- */
-export async function stopContinuousLocationWatch(): Promise<void> {
-  if (activeWatchId) {
-    try {
-      await Geolocation.clearWatch({ id: activeWatchId });
-    } catch {
-      /* ignore */
-    }
-    activeWatchId = null;
-  }
-}
-
-/**
- * Retrieves the device location.
- * Resolves instantly if the continuous stream already has fresh coordinates.
+ * Retrieves the device's location with a 30-second safety ceiling.
+ * Resolves immediately as soon as the first valid position is received.
  */
 export async function getFastCurrentPosition(
   options: LocationOptions = {}
 ): Promise<LocationCoords> {
-  const { timeoutMs = 30000 } = options;
+  const { timeoutMs = 30000, desiredAccuracy = 100 } = options;
 
-  // 1. Instant check: If continuous watch has hot coordinates (< 2 minutes old), return immediately!
-  if (hotCoords && Date.now() - (hotCoords.timestamp || 0) < 120000) {
-    return hotCoords;
-  }
-
-  // 2. Check native permissions
-  if (Capacitor.isNativePlatform()) {
-    try {
-      let permStatus = await Geolocation.checkPermissions();
-      if (permStatus.location !== 'granted' && permStatus.coarseLocation !== 'granted') {
-        permStatus = await Geolocation.requestPermissions();
-        if (permStatus.location !== 'granted' && permStatus.coarseLocation !== 'granted') {
-          throw new Error('Location permission denied. Please grant permission in settings.');
-        }
-      }
-    } catch (err) {
-      console.warn('Native permission check bypassed:', err);
+  // 1. Verify permissions
+  let permStatus = await Geolocation.checkPermissions();
+  if (permStatus.location !== 'granted' && permStatus.coarseLocation !== 'granted') {
+    permStatus = await Geolocation.requestPermissions();
+    if (permStatus.location !== 'granted' && permStatus.coarseLocation !== 'granted') {
+      throw new Error('Location permission denied. Please grant permission in settings.');
     }
   }
 
-  // 3. Fallback request with strict 30s timeout ceiling
+  // 2. Quick check for recent OS-cached position (within last 5 mins)
+  try {
+    const cached = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: false,
+      maximumAge: 300000,
+      timeout: 1500,
+    });
+
+    if (cached?.coords?.latitude && cached?.coords?.longitude) {
+      // If cached location is accurate enough, return it immediately
+      if (!cached.coords.accuracy || cached.coords.accuracy <= desiredAccuracy) {
+        return {
+          latitude: cached.coords.latitude,
+          longitude: cached.coords.longitude,
+          accuracy: cached.coords.accuracy,
+        };
+      }
+    }
+  } catch {
+    // No recent cache available; proceed directly to active streaming
+  }
+
+  // 3. Active Stream with 30s timeout
   return new Promise<LocationCoords>(async (resolve, reject) => {
     let watchId: string | null = null;
-    let bestPosition: Position | null = null;
     let isSettled = false;
-    let fallbackTimer: ReturnType<typeof setTimeout>;
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const cleanupAndResolve = async () => {
-      if (isSettled) return;
+    const cleanup = async () => {
       isSettled = true;
-      clearTimeout(fallbackTimer);
-
+      if (fallbackTimer) clearTimeout(fallbackTimer);
       if (watchId !== null) {
         try {
           await Geolocation.clearWatch({ id: watchId });
         } catch {
-          /* ignore */
+          /* ignore watch cleanup errors */
         }
-      }
-
-      if (bestPosition) {
-        const result: LocationCoords = {
-          latitude: bestPosition.coords.latitude,
-          longitude: bestPosition.coords.longitude,
-          accuracy: bestPosition.coords.accuracy,
-          timestamp: Date.now(),
-        };
-        hotCoords = result; // Update cache
-        resolve(result);
-      } else {
-        reject(new Error('Location request timed out (30s). Please ensure GPS is enabled.'));
       }
     };
 
-    fallbackTimer = setTimeout(() => {
-      cleanupAndResolve();
+    // 30-second maximum timeout ceiling
+    fallbackTimer = setTimeout(async () => {
+      if (isSettled) return;
+      await cleanup();
+      reject(new Error('Location request timed out (30s). Please ensure GPS/Location services are enabled.'));
     }, timeoutMs);
 
     try {
       watchId = await Geolocation.watchPosition(
         {
           enableHighAccuracy: true,
+          maximumAge: 10000,
           timeout: timeoutMs,
-          maximumAge: 60000,
         },
-        (position: Position | null, err: any) => {
+        async (position: Position | null, err) => {
           if (isSettled) return;
-          if (err || !position?.coords) return;
 
-          if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
-            bestPosition = position;
+          if (position?.coords) {
+            await cleanup();
+            resolve({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+            });
+            return;
           }
 
-          if (bestPosition.coords.accuracy <= 25) {
-            cleanupAndResolve();
+          if (err) {
+            await cleanup();
+            reject(new Error(err.message || 'Unable to retrieve location. Please check GPS settings.'));
           }
         }
       );
     } catch (err: any) {
       if (!isSettled) {
-        clearTimeout(fallbackTimer);
+        await cleanup();
         reject(new Error(err?.message || 'Failed to start GPS service.'));
       }
     }

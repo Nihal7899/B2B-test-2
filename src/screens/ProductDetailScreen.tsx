@@ -1,21 +1,34 @@
-// src/screens/ProductDetailScreen.tsx
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, ArrowRight, Heart, ShoppingBag, Star, Truck, ShieldCheck,
-  Percent, Hash, Plus, Minus, Sparkles, Check, Zap, Package, Timer, Tag,
+  ArrowLeft,
+  ArrowRight,
+  Heart,
+  ShoppingBag,
+  Star,
+  Truck,
+  ShieldCheck,
+  Percent,
+  Hash,
+  Plus,
+  Minus,
+  Sparkles,
+  Check,
+  Zap,
 } from 'lucide-react';
-import type { Product, VolumePricingTier, PromoCode } from '@/types';
+import type { Product, VolumePricingTier } from '@/types';
 import { useCart } from '@/store';
 import { OfferBadge } from '@/components/OfferBadge';
 import { ProductCard } from '@/components/ProductCard';
 import { SectionHeader } from '@/components/SectionHeader';
-import { AppLoader } from '@/components/AppLoader';
-import { CachedImage } from '@/components/CachedImage';
-import { supabase } from '@/lib/supabase';
 import {
-  fetchProductById, fetchWishlist, toggleWishlist, fetchVolumePricing,
-  fetchStoreConfig, fetchBrandById, fetchCategories,
+  fetchProductById,
+  fetchWishlist,
+  toggleWishlist,
+  fetchVolumePricing,
+  fetchStoreConfig,
+  fetchBrandById,
+  fetchCategories,
 } from '@/services/catalog';
 import { getStoreTheme, setStoreTheme } from '@/context/StoreContext';
 import { recordRecentlyViewed } from '@/lib/recentlyViewed';
@@ -28,57 +41,31 @@ interface ProductDetailScreenProps {
 }
 
 const defaultTheme = {
-  primaryColor: '#02402c', secondaryColor: '#03543a', textColor: '#1f2937',
-  borderColor: '#e5e7eb', buttonStyle: 'brand' as const, gradientFrom: '#02402c', gradientTo: '#03543a',
+  primaryColor: '#10b981',
+  secondaryColor: '#059669',
+  textColor: '#1f2937',
+  borderColor: '#e5e7eb',
+  buttonStyle: 'brand' as const,
+  gradientFrom: '#065f46',
+  gradientTo: '#16a34a',
 };
 
-// ---------- Promo helpers ----------
-function formatPromoTimer(endDate: string | null | undefined): string | null {
-  if (!endDate) return null;
-  const diff = new Date(endDate).getTime() - Date.now();
-  if (diff <= 0) return null;
-  const days = Math.floor(diff / 86400000);
-  const hours = Math.floor((diff / 3600000) % 24);
-  const mins = Math.floor((diff / 60000) % 60);
-  if (days > 0) return `${days}d ${hours}h left`;
-  if (hours > 0) return `${hours}h ${mins}m left`;
-  return `${mins}m left`;
-}
-
-function buildPromoSentence(promo: PromoCode): string {
-  const isPercent = promo.discount_type === 'percentage';
-  const minVal = Number(promo.min_order_value) || 0;
-  const maxDisc = promo.max_discount_amount ? Number(promo.max_discount_amount) : null;
-  const discountText = isPercent ? `${promo.discount_value}%` : `₹${promo.discount_value}`;
-
-  // Min + capped percentage → "Shop above ₹500 to get 10% off, up to ₹200"
-  if (minVal > 0 && isPercent && maxDisc && maxDisc > 0) {
-    return `Shop above ₹${minVal.toLocaleString('en-IN')} to get ${discountText} off, up to ₹${maxDisc.toLocaleString('en-IN')}`;
-  }
-
-  // Min only → "Shop above ₹500 to get 10% off"
-  if (minVal > 0) {
-    return `Shop above ₹${minVal.toLocaleString('en-IN')} to get ${discountText} off`;
-  }
-
-  // Capped percentage, no min → "Get 10% off up to ₹200 on this product"
-  if (isPercent && maxDisc && maxDisc > 0) {
-    return `Get ${discountText} off up to ₹${maxDisc.toLocaleString('en-IN')} on this product`;
-  }
-
-  // Fallback → "Get 10% off on this product"
-  return `Get ${discountText} off on this product`;
-}
-
-export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }: ProductDetailScreenProps) {
+export function ProductDetailScreen({ productId, onBack, onProduct }: ProductDetailScreenProps) {
   const navigate = useNavigate();
+  // Direct subscription to CartContext ensures live reactivity on back navigation
   const cart = useCart();
   const [searchParams] = useSearchParams();
   const storeId = searchParams.get('storeId');
   const brandId = searchParams.get('brandId');
   const categoryId = searchParams.get('categoryId');
 
-  const [theme, setTheme] = useState(() => (storeId ? getStoreTheme(storeId) || defaultTheme : defaultTheme));
+  const [theme, setTheme] = useState(() => {
+    if (storeId) {
+      return getStoreTheme(storeId) || defaultTheme;
+    }
+    return defaultTheme;
+  });
+
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,257 +74,123 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   const [volumeTiers, setVolumeTiers] = useState<VolumePricingTier[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({});
-
-  // Promo codes applicable to this product
-  const [applicablePromos, setApplicablePromos] = useState<PromoCode[]>([]);
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
-
-  // Delivery config state
-  const [deliveryConfig, setDeliveryConfig] = useState<{ free_delivery_threshold: number | null; estimated_time?: string } | null>(null);
-
-  const touchStartX = useRef<number | null>(null);
-  const touchDeltaX = useRef<number>(0);
+  
+  // Smooth scroll opacity state (0 to 1)
   const [headerOpacity, setHeaderOpacity] = useState(0);
   const imageContainerRef = useRef<HTMLDivElement>(null);
 
-  const { primaryColor = '#02402c' } = theme;
+  const {
+    primaryColor = '#10b981',
+    secondaryColor = '#059669',
+    textColor = '#1f2937',
+    borderColor = '#e5e7eb',
+  } = theme;
 
-  // --- Strict Delivery Config Fetch ---
-  useEffect(() => {
-    let active = true;
-
-    const fetchDelivery = async () => {
-      const { data, error } = await supabase
-        .from('delivery_charges')
-        .select('min_order_value, max_order_value, charge, estimated_time')
-        .eq('is_active', true);
-
-      if (error) {
-        console.error("Delivery Config Error:", error);
-        return;
-      }
-
-      if (data && data.length > 0 && active) {
-        const sortedTiers = data.sort((a, b) => (Number(a.min_order_value) || 0) - (Number(b.min_order_value) || 0));
-        const timeTier = sortedTiers.find((d) => d.estimated_time && d.estimated_time.trim() !== '');
-        const estTime = timeTier ? timeTier.estimated_time.trim() : undefined;
-
-        let freeThreshold: number | null = null;
-        const freeTier = sortedTiers.find((d) => Number(d.charge) === 0);
-        if (freeTier) {
-          freeThreshold = Number(freeTier.min_order_value) || 0;
-        } else {
-          const lastTier = sortedTiers[sortedTiers.length - 1];
-          if (lastTier.max_order_value && String(lastTier.max_order_value).toLowerCase() !== 'null') {
-            freeThreshold = Number(lastTier.max_order_value);
-          }
-        }
-
-        setDeliveryConfig({
-          estimated_time: estTime,
-          free_delivery_threshold: freeThreshold,
-        });
-      }
-    };
-
-    fetchDelivery();
-    return () => { active = false; };
-  }, []);
-  // ------------------------------------
-
-  // --- Fetch & filter applicable promo codes ---
-  const loadProductPromos = useCallback(async (prod: Product) => {
-    try {
-      const { data } = await supabase
-        .from('promo_codes')
-        .select('*')
-        .eq('is_active', true);
-
-      const now = Date.now();
-      const filtered = ((data as PromoCode[]) || []).filter((p) => {
-        if (p.start_date && new Date(p.start_date).getTime() > now) return false;
-        if (p.end_date && new Date(p.end_date).getTime() < now) return false;
-        if (p.usage_limit != null && p.used_count >= p.usage_limit) return false;
-
-        if (p.applies_to === 'all') return true;
-        if (p.applies_to === 'product') {
-          return (p.applies_to_ids || []).includes(prod.id);
-        }
-        if (p.applies_to === 'category') {
-          return prod.category_id ? (p.applies_to_ids || []).includes(prod.category_id) : false;
-        }
-        return false;
-      });
-
-      // Cheapest threshold first, then highest discount
-      filtered.sort((a, b) => {
-        const aMin = Number(a.min_order_value) || 0;
-        const bMin = Number(b.min_order_value) || 0;
-        if (aMin !== bMin) return aMin - bMin;
-        return (Number(b.discount_value) || 0) - (Number(a.discount_value) || 0);
-      });
-
-      setApplicablePromos(filtered);
-    } catch {
-      setApplicablePromos([]);
-    }
-  }, []);
-
+  // Track scroll and smoothly transition to white ONLY when the bottom of the image passes the header
   useEffect(() => {
     const handleScroll = () => {
       const containerHeight = imageContainerRef.current?.offsetHeight || 320;
       const scrollY = window.scrollY;
+      
       const start = Math.max(0, containerHeight - 50);
       const end = containerHeight;
-      if (scrollY <= start) setHeaderOpacity(0);
-      else if (scrollY >= end) setHeaderOpacity(1);
-      else setHeaderOpacity((scrollY - start) / (end - start));
+
+      if (scrollY <= start) {
+        setHeaderOpacity(0);
+      } else if (scrollY >= end) {
+        setHeaderOpacity(1);
+      } else {
+        setHeaderOpacity((scrollY - start) / (end - start));
+      }
     };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   useEffect(() => {
     if (storeId && !getStoreTheme(storeId)) {
-      fetchStoreConfig(storeId).then((config) => {
-        const t = {
-          primaryColor: config?.hero?.gradientFrom || '#02402c',
-          secondaryColor: config?.hero?.gradientTo || '#03543a',
-          textColor: '#1f2937', borderColor: '#e5e7eb', buttonStyle: 'brand' as const,
-          gradientFrom: config?.hero?.gradientFrom || '#02402c',
-          gradientTo: config?.hero?.gradientTo || '#03543a',
-        };
-        setStoreTheme(storeId, t);
-        setTheme(t);
-      }).catch(() => {});
+      fetchStoreConfig(storeId)
+        .then((config) => {
+          const t = {
+            primaryColor: config?.hero?.gradientFrom || '#10b981',
+            secondaryColor: config?.hero?.gradientTo || '#059669',
+            textColor: '#1f2937',
+            borderColor: '#e5e7eb',
+            buttonStyle: 'brand' as const,
+            gradientFrom: config?.hero?.gradientFrom || '#065f46',
+            gradientTo: config?.hero?.gradientTo || '#16a34a',
+          };
+          setStoreTheme(storeId, t);
+          setTheme(t);
+        })
+        .catch(() => {});
     }
   }, [storeId]);
-
-  const refreshProductData = useCallback(async () => {
-    try {
-      const result = await fetchProductById(productId);
-      if (result) {
-        setProduct(result.product);
-        setRelated(result.related);
-        void loadProductPromos(result.product);
-      }
-      const tiers = await fetchVolumePricing(productId);
-      setVolumeTiers(tiers.sort((a, b) => a.min_quantity - b.min_quantity));
-    } catch (err) {
-      console.warn('Failed to refresh product silently', err);
-    }
-  }, [productId, loadProductPromos]);
 
   useEffect(() => {
     void (async () => {
       setLoading(true);
-      await refreshProductData();
-      void recordRecentlyViewed(productId);
+      const result = await fetchProductById(productId);
+      if (result) {
+        setProduct(result.product);
+        setRelated(result.related);
 
-      const wl = await fetchWishlist();
-      setWishlist(wl);
-      setWishlisted(wl.includes(productId));
+        void recordRecentlyViewed(productId);
 
-      if (brandId) {
-        const brand = await fetchBrandById(brandId);
-        if (brand) {
-          const t = {
-            primaryColor: brand.primary_color || '#02402c', secondaryColor: brand.secondary_color || '#03543a',
-            textColor: '#1f2937', borderColor: '#e5e7eb', buttonStyle: 'brand' as const,
-            gradientFrom: brand.primary_color || '#02402c', gradientTo: brand.secondary_color || '#03543a',
-          };
-          setTheme(t); setStoreTheme(`brand_${brandId}`, t);
-        }
-      } else if (categoryId) {
-        const { categories } = await fetchCategories();
-        const category = categories.find((c) => c.id === categoryId);
-        if (category) {
-          const gradient = category.gradient || '#02402c';
-          const hexes = gradient.match(/#(?:[0-9a-fA-F]{3}){1,2}/g);
-          const expandHex = (hex: string) => hex.length === 4 ? '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3] : hex;
-          const pColor = hexes ? expandHex(hexes[0]) : '#02402c';
-          const sColor = hexes && hexes.length > 1 ? expandHex(hexes[1]) : pColor;
-          const t = {
-            primaryColor: pColor, secondaryColor: sColor, textColor: '#1f2937', borderColor: '#e5e7eb',
-            buttonStyle: 'brand' as const, gradientFrom: pColor, gradientTo: sColor,
-          };
-          setTheme(t); setStoreTheme(`category_${categoryId}`, t);
+        const wl = await fetchWishlist();
+        setWishlist(wl);
+        setWishlisted(wl.includes(productId));
+        const tiers = await fetchVolumePricing(productId);
+        setVolumeTiers(tiers.sort((a, b) => a.min_quantity - b.min_quantity));
+
+        if (brandId) {
+          const brand = await fetchBrandById(brandId);
+          if (brand) {
+            const t = {
+              primaryColor: brand.primary_color || '#10b981',
+              secondaryColor: brand.secondary_color || '#059669',
+              textColor: '#1f2937',
+              borderColor: '#e5e7eb',
+              buttonStyle: 'brand' as const,
+              gradientFrom: brand.primary_color || '#065f46',
+              gradientTo: brand.secondary_color || '#16a34a',
+            };
+            setTheme(t);
+            setStoreTheme(`brand_${brandId}`, t);
+          }
+        } else if (categoryId) {
+          const { categories } = await fetchCategories();
+          const category = categories.find((c) => c.id === categoryId);
+          if (category) {
+            const gradient = category.gradient || '#10b981';
+            const hexes = gradient.match(/#(?:[0-9a-fA-F]{3}){1,2}/g);
+            const expandHex = (hex: string) =>
+              hex.length === 4 ? '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3] : hex;
+            const pColor = hexes ? expandHex(hexes[0]) : '#10b981';
+            const sColor = hexes && hexes.length > 1 ? expandHex(hexes[1]) : pColor;
+            const t = {
+              primaryColor: pColor,
+              secondaryColor: sColor,
+              textColor: '#1f2937',
+              borderColor: '#e5e7eb',
+              buttonStyle: 'brand' as const,
+              gradientFrom: pColor,
+              gradientTo: sColor,
+            };
+            setTheme(t);
+            setStoreTheme(`category_${categoryId}`, t);
+          }
         }
       }
       setLoading(false);
     })();
-  }, [productId, brandId, categoryId, refreshProductData]);
-
-  useEffect(() => {
-    let active = true;
-    const expectedKey = `product|${productId}`;
-
-    const handleKeepAliveFocus = (e: Event) => {
-      const customEvent = e as CustomEvent<{ key?: string }>;
-      if (active && customEvent.detail?.key === expectedKey) {
-        void refreshProductData();
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      const isCurrentlyActive = window.location.pathname === '/product' && window.location.search.includes(`id=${productId}`);
-      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
-        void refreshProductData();
-      }
-    };
-
-    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      active = false;
-      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [refreshProductData, productId]);
-
-  const rawImages = product?.image_urls?.length ? product.image_urls : product?.image ? [product.image] : [];
-  const images = rawImages.filter(Boolean);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchDeltaX.current = 0;
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (touchStartX.current === null) return;
-    const swipeThreshold = 40;
-    if (touchDeltaX.current < -swipeThreshold && activeImageIndex < images.length - 1) setActiveImageIndex((prev) => prev + 1);
-    else if (touchDeltaX.current > swipeThreshold && activeImageIndex > 0) setActiveImageIndex((prev) => prev - 1);
-    touchStartX.current = null;
-    touchDeltaX.current = 0;
-  }, [activeImageIndex, images.length]);
-
-  const handleCopyCode = useCallback(async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopiedCode(code);
-      setTimeout(() => setCopiedCode(null), 1600);
-    } catch {
-      // ignore
-    }
-  }, []);
+  }, [productId, brandId, categoryId]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex flex-col">
-        <div className="p-4 safe-top">
-          <button onClick={onBack} className="h-9 w-9 rounded-xl flex items-center justify-center bg-slate-100 text-slate-700 active:scale-95 transition-transform" aria-label="Back">
-            <ArrowLeft size={18} />
-          </button>
-        </div>
-        <div className="flex-1 flex items-center justify-center -mt-16"><AppLoader fullScreen={false} showStatus={true} size="md" type="general"/></div>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
       </div>
     );
   }
@@ -346,26 +199,22 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
         <p className="text-sm text-ink-500">Product not found</p>
-        <button onClick={onBack} className="mt-3 text-sm font-bold" style={{ color: primaryColor }}>Go back</button>
+        <button onClick={onBack} className="mt-3 text-sm font-bold text-brand-600">
+          Go back
+        </button>
       </div>
     );
   }
 
+  const images = product.image_urls?.length ? product.image_urls : [product.image];
   const discount = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const quantity = cart.getQuantity(product.id);
 
-  // Pick the tier with the HIGHEST min_quantity that still matches the current cart qty.
-  // This prevents overlapping tiers (e.g. "10–30" and "30+") from both lighting up at qty=30.
+  // Active tier requires an active positive quantity in cart
   const activeTier = quantity > 0
-    ? volumeTiers
-        .filter((t) => quantity >= t.min_quantity && (t.max_quantity === null || quantity <= t.max_quantity))
-        .sort((a, b) => {
-          if (b.min_quantity !== a.min_quantity) return b.min_quantity - a.min_quantity;
-          // Same min → prefer the tier with the smaller max (narrower, more specific)
-          const aMax = a.max_quantity ?? Infinity;
-          const bMax = b.max_quantity ?? Infinity;
-          return aMax - bMax;
-        })[0]
+    ? volumeTiers.find(
+        (t) => quantity >= t.min_quantity && (t.max_quantity === null || quantity <= t.max_quantity)
+      )
     : undefined;
 
   const effectivePrice = activeTier ? activeTier.unit_price : product.price;
@@ -381,10 +230,13 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   };
 
   const handleApplyTierQuantity = (targetQty: number) => {
-    if (!product || !product.inStock) return;
+    if (!product) return;
     const currentQty = cart.getQuantity(product.id);
-    if (currentQty === 0) cart.addToCart(product, targetQty);
-    else cart.updateQuantity(product.id, targetQty);
+    if (currentQty === 0) {
+      cart.addToCart(product, targetQty);
+    } else {
+      cart.updateQuantity(product.id, targetQty);
+    }
   };
 
   const handleProductClick = (p: Product) => {
@@ -398,6 +250,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
 
   return (
     <div className="pb-10 relative">
+      {/* Dynamic Header */}
       <header
         className="fixed top-0 left-0 right-0 z-30 mx-auto max-w-[720px] px-4 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-3 flex items-center justify-between pointer-events-auto"
         style={{
@@ -408,30 +261,57 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           boxShadow: headerOpacity > 0.9 ? '0 1px 3px 0 rgba(0, 0, 0, 0.05)' : 'none',
         }}
       >
+        {/* Back Button */}
         <button
           onClick={onBack}
-          className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${headerOpacity > 0.5 ? 'bg-ink-100 text-ink-800' : 'bg-white/90 text-ink-700 shadow-soft'}`}
+          className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
+            headerOpacity > 0.5
+              ? 'bg-ink-100 text-ink-800'
+              : 'bg-white/90 text-ink-700 shadow-soft'
+          }`}
+          aria-label="Back"
         >
           <ArrowLeft size={18} />
         </button>
-        <div className="flex-1 mx-3 truncate transition-opacity duration-150" style={{ opacity: headerOpacity }}>
+
+        {/* Product Title in Header */}
+        <div
+          className="flex-1 mx-3 truncate transition-opacity duration-150"
+          style={{ opacity: headerOpacity }}
+        >
           <p className="text-xs font-bold text-ink-900 truncate">{product.name}</p>
-          <p className="text-[11px] font-extrabold" style={{ color: primaryColor }}>₹{effectivePrice}</p>
+          <p className="text-[11px] font-extrabold" style={{ color: primaryColor }}>
+            ₹{effectivePrice}
+          </p>
         </div>
+
+        {/* Top Right: Wishlist & Cart */}
         <div className="flex items-center gap-2">
           <button
-            onClick={handleWishlist} disabled={wishlistBusy}
-            className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${headerOpacity > 0.5 ? 'bg-ink-100' : 'bg-white/90 shadow-soft'} ${wishlisted ? 'text-red-500' : 'text-ink-600'}`}
+            onClick={handleWishlist}
+            disabled={wishlistBusy}
+            className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all active:scale-95 ${
+              headerOpacity > 0.5
+                ? 'bg-ink-100'
+                : 'bg-white/90 shadow-soft'
+            } ${wishlisted ? 'text-red-500' : 'text-ink-600'}`}
+            aria-label="Wishlist"
           >
             <Heart size={17} className={wishlisted ? 'fill-red-500' : ''} />
           </button>
+
           <button
             onClick={() => navigate('/cart')}
-            className={`relative h-9 w-9 rounded-xl flex items-center justify-center text-ink-700 transition-all active:scale-95 ${headerOpacity > 0.5 ? 'bg-ink-100' : 'bg-white/90 shadow-soft'}`}
+            className={`relative h-9 w-9 rounded-xl flex items-center justify-center text-ink-700 transition-all active:scale-95 ${
+              headerOpacity > 0.5
+                ? 'bg-ink-100'
+                : 'bg-white/90 shadow-soft'
+            }`}
+            aria-label="Go to Cart"
           >
             <ShoppingBag size={17} />
             {cart.totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full text-white text-[9px] font-bold flex items-center justify-center shadow-xs" style={{ backgroundColor: primaryColor }}>
+              <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-accent-500 text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
                 {cart.totalItems}
               </span>
             )}
@@ -439,218 +319,191 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
         </div>
       </header>
 
-      <div ref={imageContainerRef} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} className="relative w-full h-[320px] overflow-hidden m-0 p-0 select-none touch-pan-y">
-        {images.length > 0 ? (
-          <div className="flex h-full w-full transition-transform duration-300 ease-out" style={{ transform: `translateX(-${activeImageIndex * 100}%)` }}>
-            {images.map((imgUrl, idx) => {
-              const isInvalid = imageErrors[idx];
-              return (
-                <div key={idx} className="flex h-full w-full shrink-0 items-center justify-center overflow-hidden">
-                  {!isInvalid ? (
-                    <CachedImage
-                      src={imgUrl}
-                      alt={`${product.name} - ${idx + 1}`}
-                      onError={() => setImageErrors((prev) => ({ ...prev, [idx]: true }))}
-                      className={`h-full w-full object-cover pointer-events-none transition-all ${!product.inStock ? 'grayscale opacity-70' : ''}`}
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-slate-300"><Package size={64} strokeWidth={1.5} /></div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-slate-300"><Package size={64} strokeWidth={1.5} /></div>
-        )}
-
-        {!product.inStock && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/30 backdrop-blur-[2px]">
-            <div className="bg-white/95 px-5 py-2.5 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-2">
-              <Package size={18} className="text-slate-400" />
-              <span className="text-sm font-black tracking-widest text-slate-600 uppercase">Sold Out</span>
-            </div>
-          </div>
-        )}
+      {/* Image Carousel */}
+      <div ref={imageContainerRef} className="relative w-full h-[320px] bg-ink-100 overflow-hidden m-0 p-0">
+        <img
+          src={images[activeImageIndex] || ''}
+          alt={product.name}
+          className="h-full w-full object-cover transition-opacity duration-300"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/10 pointer-events-none" />
 
         {images.length > 1 && (
           <>
-            <button type="button" onClick={() => setActiveImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50 transition-colors z-30"><ArrowLeft size={18} /></button>
-            <button type="button" onClick={() => setActiveImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50 transition-colors z-30"><ArrowRight size={18} /></button>
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-30">
+            <button
+              onClick={() => setActiveImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <button
+              onClick={() => setActiveImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white rounded-full p-1.5 hover:bg-black/50"
+            >
+              <ArrowRight size={18} />
+            </button>
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
               {images.map((_, idx) => (
-                <button key={idx} type="button" onClick={() => setActiveImageIndex(idx)} className={`h-2 rounded-full transition-all duration-300 ${idx === activeImageIndex ? 'w-4 bg-slate-800' : 'w-2 bg-slate-300'}`} />
+                <button
+                  key={idx}
+                  onClick={() => setActiveImageIndex(idx)}
+                  className={`h-2 w-2 rounded-full transition-colors ${
+                    idx === activeImageIndex ? 'bg-white' : 'bg-white/40'
+                  }`}
+                />
               ))}
             </div>
           </>
         )}
       </div>
 
+      {/* Main Content Area */}
       <div className="px-4 mt-4 space-y-4">
+        {/* Brand, Name, Specs */}
         <div>
           <div className="flex items-center justify-between gap-2">
-            <p className={`text-xs font-bold uppercase tracking-wider ${!product.inStock ? 'text-slate-400' : ''}`} style={product.inStock ? { color: primaryColor } : undefined}>{product.brand}</p>
-            {product.inStock && <OfferBadge discountPercent={discount} size="md" color={primaryColor} />}
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: primaryColor }}>
+              {product.brand}
+            </p>
+            <OfferBadge discountPercent={discount} size="md" color={primaryColor} />
           </div>
-          <h1 className={`text-2xl font-extrabold tracking-tight mt-1 ${!product.inStock ? 'text-slate-600' : 'text-ink-900'}`}>{product.name}</h1>
-          <p className="text-sm text-ink-500 mt-1">{product.packSize} <span className="mx-1 text-ink-300">·</span> Minimum order: {product.moq} units</p>
+          <h1 className="text-2xl font-extrabold text-ink-900 tracking-tight mt-1">{product.name}</h1>
+          <p className="text-sm text-ink-500 mt-1">
+            {product.packSize} <span className="mx-1 text-ink-300">·</span> Minimum order: {product.moq} units
+          </p>
           <div className="flex items-center gap-1.5 mt-2">
-            <span className={`flex items-center gap-1 text-xs font-bold ${!product.inStock ? 'text-slate-400' : 'text-ink-700'}`}><Star size={14} className={!product.inStock ? 'fill-slate-300 text-slate-300' : 'fill-amber-400 text-amber-400'} /> {product.rating}</span>
+            <span className="flex items-center gap-1 text-xs font-bold text-ink-700">
+              <Star size={14} className="fill-amber-400 text-amber-400" /> {product.rating}
+            </span>
             <span className="text-xs text-ink-300">|</span>
-            <span className="text-xs font-semibold" style={{ color: product.inStock ? primaryColor : '#94a3b8' }}>{product.inStock ? 'In stock' : 'Out of stock'}</span>
+            <span className={`text-xs font-semibold ${product.inStock ? 'text-brand-600' : 'text-red-500'}`}>
+              {product.inStock ? 'In stock' : 'Out of stock'}
+            </span>
           </div>
-          {product.hsn_code && <p className="text-xs text-ink-400 mt-1 flex items-center gap-1"><Hash size={12} /> HSN: {product.hsn_code}</p>}
-          {product.gst_percentage !== undefined && product.gst_percentage > 0 && <p className="text-xs text-ink-400 flex items-center gap-1"><Percent size={12} /> GST: {product.gst_percentage}%</p>}
+          {product.hsn_code && (
+            <p className="text-xs text-ink-400 mt-1 flex items-center gap-1">
+              <Hash size={12} /> HSN: {product.hsn_code}
+            </p>
+          )}
+          {product.gst_percentage !== undefined && product.gst_percentage > 0 && (
+            <p className="text-xs text-ink-400 flex items-center gap-1">
+              <Percent size={12} /> GST: {product.gst_percentage}%
+            </p>
+          )}
         </div>
 
-        {/* ==================== PROMO OFFERS SECTION ==================== */}
-        {applicablePromos.length > 0 && product.inStock && (
-          <div className="space-y-2.5">
-            <div className="flex items-center gap-1.5">
-              <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${primaryColor}15` }}>
-                <Tag size={14} style={{ color: primaryColor }} strokeWidth={2.5} />
-              </div>
-              <h2 className="text-sm font-bold text-ink-900 flex-1">
-                {applicablePromos.length === 1 ? 'Offer available on this product' : `${applicablePromos.length} Offers available`}
-              </h2>
-            </div>
-
-            <div className="space-y-2">
-              {applicablePromos.map((promo) => {
-                const isPercent = promo.discount_type === 'percentage';
-                const timer = formatPromoTimer(promo.end_date);
-                const isCopied = copiedCode === promo.code;
-                const sentence = buildPromoSentence(promo);
-
-                return (
-                  <div
-                    key={promo.id}
-                    className="relative overflow-hidden rounded-2xl border shadow-[0_4px_18px_-12px_rgba(2,64,44,0.35)] bg-white"
-                    style={{ borderColor: `${primaryColor}25` }}
-                  >
-                    <div className="flex items-stretch">
-                      {/* Left accent strip */}
-                      <div className="w-1.5 shrink-0" style={{ backgroundColor: primaryColor }} />
-
-                      <div className="flex-1 p-3.5 flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          {/* Row 1: code + timer */}
-                          <div className="flex items-center gap-2 flex-wrap mb-2">
-                            <button
-                              type="button"
-                              onClick={() => void handleCopyCode(promo.code)}
-                              className="text-[10.5px] font-black tracking-[0.08em] px-2 py-0.5 rounded-md border flex items-center gap-1 active:scale-95 transition-transform"
-                              style={{
-                                color: primaryColor,
-                                borderColor: `${primaryColor}40`,
-                                backgroundColor: `${primaryColor}0a`,
-                              }}
-                            >
-                              {isCopied ? <Check size={10} strokeWidth={3} /> : null}
-                              {isCopied ? 'COPIED' : promo.code}
-                            </button>
-
-                            {timer && (
-                              <span className="text-[9.5px] font-black bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 rounded-full px-2 py-0.5 flex items-center gap-1 border border-amber-200/60">
-                                <Timer size={9} strokeWidth={3} />
-                                {timer}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Row 2: full grammatical sentence */}
-                          <p className="text-[12.5px] font-semibold text-slate-700 leading-relaxed">
-                            {sentence}
-                          </p>
-                        </div>
-
-                        {/* Right: discount badge */}
-                        <div className="shrink-0 text-right">
-                          <div
-                            className="rounded-xl px-2.5 py-1.5 flex flex-col items-center justify-center min-w-[54px]"
-                            style={{ backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}25` }}
-                          >
-                            <span
-                              className="text-[15px] font-black leading-none tracking-[-0.02em]"
-                              style={{ color: primaryColor }}
-                            >
-                              {isPercent ? `${promo.discount_value}%` : `₹${promo.discount_value}`}
-                            </span>
-                            <span
-                              className="text-[8.5px] font-black tracking-widest mt-0.5"
-                              style={{ color: primaryColor, opacity: 0.75 }}
-                            >
-                              OFF
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-
-              <p className="text-[10.5px] text-slate-400 font-semibold flex items-center gap-1 px-1 pt-0.5">
-                <Sparkles size={11} className="text-amber-500" />
-                Tap a code to copy · Apply at checkout
-              </p>
-            </div>
-          </div>
-        )}
-        {/* ========================================================== */}
-
-        <div className={`rounded-2xl p-4 transition-all ${!product.inStock ? 'bg-slate-50 border border-slate-100' : ''}`} style={product.inStock ? { backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}30` } : undefined}>
+        {/* Pricing Card */}
+        <div
+          className="rounded-2xl p-4 transition-all"
+          style={{ backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}30` }}
+        >
           <div className="flex items-end gap-2">
-            <span className={`text-2xl font-extrabold ${!product.inStock ? 'text-slate-500' : ''}`} style={product.inStock ? { color: primaryColor } : undefined}>₹{effectivePrice}</span>
+            <span className="text-2xl font-extrabold" style={{ color: primaryColor }}>
+              ₹{effectivePrice}
+            </span>
             <span className="text-sm text-ink-400 line-through mb-1">MRP ₹{product.mrp}</span>
-            {activeTier && product.inStock && <span className="text-xs font-bold px-2 py-0.5 rounded-full mb-1 text-white shadow-xs" style={{ backgroundColor: primaryColor }}>Volume Deal Applied</span>}
+            {activeTier && (
+              <span
+                className="text-xs font-bold px-2 py-0.5 rounded-full mb-1 text-white shadow-xs"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Volume Deal Applied
+              </span>
+            )}
           </div>
-          <p className={`text-[11px] mt-1 ${!product.inStock ? 'text-slate-400' : ''}`} style={product.inStock ? { color: primaryColor } : undefined}>Your wholesale price · Inclusive of all taxes</p>
-          {quantity > 0 && effectivePrice < product.price && product.inStock && (
-            <div className="mt-3 p-2.5 rounded-xl flex items-center gap-2 border" style={{ backgroundColor: `${primaryColor}15`, borderColor: `${primaryColor}40` }}>
+          <p className="text-[11px] mt-1" style={{ color: primaryColor }}>
+            Your wholesale price · Inclusive of all taxes
+          </p>
+
+          {quantity > 0 && effectivePrice < product.price && (
+            <div
+              className="mt-3 p-2.5 rounded-xl flex items-center gap-2 border"
+              style={{ backgroundColor: `${primaryColor}15`, borderColor: `${primaryColor}40` }}
+            >
               <Zap size={15} style={{ color: primaryColor }} />
-              <span className="text-xs font-bold text-ink-800">You saved <span style={{ color: primaryColor }}>₹{volumeSavings.toLocaleString('en-IN')}</span> on this tier!</span>
+              <span className="text-xs font-bold text-ink-800">
+                You saved <span style={{ color: primaryColor }}>₹{volumeSavings.toLocaleString('en-IN')}</span> on this
+                tier!
+              </span>
             </div>
           )}
         </div>
 
+        {/* Volume Pricing Tiers */}
         {volumeTiers.length > 0 && (
           <div className="space-y-2.5">
             <div className="flex items-center gap-1.5">
-              <Sparkles size={16} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
-              <h2 className={`text-sm font-bold ${!product.inStock ? 'text-slate-500' : 'text-ink-900'}`}>Buy More, Save More</h2>
+              <Sparkles size={16} style={{ color: primaryColor }} />
+              <h2 className="text-sm font-bold text-ink-900">Buy More, Save More</h2>
             </div>
+
             <div className="grid grid-cols-1 gap-2.5">
               {volumeTiers.map((tier) => {
-                const tierDiscount = tier.discount_percent || Math.round(((product.price - tier.unit_price) / product.price) * 100);
-                const isApplied = activeTier?.id === tier.id; // ← only the winning tier is active
+                const tierDiscount =
+                  tier.discount_percent ||
+                  Math.round(((product.price - tier.unit_price) / product.price) * 100);
+
+                const isApplied =
+                  quantity > 0 &&
+                  quantity >= tier.min_quantity &&
+                  (tier.max_quantity === null || quantity <= tier.max_quantity);
+
                 return (
-                  <div key={tier.id} className={`relative rounded-2xl p-3.5 border transition-all flex items-center justify-between gap-3 ${!product.inStock ? 'bg-slate-50 border-slate-100 opacity-90' : isApplied ? 'shadow-md bg-white' : 'bg-white/60 hover:bg-white border-ink-200'}`} style={product.inStock ? { borderColor: isApplied ? primaryColor : undefined, borderWidth: isApplied ? '1.5px' : '1px' } : undefined}>
+                  <div
+                    key={tier.id}
+                    className={`relative rounded-2xl p-3.5 border transition-all flex items-center justify-between gap-3 ${
+                      isApplied
+                        ? 'shadow-md bg-white'
+                        : 'bg-white/60 hover:bg-white border-ink-200'
+                    }`}
+                    style={{
+                      borderColor: isApplied ? primaryColor : undefined,
+                      borderWidth: isApplied ? '1.5px' : '1px',
+                    }}
+                  >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-bold ${!product.inStock ? 'text-slate-500' : 'text-ink-900'}`}>Buy {tier.min_quantity}{tier.max_quantity ? `–${tier.max_quantity}` : '+'} units</span>
-                        {tierDiscount > 0 && product.inStock && <span className="text-[10px] font-black tracking-wide px-1.5 py-0.5 rounded-md text-white" style={{ backgroundColor: primaryColor }}>{tierDiscount}% OFF</span>}
+                        <span className="text-xs font-bold text-ink-900">
+                          Buy {tier.min_quantity}
+                          {tier.max_quantity ? `–${tier.max_quantity}` : '+'} units
+                        </span>
+                        {tierDiscount > 0 && (
+                          <span
+                            className="text-[10px] font-black tracking-wide px-1.5 py-0.5 rounded-md text-white"
+                            style={{ backgroundColor: primaryColor }}
+                          >
+                            {tierDiscount}% OFF
+                          </span>
+                        )}
                       </div>
+
                       <div className="flex items-baseline gap-1.5 mt-1">
-                        <span className={`text-sm font-extrabold ${!product.inStock ? 'text-slate-600' : 'text-ink-900'}`}>₹{tier.unit_price}</span>
+                        <span className="text-sm font-extrabold text-ink-900">
+                          ₹{tier.unit_price}
+                        </span>
                         <span className="text-[11px] text-ink-400">/unit</span>
-                        <span className="text-[11px] text-ink-400 line-through">₹{product.price}</span>
+                        <span className="text-[11px] text-ink-400 line-through">
+                          ₹{product.price}
+                        </span>
                       </div>
                     </div>
+
                     <button
                       onClick={() => handleApplyTierQuantity(tier.min_quantity)}
-                      disabled={!product.inStock}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-transform shrink-0 ${!product.inStock ? 'cursor-not-allowed shadow-none' : 'shadow-xs active:scale-95 cursor-pointer'}`}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 shrink-0 cursor-pointer"
                       style={
-                        !product.inStock
-                          ? { backgroundColor: '#f1f5f9', color: '#94a3b8' }
-                          : isApplied
-                            ? { backgroundColor: `${primaryColor}15`, color: primaryColor }
-                            : { backgroundColor: primaryColor, color: '#ffffff' }
+                        isApplied
+                          ? { backgroundColor: `${primaryColor}15`, color: primaryColor }
+                          : { backgroundColor: primaryColor, color: '#ffffff' }
                       }
                     >
-                      {!product.inStock ? 'Out of Stock' : isApplied ? <><Check size={14} /> Active</> : `Buy ${tier.min_quantity}`}
+                      {isApplied ? (
+                        <>
+                          <Check size={14} /> Active
+                        </>
+                      ) : (
+                        `Buy ${tier.min_quantity}`
+                      )}
                     </button>
                   </div>
                 );
@@ -659,94 +512,105 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
           </div>
         )}
 
-        <div className={`mt-4 rounded-2xl p-4 border transition-all ${!product.inStock ? 'bg-slate-50 border-slate-100' : 'bg-white border-slate-200 shadow-sm'}`}>
-          <div className="flex items-start gap-3">
-            <div className={`p-2.5 rounded-2xl ${!product.inStock ? 'bg-slate-200 text-slate-400' : ''}`} style={product.inStock ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : undefined}>
-              <Zap size={20} className={product.inStock ? "fill-current" : ""} />
-            </div>
-            <div className="flex-1 pt-0.5">
-              <div className="flex items-center gap-2">
-                <h3 className={`text-sm font-extrabold tracking-tight ${!product.inStock ? 'text-slate-500' : 'text-slate-900'}`}>
-                  Express Delivery
-                </h3>
-                {product.inStock && (
-                  <span className="px-1.5 py-0.5 rounded-[5px] text-[9px] font-black tracking-widest text-white uppercase shadow-sm" style={{ backgroundColor: primaryColor }}>
-                    FAST
-                  </span>
-                )}
-              </div>
-              <p className={`text-xs mt-1 font-medium flex items-center gap-1.5 ${!product.inStock ? 'text-slate-400' : 'text-slate-600'}`}>
-                <Timer size={14} className={!product.inStock ? 'text-slate-400' : 'text-slate-400'} />
-                Delivery in <span className={!product.inStock ? '' : 'text-slate-900 font-black'}>{deliveryConfig?.estimated_time || '45 - 60 minutes'}</span>
-              </p>
-
-              {typeof deliveryConfig?.free_delivery_threshold === 'number' && deliveryConfig.free_delivery_threshold > 0 && (
-                <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-slate-100">
-                  <Sparkles size={14} className={!product.inStock ? 'text-slate-400' : 'text-amber-500'} />
-                  <p className={`text-[11px] font-semibold ${!product.inStock ? 'text-slate-400' : 'text-slate-600'}`}>
-                    Free delivery on orders above <span className="font-bold text-slate-900">₹{deliveryConfig.free_delivery_threshold.toLocaleString('en-IN')}</span>
-                  </p>
-                </div>
-              )}
-            </div>
+        {/* Delivery Info */}
+        <div className="flex items-center gap-2 pt-1">
+          <Truck size={17} style={{ color: primaryColor }} />
+          <div>
+            <p className="text-xs font-bold text-ink-700">Delivery by tomorrow</p>
+            <p className="text-[10px] text-ink-400 mt-0.5">Free delivery on orders above ₹2,000</p>
           </div>
         </div>
 
+        {/* Product Description */}
         <div>
           <h2 className="text-sm font-bold text-ink-900">About this product</h2>
           <p className="text-xs text-ink-600 leading-relaxed mt-2">{product.description}</p>
         </div>
 
+        {/* Trust Badges */}
         <div className="grid grid-cols-2 gap-2">
-          <div className={`rounded-xl p-3 flex items-center gap-2 ${!product.inStock ? 'bg-slate-50' : ''}`} style={product.inStock ? { backgroundColor: `${primaryColor}10` } : undefined}>
-            <ShieldCheck size={17} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
+          <div className="rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: `${primaryColor}10` }}>
+            <ShieldCheck size={17} style={{ color: primaryColor }} />
             <div>
-              <p className={`text-[10px] font-bold ${!product.inStock ? 'text-slate-500' : 'text-ink-700'}`}>Quality checked</p>
+              <p className="text-[10px] font-bold text-ink-700">Quality checked</p>
               <p className="text-[9px] text-ink-400">Verified product</p>
             </div>
           </div>
-          <div className={`rounded-xl p-3 flex items-center gap-2 ${!product.inStock ? 'bg-slate-50' : ''}`} style={product.inStock ? { backgroundColor: `${primaryColor}10` } : undefined}>
-            <Truck size={17} className={!product.inStock ? 'text-slate-400' : ''} style={product.inStock ? { color: primaryColor } : undefined} />
+          <div className="rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: `${primaryColor}10` }}>
+            <Truck size={17} style={{ color: primaryColor }} />
             <div>
-              <p className={`text-[10px] font-bold ${!product.inStock ? 'text-slate-500' : 'text-ink-700'}`}>Fast delivery</p>
+              <p className="text-[10px] font-bold text-ink-700">Fast delivery</p>
               <p className="text-[9px] text-ink-400">Reliable supply</p>
             </div>
           </div>
         </div>
 
+        {/* Cart Controls */}
         <div className="flex gap-2 pt-2">
           <div className="flex-1">
             {quantity > 0 ? (
-              <div className="h-12 flex items-center justify-between px-3 rounded-xl border shadow-sm" style={{ borderColor: `${primaryColor}40`, backgroundColor: `${primaryColor}10` }}>
-                <button onClick={() => cart.updateQuantity(product.id, quantity - 1)} className="h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform active:scale-95 cursor-pointer" style={{ backgroundColor: primaryColor }}><Minus size={16} /></button>
-                <span className="text-sm font-extrabold" style={{ color: primaryColor }}>{quantity} in cart</span>
-                <button disabled={!product.inStock} onClick={() => cart.addToCart(product)} className={`h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform cursor-pointer ${!product.inStock ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`} style={{ backgroundColor: primaryColor }}><Plus size={16} /></button>
+              <div
+                className="h-12 flex items-center justify-between px-3 rounded-xl border shadow-sm"
+                style={{ borderColor: `${primaryColor}40`, backgroundColor: `${primaryColor}10` }}
+              >
+                <button
+                  onClick={() => cart.updateQuantity(product.id, quantity - 1)}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform active:scale-95 cursor-pointer"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <Minus size={16} />
+                </button>
+                <span className="text-sm font-extrabold" style={{ color: primaryColor }}>
+                  {quantity} in cart
+                </span>
+                <button
+                  onClick={() => cart.addToCart(product)}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform active:scale-95 cursor-pointer"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <Plus size={16} />
+                </button>
               </div>
-            ) : !product.inStock ? (
-              <button disabled className="w-full h-12 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 text-sm font-bold shadow-none cursor-not-allowed flex items-center justify-center gap-2">
-                <Package size={18} /> Out of Stock
-              </button>
             ) : (
-              <button onClick={() => cart.addToCart(product)} className="w-full h-12 rounded-xl text-white text-sm font-bold shadow-md transition-transform active:scale-[0.98] cursor-pointer" style={{ backgroundColor: primaryColor }}>Add to cart</button>
+              <button
+                onClick={() => cart.addToCart(product)}
+                className="w-full h-12 rounded-xl text-white text-sm font-bold shadow-md transition-transform active:scale-[0.98] cursor-pointer"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Add to cart
+              </button>
             )}
           </div>
-          <button onClick={handleWishlist} disabled={wishlistBusy} className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-colors cursor-pointer ${wishlisted ? 'border-red-200 text-red-500' : 'border-ink-200 text-ink-600'}`}>
+          <button
+            onClick={handleWishlist}
+            disabled={wishlistBusy}
+            className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-colors cursor-pointer ${
+              wishlisted ? 'border-red-200 text-red-500' : 'border-ink-200 text-ink-600'
+            }`}
+          >
             <Heart size={19} className={wishlisted ? 'fill-red-500' : ''} />
           </button>
         </div>
       </div>
 
+      {/* Related Products */}
       {related.length > 0 && (
         <div className="mt-6">
           <SectionHeader title="You may also like" onViewAll={() => undefined} />
           <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-4 pb-1">
             {related.map((item) => (
               <ProductCard
-                key={item.id} product={item} quantity={cart.getQuantity(item.id)}
-                onAdd={() => cart.addToCart(item)} onIncrement={() => cart.addToCart(item)}
+                key={item.id}
+                product={item}
+                quantity={cart.getQuantity(item.id)}
+                onAdd={() => cart.addToCart(item)}
+                onIncrement={() => cart.addToCart(item)}
                 onDecrement={() => cart.updateQuantity(item.id, cart.getQuantity(item.id) - 1)}
-                onClick={() => handleProductClick(item)} horizontal theme={theme}
-                isWishlisted={wishlist.includes(item.id)} onWishlistToggle={toggleWishlist}
+                onClick={() => handleProductClick(item)}
+                horizontal
+                theme={theme}
+                isWishlisted={wishlist.includes(item.id)}
+                onWishlistToggle={toggleWishlist}
               />
             ))}
           </div>

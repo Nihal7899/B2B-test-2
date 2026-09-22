@@ -1,4 +1,3 @@
-// src/components/KeepAliveRenderer.tsx
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigationType } from 'react-router-dom';
 
@@ -6,7 +5,6 @@ interface KeepAliveRendererProps {
   currentKey: string;
   render: () => ReactNode;
   maxCache?: number;
-  excludeKeys?: string[];
 }
 
 interface ScrollPos {
@@ -14,12 +12,7 @@ interface ScrollPos {
   y: number;
 }
 
-export function KeepAliveRenderer({
-  currentKey,
-  render,
-  maxCache = 8,
-  excludeKeys = [],
-}: KeepAliveRendererProps) {
+export function KeepAliveRenderer({ currentKey, render, maxCache = 8 }: KeepAliveRendererProps) {
   const navigationType = useNavigationType();
 
   const frozenElements = useRef<Map<string, ReactNode>>(new Map());
@@ -29,28 +22,26 @@ export function KeepAliveRenderer({
   const [aliveKeys, setAliveKeys] = useState<string[]>([currentKey]);
 
   const keyChanged = prevKeyRef.current !== currentKey;
-  const isExcluded = excludeKeys.includes(currentKey);
-  const wasExcluded = excludeKeys.includes(prevKeyRef.current);
+  const isPop = navigationType === 'POP';
+  const hasFrozen = frozenElements.current.has(currentKey);
+  const useFrozen = isPop && hasFrozen;
 
   if (keyChanged) {
-    if (!wasExcluded) {
-      scrollPositions.current.set(prevKeyRef.current, {
-        x: window.scrollX,
-        y: window.scrollY,
-      });
+    scrollPositions.current.set(prevKeyRef.current, {
+      x: window.scrollX,
+      y: window.scrollY,
+    });
 
-      if (navigationType === 'PUSH' && currentElementRef.current !== null) {
+    if (navigationType === 'PUSH') {
+      scrollPositions.current.delete(currentKey);
+      if (currentElementRef.current !== null) {
         frozenElements.current.set(prevKeyRef.current, currentElementRef.current);
       }
-    } else {
-      // Purge excluded routes immediately upon leaving
-      frozenElements.current.delete(prevKeyRef.current);
-      scrollPositions.current.delete(prevKeyRef.current);
     }
 
-    let newAlive = aliveKeys.filter((k) => k === currentKey || !excludeKeys.includes(k));
-    if (!newAlive.includes(currentKey)) {
-      newAlive = [...newAlive, currentKey];
+    let newAlive = aliveKeys;
+    if (!aliveKeys.includes(currentKey)) {
+      newAlive = [...aliveKeys, currentKey];
     }
 
     while (newAlive.length > maxCache) {
@@ -61,17 +52,16 @@ export function KeepAliveRenderer({
       newAlive = newAlive.slice(1);
     }
 
-    if (newAlive.length !== aliveKeys.length || newAlive.some((k, i) => k !== aliveKeys[i])) {
+    if (newAlive !== aliveKeys) {
       setAliveKeys(newAlive);
     }
 
     prevKeyRef.current = currentKey;
   }
 
-  // FIX: Always call render() for the currently active tab.
-  // This guarantees that the active tab receives the latest global state (like Cart updates),
-  // while React's reconciliation engine naturally maintains the component's internal state.
-  const currentElement = render() ?? null;
+  const currentElement = useFrozen
+    ? (frozenElements.current.get(currentKey) ?? null)
+    : render() ?? null;
   currentElementRef.current = currentElement;
 
   useLayoutEffect(() => {
@@ -82,6 +72,7 @@ export function KeepAliveRenderer({
       window.scrollTo(0, 0);
     }
 
+    // Broadcast screen activation to inform Keep-Alive components
     window.dispatchEvent(new CustomEvent('keepalive:activated', { detail: { key: currentKey } }));
   }, [currentKey]);
 

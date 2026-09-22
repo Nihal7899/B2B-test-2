@@ -1,6 +1,5 @@
 import React from 'react';
 import type { Category } from '@/types';
-import { CachedImage } from '@/components/CachedImage';
 
 interface CategoryCardProps {
   category: Category;
@@ -25,11 +24,10 @@ export const CategoryCard = React.memo(function CategoryCard({
           compact ? 'h-[68px]' : 'h-[88px]'
         } rounded-2xl overflow-hidden relative border border-white shadow-card group-active:scale-95 transition-transform`}
       >
-        <CachedImage
+        <img
           src={category.image}
           alt={category.name}
-          loading="eager"
-          decoding="sync"
+          decoding="async"
           className="h-full w-full object-cover mix-blend-multiply opacity-85"
         />
         <div className="absolute inset-0 bg-white/10" />

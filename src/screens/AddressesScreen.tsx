@@ -4,13 +4,12 @@ import type { DbAddress } from '@/services/catalog';
 import { fetchAddresses, deleteAddress } from '@/services/catalog';
 import { saveDeliveryAddress as saveAddress } from '@/services/business';
 import { LocationPicker } from '@/components/LocationPicker';
-import { supabase } from '@/lib/supabase';
-import { checkPointInDeliveryRange } from '@/services/catalog';
+import { supabase } from '@/lib/supabase'; // 👈 IMPORTANT: added
+import { checkPointInDeliveryRange } from '@/services/catalog'; // 👈 IMPORTANT: added
 
 interface AddressesScreenProps { onBack: () => void; onSaved?: () => void; }
 
 const EMPTY_FORM = {
-  id: null as string | null,
   label: 'Business',
   recipient_name: '',
   phone: '',
@@ -50,7 +49,7 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
       ...f,
       latitude: loc.latitude,
       longitude: loc.longitude,
-      line2: loc.line1 || f.line2, // Updated to populate line 2 instead of line 1
+      line1: loc.line1 || f.line1,
       city: loc.city || f.city,
       state: loc.state || f.state,
       postal_code: loc.postal_code || f.postal_code,
@@ -60,42 +59,9 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
     setShowForm(true);
   };
 
-  const handleEdit = (addr: DbAddress) => {
-    setForm({
-      id: addr.id,
-      label: addr.label,
-      recipient_name: addr.recipient_name,
-      phone: addr.phone,
-      line1: addr.line1,
-      line2: addr.line2 || '',
-      city: addr.city,
-      state: addr.state,
-      postal_code: addr.postal_code,
-      latitude: addr.latitude || null,
-      longitude: addr.longitude || null,
-      place_id: addr.place_id || null,
-      is_default: addr.is_default,
-    });
-    setShowForm(true);
-  };
-
-  const handleSetDefault = async (addr: DbAddress) => {
-    try {
-      // Find current default and unset it
-      const currentDefault = addresses.find((a) => a.is_default);
-      if (currentDefault && currentDefault.id !== addr.id) {
-        await supabase.from('addresses').update({ is_default: false }).eq('id', currentDefault.id);
-      }
-      
-      // Set new default
-      await supabase.from('addresses').update({ is_default: true }).eq('id', addr.id);
-      await load();
-    } catch (err) {
-      console.error('Failed to set default address', err);
-    }
-  };
-
   const handleSave = async () => {
+    console.log('🔧 handleSave called with form:', form);
+
     if (!form.recipient_name || !form.phone || !form.line1 || !form.city || !form.state || !form.postal_code) {
       setError('Please fill all required fields.');
       return;
@@ -110,17 +76,20 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
 
       // If no lat/lng, geocode the address
       if (lat === null || lng === null) {
+        console.log('📍 Geocoding address...');
         const fullAddress = `${form.line1}, ${form.city}, ${form.state} ${form.postal_code}`;
         const { data, error } = await supabase.functions.invoke('maps', {
           body: { action: 'search', query: fullAddress },
         });
         if (error || !data?.address?.latitude) {
+          console.error('❌ Geocoding error:', error || 'No lat/lng returned');
           setError('Could not determine location from address. Please use the map picker to set location.');
           setSaving(false);
           return;
         }
         lat = data.address.latitude;
         lng = data.address.longitude;
+        // Optionally fill missing address parts from geocoded result
         setForm(f => ({
           ...f,
           latitude: lat,
@@ -130,56 +99,39 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
           state: data.address.state || f.state,
           postal_code: data.address.postal_code || f.postal_code,
         }));
+        console.log('✅ Geocoded lat/lng:', { lat, lng });
       }
 
       // Check delivery range
+      console.log('📍 Checking delivery range for:', { lat, lng });
       const inRange = await checkPointInDeliveryRange(lat!, lng!);
+      console.log('📍 In range?', inRange);
       if (!inRange) {
         setError('This address is outside our delivery area. Please choose another location.');
         setSaving(false);
         return;
       }
 
+      // Prepare data for saveAddress
       const addressData = {
-        label: form.label,
-        recipient_name: form.recipient_name,
-        phone: form.phone,
-        line1: form.line1,
-        line2: form.line2,
-        city: form.city,
-        state: form.state,
-        postal_code: form.postal_code,
+        ...form,
         latitude: lat,
         longitude: lng,
-        place_id: form.place_id,
-        is_default: form.is_default,
       };
+      console.log('📦 Saving address with data:', addressData);
 
-      // Unset previous default if this new/updated address is being set as default
-      if (form.is_default) {
-        const currentDefault = addresses.find((a) => a.is_default);
-        if (currentDefault && currentDefault.id !== form.id) {
-          await supabase.from('addresses').update({ is_default: false }).eq('id', currentDefault.id);
-        }
-      }
-
-      // Explicitly UPDATE if we have an ID to prevent duplicates, otherwise INSERT
-      if (form.id) {
-        const { error: updateError } = await supabase
-          .from('addresses')
-          .update(addressData)
-          .eq('id', form.id);
-        if (updateError) throw updateError;
-      } else {
-        await saveAddress(addressData);
-      }
+      // Proceed to save address
+      const result = await saveAddress(addressData);
+      console.log('✅ Address saved successfully:', result);
 
       setShowForm(false);
       setForm({ ...EMPTY_FORM });
       await load();
       onSaved?.();
     } catch (err: any) {
+      // Log the full error object
       console.error('❌ Save address error:', err);
+      // Supabase errors usually have a 'message' and 'code'
       const message = err?.message || err?.error_description || 'Could not save address. Please try again.';
       setError(`Save failed: ${message}`);
     } finally {
@@ -227,8 +179,8 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
         <div className="space-y-3">
           <div className="bg-white border border-ink-100 rounded-2xl p-4 space-y-3 shadow-card">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-ink-900">{form.id ? 'Edit address' : 'New address'}</h2>
-              <button onClick={() => { setShowForm(false); setForm({ ...EMPTY_FORM }); }} className="text-xs font-bold text-ink-400">Cancel</button>
+              <h2 className="text-sm font-bold text-ink-900">New address</h2>
+              <button onClick={() => setShowForm(false)} className="text-xs font-bold text-ink-400">Cancel</button>
             </div>
 
             <button onClick={() => setShowPicker(true)} className="w-full h-11 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50 text-brand-700 text-sm font-bold flex items-center justify-center gap-2">
@@ -254,10 +206,7 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
               <input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="State *" className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
               <input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} placeholder="PIN *" className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
             </div>
-            <label className="flex items-center gap-2 text-sm text-ink-700">
-              <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} className="accent-brand-600" /> 
-              Set as default address
-            </label>
+            <label className="flex items-center gap-2 text-sm text-ink-700"><input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} className="accent-brand-600" /> Set as default address</label>
             {error && <p className="text-xs text-red-500">{error}</p>}
             <button onClick={handleSave} disabled={saving} className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2">{saving ? <Loader2 size={17} className="animate-spin" /> : <><Check size={17} /> Save address</>}</button>
           </div>
@@ -280,18 +229,7 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
                       {addr.latitude && addr.longitude && <p className="text-[10px] text-brand-600 mt-1 flex items-center gap-1"><Navigation size={11} /> GPS location set</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!addr.is_default && (
-                      <button 
-                        onClick={() => handleSetDefault(addr)} 
-                        className="px-2 py-1 text-[10px] font-bold text-brand-600 bg-brand-50 rounded-lg hover:bg-brand-100 transition-colors mr-1"
-                      >
-                        Set Default
-                      </button>
-                    )}
-                    <button onClick={() => handleEdit(addr)} className="p-2 text-ink-400 hover:text-brand-600 transition-colors"><Pencil size={15} /></button>
-                    <button onClick={() => void handleDelete(addr.id)} className="p-2 text-ink-400 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
-                  </div>
+                  <button onClick={() => void handleDelete(addr.id)} className="p-1.5 text-ink-300 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
                 </div>
               </div>
             ))}

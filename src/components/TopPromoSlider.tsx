@@ -1,21 +1,38 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { PromoBanner, BannerSize } from '@/types';
-import { CachedImage } from '@/components/CachedImage';
-import { useCachedImage } from '@/lib/imageCache';
 
-// Sub-component to safely utilize the hook inside a map loop
-const TopPromoSlide = React.memo(function TopPromoSlide({
-  banner,
-  isActive,
-  sizeConfig,
-  onAction,
-}: {
-  banner: PromoBanner;
-  isActive: boolean;
-  sizeConfig: any;
+interface TopPromoSliderProps {
+  banners: PromoBanner[];
+  sizeOverride?: BannerSize;
+  intervalMs?: number;
   onAction?: (banner: PromoBanner) => void;
-}) {
+  className?: string;
+}
+
+export const TopPromoSlider = React.memo(function TopPromoSlider({
+  banners,
+  sizeOverride,
+  intervalMs = 4000,
+  onAction,
+  className = 'mx-4',
+}: TopPromoSliderProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % banners.length);
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [banners.length, intervalMs]);
+
+  const banner = banners[currentIndex] || banners[0];
+  if (!banner) return null;
+
+  const size = sizeOverride || banner.size || 'medium';
   const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
+
+  // Customizable colors from actionConfig
   const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
   const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
   const badgeBg = (banner.actionConfig?.badgeBg as string) || '';
@@ -23,15 +40,13 @@ const TopPromoSlide = React.memo(function TopPromoSlide({
   const ctaBg = (banner.actionConfig?.ctaBg as string) || '#ffffff';
   const ctaColor = (banner.actionConfig?.ctaColor as string) || '#0f172a';
 
-  const cachedBgUrl = useCachedImage(banner?.bgType === 'image' ? banner?.image : undefined);
-
   const { computedBgStyle, tailwindBgClass } = useMemo(() => {
     let computedBgStyle: React.CSSProperties = {};
     let tailwindBgClass = '';
 
     if (banner.bgType === 'image') {
       computedBgStyle = {
-        backgroundImage: cachedBgUrl ? `url(${cachedBgUrl})` : 'none',
+        backgroundImage: `url(${banner.image})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       };
@@ -53,118 +68,14 @@ const TopPromoSlide = React.memo(function TopPromoSlide({
     }
 
     return { computedBgStyle, tailwindBgClass };
-  }, [banner, cachedBgUrl]);
+  }, [banner]);
 
   const overlayStyle: React.CSSProperties = {
     backgroundColor: banner.overlayColor || '#000000',
     opacity: (banner.overlayOpacity ?? 40) / 100,
   };
 
-  return (
-    <div
-      onClick={() => isActive && onAction?.(banner)}
-      className={`absolute inset-0 flex transition-opacity duration-300 ease-in-out cursor-pointer ${
-        isActive
-          ? 'opacity-100 z-20 pointer-events-auto'
-          : 'opacity-0 z-10 pointer-events-none'
-      } ${tailwindBgClass}`}
-    >
-      <div className="absolute inset-0 z-0 transition-opacity duration-300" style={computedBgStyle} />
-
-      <div className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}>
-        <div className="flex-1 overflow-hidden">
-          {banner.badge && (
-            <span
-              className={`inline-block font-bold tracking-wider uppercase rounded-full ${sizeConfig.badge}`}
-              style={{
-                backgroundColor: badgeBg || 'rgba(0, 0, 0, 0.35)',
-                color: badgeColor,
-              }}
-            >
-              {banner.badge}
-            </span>
-          )}
-          <h3 className={`whitespace-pre-line ${sizeConfig.headline}`} style={{ color: titleColor }}>
-            {banner.headline}
-          </h3>
-          {banner.subtext && (
-            <p className={`whitespace-pre-line ${sizeConfig.subtext}`} style={{ color: descColor }}>
-              {banner.subtext}
-            </p>
-          )}
-        </div>
-
-        {banner.showCta !== false && banner.cta && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isActive) onAction?.(banner);
-            }}
-            className={`flex-shrink-0 self-start font-bold rounded-xl active:scale-95 transition-transform ${sizeConfig.cta}`}
-            style={{
-              backgroundColor: ctaBg,
-              color: ctaColor,
-            }}
-          >
-            {banner.cta}
-          </button>
-        )}
-      </div>
-
-      {showImage && (
-        <div className={`relative z-10 shrink-0 h-full ${sizeConfig.imageWidth}`}>
-          <CachedImage
-            src={banner.image}
-            alt={banner.headline}
-            decoding="async"
-            className="h-full w-full object-cover"
-          />
-        </div>
-      )}
-
-      {banner.overlayEnabled && (
-        <div className="absolute inset-0 z-20 pointer-events-none" style={overlayStyle} />
-      )}
-    </div>
-  );
-});
-
-interface TopPromoSliderProps {
-  banners: PromoBanner[];
-  sizeOverride?: BannerSize;
-  intervalMs?: number;
-  onAction?: (banner: PromoBanner) => void;
-  className?: string;
-}
-
-export const TopPromoSlider = React.memo(function TopPromoSlider({
-  banners,
-  sizeOverride,
-  intervalMs = 4500,
-  onAction,
-  className = 'mx-4',
-}: TopPromoSliderProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const bannersCount = banners?.length ?? 0;
-
-  useEffect(() => {
-    if (bannersCount <= 1) return;
-
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        setCurrentIndex((prev) => (prev + 1) % bannersCount);
-      }
-    }, intervalMs);
-
-    return () => clearInterval(timer);
-  }, [bannersCount, intervalMs]);
-
-  if (!banners || banners.length === 0) return null;
-
-  const activeBanner = banners[currentIndex] || banners[0];
-  const size = sizeOverride || activeBanner.size || 'medium';
-
+  // Exact 1:1 Dimensions matching PromoBannerCard
   const sizeConfig = useMemo(() => {
     switch (size) {
       case 'small':
@@ -203,20 +114,71 @@ export const TopPromoSlider = React.memo(function TopPromoSlider({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl shadow-sm select-none transform-gpu ${sizeConfig.container} ${className}`}
+      onClick={() => onAction?.(banner)}
+      className={`relative overflow-hidden rounded-2xl flex shadow-soft transform-gpu cursor-pointer select-none transition-all duration-300 ${sizeConfig.container} ${tailwindBgClass} ${className}`}
     >
-      {banners.map((banner, index) => (
-        <TopPromoSlide
-          key={banner.id || index}
-          banner={banner}
-          isActive={index === currentIndex}
-          sizeConfig={sizeConfig}
-          onAction={onAction}
-        />
-      ))}
+      <div className="absolute inset-0 z-0" style={computedBgStyle} />
+
+      <div className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}>
+        <div className="flex-1 overflow-hidden">
+          {banner.badge && (
+            <span
+              className={`inline-block font-bold tracking-wider uppercase rounded-full backdrop-blur-xs ${sizeConfig.badge}`}
+              style={{
+                backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)',
+                color: badgeColor,
+              }}
+            >
+              {banner.badge}
+            </span>
+          )}
+          <h3 className={`whitespace-pre-line ${sizeConfig.headline}`} style={{ color: titleColor }}>
+            {banner.headline}
+          </h3>
+          {banner.subtext && (
+            <p className={`whitespace-pre-line ${sizeConfig.subtext}`} style={{ color: descColor }}>
+              {banner.subtext}
+            </p>
+          )}
+        </div>
+
+        {banner.showCta !== false && banner.cta && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAction?.(banner);
+            }}
+            className={`flex-shrink-0 self-start font-bold rounded-xl tap-highlight active:scale-95 transition-transform ${sizeConfig.cta}`}
+            style={{
+              backgroundColor: ctaBg,
+              color: ctaColor,
+            }}
+          >
+            {banner.cta}
+          </button>
+        )}
+      </div>
+
+      {showImage && (
+        <div className={`relative z-10 shrink-0 h-full ${sizeConfig.imageWidth}`}>
+          <img
+            src={banner.image}
+            alt={banner.headline}
+            decoding="async"
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </div>
+      )}
+
+      {banner.overlayEnabled && (
+        <div className="absolute inset-0 z-20 pointer-events-none" style={overlayStyle} />
+      )}
 
       {banners.length > 1 && (
-        <div className="absolute bottom-2.5 right-3 z-40 flex items-center gap-1.5 bg-black/50 px-2 py-1 rounded-full pointer-events-none">
+        <div className="absolute bottom-2.5 right-3 z-40 flex items-center gap-1.5 bg-black/30 px-2 py-1 rounded-full backdrop-blur-xs pointer-events-none">
           {banners.map((_, idx) => (
             <span
               key={idx}

@@ -1,7 +1,5 @@
-import React, { useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import type { PromoBanner, BannerSize } from '@/types';
-import { CachedImage } from '@/components/CachedImage';
-import { useCachedImage } from '@/lib/imageCache';
 
 interface PromoBannerCardProps {
   banner: PromoBanner;
@@ -16,27 +14,24 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
   onAction,
   className = '',
 }: PromoBannerCardProps) {
-  const size = sizeProp || banner?.size || 'medium';
-  const showImage = Boolean(banner?.image && banner.image.trim() !== '' && banner.bgType !== 'image');
+  const size = sizeProp || banner.size || 'medium';
+  const showImage = Boolean(banner.image && banner.image.trim() !== '' && banner.bgType !== 'image');
 
-  const titleColor = (banner?.actionConfig?.titleColor as string) || '#ffffff';
-  const descColor = (banner?.actionConfig?.descColor as string) || '#ffffff';
-  const badgeBg = (banner?.actionConfig?.badgeBg as string) || '';
-  const badgeColor = (banner?.actionConfig?.badgeColor as string) || '#ffffff';
-  const ctaBg = (banner?.actionConfig?.ctaBg as string) || '#ffffff';
-  const ctaColor = (banner?.actionConfig?.ctaColor as string) || '#0f172a';
-
-  const cachedBgUrl = useCachedImage(banner?.bgType === 'image' ? banner?.image : undefined);
+  // Customizable colors from actionConfig
+  const titleColor = (banner.actionConfig?.titleColor as string) || '#ffffff';
+  const descColor = (banner.actionConfig?.descColor as string) || '#ffffff';
+  const badgeBg = (banner.actionConfig?.badgeBg as string) || '';
+  const badgeColor = (banner.actionConfig?.badgeColor as string) || '#ffffff';
+  const ctaBg = (banner.actionConfig?.ctaBg as string) || '#ffffff';
+  const ctaColor = (banner.actionConfig?.ctaColor as string) || '#0f172a';
 
   const { computedBgStyle, tailwindBgClass } = useMemo(() => {
     let computedBgStyle: React.CSSProperties = {};
     let tailwindBgClass = '';
 
-    if (!banner) return { computedBgStyle, tailwindBgClass };
-
     if (banner.bgType === 'image') {
       computedBgStyle = {
-        backgroundImage: cachedBgUrl ? `url(${cachedBgUrl})` : 'none',
+        backgroundImage: `url(${banner.image})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       };
@@ -58,11 +53,11 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
     }
 
     return { computedBgStyle, tailwindBgClass };
-  }, [banner, cachedBgUrl]);
+  }, [banner]);
 
   const overlayStyle: React.CSSProperties = {
-    backgroundColor: banner?.overlayColor || '#000000',
-    opacity: (banner?.overlayOpacity ?? 40) / 100,
+    backgroundColor: banner.overlayColor || '#000000',
+    opacity: (banner.overlayOpacity ?? 40) / 100,
   };
 
   const sizeConfig = useMemo(() => {
@@ -101,14 +96,11 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
     }
   }, [size]);
 
-  if (!banner) return null;
-
   return (
     <div
-      onClick={() => onAction?.(banner)}
-      className={`relative cursor-pointer overflow-hidden rounded-2xl flex shadow-soft transform-gpu ${sizeConfig.container} ${tailwindBgClass} ${className}`}
+      className={`relative overflow-hidden rounded-2xl flex shadow-soft transform-gpu ${sizeConfig.container} ${tailwindBgClass} ${className}`}
     >
-      <div className="absolute inset-0 z-0 transition-opacity duration-300" style={computedBgStyle} />
+      <div className="absolute inset-0 z-0" style={computedBgStyle} />
 
       <div
         className={`relative z-30 flex-1 h-full flex flex-col justify-between min-w-0 overflow-hidden ${sizeConfig.padding}`}
@@ -116,9 +108,9 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
         <div className="flex-1 overflow-hidden">
           {banner.badge && (
             <span
-              className={`inline-block font-bold tracking-wider uppercase rounded-full ${sizeConfig.badge}`}
+              className={`inline-block font-bold tracking-wider uppercase rounded-full backdrop-blur-xs ${sizeConfig.badge}`}
               style={{
-                backgroundColor: badgeBg || 'rgba(0, 0, 0, 0.25)',
+                backgroundColor: badgeBg || 'rgba(255, 255, 255, 0.2)',
                 color: badgeColor,
               }}
             >
@@ -137,7 +129,6 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
 
         {banner.showCta !== false && banner.cta && (
           <button
-            type="button"
             onClick={(e) => {
               e.stopPropagation();
               onAction?.(banner);
@@ -155,11 +146,14 @@ export const PromoBannerCard = React.memo(function PromoBannerCard({
 
       {showImage && (
         <div className={`relative z-10 shrink-0 h-full ${sizeConfig.imageWidth}`}>
-          <CachedImage
+          <img
             src={banner.image}
             alt={banner.headline}
             decoding="async"
             className="h-full w-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
           />
         </div>
       )}
@@ -180,102 +174,10 @@ export const PromoCarousel = React.memo(function PromoCarousel({
   size?: BannerSize;
   onAction?: (banner: PromoBanner) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const safeBanners = useMemo(() => (Array.isArray(banners) ? banners : []), [banners]);
-  const isLoopable = safeBanners.length > 1;
-  const isResetting = useRef(false);
-
-  const displayBanners = useMemo(() => {
-    return isLoopable ? [...safeBanners, ...safeBanners, ...safeBanners] : safeBanners;
-  }, [safeBanners, isLoopable]);
-
-  const centerCardByIndex = useCallback((index: number) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const target = el.children[index] as HTMLElement;
-    if (!target) return;
-
-    const targetLeft = target.offsetLeft - (el.clientWidth - target.clientWidth) / 2;
-    el.scrollLeft = targetLeft;
-  }, []);
-
-  useEffect(() => {
-    if (!isLoopable || safeBanners.length === 0) return;
-    const timer = setTimeout(() => {
-      centerCardByIndex(safeBanners.length);
-    }, 50);
-
-    return () => clearTimeout(timer);
-  }, [isLoopable, safeBanners.length, centerCardByIndex]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || !isLoopable || safeBanners.length === 0) return;
-
-    let timeoutId: ReturnType<typeof setTimeout>;
-
-    const checkAndResetLoop = () => {
-      if (isResetting.current) return;
-
-      const children = Array.from(el.children) as HTMLElement[];
-      if (children.length !== safeBanners.length * 3) return;
-
-      const containerCenter = el.scrollLeft + el.clientWidth / 2;
-
-      let closestIndex = 0;
-      let minDiff = Infinity;
-
-      children.forEach((child, idx) => {
-        const childCenter = child.offsetLeft + child.clientWidth / 2;
-        const diff = Math.abs(containerCenter - childCenter);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestIndex = idx;
-        }
-      });
-
-      if (closestIndex < safeBanners.length) {
-        isResetting.current = true;
-        centerCardByIndex(closestIndex + safeBanners.length);
-        setTimeout(() => {
-          isResetting.current = false;
-        }, 30);
-      } else if (closestIndex >= safeBanners.length * 2) {
-        isResetting.current = true;
-        centerCardByIndex(closestIndex - safeBanners.length);
-        setTimeout(() => {
-          isResetting.current = false;
-        }, 30);
-      }
-    };
-
-    const handleScrollEvent = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(checkAndResetLoop, 150);
-    };
-
-    el.addEventListener('scroll', handleScrollEvent, { passive: true });
-    el.addEventListener('scrollend', checkAndResetLoop);
-
-    return () => {
-      clearTimeout(timeoutId);
-      el.removeEventListener('scroll', handleScrollEvent);
-      el.removeEventListener('scrollend', checkAndResetLoop);
-    };
-  }, [isLoopable, safeBanners.length, centerCardByIndex]);
-
-  if (safeBanners.length === 0) return null;
-
   return (
-    <div
-      ref={scrollRef}
-      className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 snap-x snap-mandatory transform-gpu"
-    >
-      {displayBanners.map((banner, index) => (
-        <div
-          key={`${banner.id}-${index}`}
-          className="shrink-0 w-[calc(85%+25px)] max-w-[365px] snap-center snap-always"
-        >
+    <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-touch px-4 pb-1 transform-gpu">
+      {banners.map((banner) => (
+        <div key={banner.id} className="shrink-0 w-[85%] max-w-[340px]">
           <PromoBannerCard banner={banner} size={size} onAction={onAction} />
         </div>
       ))}

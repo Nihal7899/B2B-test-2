@@ -1,14 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { useCart } from '@/store';
 import { fetchProductsByIds, toggleWishlist, fetchWishlist } from '@/services/catalog';
-import { handleHomeAction, type ActionContext } from '@/services/actionResolver';
 import type { Product as AppProduct } from '@/types';
 import { ProductCard } from '@/components/ProductCard';
 import { getStoreIcon } from '@/data/storeIcons';
-import { CachedImage } from '@/components/CachedImage';
-import { AppLoader } from '@/components/AppLoader';
 import {
   Search,
   ChevronRight,
@@ -20,7 +17,6 @@ import {
   ShieldCheck,
   Truck,
   Clock,
-  ShoppingBag,
 } from 'lucide-react';
 
 interface StoreScreenProps {
@@ -29,8 +25,7 @@ interface StoreScreenProps {
 
 function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {
   if (iconName?.startsWith('http') || iconName?.startsWith('data:')) {
-    // Replaced raw <img> with CachedImage to prevent 304 network requests
-    return <CachedImage src={iconName} alt="icon" className={className + " object-contain"} />;
+    return <img src={iconName} alt="icon" className={className + " object-contain"} />;
   }
   const Icon = getStoreIcon(iconName);
   return <Icon className={className} style={{ color: color }} />;
@@ -39,7 +34,6 @@ function renderIcon(iconName: string, className: string = "h-6 w-6", color?: str
 function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
   const { config, loading, storeId } = useStore();
   const navigate = useNavigate();
-  const location = useLocation();
   const cart = useCart();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -49,34 +43,40 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
-
-  const actionCtx: ActionContext = useMemo(() => ({
-    setScreen: (screen) => navigate(`/${screen}`),
-    setSearch: (query) => navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search'),
-    openProduct: (p: any) => navigate(`/product?id=${p.id}`),
-    openCategory: (c: any) => navigate(`/category?id=${c.id}`),
-    openBrand: (b: any) => navigate(`/brand?id=${b.id}`),
-    openStore: (s: any) => navigate(`/store?storeId=${s.id}`),
-    navigate: (path) => navigate(path),
-    setFilterConfig: () => {}, 
-    setFilterTitle: () => {},
-  }), [navigate]);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const hero = config?.hero ?? {
-    enabled: true, image: '', gradientFrom: '#065f46', gradientTo: '#16a34a',
-    title: '', subtitle: '', ctaText: 'Shop Now', actionType: 'VIEW_CATEGORY',
-    actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46',
+    enabled: true,
+    image: '',
+    gradientFrom: '#065f46',
+    gradientTo: '#16a34a',
+    title: '',
+    subtitle: '',
+    ctaText: 'Shop Now',
+    ctaLink: '/categories',
+    ctaBgColor: '#ffffff',
+    ctaTextColor: '#065f46',
   };
   const highlights = config?.highlights ?? [];
   const categories = config?.categories ?? [];
   const bulkDeal = config?.bulkDeal ?? {
-    enabled: false, tag: '', title: '', subtitle: '', cta: '', icon: 'Package',
-    actionType: 'VIEW_CATEGORY', actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46',
+    enabled: false,
+    tag: '',
+    title: '',
+    subtitle: '',
+    cta: '',
+    icon: 'Package',
+    ctaBgColor: '#ffffff',
+    ctaTextColor: '#065f46',
   };
   const trending = config?.trending ?? {
-    enabled: false, title: 'Top categories', subtitle: 'Jump straight to what customers are buying most',
-    iconButtons: [], ctaText: 'Browse all categories', actionType: 'VIEW_CATEGORY',
-    actionConfig: {}, ctaBgColor: '#ffffff', ctaTextColor: '#065f46',
+    enabled: false,
+    title: 'Top categories',
+    subtitle: 'Jump straight to what customers are buying most',
+    iconButtons: [],
+    ctaText: 'Browse all categories',
+    ctaBgColor: '#ffffff',
+    ctaTextColor: '#065f46',
   };
 
   const allProductIds = useMemo(() => {
@@ -89,57 +89,20 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
     return ids;
   }, [categories]);
 
-  // Background Data Refresh Logic
-  const refreshStoreData = useCallback(async (silent = false) => {
+  useEffect(() => {
     if (allProductIds.length === 0) {
       setProducts([]);
-      if (!silent) setProductsLoading(false);
+      setProductsLoading(false);
       return;
     }
-    if (!silent) setProductsLoading(true);
-    try {
-      const data = await fetchProductsByIds(allProductIds);
-      setProducts(data);
-    } catch (e) {
-      console.error('Failed to refresh store products silently', e);
-    } finally {
-      if (!silent) setProductsLoading(false);
-    }
+    setProductsLoading(true);
+    fetchProductsByIds(allProductIds)
+      .then((data) => {
+        setProducts(data);
+      })
+      .catch(console.error)
+      .finally(() => setProductsLoading(false));
   }, [allProductIds]);
-
-  // Initial Load
-  useEffect(() => {
-    void refreshStoreData(false);
-  }, [refreshStoreData]);
-
-  // Background Fetch Event Listeners (Keepalive & Visibility)
-  useEffect(() => {
-    let active = true;
-    const expectedKey = `store|${storeId}`;
-
-    const handleKeepAliveFocus = (e: Event) => {
-      const customEvent = e as CustomEvent<{ key?: string }>;
-      if (active && customEvent.detail?.key === expectedKey) {
-        void refreshStoreData(true);
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      const isCurrentlyActive = window.location.pathname.includes('/store') && window.location.search.includes(`storeId=${storeId}`);
-      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
-        void refreshStoreData(true);
-      }
-    };
-
-    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      active = false;
-      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [refreshStoreData, storeId]);
 
   const loadWishlist = useCallback(async () => {
     try {
@@ -152,7 +115,11 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
 
   useEffect(() => {
     void loadWishlist();
-    const handleWishlistChange = () => void loadWishlist();
+
+    const handleWishlistChange = () => {
+      void loadWishlist();
+    };
+
     window.addEventListener('wishlist-updated', handleWishlistChange);
     window.addEventListener('focus', handleWishlistChange);
     return () => {
@@ -166,12 +133,17 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
-        (p) => p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q) || p.category.toLowerCase().includes(q)
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.brand.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q)
       );
     }
     if (selectedCategoryId) {
       const cat = categories.find((c: any) => c.id === selectedCategoryId);
-      if (cat) result = result.filter((p) => cat.productIds.includes(p.id));
+      if (cat) {
+        result = result.filter((p) => cat.productIds.includes(p.id));
+      }
     }
     return result;
   }, [products, searchQuery, selectedCategoryId, categories]);
@@ -185,15 +157,26 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
   };
 
   const handleIconClick = (categoryId: string) => {
-    if (categoryId) scrollToCategory(categoryId);
+    if (categoryId) {
+      scrollToCategory(categoryId);
+    }
   };
 
   const clearFilter = () => {
     setSelectedCategoryId(null);
     setSearchQuery('');
+    setSearchOpen(false);
+  };
+
+  const toggleSearch = () => {
+    setSearchOpen(!searchOpen);
+    if (!searchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 300);
+    }
   };
 
   const hasActiveFilter = !!(selectedCategoryId || searchQuery.trim());
+
   const themeFrom = hero.gradientFrom || '#065f46';
   const themeTo = hero.gradientTo || '#16a34a';
   const heroCtaBg = hero.ctaBgColor || '#ffffff';
@@ -214,26 +197,35 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
   const handleWishlistToggle = async (productId: string) => {
     const isWishlisted = wishlist.includes(productId);
     const nextState = !isWishlisted;
-    setWishlist((prev) => isWishlisted ? prev.filter((id) => id !== productId) : [...prev, productId]);
+
+    setWishlist((prev) =>
+      isWishlisted ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+
     try {
       await toggleWishlist(productId, isWishlisted);
-      window.dispatchEvent(new CustomEvent('wishlist-updated', { detail: { productId, wishlisted: nextState } }));
+      window.dispatchEvent(
+        new CustomEvent('wishlist-updated', {
+          detail: { productId, wishlisted: nextState },
+        })
+      );
     } catch (err) {
+      console.error('Failed to toggle wishlist', err);
       void loadWishlist();
     }
   };
 
-  if (loading || !config) return           <AppLoader fullScreen="{false}" showStatus="{true}" size="md" type="general"/>
-
+  if (loading || !config) return <StoreSkeleton />;
+  if (productsLoading) return <StoreSkeleton />;
 
   const activeCategories = categories.filter((cat: any) =>
     products.some((p) => cat.productIds.includes(p.id))
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10 relative">
+    <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
       <div
-        className="relative overflow-hidden px-4 pb-6 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] text-white shadow-xl"
+        className="relative overflow-hidden px-4 pb-6 pt-4 safe-top text-white shadow-xl"
         style={{ background: `linear-gradient(135deg, ${themeFrom}, ${themeTo})` }}
       >
         <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
@@ -241,7 +233,7 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
         <div className="pointer-events-none absolute right-4 top-20 h-20 w-20 rounded-full border-4 border-white/10" />
 
         <div className="relative mx-auto max-w-md">
-          <div className="flex items-center justify-between">
+          <div className="safe-top flex items-center justify-between">
             <button
               onClick={() => navigate(-1)}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur transition hover:bg-white/30"
@@ -256,10 +248,7 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
 
           <div className="mt-4 flex items-end gap-4">
             <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-2 border-white/40 shadow-lg">
-              {/* Replaced raw <img> with CachedImage */}
-              {hero.image && (
-                <CachedImage src={hero.image} alt={hero.title} className="h-full w-full object-cover" />
-              )}
+              <img src={hero.image || ''} alt={hero.title} className="h-full w-full object-cover" />
             </div>
             <div className="flex-1 pb-1">
               <h1 className="text-2xl font-extrabold leading-tight">{hero.title}</h1>
@@ -268,8 +257,12 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
                 <span className="flex items-center gap-1">
                   <Star size={11} className="fill-yellow-300 text-yellow-300" /> 4.7
                 </span>
-                <span className="flex items-center gap-1"><Clock size={11} /> 30 min</span>
-                <span className="flex items-center gap-1"><Truck size={11} /> Free</span>
+                <span className="flex items-center gap-1">
+                  <Clock size={11} /> 30 min
+                </span>
+                <span className="flex items-center gap-1">
+                  <Truck size={11} /> Free
+                </span>
               </div>
             </div>
           </div>
@@ -277,7 +270,7 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
           {hero.ctaText && (
             <div className="mt-4 rounded-xl bg-white/15 p-3 backdrop-blur">
               <button
-                onClick={() => handleHomeAction(hero.actionType, hero.actionConfig, actionCtx)}
+                onClick={() => navigate(hero.ctaLink || '/categories')}
                 className="flex items-center gap-1.5 text-xs font-bold rounded-lg px-4 py-2"
                 style={{ backgroundColor: heroCtaBg, color: heroCtaText }}
               >
@@ -317,16 +310,10 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
         </div>
       )}
 
-      <div 
-        className="sticky top-0 z-30 bg-gray-50/95 px-4 pb-3 mt-5 backdrop-blur-lg"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
-      >
-        <div className="mx-auto flex max-w-md items-center gap-2">
-          <div
-            className="flex flex-1 items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-sm border"
-            style={{ borderColor: themeFrom }}
-          >
-            <Search size={16} style={{ color: themeFrom }} />
+      <div className="sticky top-0 z-30 bg-gray-50/95 px-4 pt-3 pb-2 backdrop-blur-lg safe-top">
+        <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-white p-2 shadow-md ring-1 ring-black/5">
+          <div className="flex flex-1 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
+            <Search size={16} className="text-gray-400" />
             <input
               ref={searchInputRef}
               value={searchQuery}
@@ -334,25 +321,20 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
               placeholder="Search this store…"
               className="flex-1 bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
             />
+          </div>
+          <div className="flex items-center gap-1">
             {searchQuery && (
               <button onClick={clearFilter} className="text-gray-400 hover:text-gray-600">
                 <X size={16} />
               </button>
             )}
+            <button
+              onClick={toggleSearch}
+              className="rounded-xl p-2 text-gray-500 hover:bg-gray-100"
+            >
+              <Search size={18} />
+            </button>
           </div>
-          <button
-            onClick={() => navigate('/cart')}
-            className="relative flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-white shadow-sm border transition active:scale-95"
-            style={{ borderColor: themeFrom }}
-            aria-label="View Cart"
-          >
-            <ShoppingBag size={18} style={{ color: themeFrom }} />
-            {cart?.totalItems > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white shadow-md ring-2 ring-white animate-pulse">
-                {cart.totalItems}
-              </span>
-            )}
-          </button>
         </div>
       </div>
 
@@ -360,10 +342,16 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
         {bulkDeal.enabled && (
           <div className="mt-3">
             <BulkDealBanner
-              themeFrom={themeFrom} themeTo={themeTo} tag={bulkDeal.tag} title={bulkDeal.title}
-              subtitle={bulkDeal.subtitle} cta={bulkDeal.cta} icon={bulkDeal.icon}
-              ctaBgColor={bulkDeal.ctaBgColor || '#ffffff'} ctaTextColor={bulkDeal.ctaTextColor || '#065f46'}
-              renderIcon={renderIcon} onAction={() => handleHomeAction(bulkDeal.actionType, bulkDeal.actionConfig, actionCtx)}
+              themeFrom={themeFrom}
+              themeTo={themeTo}
+              tag={bulkDeal.tag}
+              title={bulkDeal.title}
+              subtitle={bulkDeal.subtitle}
+              cta={bulkDeal.cta}
+              icon={bulkDeal.icon}
+              ctaBgColor={bulkDeal.ctaBgColor || '#ffffff'}
+              ctaTextColor={bulkDeal.ctaTextColor || '#065f46'}
+              renderIcon={renderIcon}
             />
           </div>
         )}
@@ -404,9 +392,17 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
               if (categoryProducts.length === 0) return null;
 
               const categoryElement = (
-                <div key={category.id} ref={(el) => { categoryRefs.current[category.id] = el; }}>
+                <div
+                  key={category.id}
+                  ref={(el) => {
+                    categoryRefs.current[category.id] = el;
+                  }}
+                >
                   <div className="mb-2.5 flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: `${themeFrom}15`, color: themeFrom }}>
+                    <div
+                      className="flex h-7 w-7 items-center justify-center rounded-lg"
+                      style={{ background: `${themeFrom}15`, color: themeFrom }}
+                    >
                       {renderIcon(category.icon, "h-4 w-4", themeFrom)}
                     </div>
                     <div className="flex-1">
@@ -418,11 +414,16 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
                   <div className="grid grid-cols-2 gap-3">
                     {categoryProducts.slice(0, 4).map((p) => (
                       <ProductCard
-                        key={p.id} product={p} quantity={cart.getQuantity(p.id)}
-                        onAdd={() => cart.addToCart(p)} onIncrement={() => cart.addToCart(p)}
+                        key={p.id}
+                        product={p}
+                        quantity={cart.getQuantity(p.id)}
+                        onAdd={() => cart.addToCart(p)}
+                        onIncrement={() => cart.addToCart(p)}
                         onDecrement={() => cart.updateQuantity(p.id, cart.getQuantity(p.id) - 1)}
                         onClick={() => navigate(`/product?id=${p.id}&storeId=${storeId}`)}
-                        theme={productCardTheme} isWishlisted={wishlist.includes(p.id)} onWishlistToggle={handleWishlistToggle}
+                        theme={productCardTheme}
+                        isWishlisted={wishlist.includes(p.id)}
+                        onWishlistToggle={handleWishlistToggle}
                       />
                     ))}
                   </div>
@@ -434,11 +435,16 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
                   <React.Fragment key={`group-${category.id}`}>
                     {categoryElement}
                     <TrendingBanner
-                      themeFrom={themeFrom} themeTo={themeTo} title={trending.title}
-                      subtitle={trending.subtitle} iconButtons={trending.iconButtons} ctaText={trending.ctaText}
-                      ctaBgColor={trending.ctaBgColor || '#ffffff'} ctaTextColor={trending.ctaTextColor || '#065f46'}
-                      onIconClick={handleIconClick} renderIcon={renderIcon}
-                      onAction={() => handleHomeAction(trending.actionType, trending.actionConfig, actionCtx)}
+                      themeFrom={themeFrom}
+                      themeTo={themeTo}
+                      title={trending.title}
+                      subtitle={trending.subtitle}
+                      iconButtons={trending.iconButtons}
+                      ctaText={trending.ctaText}
+                      ctaBgColor={trending.ctaBgColor || '#ffffff'}
+                      ctaTextColor={trending.ctaTextColor || '#065f46'}
+                      onIconClick={handleIconClick}
+                      renderIcon={renderIcon}
                     />
                   </React.Fragment>
                 );
@@ -463,10 +469,14 @@ function StoreScreenContent({ goTo: _goTo }: StoreScreenProps) {
 
 function StoreSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-50 pb-10 relative">
+    <div className="min-h-screen bg-gray-50 pb-24 safe-bottom">
       <div className="h-64 bg-gray-200 animate-pulse safe-top" />
-      <div className="px-4 py-4"><div className="h-20 bg-white rounded-2xl animate-pulse" /></div>
-      <div className="px-4 py-2"><div className="h-12 bg-white rounded-2xl animate-pulse" /></div>
+      <div className="px-4 py-4">
+        <div className="h-20 bg-white rounded-2xl animate-pulse" />
+      </div>
+      <div className="px-4 py-2">
+        <div className="h-12 bg-white rounded-2xl animate-pulse" />
+      </div>
       <div className="px-4 py-4 space-y-4">
         <div className="h-40 bg-white rounded-2xl animate-pulse" />
         <div className="grid grid-cols-2 gap-3">
@@ -479,23 +489,52 @@ function StoreSkeleton() {
 }
 
 function BulkDealBanner({
-  themeFrom, themeTo, tag, title, subtitle, cta, icon, ctaBgColor, ctaTextColor, renderIcon: renderBannerIcon, onAction,
-}: any) {
+  themeFrom,
+  themeTo,
+  tag,
+  title,
+  subtitle,
+  cta,
+  icon,
+  ctaBgColor,
+  ctaTextColor,
+  renderIcon: renderBannerIcon,
+}: {
+  themeFrom: string;
+  themeTo: string;
+  tag: string;
+  title: string;
+  subtitle: string;
+  cta: string;
+  icon: string;
+  ctaBgColor: string;
+  ctaTextColor: string;
+  renderIcon: (name: string, className?: string, color?: string) => React.ReactNode;
+}) {
   return (
-    <div className="relative overflow-hidden rounded-2xl p-4 shadow-lg" style={{ background: `linear-gradient(120deg, ${themeFrom}, ${themeTo})` }}>
+    <div
+      className="relative overflow-hidden rounded-2xl p-4 shadow-lg"
+      style={{ background: `linear-gradient(120deg, ${themeFrom}, ${themeTo})` }}
+    >
       <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
       <div className="pointer-events-none absolute -bottom-8 right-8 h-16 w-16 rounded-full bg-white/5" />
+
       <div className="relative flex items-center gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-inner bg-white/20 text-white">
           {renderBannerIcon(icon, "h-6 w-6", "#ffffff")}
         </div>
         <div className="flex-1 text-white">
-          <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">{tag}</span>
+          <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">
+            {tag}
+          </span>
           <h4 className="mt-1 text-base font-extrabold leading-tight">{title}</h4>
           <p className="text-[11px] text-white/80">{subtitle}</p>
         </div>
       </div>
-      <button onClick={onAction} className="mt-3 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105" style={{ backgroundColor: ctaBgColor, color: ctaTextColor }}>
+      <button
+        className="mt-3 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
+        style={{ backgroundColor: ctaBgColor, color: ctaTextColor }}
+      >
         {cta} <ChevronRight size={14} />
       </button>
     </div>
@@ -503,37 +542,74 @@ function BulkDealBanner({
 }
 
 function TrendingBanner({
-  themeFrom, themeTo, title, subtitle, iconButtons, ctaText, ctaBgColor, ctaTextColor, onIconClick, renderIcon: renderTrendingIcon, onAction,
-}: any) {
+  themeFrom,
+  themeTo,
+  title,
+  subtitle,
+  iconButtons,
+  ctaText,
+  ctaBgColor,
+  ctaTextColor,
+  onIconClick,
+  renderIcon: renderTrendingIcon,
+}: {
+  themeFrom: string;
+  themeTo: string;
+  title: string;
+  subtitle: string;
+  iconButtons: any[];
+  ctaText: string;
+  ctaBgColor: string;
+  ctaTextColor: string;
+  onIconClick: (id: string) => void;
+  renderIcon: (name: string, className?: string, color?: string) => React.ReactNode;
+}) {
   return (
     <div className="my-6">
-      <div className="relative overflow-hidden rounded-3xl p-5 text-white shadow-xl" style={{ background: `linear-gradient(135deg, ${themeFrom}, ${themeTo})` }}>
+      <div
+        className="relative overflow-hidden rounded-3xl p-5 text-white shadow-xl"
+        style={{ background: `linear-gradient(135deg, ${themeFrom}, ${themeTo})` }}
+      >
         <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10 blur-xl" />
         <div className="pointer-events-none absolute -bottom-12 -left-6 h-36 w-36 rounded-full bg-black/10 blur-xl" />
         <div className="pointer-events-none absolute right-6 bottom-4 h-16 w-16 rounded-full border-4 border-white/10" />
 
         <div className="relative">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20"><TrendingUp size={18} /></div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
+              <TrendingUp size={18} />
+            </div>
             <div>
-              <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">TRENDING IN STORE</span>
+              <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold tracking-wider">
+                TRENDING IN STORE
+              </span>
               <h4 className="mt-0.5 text-lg font-extrabold leading-tight">{title}</h4>
             </div>
           </div>
+
           <p className="mt-2 text-[12px] text-white/80">{subtitle}</p>
 
           <div className="mt-4 grid grid-cols-4 gap-2.5">
             {iconButtons.map((btn: any) => (
-              <button key={btn.id} onClick={() => onIconClick(btn.categoryId)} className="group flex flex-col items-center gap-1.5 rounded-2xl bg-white/15 p-2.5 backdrop-blur transition hover:bg-white/25">
+              <button
+                key={btn.id}
+                onClick={() => onIconClick(btn.categoryId)}
+                className="group flex flex-col items-center gap-1.5 rounded-2xl bg-white/15 p-2.5 backdrop-blur transition hover:bg-white/25"
+              >
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 transition group-hover:scale-110">
                   {renderTrendingIcon(btn.icon, "h-5 w-5", "#ffffff")}
                 </div>
-                <span className="text-center text-[9px] font-semibold leading-tight text-white">{btn.label}</span>
+                <span className="text-center text-[9px] font-semibold leading-tight text-white">
+                  {btn.label}
+                </span>
               </button>
             ))}
           </div>
 
-          <button onClick={onAction} className="mt-4 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105" style={{ backgroundColor: ctaBgColor, color: ctaTextColor }}>
+          <button
+            className="mt-4 flex items-center gap-1 rounded-xl px-4 py-2 text-sm font-bold shadow transition hover:scale-105"
+            style={{ backgroundColor: ctaBgColor, color: ctaTextColor }}
+          >
             {ctaText} <ChevronRight size={14} />
           </button>
         </div>
@@ -554,8 +630,6 @@ function TrustItem({ icon: Icon, label, sub }: { icon: any; label: string; sub: 
 
 export default React.memo(function StoreScreen(props: StoreScreenProps) {
   const [searchParams] = useSearchParams();
-  
-  // FIX: Frozen to prevent keepalive reload loops on URL changes
   const [storeId] = useState(() => searchParams.get('storeId'));
   const navigate = useNavigate();
 

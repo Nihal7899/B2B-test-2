@@ -1,6 +1,6 @@
 // src/components/admin/RolesManager.tsx
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Loader2, Search, X, Shield, User, Building2, Truck, LineChart } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Loader2, Search, X, Shield, User, Building2, Truck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 // --- Helpers ---
@@ -284,7 +284,6 @@ export default function RolesManager() {
     admin: { label: 'Admin', icon: Shield },
     warehouse_manager: { label: 'Warehouse', icon: Building2 },
     delivery_partner: { label: 'Delivery', icon: Truck },
-    investor: { label: 'Investor', icon: LineChart },
   };
 
   const showSkeletons = initialLoading || listLoading;
@@ -371,7 +370,6 @@ export default function RolesManager() {
                         <option value="admin">Admin</option>
                         <option value="warehouse_manager">Warehouse</option>
                         <option value="delivery_partner">Delivery</option>
-                        <option value="investor">Investor</option>
                       </select>
                     </div>
                   </div>

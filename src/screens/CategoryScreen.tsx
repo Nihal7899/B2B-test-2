@@ -1,15 +1,25 @@
-// src/screens/CategoryScreen.tsx
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Search, ShoppingBag, Layers, Sparkles, ArrowUpDown, Star, X, Check,
-  ChevronDown, TrendingDown, TrendingUp, SlidersHorizontal, RotateCcw, Filter,
+  ArrowLeft,
+  Search,
+  ShoppingBag,
+  Layers,
+  Sparkles,
+  ArrowUpDown,
+  Star,
+  X,
+  Check,
+  ChevronDown,
+  TrendingDown,
+  TrendingUp,
+  SlidersHorizontal,
+  RotateCcw,
+  Filter,
 } from 'lucide-react';
-import { CategoryProductCard } from '@/components/CategoryProductCard';
+import { ProductCard } from '@/components/ProductCard';
 import { fetchCategories, fetchProductsBySubcategory, fetchWishlist, toggleWishlist } from '@/services/catalog';
 import type { Category, Subcategory, Product } from '@/types';
-import { CachedImage } from '@/components/CachedImage';
-import { AppLoader } from '@/components/AppLoader';
 
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'rating' | 'discount';
 
@@ -35,11 +45,9 @@ interface CategoryScreenProps {
 }
 
 export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const categoryId = searchParams.get('id');
   const navigate = useNavigate();
-
-  // FIX: Freeze the category ID on mount so it ignores URL changes when navigating to /product
-  const [categoryId] = useState(() => new URLSearchParams(location.search).get('id'));
 
   const [category, setCategory] = useState<Category | null>(null);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
@@ -50,11 +58,13 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
   const [productsLoading, setProductsLoading] = useState(false);
   const [query, setQuery] = useState('');
 
+  // Advanced Filter & Modal States
   const [sortBy, setSortBy] = useState<SortOption>('default');
   const [isSortSheetOpen, setIsSortSheetOpen] = useState(false);
   const [dealsOnly, setDealsOnly] = useState(false);
   const [highRatingOnly, setHighRatingOnly] = useState(false);
 
+  // Load wishlist & set up listeners
   const loadWishlist = useCallback(async () => {
     try {
       const wl = await fetchWishlist();
@@ -66,126 +76,117 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
 
   useEffect(() => {
     void loadWishlist();
-    const handleWishlistChange = () => void loadWishlist();
+
+    const handleWishlistChange = () => {
+      void loadWishlist();
+    };
+
     window.addEventListener('wishlist-updated', handleWishlistChange);
-    return () => window.removeEventListener('wishlist-updated', handleWishlistChange);
+    window.addEventListener('focus', handleWishlistChange);
+    return () => {
+      window.removeEventListener('wishlist-updated', handleWishlistChange);
+      window.removeEventListener('focus', handleWishlistChange);
+    };
   }, [loadWishlist]);
 
   const handleWishlistToggle = async (productId: string) => {
     const isWishlisted = wishlist.includes(productId);
     const nextState = !isWishlisted;
-    setWishlist((prev) => isWishlisted ? prev.filter((id) => id !== productId) : [...prev, productId]);
+    
+    setWishlist((prev) =>
+      isWishlisted ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+
     try {
       await toggleWishlist(productId, isWishlisted);
-      window.dispatchEvent(new CustomEvent('wishlist-updated', { detail: { productId, wishlisted: nextState } }));
+      window.dispatchEvent(
+        new CustomEvent('wishlist-updated', {
+          detail: { productId, wishlisted: nextState },
+        })
+      );
     } catch (err) {
+      console.error('Failed to toggle wishlist', err);
       void loadWishlist();
     }
   };
 
-  // 1. Pass targetSubId directly to avoid dependency loops with activeSubId
-  const refreshCategoryData = useCallback(async (targetSubId: string) => {
-    if (!categoryId) return;
-    try {
-      const { categories } = await fetchCategories();
-      const found = categories.find((c) => c.id === categoryId);
-      if (found) {
-        setCategory(found);
-        setSubcategories(found.subcategories || []);
-        
-        let freshProducts = [];
-        if (targetSubId === 'all') {
-          const subs = found.subcategories || [];
-          const prodsArray = await Promise.all(subs.map((s) => fetchProductsBySubcategory(s.id)));
-          freshProducts = Array.from(new Map(prodsArray.flat().map((p) => [p.id, p])).values());
-        } else {
-          freshProducts = await fetchProductsBySubcategory(targetSubId);
-        }
-        setProducts(freshProducts);
-      }
-    } catch (err) {
-      console.warn('Failed to refresh category silently', err);
-    }
-  }, [categoryId]);
-
-  // 2. Initial Mount Effect
+  // Load category and subcategories
   useEffect(() => {
     if (!categoryId) return;
-    let isMounted = true;
-    
     (async () => {
       setLoading(true);
-      await refreshCategoryData('all');
-      if (isMounted) setLoading(false);
+      try {
+        const { categories } = await fetchCategories();
+        const found = categories.find((c) => c.id === categoryId);
+        if (found) {
+          setCategory(found);
+          const subs = found.subcategories || [];
+          setSubcategories(subs);
+          setActiveSubId('all');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      setLoading(false);
     })();
-    
-    return () => { isMounted = false; };
-  }, [categoryId, refreshCategoryData]);
+  }, [categoryId]);
 
-  // 3. Subcategory Click Effect (FIXED INFINITE LOOP)
+  // Load products based on active subcategory or "all"
   useEffect(() => {
-    // If loading is true or category isn't set, this is the initial mount. Skip to avoid double-fetching.
-    if (loading || !category) return;
-    
-    let isMounted = true;
+    if (!category) return;
     (async () => {
       setProductsLoading(true);
-      await refreshCategoryData(activeSubId);
-      if (isMounted) setProductsLoading(false);
+      try {
+        if (activeSubId === 'all') {
+          const subs = category.subcategories || [];
+          const prodsArray = await Promise.all(
+            subs.map((s) => fetchProductsBySubcategory(s.id))
+          );
+          const merged = Array.from(
+            new Map(prodsArray.flat().map((p) => [p.id, p])).values()
+          );
+          setProducts(merged);
+        } else {
+          const prods = await fetchProductsBySubcategory(activeSubId);
+          setProducts(prods);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      setProductsLoading(false);
     })();
-    
-    return () => { isMounted = false; };
-    
-    // We intentionally OMIT `category` and `loading` from dependencies here.
-    // If we include them, fetching new data creates a new category object, which triggers this effect again and causes an infinite loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSubId]); 
+  }, [category, activeSubId]);
 
-  // 4. Background Data Refresh Effect
-  useEffect(() => {
-    let active = true;
-    const expectedKey = `category|${categoryId}`;
-
-    const handleKeepAliveFocus = (e: Event) => {
-      const customEvent = e as CustomEvent<{ key?: string }>;
-      if (active && customEvent.detail?.key === expectedKey) {
-        void refreshCategoryData(activeSubId);
-      }
-    };
-    
-    const handleVisibilityChange = () => {
-      const isCurrentlyActive = window.location.pathname.includes('/category') && window.location.search.includes(`id=${categoryId}`);
-      if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
-        void refreshCategoryData(activeSubId);
-      }
-    };
-
-    window.addEventListener('keepalive:activated', handleKeepAliveFocus);
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      active = false;
-      window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [refreshCategoryData, categoryId, activeSubId]);
-
+  // Advanced Filtration & Sorting
   const filteredAndSortedProducts = useMemo(() => {
     let result = [...products];
 
     if (query.trim()) {
       const q = query.toLowerCase();
       result = result.filter(
-        (p) => p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.brand.toLowerCase().includes(q)
       );
     }
-    if (dealsOnly) result = result.filter((p) => p.mrp > p.price);
-    if (highRatingOnly) result = result.filter((p) => (p.rating || 0) >= 4.0);
+
+    if (dealsOnly) {
+      result = result.filter((p) => p.mrp > p.price);
+    }
+    if (highRatingOnly) {
+      result = result.filter((p) => (p.rating || 0) >= 4.0);
+    }
 
     switch (sortBy) {
-      case 'price-asc': result.sort((a, b) => a.price - b.price); break;
-      case 'price-desc': result.sort((a, b) => b.price - a.price); break;
-      case 'rating': result.sort((a, b) => (b.rating || 0) - (a.rating || 0)); break;
+      case 'price-asc':
+        result.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-desc':
+        result.sort((a, b) => b.price - a.price);
+        break;
+      case 'rating':
+        result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
       case 'discount':
         result.sort((a, b) => {
           const discountA = a.mrp > 0 ? (a.mrp - a.price) / a.mrp : 0;
@@ -193,10 +194,14 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
           return discountB - discountA;
         });
         break;
+      default:
+        break;
     }
+
     return result;
   }, [products, query, dealsOnly, highRatingOnly, sortBy]);
 
+  // Category Theme
   const categoryTheme = useMemo(() => {
     if (!category) return undefined;
     const gradient = category.gradient || '#10b981';
@@ -219,7 +224,13 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
   }, [category]);
 
   const primaryCol = categoryTheme?.primaryColor || '#10b981';
-  const activeFiltersCount = (sortBy !== 'default' ? 1 : 0) + (dealsOnly ? 1 : 0) + (highRatingOnly ? 1 : 0) + (query.trim() !== '' ? 1 : 0);
+
+  const activeFiltersCount =
+    (sortBy !== 'default' ? 1 : 0) +
+    (dealsOnly ? 1 : 0) +
+    (highRatingOnly ? 1 : 0) +
+    (query.trim() !== '' ? 1 : 0);
+
   const hasActiveFilters = activeFiltersCount > 0;
 
   const resetFilters = () => {
@@ -233,14 +244,14 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
     navigate(`/product?id=${product.id}&categoryId=${category?.id}`);
   };
 
+  const currentSortLabel =
+    SORT_OPTIONS.find((s) => s.id === sortBy)?.label || 'Relevancy';
+
   if (loading || !category) {
     return (
-      <AppLoader 
-        fullScreen={true} 
-        size="md" 
-        showStatus={true} 
-        type="general" 
-      />
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="h-8 w-8 rounded-full border-2 border-emerald-200 border-t-emerald-600 animate-spin" />
+      </div>
     );
   }
 
@@ -260,13 +271,19 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
                 <ArrowLeft size={18} />
               </button>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-white/80">Category</p>
-                <h1 className="text-base font-extrabold leading-tight tracking-tight">{category.name}</h1>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-white/80">
+                  Category
+                </p>
+                <h1 className="text-base font-extrabold leading-tight tracking-tight">
+                  {category.name}
+                </h1>
               </div>
             </div>
+
             <button
               onClick={() => navigate('/cart')}
               className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md shadow-sm transition active:scale-95"
+              aria-label="View Cart"
             >
               <ShoppingBag size={18} className="text-white" />
               {cart?.totalItems > 0 && (
@@ -285,68 +302,113 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
               placeholder={`Search in ${category.name}…`}
               className="w-full bg-transparent text-xs font-semibold text-slate-800 outline-none placeholder:text-slate-400"
             />
-            {query && <button onClick={() => setQuery('')}><X size={14} className="text-slate-400" /></button>}
+            {query && (
+              <button onClick={() => setQuery('')}>
+                <X size={14} className="text-slate-400" />
+              </button>
+            )}
           </div>
 
           <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
             <button
               onClick={() => setIsSortSheetOpen(true)}
               className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
-                sortBy !== 'default' ? 'bg-white text-slate-900 shadow-sm' : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
+                sortBy !== 'default'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
               }`}
             >
               <ArrowUpDown size={12} />
-              <span>{SORT_OPTIONS.find((s) => s.id === sortBy)?.label || 'Relevancy'}</span>
+              <span>{currentSortLabel}</span>
               <ChevronDown size={11} className="opacity-70" />
             </button>
+
             <button
               onClick={() => setDealsOnly(!dealsOnly)}
               className={`flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
-                dealsOnly ? 'bg-white text-amber-600 shadow-sm' : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
+                dealsOnly
+                  ? 'bg-white text-amber-600 shadow-sm'
+                  : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
               }`}
             >
-              <Sparkles size={11} /> Best Deals
+              <Sparkles size={11} />
+              Best Deals
             </button>
+
             <button
               onClick={() => setHighRatingOnly(!highRatingOnly)}
               className={`flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
-                highRatingOnly ? 'bg-white text-amber-500 shadow-sm' : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
+                highRatingOnly
+                  ? 'bg-white text-amber-500 shadow-sm'
+                  : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-md'
               }`}
             >
-              <Star size={11} className={highRatingOnly ? 'fill-amber-400' : ''} /> 4.0+ Rated
+              <Star size={11} className={highRatingOnly ? 'fill-amber-400' : ''} />
+              4.0+ Rated
             </button>
           </div>
         </div>
 
-        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${hasActiveFilters ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            hasActiveFilters ? 'max-h-12 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
+          }`}
+        >
           <div className="mx-auto flex max-w-[720px] items-center justify-between border-t border-white/15 bg-black/20 px-4 py-2 backdrop-blur-md">
             <div className="flex items-center gap-1.5 text-white/90">
               <Filter size={13} className="text-white" />
-              <span className="text-[11px] font-bold">{activeFiltersCount} {activeFiltersCount === 1 ? 'filter' : 'filters'} applied</span>
+              <span className="text-[11px] font-bold">
+                {activeFiltersCount} {activeFiltersCount === 1 ? 'filter' : 'filters'} applied
+              </span>
             </div>
-            <button onClick={resetFilters} className="flex items-center gap-1.5 rounded-lg bg-white/95 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-rose-600 shadow-sm transition active:scale-95 hover:bg-white">
-              <RotateCcw size={11} strokeWidth={2.5} /> Reset All
+
+            <button
+              onClick={resetFilters}
+              className="flex items-center gap-1.5 rounded-lg bg-white/95 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-rose-600 shadow-sm transition active:scale-95 hover:bg-white"
+            >
+              <RotateCcw size={11} strokeWidth={2.5} />
+              Reset All
             </button>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto flex flex-1 min-h-0 w-full max-w-[720px] overflow-hidden">
+      <div className="mx-auto flex flex-1 min-h-0 w-full max-w-[720px] overflow-hidden safe-bottom">
         <aside className="w-20 md:w-24 shrink-0 overflow-y-auto border-r border-slate-200/80 bg-white py-2 scrollbar-none">
           <button
             onClick={() => setActiveSubId('all')}
-            className={`relative flex w-full flex-col items-center gap-1.5 px-1 py-2.5 transition ${activeSubId === 'all' ? 'bg-slate-100/80' : 'hover:bg-slate-50'}`}
+            className={`relative flex w-full flex-col items-center gap-1.5 px-1 py-2.5 transition ${
+              activeSubId === 'all' ? 'bg-slate-100/80' : 'hover:bg-slate-50'
+            }`}
           >
             <div
-              className={`relative flex h-12 w-12 items-center justify-center rounded-2xl border-2 transition ${activeSubId === 'all' ? 'shadow-sm' : 'border-slate-100 bg-slate-50'}`}
-              style={{ borderColor: activeSubId === 'all' ? primaryCol : '#f1f5f9', backgroundColor: activeSubId === 'all' ? `${primaryCol}15` : '#f8fafc' }}
+              className={`relative flex h-12 w-12 items-center justify-center rounded-2xl border-2 transition ${
+                activeSubId === 'all' ? 'shadow-sm' : 'border-slate-100 bg-slate-50'
+              }`}
+              style={{
+                borderColor: activeSubId === 'all' ? primaryCol : '#f1f5f9',
+                backgroundColor: activeSubId === 'all' ? `${primaryCol}15` : '#f8fafc',
+              }}
             >
-              <Layers size={20} style={{ color: activeSubId === 'all' ? primaryCol : '#64748b' }} />
+              <Layers
+                size={20}
+                style={{ color: activeSubId === 'all' ? primaryCol : '#64748b' }}
+              />
             </div>
-            <span className={`text-center text-[10px] leading-tight ${activeSubId === 'all' ? 'font-black' : 'font-semibold text-slate-500'}`} style={{ color: activeSubId === 'all' ? primaryCol : undefined }}>
+            <span
+              className={`text-center text-[10px] leading-tight ${
+                activeSubId === 'all' ? 'font-black' : 'font-semibold text-slate-500'
+              }`}
+              style={{ color: activeSubId === 'all' ? primaryCol : undefined }}
+            >
               All Items
             </span>
-            {activeSubId === 'all' && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full" style={{ backgroundColor: primaryCol }} />}
+            {activeSubId === 'all' && (
+              <span
+                className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full"
+                style={{ backgroundColor: primaryCol }}
+              />
+            )}
           </button>
 
           {subcategories.map((sc) => {
@@ -355,22 +417,42 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
               <button
                 key={sc.id}
                 onClick={() => setActiveSubId(sc.id)}
-                className={`relative flex w-full flex-col items-center gap-1.5 px-1 py-2.5 transition ${active ? 'bg-slate-100/80' : 'hover:bg-slate-50'}`}
+                className={`relative flex w-full flex-col items-center gap-1.5 px-1 py-2.5 transition ${
+                  active ? 'bg-slate-100/80' : 'hover:bg-slate-50'
+                }`}
               >
                 <div
-                  className={`relative h-12 w-12 overflow-hidden rounded-2xl border-2 transition ${active ? 'shadow-sm' : 'border-slate-100'}`}
-                  style={{ borderColor: active ? primaryCol : '#f1f5f9' }}
+                  className={`relative h-12 w-12 overflow-hidden rounded-2xl border-2 transition ${
+                    active ? 'shadow-sm' : 'border-slate-100'
+                  }`}
+                  style={{
+                    borderColor: active ? primaryCol : '#f1f5f9',
+                  }}
                 >
-                  <CachedImage
+                  <img
                     src={sc.image_url}
                     alt={sc.name}
                     className="h-full w-full object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://placehold.co/120x120/EEE/999?text=Item';
+                    }}
                   />
                 </div>
-                <span className={`line-clamp-2 text-center text-[10px] leading-tight ${active ? 'font-black' : 'font-semibold text-slate-500'}`} style={{ color: active ? primaryCol : undefined }}>
+                <span
+                  className={`line-clamp-2 text-center text-[10px] leading-tight ${
+                    active ? 'font-black' : 'font-semibold text-slate-500'
+                  }`}
+                  style={{ color: active ? primaryCol : undefined }}
+                >
                   {sc.name}
                 </span>
-                {active && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full" style={{ backgroundColor: primaryCol }} />}
+                {active && (
+                  <span
+                    className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full"
+                    style={{ backgroundColor: primaryCol }}
+                  />
+                )}
               </button>
             );
           })}
@@ -379,7 +461,9 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
         <main className="flex-1 overflow-y-auto px-3 py-3 scrollbar-none">
           <div className="mb-2.5 flex items-center justify-between">
             <h2 className="text-xs font-black uppercase tracking-wider text-slate-700">
-              {activeSubId === 'all' ? 'All Products' : subcategories.find((s) => s.id === activeSubId)?.name || 'Products'}
+              {activeSubId === 'all'
+                ? 'All Products'
+                : subcategories.find((s) => s.id === activeSubId)?.name || 'Products'}
             </h2>
             <span className="rounded-full bg-slate-200/70 px-2 py-0.5 text-[10px] font-extrabold text-slate-600">
               {filteredAndSortedProducts.length} items
@@ -387,8 +471,8 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
           </div>
 
           {productsLoading ? (
-            <div className="flex h-[60vh] items-center justify-center">
-              <div className="h-8 w-8 rounded-full border-[3px] border-emerald-200 border-t-emerald-600 animate-spin" />
+            <div className="flex h-64 items-center justify-center">
+              <div className="h-6 w-6 rounded-full border-2 border-emerald-200 border-t-emerald-600 animate-spin" />
             </div>
           ) : filteredAndSortedProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -396,24 +480,36 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
                 <Search size={24} />
               </div>
               <p className="text-xs font-bold text-slate-600">No matching products</p>
-              <p className="mt-0.5 text-[10px] text-slate-400">Try clearing filters or changing search keywords</p>
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                Try clearing filters or changing search keywords
+              </p>
               {hasActiveFilters && (
-                <button onClick={resetFilters} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700 active:scale-95">
-                  <RotateCcw size={12} /> Reset All Filters
+                <button
+                  onClick={resetFilters}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700 active:scale-95"
+                >
+                  <RotateCcw size={12} />
+                  Reset All Filters
                 </button>
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-16">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pb-8">
               {filteredAndSortedProducts.map((p) => (
-                <CategoryProductCard
+                <ProductCard
                   key={p.id}
                   product={p}
                   quantity={cart?.getQuantity?.(p.id) || 0}
-                  onAdd={(prod, qty) => cart?.addToCart?.(prod, qty)}
-                  onIncrement={(prod) => cart?.addToCart?.(prod)}
-                  onDecrement={(prod) => cart?.updateQuantity?.(prod.id, (cart?.getQuantity?.(prod.id) || 0) - 1)}
+                  onAdd={() => cart?.addToCart?.(p)}
+                  onIncrement={() => cart?.addToCart?.(p)}
+                  onDecrement={() =>
+                    cart?.updateQuantity?.(
+                      p.id,
+                      (cart?.getQuantity?.(p.id) || 0) - 1
+                    )
+                  }
                   onClick={() => handleProductSelect(p)}
+                  horizontal={false}
                   theme={categoryTheme}
                   isWishlisted={wishlist.includes(p.id)}
                   onWishlistToggle={handleWishlistToggle}
@@ -426,18 +522,31 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
 
       {isSortSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
-          <div className="absolute inset-0" onClick={() => setIsSortSheetOpen(false)} />
+          <div
+            className="absolute inset-0"
+            onClick={() => setIsSortSheetOpen(false)}
+          />
+
           <div className="relative z-10 w-full max-w-[720px] rounded-t-[32px] bg-white p-5 pb-8 safe-bottom shadow-2xl animate-in slide-in-from-bottom duration-300">
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200" />
+
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">Sort & Filter Order</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Choose how products are presented</p>
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
+                  Sort & Filter Order
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Choose how products are presented
+                </p>
               </div>
-              <button onClick={() => setIsSortSheetOpen(false)} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 active:scale-95">
+              <button
+                onClick={() => setIsSortSheetOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 active:scale-95"
+              >
                 <X size={16} />
               </button>
             </div>
+
             <div className="mt-3 space-y-1.5 max-h-[60vh] overflow-y-auto">
               {SORT_OPTIONS.map((opt) => {
                 const isSelected = sortBy === opt.id;
@@ -445,21 +554,48 @@ export function CategoryScreen({ onBack, cart }: CategoryScreenProps) {
                 return (
                   <button
                     key={opt.id}
-                    onClick={() => { setSortBy(opt.id); setIsSortSheetOpen(false); }}
-                    className={`flex w-full items-center justify-between rounded-2xl p-3.5 text-left transition ${isSelected ? 'bg-slate-50 ring-1.5' : 'hover:bg-slate-50/70'}`}
-                    style={{ borderColor: isSelected ? primaryCol : undefined }}
+                    onClick={() => {
+                      setSortBy(opt.id);
+                      setIsSortSheetOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-2xl p-3.5 text-left transition ${
+                      isSelected
+                        ? 'bg-slate-50 ring-1.5'
+                        : 'hover:bg-slate-50/70'
+                    }`}
+                    style={{
+                      borderColor: isSelected ? primaryCol : undefined,
+                    }}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: isSelected ? `${primaryCol}18` : '#f1f5f9', color: isSelected ? primaryCol : '#64748b' }}>
+                      <div
+                        className="flex h-10 w-10 items-center justify-center rounded-xl"
+                        style={{
+                          backgroundColor: isSelected ? `${primaryCol}18` : '#f1f5f9',
+                          color: isSelected ? primaryCol : '#64748b',
+                        }}
+                      >
                         <Icon size={18} />
                       </div>
                       <div>
-                        <p className={`text-xs font-bold leading-none ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>{opt.label}</p>
-                        <p className="mt-1 text-[10px] text-slate-400">{opt.subLabel}</p>
+                        <p
+                          className={`text-xs font-bold leading-none ${
+                            isSelected ? 'text-slate-900' : 'text-slate-700'
+                          }`}
+                        >
+                          {opt.label}
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          {opt.subLabel}
+                        </p>
                       </div>
                     </div>
+
                     {isSelected && (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full text-white shadow-sm" style={{ backgroundColor: primaryCol }}>
+                      <div
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-white shadow-sm"
+                        style={{ backgroundColor: primaryCol }}
+                      >
                         <Check size={14} strokeWidth={3} />
                       </div>
                     )}

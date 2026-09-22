@@ -1,3 +1,4 @@
+// src/components/admin/StoresManager.tsx
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2, Save, ImageIcon, Search } from 'lucide-react';
 import type { Store, FeatureItem, PremiumBadge } from '@/types';
@@ -14,7 +15,6 @@ import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
 import { compressImage } from '@/lib/imageUtils';
-import { CachedImage } from '@/components/CachedImage';
 
 export default function StoresManager() {
   const [stores, setStores] = useState<Store[]>([]);
@@ -32,6 +32,7 @@ export default function StoresManager() {
     title: '',
     message: '',
   });
+  // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
   const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
@@ -135,6 +136,7 @@ export default function StoresManager() {
         ))}
       </ToastContainer>
 
+      {/* Search Bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
         <input
@@ -159,7 +161,7 @@ export default function StoresManager() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3">
                 {store.banner_image_url && (
-                  <CachedImage src={store.banner_image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                  <img src={store.banner_image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
                 )}
                 <div>
                   <p className="text-sm font-bold text-ink-800 truncate">{store.name}</p>
@@ -219,6 +221,7 @@ export default function StoresManager() {
   );
 }
 
+// ---- StoreForm ----
 function StoreForm({
   initial,
   onClose,
@@ -325,6 +328,7 @@ function StoreForm({
         setUploadStatus('Upload complete!');
       }
 
+      // === FIX: Delete old image if the URL changed, regardless of how ===
       if (originalImageUrl && originalImageUrl !== newImageUrl) {
         await deleteStoreBannerImage(originalImageUrl);
       }
@@ -385,6 +389,7 @@ function StoreForm({
         </button>
       </div>
 
+      {/* Store Image */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Store Image *</label>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -412,7 +417,7 @@ function StoreForm({
         </div>
         {previewUrl && (
           <div className="relative mt-2">
-            <CachedImage src={previewUrl} alt="Preview" className="h-20 w-full rounded-xl object-cover" />
+            <img src={previewUrl} alt="Preview" className="h-20 w-full rounded-xl object-cover" />
             {selectedFile && (
               <span className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
                 New
@@ -422,6 +427,8 @@ function StoreForm({
         )}
       </div>
 
+
+      {/* Basic fields */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Store name *</label>
         <input
@@ -442,6 +449,7 @@ function StoreForm({
         />
       </div>
 
+      {/* Colors */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Brand Color</label>
@@ -481,6 +489,7 @@ function StoreForm({
         </div>
       </div>
 
+      {/* Badge fields */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Badge Text</label>
@@ -511,6 +520,7 @@ function StoreForm({
         </div>
       </div>
 
+      {/* Rating & Orders */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Rating</label>
@@ -534,6 +544,7 @@ function StoreForm({
         </div>
       </div>
 
+      {/* Store Icon */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Store Icon</label>
         <select
@@ -547,6 +558,7 @@ function StoreForm({
         </select>
       </div>
 
+      {/* Features */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Features (max 3)</label>
         {form.features.map((feature, idx) => (
@@ -591,6 +603,7 @@ function StoreForm({
         )}
       </div>
 
+      {/* Premium Badge */}
       <div>
         <label className="block text-xs font-bold text-ink-600 mb-1">Premium Badge</label>
         <div className="grid grid-cols-3 gap-2">
@@ -620,6 +633,7 @@ function StoreForm({
         </div>
       </div>
 
+      {/* Sort order & Active */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-ink-600 mb-1">Sort order</label>

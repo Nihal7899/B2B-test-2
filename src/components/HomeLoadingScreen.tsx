@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import { AppLoader } from '@/components/AppLoader';
+import { useEffect } from 'react';
 
 interface HomeLoadingScreenProps {
   isReady?: boolean;
@@ -7,35 +6,14 @@ interface HomeLoadingScreenProps {
 }
 
 export function HomeLoadingScreen({ isReady = false, onFinish }: HomeLoadingScreenProps) {
-  const [exiting, setExiting] = useState(false);
-  const onFinishRef = useRef(onFinish);
-
+  
+  // TEMPORARY BYPASS: Instantly fire onFinish regardless of isReady
   useEffect(() => {
-    onFinishRef.current = onFinish;
+    if (onFinish) {
+      onFinish();
+    }
   }, [onFinish]);
 
-  useEffect(() => {
-    if (!isReady) return;
-
-    setExiting(true);
-    
-    const doneTimer = setTimeout(() => {
-      if (onFinishRef.current) onFinishRef.current();
-    }, 300);
-
-    return () => clearTimeout(doneTimer);
-  }, [isReady]); // <-- FIX: Removed 'exiting' from the dependency array so it doesn't cancel the timeout
-
-  return (
-    <AppLoader
-      fullScreen={true}
-      size="lg"
-      showStatus={true}
-      type="home"
-      // FIX: Added `!opacity-0` (important modifier) to override the `animate-fade-in` forwards property
-      className={`transition-opacity duration-300 ease-out ${
-        exiting ? '!opacity-0 pointer-events-none' : 'opacity-100'
-      }`}
-    />
-  );
+  // Render absolutely nothing to ensure no SVG/DOM elements are left behind
+  return null;
 }

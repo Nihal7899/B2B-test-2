@@ -21,13 +21,7 @@ interface UseVoiceSearchOptions {
   lang?: string;
   onTranscript?: (text: string) => void;
   onResult?: (text: string) => void;
-  /** Overall safety auto-stop timeout. Defaults to 10000ms. */
   timeoutMs?: number;
-  /**
-   * Silence window (ms) after last partial result before treating as final.
-   * Only used on native as a fallback when listeningState 'stopped' doesn't fire.
-   * Defaults to 1200ms.
-   */
   nativeSilenceMs?: number;
 }
 
@@ -46,6 +40,7 @@ export function useVoiceSearch({
   const timeoutRef = useRef<number | null>(null);
   const nativeListenersRef = useRef<{ remove: () => void }[]>([]);
   const nativeSilenceTimerRef = useRef<number | null>(null);
+  const sessionIdRef = useRef(0);
 
   const transcriptRef = useRef('');
   const hasFiredResultRef = useRef(false);
@@ -78,23 +73,31 @@ export function useVoiceSearch({
     }
   }, []);
 
-  const cleanup = useCallback(() => {
+  const clearTimeoutRef = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    clearNativeSilenceTimer();
+  }, []);
+
+  const removeNativeListeners = useCallback(() => {
     nativeListenersRef.current.forEach((l) => {
       try {
         l.remove();
       } catch {}
     });
     nativeListenersRef.current = [];
-  }, [clearNativeSilenceTimer]);
+  }, []);
+
+  const cleanupAll = useCallback(() => {
+    clearTimeoutRef();
+    clearNativeSilenceTimer();
+    removeNativeListeners();
+  }, [clearTimeoutRef, clearNativeSilenceTimer, removeNativeListeners]);
 
   useEffect(() => {
     return () => {
-      cleanup();
+      cleanupAll();
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -106,7 +109,7 @@ export function useVoiceSearch({
         NativeSpeechRecognition.removeAllListeners().catch(() => {});
       }
     };
-  }, [cleanup, isNative]);
+  }, [cleanupAll, isNative]);
 
   /** Fire onResult exactly once per session. */
   const fireFinalResult = useCallback((text: string) => {
@@ -117,12 +120,9 @@ export function useVoiceSearch({
     onResultRef.current?.(trimmed);
   }, []);
 
+  /** Public stop — kills the current native/web session and resets UI flags. */
   const stop = useCallback(async () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    clearNativeSilenceTimer();
+    cleanupAll();
 
     if (isNative) {
       try {
@@ -139,7 +139,7 @@ export function useVoiceSearch({
     }
 
     setIsListening(false);
-  }, [isNative, clearNativeSilenceTimer]);
+  }, [isNative, cleanupAll]);
 
   const reset = useCallback(() => {
     setError(null);
@@ -150,205 +150,230 @@ export function useVoiceSearch({
   }, [clearNativeSilenceTimer]);
 
   // ---------------- NATIVE ----------------
-  const startNative = useCallback(async () => {
-    try {
-      const { available } = await NativeSpeechRecognition.available();
-      if (!available) {
-        setError('Speech recognition is not available on this device.');
+  const startNative = useCallback(
+    async (sessionId: number) => {
+      try {
+        const { available } = await NativeSpeechRecognition.available();
+        if (sessionId !== sessionIdRef.current) return;
+        if (!available) {
+          setError('Speech recognition is not available on this device.');
+          return;
+        }
+
+        const check = await NativeSpeechRecognition.checkPermissions();
+        if (sessionId !== sessionIdRef.current) return;
+        if (check.speechRecognition !== 'granted') {
+          const requested = await NativeSpeechRecognition.requestPermissions();
+          if (sessionId !== sessionIdRef.current) return;
+          if (requested.speechRecognition !== 'granted') {
+            setError('Microphone permission denied.');
+            return;
+          }
+        }
+
+        // Partial results — only active for this session
+        const partialListener = await NativeSpeechRecognition.addListener(
+          'partialResults',
+          (data: { matches: string[] }) => {
+            if (sessionId !== sessionIdRef.current) return;
+            const text = data.matches?.[0]?.trim();
+            if (!text) return;
+
+            setTranscriptSafe(text);
+            onTranscriptRef.current?.(text);
+
+            clearNativeSilenceTimer();
+            nativeSilenceTimerRef.current = window.setTimeout(() => {
+              if (sessionId !== sessionIdRef.current) return;
+              if (!hasFiredResultRef.current && transcriptRef.current) {
+                fireFinalResult(transcriptRef.current);
+              }
+            }, nativeSilenceMs);
+          }
+        );
+        nativeListenersRef.current.push(partialListener);
+
+        // Listening-state changes — only active for this session
+        const stateListener = await NativeSpeechRecognition.addListener(
+          'listeningState',
+          (data: { status: 'started' | 'stopped' }) => {
+            if (sessionId !== sessionIdRef.current) return;
+            if (data.status === 'started') {
+              setIsListening(true);
+            } else if (data.status === 'stopped') {
+              setIsListening(false);
+              if (!hasFiredResultRef.current && transcriptRef.current) {
+                fireFinalResult(transcriptRef.current);
+              }
+            }
+          }
+        );
+        nativeListenersRef.current.push(stateListener);
+
+        if (sessionId !== sessionIdRef.current) return;
+
+        // Optimistically set listening state BEFORE start() (Android doesn't
+        // always emit 'started')
+        setIsListening(true);
+
+        const result = await NativeSpeechRecognition.start({
+          language: langRef.current,
+          maxResults: 1,
+          prompt: 'Say something…',
+          partialResults: true,
+          popup: false,
+        });
+
+        if (sessionId !== sessionIdRef.current) return;
+
+        const finalText = result?.matches?.[0]?.trim() || transcriptRef.current;
+        if (finalText) {
+          setTranscriptSafe(finalText);
+          onTranscriptRef.current?.(finalText);
+          fireFinalResult(finalText);
+        }
+      } catch (err: any) {
+        if (sessionId !== sessionIdRef.current) return;
+        const msg = err?.message || 'Voice search failed. Try again.';
+        if (!msg.toLowerCase().includes('cancel')) {
+          setError(msg);
+        }
+        setIsListening(false);
+
+        if (!hasFiredResultRef.current && transcriptRef.current) {
+          fireFinalResult(transcriptRef.current);
+        }
+      }
+    },
+    [nativeSilenceMs, setTranscriptSafe, clearNativeSilenceTimer, fireFinalResult]
+  );
+
+  // ---------------- WEB ----------------
+  const startWeb = useCallback(
+    (sessionId: number) => {
+      const w = window as any;
+      const SpeechRecognitionCtor = w.SpeechRecognition || w.webkitSpeechRecognition;
+
+      if (!SpeechRecognitionCtor) {
+        setError('Voice search is not supported in this browser.');
         return;
       }
 
-      const check = await NativeSpeechRecognition.checkPermissions();
-      if (check.speechRecognition !== 'granted') {
-        const requested = await NativeSpeechRecognition.requestPermissions();
-        if (requested.speechRecognition !== 'granted') {
-          setError('Microphone permission denied.');
-          return;
-        }
-      }
+      try {
+        const recognition: SpeechRecognitionInstance = new SpeechRecognitionCtor();
+        recognition.lang = langRef.current;
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
 
-      // Live partial results
-      const partialListener = await NativeSpeechRecognition.addListener(
-        'partialResults',
-        (data: { matches: string[] }) => {
-          const text = data.matches?.[0]?.trim();
-          if (!text) return;
+        recognition.onstart = () => {
+          if (sessionId !== sessionIdRef.current) return;
+          setIsListening(true);
+        };
 
-          setTranscriptSafe(text);
-          onTranscriptRef.current?.(text);
-
-          // Reset the silence timer every time we get a new partial
-          clearNativeSilenceTimer();
-          nativeSilenceTimerRef.current = window.setTimeout(() => {
-            if (!hasFiredResultRef.current && transcriptRef.current) {
-              fireFinalResult(transcriptRef.current);
-            }
-          }, nativeSilenceMs);
-        }
-      );
-      nativeListenersRef.current.push(partialListener);
-
-      // Listening state changes
-      const stateListener = await NativeSpeechRecognition.addListener(
-        'listeningState',
-        (data: { status: 'started' | 'stopped' }) => {
-          if (data.status === 'started') {
-            setIsListening(true);
-          } else if (data.status === 'stopped') {
-            setIsListening(false);
-            // Recognizer stopped naturally → fire pending transcript immediately
-            if (!hasFiredResultRef.current && transcriptRef.current) {
-              fireFinalResult(transcriptRef.current);
-            }
+        recognition.onresult = (event: any) => {
+          if (sessionId !== sessionIdRef.current) return;
+          let combined = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            combined += event.results[i][0].transcript;
           }
-        }
-      );
-      nativeListenersRef.current.push(stateListener);
+          const cleaned = combined.trim();
+          if (cleaned) {
+            setTranscriptSafe(cleaned);
+            onTranscriptRef.current?.(cleaned);
+          }
 
-      // ✅ FIX: Optimistically set isListening = true BEFORE calling native start().
-      // The plugin does not reliably emit a 'started' event on Android, so without
-      // this the modal renders the idle "Start Speaking" state even though the mic
-      // is actually recording.
-      setIsListening(true);
+          const lastResult = event.results[event.results.length - 1];
+          if (lastResult?.isFinal && cleaned) {
+            fireFinalResult(cleaned);
+            setTimeout(() => stop(), 200);
+          }
+        };
 
-      const result = await NativeSpeechRecognition.start({
-        language: langRef.current,
-        maxResults: 1,
-        prompt: 'Say something…',
-        partialResults: true,
-        popup: false,
-      });
+        recognition.onerror = (event: any) => {
+          if (sessionId !== sessionIdRef.current) return;
+          const code = event?.error;
+          if (code === 'not-allowed' || code === 'service-not-allowed') {
+            setError('Microphone permission denied.');
+          } else if (code === 'no-speech') {
+            setError("Didn't catch that. Try again.");
+          } else if (code !== 'aborted') {
+            setError('Voice search failed. Try again.');
+          }
+          setIsListening(false);
+          recognitionRef.current = null;
 
-      // If start() resolved with matches, fire immediately
-      const finalText = result?.matches?.[0]?.trim() || transcriptRef.current;
-      if (finalText) {
-        setTranscriptSafe(finalText);
-        onTranscriptRef.current?.(finalText);
-        fireFinalResult(finalText);
-      }
-    } catch (err: any) {
-      const msg = err?.message || 'Voice search failed. Try again.';
-      if (!msg.toLowerCase().includes('cancel')) {
-        setError(msg);
-      }
-      setIsListening(false);
+          if (!hasFiredResultRef.current && transcriptRef.current) {
+            fireFinalResult(transcriptRef.current);
+          }
+        };
 
-      if (!hasFiredResultRef.current && transcriptRef.current) {
-        fireFinalResult(transcriptRef.current);
-      }
-    }
-  }, [
-    nativeSilenceMs,
-    setTranscriptSafe,
-    clearNativeSilenceTimer,
-    fireFinalResult,
-  ]);
+        recognition.onend = () => {
+          if (sessionId !== sessionIdRef.current) return;
+          setIsListening(false);
+          recognitionRef.current = null;
 
-  // ---------------- WEB ----------------
-  const startWeb = useCallback(() => {
-    const w = window as any;
-    const SpeechRecognitionCtor = w.SpeechRecognition || w.webkitSpeechRecognition;
+          if (!hasFiredResultRef.current && transcriptRef.current) {
+            fireFinalResult(transcriptRef.current);
+          }
+        };
 
-    if (!SpeechRecognitionCtor) {
-      setError('Voice search is not supported in this browser.');
-      return;
-    }
-
-    try {
-      const recognition: SpeechRecognitionInstance = new SpeechRecognitionCtor();
-      recognition.lang = langRef.current;
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => setIsListening(true);
-
-      recognition.onresult = (event: any) => {
-        let combined = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          combined += event.results[i][0].transcript;
-        }
-        const cleaned = combined.trim();
-        if (cleaned) {
-          setTranscriptSafe(cleaned);
-          onTranscriptRef.current?.(cleaned);
-        }
-
-        const lastResult = event.results[event.results.length - 1];
-        if (lastResult?.isFinal && cleaned) {
-          fireFinalResult(cleaned);
-          setTimeout(() => stop(), 200);
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        const code = event?.error;
-        if (code === 'not-allowed' || code === 'service-not-allowed') {
-          setError('Microphone permission denied.');
-        } else if (code === 'no-speech') {
-          setError("Didn't catch that. Try again.");
-        } else if (code !== 'aborted') {
-          setError('Voice search failed. Try again.');
-        }
+        recognitionRef.current = recognition;
+        recognition.start();
+        setIsListening(true);
+      } catch {
+        setError('Could not start voice search.');
         setIsListening(false);
-        recognitionRef.current = null;
+      }
+    },
+    [setTranscriptSafe, fireFinalResult, stop]
+  );
 
-        if (!hasFiredResultRef.current && transcriptRef.current) {
-          fireFinalResult(transcriptRef.current);
-        }
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-        recognitionRef.current = null;
-
-        if (!hasFiredResultRef.current && transcriptRef.current) {
-          fireFinalResult(transcriptRef.current);
-        }
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
-      setIsListening(true);
-    } catch {
-      setError('Could not start voice search.');
-      setIsListening(false);
-    }
-  }, [setTranscriptSafe, fireFinalResult, stop]);
-
+  /**
+   * Public start.
+   * ALWAYS performs a fresh start: cleans up any previous session, aborts
+   * any lingering native/web recognition, resets state, then starts.
+   */
   const start = useCallback(async () => {
+    // 1. Kill any existing session (native or web) and remove its listeners
+    cleanupAll();
+    if (isNative) {
+      try {
+        await NativeSpeechRecognition.stop();
+      } catch {}
+    } else if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
+    }
+
+    // 2. Bump session id — invalidates any late-firing events from the old session
+    const sessionId = sessionIdRef.current + 1;
+    sessionIdRef.current = sessionId;
+
+    // 3. Reset state
     setError(null);
     setTranscriptSafe('');
     hasFiredResultRef.current = false;
+    setIsListening(false);
 
-    if (isListening) {
-      await stop();
-      return;
-    }
-
+    // 4. Start fresh
     if (isNative) {
-      await startNative();
+      await startNative(sessionId);
     } else {
-      startWeb();
+      startWeb(sessionId);
     }
 
-    // Safety auto-stop
+    // 5. Safety auto-stop
     timeoutRef.current = window.setTimeout(() => {
+      if (sessionId !== sessionIdRef.current) return;
       void stop();
       if (!hasFiredResultRef.current && transcriptRef.current) {
         fireFinalResult(transcriptRef.current);
       }
     }, timeoutMs);
-  }, [
-    isListening,
-    isNative,
-    startNative,
-    startWeb,
-    stop,
-    timeoutMs,
-    setTranscriptSafe,
-    fireFinalResult,
-  ]);
+  }, [isNative, cleanupAll, startNative, startWeb, stop, timeoutMs, setTranscriptSafe, fireFinalResult]);
 
   return {
     isListening,

@@ -128,16 +128,19 @@ export function SearchScreen({
     setQuery(text);
   }, []);
 
-  const handleVoiceResult = useCallback(
-    (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed) return;
-      setQuery(trimmed);
-      setSearchParams({ q: trimmed });
-      setShowVoiceModal(false);
-    },
-    [setSearchParams],
-  );
+const handleVoiceResult = useCallback(
+  (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setQuery(trimmed);
+    setSearchParams({ q: trimmed });
+    setShowVoiceModal(false);
+    // IMPORTANT: kill the native session immediately so reopening the modal
+    // starts a fresh recognizer instead of reusing a stale one.
+    void stopVoiceSearch();
+  },
+  [setSearchParams, stopVoiceSearch],
+);
 
   const {
     isListening,

@@ -16,10 +16,6 @@ import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import toast from 'react-hot-toast';
 
-import { supabase } from '@/lib/supabase';
-import { isVersionOutdated } from '@/utils/version';
-import { AppUpdateBottomSheet, type AppVersionData } from '@/components/AppUpdateBottomSheet';
-
 import { SplashScreen } from '@/components/SplashScreen';
 import { BottomNavigation } from '@/components/BottomNavigation';
 import { KeepAliveRenderer } from '@/components/KeepAliveRenderer';
@@ -46,6 +42,7 @@ import { AuthScreen } from '@/screens/AuthScreen';
 import StoreScreen from '@/screens/StoreScreen';
 import { CategoryScreen } from '@/screens/CategoryScreen';
 import { BrandScreen } from '@/screens/BrandScreen';
+import { BannerScreen } from '@/screens/BannerScreen';
 import { WalletScreen } from '@/screens/WalletScreen';
 import { HomeLoadingScreen } from '@/components/HomeLoadingScreen';
 import type {
@@ -77,13 +74,6 @@ import {
 } from '@/services/push';
 
 import { getOrFetchHomeData, getHomeDataSync } from '@/services/homePreload';
-import { startContinuousLocationWatch, stopContinuousLocationWatch } from '@/services/location';
-import HelpCenterScreen from '@/screens/HelpCenterScreen';
-
-// ----------------------------------------------------
-// CURRENT APP VERSION CONSTANT
-// ----------------------------------------------------
-export const CURRENT_APP_VERSION = '1.0.0';
 
 const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   home: '/',
@@ -108,8 +98,8 @@ const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   store: '/store',
   categoryDetail: '/category',
   brand: '/brand',
+  banner: '/banner',
   wallet: '/wallet',
-  helpCenter: '/help',
 };
 
 const PATH_TO_SCREEN: Record<string, ScreenName | 'investor'> =
@@ -214,54 +204,6 @@ function App() {
     const cache = getHomeDataSync();
     return Boolean(cache && cache._userId);
   });
-  
-  const [showHomeLoader, setShowHomeLoader] = useState(() => {
-    const cache = getHomeDataSync();
-    return !Boolean(cache && cache._userId);
-  });
-
-  // --- APP UPDATE STATE ---
-  const [versionData, setVersionData] = useState<AppVersionData | null>(null);
-  const [needsForceUpdate, setNeedsForceUpdate] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-
-    // 1. Exit immediately if running in a web browser
-    if (!Capacitor.isNativePlatform()) return;
-
-    const checkAppVersion = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('app_versions')
-          .select('app_version, playstore_link, app_store_link, release_notes')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) {
-          console.warn('Failed to fetch app version:', error);
-          return;
-        }
-
-        if (data && active) {
-          setVersionData(data);
-          if (isVersionOutdated(CURRENT_APP_VERSION, data.app_version)) {
-            setNeedsForceUpdate(true);
-          }
-        }
-      } catch (err) {
-        console.warn('App version check exception:', err);
-      }
-    };
-
-    checkAppVersion();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-  // ------------------------
 
   useEffect(() => {
     let active = true;
@@ -271,7 +213,6 @@ function App() {
     if (!user) {
       setShowSplash(false);
       setIsHomeReady(false);
-      setShowHomeLoader(true);
       return;
     }
 
@@ -294,8 +235,6 @@ function App() {
     };
   }, [user, authLoading]);
 
-
-
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
 
@@ -304,20 +243,7 @@ function App() {
   const isDeliveryPartner = role === 'delivery_partner';
   const isWarehouseManager = role === 'warehouse_manager';
   const isInvestor = role === 'investor';
-  const isDedicatedStaff = isDeliveryPartner || isWarehouseManager;
-
-  // --- ZOMATO-STYLE CONTINUOUS FOREGROUND GPS STREAM ---
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform() || !user || isDedicatedStaff) return;
-
-    // Start continuous hardware watch
-    void startContinuousLocationWatch();
-
-    return () => {
-      void stopContinuousLocationWatch();
-    };
-  }, [user, isDedicatedStaff]);
-  // -----------------------------------------------------
+  const isDedicatedStaff = isDeliveryPartner || isWarehouseManager || isInvestor;
 
   const deliveryTab = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -330,7 +256,7 @@ function App() {
 
   const handlePushNavigation = useCallback(
     (data: any) => {
-      if (!data || needsForceUpdate) return;
+      if (!data) return;
 
       const targetTab = data.tab;
       const targetScreen = data.screen;
@@ -355,7 +281,7 @@ function App() {
         navigate(data.url);
       }
     },
-    [navigate, needsForceUpdate]
+    [navigate]
   );
 
   useEffect(() => {
@@ -369,7 +295,6 @@ function App() {
     let urlListener: Promise<{ remove: () => void }> | null = null;
     if (Capacitor.isNativePlatform()) {
       urlListener = CapApp.addListener('appUrlOpen', ({ url }) => {
-        if (needsForceUpdate) return;
         try {
           const parsed = new URL(url);
           const path = parsed.pathname || parsed.host;
@@ -400,7 +325,7 @@ function App() {
       }
       window.removeEventListener('push_notification_click' as any, onPushClick);
     };
-  }, [handlePushNavigation, navigate, needsForceUpdate]);
+  }, [handlePushNavigation, navigate]);
 
   const key = useMemo(() => {
     if (isDeliveryPartner) return `delivery_dedicated_${deliveryTab}`;
@@ -435,13 +360,13 @@ function App() {
     screen === 'categories' ||
     screen === 'categoryDetail' ||
     screen === 'brand' ||
+    screen === 'banner' ||
     screen === 'search' ||
-    screen === 'product' ||
-    screen === 'investor'; 
+    screen === 'product';
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product', 'investor']; 
+    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product'];
     const isDarkBg = darkHeaderScreens.includes(screen);
     setFullScreenSystemBars(!isDarkBg);
   }, [screen]);
@@ -459,10 +384,10 @@ function App() {
 
   const goTo = useCallback(
     (next: ScreenName | 'investor') => {
-      if (isDedicatedStaff || needsForceUpdate) return;
+      if (isDedicatedStaff) return;
       navigate(pathFor(next));
     },
-    [isDedicatedStaff, navigate, needsForceUpdate]
+    [isDedicatedStaff, navigate]
   );
 
   const goToCategories = useCallback(() => {
@@ -471,7 +396,6 @@ function App() {
 
   const openProduct = useCallback(
     (product: Product | { id: string; name?: string }) => {
-      if (needsForceUpdate) return;
       const productId = (product as any)?.id || (product as any)?.product_id || (product as any)?._id;
       if (!productId) {
         navigate('/');
@@ -479,48 +403,41 @@ function App() {
       }
       navigate(pathFor('product', { id: productId }));
     },
-    [navigate, needsForceUpdate]
+    [navigate]
   );
 
   const openCategory = useCallback(
     (category: Category | { id: string; name?: string }) => {
-      if (needsForceUpdate) return;
       navigate(pathFor('categoryDetail', { id: category.id }));
     },
-    [navigate, needsForceUpdate]
+    [navigate]
   );
 
   const openStore = useCallback(
     (store: Store | { id: string }) => {
-      if (needsForceUpdate) return;
       navigate(pathFor('store', { storeId: store.id }));
     },
-    [navigate, needsForceUpdate]
+    [navigate]
   );
 
   const openBrand = useCallback(
     (brand: { id: string }) => {
-      if (needsForceUpdate) return;
       navigate(pathFor('brand', { id: brand.id }));
     },
-    [navigate, needsForceUpdate]
+    [navigate]
   );
 
   const actionCtx: ActionContext = useMemo(
     () => ({
       setScreen: goTo as any,
       setSearch: (query: string) => {
-        if (needsForceUpdate) return;
         navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
       },
       openProduct,
       openCategory,
       openBrand,
       openStore,
-      navigate: (path: string) => {
-        if (needsForceUpdate) return;
-        navigate(path);
-      },
+      navigate: (path: string) => navigate(path),
       setFilterConfig: (config) => {
         filterConfigRef.current = config;
       },
@@ -528,15 +445,14 @@ function App() {
         filterTitleRef.current = title;
       },
     }),
-    [goTo, openProduct, openCategory, openBrand, openStore, navigate, needsForceUpdate]
+    [goTo, openProduct, openCategory, openBrand, openStore, navigate]
   );
 
   const handleBannerAction = useCallback(
     async (banner: PromoBanner) => {
-      if (needsForceUpdate) return;
       await handleHomeAction(banner.actionType, banner.actionConfig, actionCtx);
     },
-    [actionCtx, needsForceUpdate]
+    [actionCtx]
   );
 
   const handleBusinessRegistered = useCallback(
@@ -548,15 +464,13 @@ function App() {
 
   const openOrder = useCallback(
     (orderId: string) => {
-      if (needsForceUpdate) return;
       navigate(pathFor('orderDetail', { id: orderId }));
     },
-    [navigate, needsForceUpdate]
+    [navigate]
   );
 
   const openProtected = useCallback(
     (next: ScreenName | 'investor') => {
-      if (needsForceUpdate) return;
       const allowed =
         next === 'admin'
           ? role === 'admin'
@@ -570,7 +484,7 @@ function App() {
 
       goTo(allowed ? next : 'home');
     },
-    [role, goTo, needsForceUpdate]
+    [role, goTo]
   );
 
   if (authLoading) {
@@ -592,6 +506,10 @@ function App() {
 
     if (isWarehouseManager) {
       return <WarehouseScreen isDedicatedRole={true} />;
+    }
+
+    if (isInvestor) {
+      return <InvestorScreen />; 
     }
 
     switch (screen) {
@@ -637,7 +555,7 @@ function App() {
         if (profile?.registration_status !== 'registered') {
           return (
             <BusinessRegistrationScreen
-              onBack={() => navigate(-1)}
+              onBack={() => goTo('cart')}
               onRegistered={handleBusinessRegistered}
             />
           );
@@ -645,13 +563,11 @@ function App() {
         return (
           <CheckoutScreen
             cart={cart}
-            onBack={() => navigate(-1)}
+            onBack={() => goTo('cart')}
             onOrderPlaced={openOrder}
-            onAddAddress={() => navigate(pathFor('addresses', { from: 'checkout' }))} 
+            onAddAddress={() => goTo('addresses')}
           />
         );
-
-
 
       case 'orderDetail': {
         const orderId = new URLSearchParams(location.search).get('id');
@@ -659,21 +575,8 @@ function App() {
         return <OrderDetailScreen orderId={orderId} onBack={() => goTo('orders')} />;
       }
 
-      case 'addresses': {
-        const isFromCheckout = new URLSearchParams(location.search).get('from') === 'checkout';
-        return (
-          <AddressesScreen 
-            onBack={() => navigate(-1)} 
-            onSaved={() => {
-              if (isFromCheckout) {
-                navigate(-1); // Safely returns to checkout without creating a loop
-              }
-              // If not from checkout, do nothing (stays on the addresses screen)
-            }} 
-          />
-        );
-      }
-
+      case 'addresses':
+        return <AddressesScreen onBack={() => goTo('account')} onSaved={() => goTo('checkout')} />;
 
       case 'wishlist':
         return <WishlistScreen cart={cart} onProduct={openProduct} onShop={() => goTo('home')} />;
@@ -765,12 +668,12 @@ function App() {
 
       case 'store':
         return <StoreScreen goTo={goTo as any} />;
-        
-      case 'helpCenter':
-        return <HelpCenterScreen />;
 
       case 'brand':
         return <BrandScreen />;
+
+      case 'banner':
+        return <BannerScreen />;
 
       case 'categoryDetail':
         return <CategoryScreen onBack={() => navigate(-1)} onProduct={openProduct} cart={cart} />;
@@ -807,31 +710,23 @@ function App() {
         }`}
       >
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
-          <BackButtonHandler disableBack={isDedicatedStaff || needsForceUpdate} />
-          
-          {isHomeReady && (
+          <BackButtonHandler disableBack={isDedicatedStaff} />
+          {isHomeReady ? (
             <KeepAliveRenderer
               currentKey={key}
               render={renderScreen}
-              excludeKeys={['/wallet', '/account', '/order', '/investor', '/cart']}
+              excludeKeys={['/wallet', '/account', '/order', '/investor']}
             />
-          )}
-
-          {showHomeLoader && (
-            <HomeLoadingScreen 
-              isReady={isHomeReady} 
-              onFinish={() => setShowHomeLoader(false)} 
-            />
+          ) : (
+            <HomeLoadingScreen />
           )}
         </main>
 
         {!isDedicatedStaff &&
-          !needsForceUpdate &&
           screen !== 'categoryDetail' &&
           screen !== 'search' &&
           screen !== 'product' &&
           screen !== 'cart' &&
-          screen !== 'checkout' &&   // <-- add this
           screen !== 'warehouse' &&
           screen !== 'investor' &&
           screen !== 'delivery' &&
@@ -844,14 +739,6 @@ function App() {
               />
             </div>
           )}
-
-        {/* Forced Update Bottom Sheet - Displays after splash screen finishes */}
-        {!showSplash && needsForceUpdate && versionData && (
-          <AppUpdateBottomSheet
-            versionData={versionData}
-            currentVersion={CURRENT_APP_VERSION}
-          />
-        )}
 
         {showSplash && (
           <SplashScreen

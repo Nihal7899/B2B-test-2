@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AppLoader } from '@/components/AppLoader';
 
 interface HomeLoadingScreenProps {
@@ -7,18 +7,24 @@ interface HomeLoadingScreenProps {
 }
 
 export function HomeLoadingScreen({ isReady = false, onFinish }: HomeLoadingScreenProps) {
-  
-  // 1. Immediately fire onFinish without any timers
-  useEffect(() => {
-    if (isReady && onFinish) {
-      onFinish();
-    }
-  }, [isReady, onFinish]);
+  const [exiting, setExiting] = useState(false);
+  const onFinishRef = useRef(onFinish);
 
-  // 2. Instantly drop the heavy SVG loader from the DOM.
-  // No fading, no pointer-events-none. This guarantees the GPU 
-  // only renders the HomeScreen when you start scrolling.
-  if (isReady) return null;
+  useEffect(() => {
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    setExiting(true);
+    
+    const doneTimer = setTimeout(() => {
+      if (onFinishRef.current) onFinishRef.current();
+    }, 300);
+
+    return () => clearTimeout(doneTimer);
+  }, [isReady]); // <-- FIX: Removed 'exiting' from the dependency array so it doesn't cancel the timeout
 
   return (
     <AppLoader
@@ -26,7 +32,10 @@ export function HomeLoadingScreen({ isReady = false, onFinish }: HomeLoadingScre
       size="lg"
       showStatus={true}
       type="home"
-      className="opacity-100"
+      // FIX: Added `!opacity-0` (important modifier) to override the `animate-fade-in` forwards property
+      className={`transition-opacity duration-300 ease-out ${
+        exiting ? '!opacity-0 pointer-events-none' : 'opacity-100'
+      }`}
     />
   );
 }

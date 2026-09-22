@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { X, Mic, MicOff, AlertCircle, Search, RotateCcw } from 'lucide-react';
 
 interface VoiceSearchModalProps {
@@ -12,7 +12,7 @@ interface VoiceSearchModalProps {
   lang?: string;
 }
 
-const BAR_COUNT = 20;
+const BAR_COUNT = 22;
 
 export function VoiceSearchModal({
   open,
@@ -24,18 +24,25 @@ export function VoiceSearchModal({
   onConfirm,
   lang = 'en-IN',
 }: VoiceSearchModalProps) {
-  const [isRealWave, setIsRealWave] = useState(false);
-
-  const barsRef = useRef<(HTMLDivElement | null)[]>([]);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const rafRef = useRef<number | null>(null);
-
   const trimmedTranscript = transcript.trim();
   const hasTranscript = trimmedTranscript.length > 0;
   const showError = Boolean(error);
   const canConfirm = hasTranscript && !showError;
+
+  // Per-bar random seeds — computed once per mount for organic variation
+  const barSeeds = useMemo(
+    () =>
+      Array.from({ length: BAR_COUNT }, () => ({
+        maxHeight: 10 + Math.random() * 22,
+        minHeight: 4 + Math.random() * 4,
+        duration: 0.7 + Math.random() * 0.7,
+        delay: Math.random() * 1.2,
+      })),
+    []
+  );
+
+  const lastTranscriptLenRef = useRef(0);
+  const barsContainerRef = useRef<HTMLDivElement>(null);
 
   // ---------- Lock body scroll ----------
   useEffect(() => {
@@ -57,127 +64,25 @@ export function VoiceSearchModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  // ---------- Cleanup on close/unmount ----------
-  const stopVisualizer = () => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close().catch(() => {});
-      audioCtxRef.current = null;
-    }
-    analyserRef.current = null;
-    setIsRealWave(false);
-    barsRef.current.forEach((bar) => {
-      if (!bar) return;
-      bar.style.height = '';
-      bar.style.animation = '';
-    });
-  };
-
+  // ---------- Boost waveform when transcript updates ----------
   useEffect(() => {
-    if (!open) {
-      stopVisualizer();
-    }
-    return () => {
-      stopVisualizer();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    if (!open || !isListening) return;
+    const container = barsContainerRef.current;
+    if (!container) return;
 
-  // ---------- Real-time waveform via Web Audio ----------
-  useEffect(() => {
-    if (!open || !isListening || showError) return;
-    let cancelled = false;
+    const currentLen = transcript.length;
+    const grew = currentLen > lastTranscriptLenRef.current;
+    lastTranscriptLenRef.current = currentLen;
 
-    const startVisualizer = async () => {
-      try {
-        if (!navigator?.mediaDevices?.getUserMedia) return;
+    if (!grew) return;
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-
-        const AudioCtx =
-          (window as any).AudioContext || (window as any).webkitAudioContext;
-        if (!AudioCtx) return;
-
-        const ctx: AudioContext = new AudioCtx();
-        if (cancelled) {
-          ctx.close().catch(() => {});
-          return;
-        }
-        audioCtxRef.current = ctx;
-
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 64;
-        analyser.smoothingTimeConstant = 0.75;
-        analyserRef.current = analyser;
-
-        const source = ctx.createMediaStreamSource(stream);
-        source.connect(analyser);
-
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-        setIsRealWave(true);
-
-        let frame = 0;
-        const draw = () => {
-          rafRef.current = requestAnimationFrame(draw);
-          frame++;
-          if (frame % 3 !== 0) return;
-
-          analyser.getByteFrequencyData(dataArray);
-
-          const bars = barsRef.current;
-          const activeBarCount = bars.length;
-          if (activeBarCount === 0) return;
-
-          const step = Math.max(1, Math.floor(dataArray.length / activeBarCount));
-
-          for (let i = 0; i < activeBarCount; i++) {
-            const bar = bars[i];
-            if (!bar) continue;
-
-            let sum = 0;
-            const base = i * step;
-            for (let j = 0; j < step; j++) {
-              sum += dataArray[base + j] || 0;
-            }
-            const avg = sum / step;
-
-            const height = Math.max(4, Math.min(36, (avg / 255) * 36));
-            bar.style.height = `${height}px`;
-          }
-        };
-        draw();
-      } catch {
-        setIsRealWave(false);
-      }
-    };
-
-    void startVisualizer();
-
-    return () => {
-      cancelled = true;
-      stopVisualizer();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isListening, showError]);
+    // Briefly add "boost" class — mimics reactivity without touching the mic
+    container.classList.add('vs-wave-boost');
+    const t = window.setTimeout(() => {
+      container.classList.remove('vs-wave-boost');
+    }, 260);
+    return () => window.clearTimeout(t);
+  }, [transcript, open, isListening]);
 
   if (!open) return null;
 
@@ -287,15 +192,22 @@ export function VoiceSearchModal({
 
           {/* Waveform bars */}
           {isListening && !showError && (
-            <div className="mt-4 h-10 w-full flex items-center justify-center gap-[3px] px-1">
-              {Array.from({ length: BAR_COUNT }).map((_, i) => (
+            <div
+              ref={barsContainerRef}
+              className="vs-wave mt-4 h-10 w-full flex items-center justify-center gap-[3px] px-1"
+            >
+              {barSeeds.map((seed, i) => (
                 <div
                   key={i}
-                  ref={(el) => {
-                    barsRef.current[i] = el;
+                  className="vs-bar"
+                  style={{
+                    // @ts-ignore -- CSS custom properties
+                    '--vs-max-h': `${seed.maxHeight}px`,
+                    // @ts-ignore
+                    '--vs-min-h': `${seed.minHeight}px`,
+                    animationDuration: `${seed.duration}s`,
+                    animationDelay: `${seed.delay}s`,
                   }}
-                  className={`vs-bar ${isRealWave ? 'vs-bar-live' : ''}`}
-                  style={{ animationDelay: `${i * 0.055}s` }}
                 />
               ))}
             </div>
@@ -416,6 +328,14 @@ export function VoiceSearchModal({
             50%      { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(52, 211, 153, 0), 0 20px 40px -12px rgba(0,0,0,0.5); }
           }
 
+          /* Waveform */
+          .vs-wave {
+            transition: transform 0.2s ease-out;
+          }
+          .vs-wave-boost {
+            transform: scaleY(1.25);
+          }
+
           .vs-bar {
             display: inline-block;
             width: 3px;
@@ -423,16 +343,15 @@ export function VoiceSearchModal({
             border-radius: 9999px;
             background: linear-gradient(180deg, #6ee7b7 0%, #10b981 100%);
             box-shadow: 0 0 6px rgba(16, 185, 129, 0.35);
-            animation: vsBarPulse 1s ease-in-out infinite;
-            transition: height 0.08s linear;
+            animation-name: vsBarPulse;
+            animation-iteration-count: infinite;
+            animation-timing-function: ease-in-out;
             will-change: height;
           }
-          .vs-bar-live {
-            animation: none;
-          }
+
           @keyframes vsBarPulse {
-            0%, 100% { height: 6px;  opacity: 0.6; }
-            50%      { height: 24px; opacity: 1;   }
+            0%, 100% { height: var(--vs-min-h, 5px);  opacity: 0.55; }
+            50%      { height: var(--vs-max-h, 20px); opacity: 1;    }
           }
         `}</style>
       </div>

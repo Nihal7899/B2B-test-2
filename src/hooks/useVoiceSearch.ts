@@ -19,16 +19,13 @@ type SpeechRecognitionInstance = {
 
 interface UseVoiceSearchOptions {
   lang?: string;
-  /** Fires on every partial/interim transcript. */
   onTranscript?: (text: string) => void;
-  /** Fires once a final result is ready → auto-search handler. */
   onResult?: (text: string) => void;
-  /** Overall auto-stop safety timeout (ms). Defaults to 12000. */
   timeoutMs?: number;
   /**
-   * Silence window (ms) after last partial result to consider it final.
+   * Silence window (ms) after last partial result before treating as final.
    * Only used on native as a fallback when `start()` doesn't resolve cleanly.
-   * Defaults to 1500.
+   * Longer = better for natural pauses in speech.
    */
   nativeSilenceMs?: number;
 }
@@ -37,8 +34,8 @@ export function useVoiceSearch({
   lang = 'en-IN',
   onTranscript,
   onResult,
-  timeoutMs = 12000,
-  nativeSilenceMs = 1500,
+  timeoutMs = 15000,
+  nativeSilenceMs = 2600,
 }: UseVoiceSearchOptions = {}) {
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -182,8 +179,6 @@ export function useVoiceSearch({
           // Reset the silence timer every time we get a partial
           clearNativeSilenceTimer();
           nativeSilenceTimerRef.current = window.setTimeout(() => {
-            // No new partials for `nativeSilenceMs` → treat as final.
-            // This is the fix for cases where `start()` never resolves.
             if (!hasFiredResultRef.current && transcriptRef.current) {
               fireFinalResult(transcriptRef.current);
             }
@@ -199,7 +194,6 @@ export function useVoiceSearch({
           if (data.status === 'stopped') {
             setIsListening(false);
 
-            // Stopped with a pending transcript → fire it as final
             if (!hasFiredResultRef.current && transcriptRef.current) {
               fireFinalResult(transcriptRef.current);
             }
@@ -217,7 +211,6 @@ export function useVoiceSearch({
         popup: false,
       });
 
-      // If `start()` resolves with matches → fire final immediately
       const finalText = result?.matches?.[0]?.trim() || transcriptRef.current;
       if (finalText) {
         setTranscriptSafe(finalText);
@@ -231,7 +224,6 @@ export function useVoiceSearch({
       }
       setIsListening(false);
 
-      // Even on error, if we captured something, use it
       if (!hasFiredResultRef.current && transcriptRef.current) {
         fireFinalResult(transcriptRef.current);
       }
@@ -292,7 +284,6 @@ export function useVoiceSearch({
         setIsListening(false);
         recognitionRef.current = null;
 
-        // Fallback: fire whatever we captured
         if (!hasFiredResultRef.current && transcriptRef.current) {
           fireFinalResult(transcriptRef.current);
         }
@@ -302,7 +293,6 @@ export function useVoiceSearch({
         setIsListening(false);
         recognitionRef.current = null;
 
-        // Fallback: fire whatever we captured
         if (!hasFiredResultRef.current && transcriptRef.current) {
           fireFinalResult(transcriptRef.current);
         }
@@ -336,7 +326,6 @@ export function useVoiceSearch({
     // Safety auto-stop
     timeoutRef.current = window.setTimeout(() => {
       void stop();
-      // On timeout, still fire whatever we captured
       if (!hasFiredResultRef.current && transcriptRef.current) {
         fireFinalResult(transcriptRef.current);
       }

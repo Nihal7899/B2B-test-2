@@ -151,16 +151,28 @@ export function SearchScreen({
     lang: 'en-IN',
     onTranscript: handleVoiceTranscript,
     onResult: handleVoiceResult,
-    timeoutMs: 12000,
-    nativeSilenceMs: 1500,
+    timeoutMs: 15000,
+    nativeSilenceMs: 2600,
   });
 
   const openVoiceModal = useCallback(() => {
+    // Blur first so the keyboard doesn't pop open over the voice modal
+    try {
+      searchInputRef.current?.blur();
+    } catch {}
+    // Also blur whatever else might be focused
+    try {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    } catch {}
+
     resetVoiceSearch();
-    setShowVoiceModal(true);
+    // Small delay so keyboard-close animation completes cleanly
     setTimeout(() => {
-      void startVoiceSearch();
-    }, 300);
+      setShowVoiceModal(true);
+      setTimeout(() => {
+        void startVoiceSearch();
+      }, 250);
+    }, 60);
   }, [startVoiceSearch, resetVoiceSearch]);
 
   const closeVoiceModal = useCallback(() => {
@@ -523,6 +535,7 @@ export function SearchScreen({
 
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={openVoiceModal}
                 aria-label="Voice search"
                 className="absolute right-9 h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 active:scale-90 transition-all"
@@ -533,6 +546,7 @@ export function SearchScreen({
               {query && (
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     setQuery('');
                     setSubmittedQuery('');

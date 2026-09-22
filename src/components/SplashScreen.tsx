@@ -32,10 +32,8 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
       hideSystemNav();
     }
 
-    // --- RESTORED: This is the crucial code that deletes the HTML bridge ---
     const bridge = document.getElementById('splash-bridge');
     if (bridge) bridge.remove();
-    // ----------------------------------------------------------------------
 
     const fallbackTimer = setTimeout(() => {
       setExiting(true);
@@ -89,7 +87,28 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
             />
           </svg>
         </div>
+
+        <h1 className="mt-2 flex items-center text-4xl sm:text-5xl font-black tracking-tight font-sans">
+          <span className="text-white">Caf</span>
+          <span className="text-[#59D9B6]">Kart</span>
+        </h1>
+
+        <div className="mt-3.5 flex items-center gap-2.5">
+          <div className="h-[1.5px] w-6 sm:w-8 bg-[#59D9B6]/80 rounded-full" />
+          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.32em] text-[#D3F6EB]">
+            B 2 B . H O R E C A
+          </span>
+          <div className="h-[1.5px] w-6 sm:w-8 bg-[#59D9B6]/80 rounded-full" />
+        </div>
       </div>
+
+      <div className="absolute bottom-14 h-[3px] w-32 overflow-hidden rounded-full bg-white/10">
+        <div className="splash-bar h-full rounded-full bg-gradient-to-r from-[#59D9B6] via-[#9af0d4] to-white" />
+      </div>
+
+      <p className="absolute bottom-6 text-[10px] font-semibold tracking-wider text-[#59D9B6]/70 uppercase">
+        Wholesale made simple
+      </p>
     </div>
   );
 }

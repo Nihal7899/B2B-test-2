@@ -801,11 +801,11 @@ function App() {
 
   return (
     <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
-      <div
-        className={`mx-auto flex-1 w-full bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col ${
-          isLargeScreenView ? 'max-w-7xl' : 'max-w-[720px]'
-        }`}
-      >
+<div
+  className={`mx-auto flex-1 w-full bg-ink-50 shadow-2xl shadow-ink-200/50 relative flex flex-col transition-[max-width] duration-300 ${
+    isLargeScreenView ? 'max-w-7xl' : 'max-w-[720px]'
+  }`}
+>
         <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
           <BackButtonHandler disableBack={isDedicatedStaff || needsForceUpdate} />
           

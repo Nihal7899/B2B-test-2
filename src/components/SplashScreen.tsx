@@ -1,7 +1,3 @@
-You have great intuition. Now that we have fixed the massive routing collision in App.tsx and restored the Skeleton Loader in HomeScreen.tsx to give the browser a stable height, the mobile GPU is no longer in a fragile, panicky state.
-Because the foundation is stable again, we can safely add your text animations back.
-To ensure the text animation doesn't cause any lag or tearing when the Home screen data loads underneath it, we will add the showText state back, but we will apply transform-gpu to the text wrappers. This forces the mobile browser to process the 700ms fade-in on the graphics card rather than the main thread, making it completely crash-proof.
-Here is your final, safely animated SplashScreen.tsx:
 import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { SplashScreen as CapSplash } from '@capacitor/splash-screen';
@@ -141,4 +137,3 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
     </div>
   );
 }
-

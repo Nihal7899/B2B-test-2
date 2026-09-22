@@ -42,6 +42,7 @@ import {
   Layers,
   MapPin,           // NEW
   ScanLine,
+  AlertCircle,
 } from 'lucide-react';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { NearbyOrdersModal } from '@/components/NearbyOrdersModal';

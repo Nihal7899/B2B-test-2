@@ -250,9 +250,9 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col relative">
-      {/* Sticky Header */}
+      {/* Sticky Header with +4px top padding (pt-4) and increased height */}
       <header 
-        className="safe-top sticky top-0 z-50 flex items-center justify-between px-4 py-3 shadow-md"
+        className="safe-top sticky top-0 z-50 flex items-center justify-between px-4 pt-4 pb-3 shadow-md"
         style={{ backgroundColor: PRIMARY_COLOR }}
       >
         <div className="flex items-center gap-3">
@@ -503,17 +503,17 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
 
           <div className="space-y-4">
             {items.map((item) => {
-              // This requires updating your fetchOrderDetail function as mentioned above
               const imageUrl = (item as any).products?.image_url;
               
               return (
-                <div key={item.id} className="flex gap-3">
-                  <div className="h-16 w-16 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center p-1">
+                <div key={item.id} className="flex gap-3 items-center">
+                  {/* Filled Image Container matches CategoryProductCard layout */}
+                  <div className="relative w-16 h-16 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
                     {imageUrl ? (
                       <CachedImage 
                         src={imageUrl} 
                         alt={item.product_name}
-                        className="h-full w-full object-contain mix-blend-multiply"
+                        className="absolute inset-0 w-full h-full object-cover mix-blend-multiply"
                       />
                     ) : (
                       <Package size={24} className="text-slate-300" />
@@ -523,7 +523,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                     <h4 className="text-sm font-bold text-slate-900 truncate">
                       {item.brand ? `${item.brand} ` : ''}{item.product_name}
                     </h4>
-                    <div className="flex items-center justify-between mt-1">
+                    <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-slate-500">
                         {item.quantity} unit • ₹{Number(item.unit_price).toLocaleString('en-IN')}
                       </span>
@@ -534,6 +534,12 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                         {isCancelled ? 'Cancelled' : normalizedStatus.replace(/_/g, ' ')}
                       </span>
                     </div>
+                  </div>
+                  {/* Line Total price next to item */}
+                  <div className="shrink-0 text-right self-center">
+                    <span className="text-sm font-black text-slate-900">
+                      ₹{Number(item.line_total).toLocaleString('en-IN')}
+                    </span>
                   </div>
                 </div>
               );

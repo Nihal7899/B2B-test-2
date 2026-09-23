@@ -16,9 +16,8 @@ import {
   Wallet,
   CreditCard,
   Banknote,
-  AlertCircle,
-  CheckCircle2,
   Building2,
+  Headphones,
 } from 'lucide-react';
 import { fetchOrderDetail } from '@/services/catalog';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
@@ -208,6 +207,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
     );
   }
 
+  // Timeline Mapping
   const statusStageMap: Record<string, number> = {
     pending: 0,
     confirmed: 1,
@@ -234,6 +234,19 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
   });
 
   const itemCount = items.reduce((sum, i) => sum + (i.quantity || 0), 0);
+  const paymentHeadline = isCancelled ? 'Refunded' : paymentSummary.isFullyPaid ? 'Fully Paid' : 'Pay on Delivery';
+
+  const billingLines = billingAddress
+    ? [
+        billingAddress.address_line_1,
+        billingAddress.address_line_2,
+        billingAddress.landmark,
+        billingAddress.city && billingAddress.state
+          ? `${billingAddress.city}, ${billingAddress.state}`
+          : billingAddress.city || billingAddress.state,
+        billingAddress.pincode,
+      ].filter((p): p is string => !!p && p.trim().length > 0)
+    : [];
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col relative">
@@ -261,14 +274,43 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
 
       <main className="flex-1 px-4 py-4 space-y-4 w-full max-w-lg mx-auto pb-8">
         
-        {/* Order Status & Timeline Card */}
+        {/* Restored Hero Payment Card */}
+        <div 
+          className="rounded-3xl p-5 text-white shadow-lg relative overflow-hidden" 
+          style={{ background: `linear-gradient(to bottom right, #012b1d, ${PRIMARY_COLOR}, #03543a)` }}
+        >
+          <div className="relative z-10 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-wider text-white/70">
+                Total Order Value
+              </p>
+              <p className="text-3xl font-black tracking-tight mt-1 leading-none">
+                {formatMoney(Number(order.total) || 0)}
+              </p>
+            </div>
+
+            <div className="shrink-0 text-right">
+              <p className="text-[10px] font-black uppercase tracking-wider text-white/70">
+                Payment
+              </p>
+              <p className="text-sm font-black mt-1">{paymentHeadline}</p>
+              {!isCancelled && paymentSummary.amountToCollect > 0 && (
+                <p className="text-[10px] text-white/80 mt-1 font-semibold">
+                  Pay {formatMoney(paymentSummary.amountToCollect)} on delivery
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+          <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+        </div>
+
+        {/* Order Status & Timeline Card (Matched exactly to image) */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
-              <div 
-                className="h-10 w-10 rounded-xl flex items-center justify-center"
-                style={{ backgroundColor: `${PRIMARY_COLOR}12`, color: PRIMARY_COLOR }}
-              >
+              <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${PRIMARY_COLOR}12`, color: PRIMARY_COLOR }}>
                 <Package size={20} strokeWidth={2} />
               </div>
               <div>
@@ -288,15 +330,14 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </div>
 
           {!isCancelled && (
-            <div className="relative mt-8 mb-2 px-1">
-              {/* Connecting Background Line */}
-              <div className="absolute top-3.5 left-[12%] right-[12%] h-[2px] bg-slate-100 z-0"></div>
-              {/* Active Connecting Line */}
+            <div className="relative mt-8 mb-2 px-2">
+              {/* Timeline Connecting Lines */}
+              <div className="absolute top-4 left-[15%] right-[15%] h-[1px] bg-slate-200 z-0"></div>
               <div 
-                className="absolute top-3.5 left-[12%] h-[2px] z-0 transition-all duration-500"
+                className="absolute top-4 left-[15%] h-[1px] z-0 transition-all duration-500"
                 style={{ 
                   backgroundColor: PRIMARY_COLOR,
-                  width: `${(Math.max(0, currentStage) / 3) * 76}%` 
+                  width: `${(Math.max(0, currentStage) / 3) * 70}%` 
                 }}
               ></div>
 
@@ -307,10 +348,10 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                   const isPlaced = step.id === 0;
                   const Icon = step.icon;
                   
-                  // Styling to match image EXACTLY
+                  // Exact UI matching for the circles
                   let circleBg = 'white';
-                  let circleBorder = '#f1f5f9';
-                  let iconColor = '#cbd5e1';
+                  let circleBorder = '#e2e8f0'; // slate-200
+                  let iconColor = '#94a3b8'; // slate-400
 
                   if (isCompleted || (isCurrent && isPlaced)) {
                     circleBg = PRIMARY_COLOR;
@@ -325,16 +366,16 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                   return (
                     <div key={step.id} className="flex flex-col items-center gap-2 w-1/4">
                       <div 
-                        className="h-7 w-7 rounded-full flex items-center justify-center border-2 transition-colors"
+                        className="h-8 w-8 rounded-full flex items-center justify-center border-2 transition-colors bg-white"
                         style={{ backgroundColor: circleBg, borderColor: circleBorder, color: iconColor }}
                       >
-                        <Icon size={14} strokeWidth={isCompleted || isCurrent ? 2.5 : 2} />
+                        <Icon size={16} strokeWidth={isCompleted || isCurrent ? 2.5 : 2} />
                       </div>
                       <div className="text-center">
-                        <p className={`text-[10px] font-bold ${isCompleted || isCurrent ? 'text-slate-800' : 'text-slate-400'}`}>
+                        <p className={`text-[10px] font-bold ${isCompleted || isCurrent ? 'text-slate-900' : 'text-slate-400'}`}>
                           {step.label}
                         </p>
-                        <p className="text-[8px] text-slate-400 mt-0.5 whitespace-nowrap">
+                        <p className="text-[9px] text-slate-400 mt-0.5 whitespace-nowrap">
                           {isCompleted || (isCurrent && isPlaced) ? orderTime : 'Pending'}
                         </p>
                       </div>
@@ -354,38 +395,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             </div>
           )}
         </section>
-
-        {/* RESTORED: Top Payment Banner from your original logic */}
-        {!isCancelled && (
-          <section
-            className={`rounded-2xl p-4 border shadow-sm ${
-              paymentSummary.isFullyPaid
-                ? 'bg-emerald-50 border-emerald-200'
-                : 'bg-amber-50 border-amber-200'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                {paymentSummary.isFullyPaid ? (
-                  <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
-                ) : (
-                  <AlertCircle size={20} className="text-amber-600 shrink-0" />
-                )}
-                <div className="min-w-0">
-                  <p className={`text-xs font-black uppercase tracking-wider ${paymentSummary.isFullyPaid ? 'text-emerald-800' : 'text-amber-800'}`}>
-                    {paymentSummary.isFullyPaid ? 'Payment Complete' : 'Payment Due on Delivery'}
-                  </p>
-                  <p className={`text-[11px] mt-0.5 ${paymentSummary.isFullyPaid ? 'text-emerald-600' : 'text-amber-700'}`}>
-                    {paymentSummary.isFullyPaid ? 'All dues settled for this order' : 'Keep exact amount ready'}
-                  </p>
-                </div>
-              </div>
-              <p className={`text-base font-black shrink-0 ${paymentSummary.isFullyPaid ? 'text-emerald-800' : 'text-amber-800'}`}>
-                {paymentSummary.isFullyPaid ? '₹0.00' : formatMoney(paymentSummary.amountToCollect)}
-              </p>
-            </div>
-          </section>
-        )}
 
         {/* Order Summary & View Invoice Row */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
@@ -409,7 +418,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
               <span>Items</span>
               <span className="font-medium text-slate-900">{itemCount}</span>
             </div>
-            <div className="flex justify-between text-xs text-slate-500 items-center mt-1">
+            <div className="flex justify-between text-xs text-slate-500 items-center mt-2">
               <span>Amount Paid</span>
               <span className="font-black text-xl" style={{ color: PRIMARY_COLOR }}>
                 {formatMoney(paymentSummary.totalPaid)}
@@ -432,7 +441,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </button>
         </section>
 
-        {/* Items Card (with Image fallback handling) */}
+        {/* Items Card */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -441,14 +450,15 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
               </div>
               <h3 className="font-bold text-slate-900 text-sm">Items ({itemCount})</h3>
             </div>
-            <button className="text-xs font-bold flex items-center gap-0.5" style={{ color: PRIMARY_COLOR }}>
-              View All Items <ChevronRight size={14} />
+            <button className="text-xs font-bold flex items-center gap-1 rounded-full px-2.5 py-1" style={{ backgroundColor: `${PRIMARY_COLOR}12`, color: PRIMARY_COLOR }}>
+              View All Items <ChevronRight size={12} />
             </button>
           </div>
 
           <div className="space-y-4">
             {items.map((item) => {
-              // Attempting multiple common Supabase join structures for products.image_url
+              // NOTE: This relies on how your fetchOrderDetail joins the products table.
+              // We need your exact backend function to fix this line if it's still broken.
               const imageUrl = (item as any).products?.image_url || (item as any).product?.image_url || (item as any).image_url || '';
               
               return (
@@ -486,6 +496,37 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </div>
         </section>
 
+        {/* Restored: Billed To Details */}
+        {billingAddress && (
+          <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+                <Building2 size={16} />
+              </div>
+              <h2 className="font-bold text-slate-900 text-sm">Billed To</h2>
+            </div>
+            <div className="space-y-1 ml-9">
+              <p className="text-sm font-black text-slate-900">
+                {billingAddress.business_name || 'Customer'}
+              </p>
+              {billingAddress.gstin ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full px-2 py-0.5 mt-1">
+                  GSTIN · {billingAddress.gstin}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-slate-50 text-slate-500 border border-slate-200 rounded-full px-2 py-0.5 mt-1">
+                  Unregistered
+                </span>
+              )}
+              {billingLines.length > 0 && (
+                <p className="text-xs text-slate-600 leading-relaxed mt-2">
+                  {billingLines.join(', ')}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Delivery Address (Change button strictly removed) */}
         {deliveryAddress && (
           <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
@@ -506,7 +547,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </section>
         )}
 
-        {/* Beautiful Payment Breakdown */}
+        {/* Restored: Detailed Payment Breakdown */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-4">
             <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600">
@@ -543,7 +584,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             </div>
           </div>
 
-          {/* Paid Methods UI styled beautifully */}
+          {/* Paid Methods */}
           {(paymentSummary.walletPaid > 0 || paymentSummary.onlinePaid > 0 || paymentSummary.codPaid > 0 || (!isCancelled && !paymentSummary.isFullyPaid)) && (
             <div className="mt-4 pt-4 border-t border-dashed border-slate-200 space-y-2.5">
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Payment Methods</p>
@@ -577,7 +618,49 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
               )}
             </div>
           )}
+
+          {/* Refund Details */}
+          {isCancelled && (paymentSummary.walletRefunded > 0 || paymentSummary.onlineRefunded > 0) && (
+            <div className="mt-4 pt-4 border-t border-dashed border-slate-200 space-y-2">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Refund Details</p>
+
+              {paymentSummary.walletRefunded > 0 && (
+                <div className="flex justify-between items-start bg-emerald-50/60 border border-emerald-200 rounded-xl px-3 py-2.5">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="flex items-center gap-1.5 text-xs font-black text-emerald-800"><Wallet size={13} /> Wallet Recharged</span>
+                    <span className="text-[10px] text-emerald-600 ml-5">Credited instantly to B2B Wallet</span>
+                  </div>
+                  <span className="text-xs font-black text-emerald-700 shrink-0">+ {formatMoney(paymentSummary.walletRefunded)}</span>
+                </div>
+              )}
+
+              {paymentSummary.onlineRefunded > 0 && (
+                <div className="flex justify-between items-start bg-blue-50/60 border border-blue-200 rounded-xl px-3 py-2.5">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="flex items-center gap-1.5 text-xs font-black text-blue-800"><CreditCard size={13} /> Bank Refund Initiated</span>
+                    <span className="text-[10px] text-blue-600 ml-5">Expect Razorpay credit in 2-3 business days</span>
+                  </div>
+                  <span className="text-xs font-black text-blue-700 shrink-0">+ {formatMoney(paymentSummary.onlineRefunded)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </section>
+
+        {/* Restored: Need Help CTA */}
+        <button 
+          onClick={() => navigate(`/help?orderId=${order.id}&orderNumber=${encodeURIComponent(order.order_number || '')}`)}
+          className="w-full bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3 text-left hover:bg-slate-50 active:scale-[0.99] transition-transform mt-2"
+        >
+          <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 shrink-0">
+            <Headphones size={18} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-slate-900">Need help with this order?</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">Cancel, update address, or ask delivery questions</p>
+          </div>
+          <ChevronRight size={18} className="text-slate-400 shrink-0" />
+        </button>
         
       </main>
 

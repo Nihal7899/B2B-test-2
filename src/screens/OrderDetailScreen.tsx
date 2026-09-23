@@ -16,8 +16,9 @@ import {
   Wallet,
   CreditCard,
   Banknote,
+  AlertCircle,
+  CheckCircle2,
   Building2,
-  Headphones,
 } from 'lucide-react';
 import { fetchOrderDetail } from '@/services/catalog';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
@@ -79,8 +80,10 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
     amountToCollect: 0,
     isFullyPaid: false,
   });
+  
   const [loading, setLoading] = useState(true);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   
   const navigate = useNavigate();
 
@@ -176,11 +179,11 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
 
   const normalizedStatus = (order?.status || '').trim().toLowerCase();
   const isCancelled = normalizedStatus === 'cancelled';
+  const isDelivered = normalizedStatus === 'delivered';
 
-  // Strict check: Only print if delivered
   const handleInvoiceClick = () => {
-    if (normalizedStatus !== 'delivered') {
-      alert("You can view the invoice once the product is delivered.");
+    if (!isDelivered) {
+      setShowInvoiceModal(true);
       return;
     }
     handlePrint();
@@ -205,7 +208,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
     );
   }
 
-  // Map backend status to UI timeline
   const statusStageMap: Record<string, number> = {
     pending: 0,
     confirmed: 1,
@@ -233,21 +235,9 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
 
   const itemCount = items.reduce((sum, i) => sum + (i.quantity || 0), 0);
 
-  const billingLines = billingAddress
-    ? [
-        billingAddress.address_line_1,
-        billingAddress.address_line_2,
-        billingAddress.landmark,
-        billingAddress.city && billingAddress.state
-          ? `${billingAddress.city}, ${billingAddress.state}`
-          : billingAddress.city || billingAddress.state,
-        billingAddress.pincode,
-      ].filter((p): p is string => !!p && p.trim().length > 0)
-    : [];
-
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Sticky Header - No extra padding, just safe-top */}
+    <div className="min-h-screen bg-slate-50 flex flex-col relative">
+      {/* Sticky Header */}
       <header 
         className="safe-top sticky top-0 z-50 flex items-center justify-between px-4 py-3 shadow-md"
         style={{ backgroundColor: PRIMARY_COLOR }}
@@ -269,9 +259,9 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         </button>
       </header>
 
-      <main className="flex-1 px-4 py-4 space-y-4 w-full max-w-lg mx-auto">
+      <main className="flex-1 px-4 py-4 space-y-4 w-full max-w-lg mx-auto pb-8">
         
-        {/* Order Status & Timeline */}
+        {/* Order Status & Timeline Card */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
@@ -298,40 +288,54 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </div>
 
           {!isCancelled && (
-            <div className="relative mt-8 mb-2">
-              <div className="absolute top-4 left-6 right-6 h-[2px] bg-slate-100 -z-10"></div>
+            <div className="relative mt-8 mb-2 px-1">
+              {/* Connecting Background Line */}
+              <div className="absolute top-3.5 left-[12%] right-[12%] h-[2px] bg-slate-100 z-0"></div>
+              {/* Active Connecting Line */}
               <div 
-                className="absolute top-4 left-6 h-[2px] -z-10 transition-all duration-500"
+                className="absolute top-3.5 left-[12%] h-[2px] z-0 transition-all duration-500"
                 style={{ 
                   backgroundColor: PRIMARY_COLOR,
-                  width: `${(Math.max(0, currentStage) / 3) * 100}%` 
+                  width: `${(Math.max(0, currentStage) / 3) * 76}%` 
                 }}
               ></div>
 
-              <div className="flex justify-between">
+              <div className="relative z-10 flex justify-between">
                 {timelineSteps.map((step) => {
                   const isCompleted = currentStage > step.id;
                   const isCurrent = currentStage === step.id;
+                  const isPlaced = step.id === 0;
                   const Icon = step.icon;
+                  
+                  // Styling to match image EXACTLY
+                  let circleBg = 'white';
+                  let circleBorder = '#f1f5f9';
+                  let iconColor = '#cbd5e1';
+
+                  if (isCompleted || (isCurrent && isPlaced)) {
+                    circleBg = PRIMARY_COLOR;
+                    circleBorder = PRIMARY_COLOR;
+                    iconColor = 'white';
+                  } else if (isCurrent) {
+                    circleBg = 'white';
+                    circleBorder = PRIMARY_COLOR;
+                    iconColor = PRIMARY_COLOR;
+                  }
                   
                   return (
                     <div key={step.id} className="flex flex-col items-center gap-2 w-1/4">
                       <div 
-                        className={`h-8 w-8 rounded-full flex items-center justify-center border-2 transition-colors`}
-                        style={{
-                          borderColor: isCompleted || isCurrent ? PRIMARY_COLOR : '#f1f5f9',
-                          color: isCompleted ? 'white' : isCurrent ? PRIMARY_COLOR : '#cbd5e1',
-                          backgroundColor: isCompleted ? PRIMARY_COLOR : 'white'
-                        }}
+                        className="h-7 w-7 rounded-full flex items-center justify-center border-2 transition-colors"
+                        style={{ backgroundColor: circleBg, borderColor: circleBorder, color: iconColor }}
                       >
-                        <Icon size={14} strokeWidth={2.5} />
+                        <Icon size={14} strokeWidth={isCompleted || isCurrent ? 2.5 : 2} />
                       </div>
                       <div className="text-center">
                         <p className={`text-[10px] font-bold ${isCompleted || isCurrent ? 'text-slate-800' : 'text-slate-400'}`}>
                           {step.label}
                         </p>
-                        <p className="text-[8.5px] text-slate-400 mt-0.5 whitespace-nowrap">
-                          {isCompleted || isCurrent ? orderTime : 'Pending'}
+                        <p className="text-[8px] text-slate-400 mt-0.5 whitespace-nowrap">
+                          {isCompleted || (isCurrent && isPlaced) ? orderTime : 'Pending'}
                         </p>
                       </div>
                     </div>
@@ -351,7 +355,39 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           )}
         </section>
 
-        {/* Order Summary */}
+        {/* RESTORED: Top Payment Banner from your original logic */}
+        {!isCancelled && (
+          <section
+            className={`rounded-2xl p-4 border shadow-sm ${
+              paymentSummary.isFullyPaid
+                ? 'bg-emerald-50 border-emerald-200'
+                : 'bg-amber-50 border-amber-200'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {paymentSummary.isFullyPaid ? (
+                  <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle size={20} className="text-amber-600 shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <p className={`text-xs font-black uppercase tracking-wider ${paymentSummary.isFullyPaid ? 'text-emerald-800' : 'text-amber-800'}`}>
+                    {paymentSummary.isFullyPaid ? 'Payment Complete' : 'Payment Due on Delivery'}
+                  </p>
+                  <p className={`text-[11px] mt-0.5 ${paymentSummary.isFullyPaid ? 'text-emerald-600' : 'text-amber-700'}`}>
+                    {paymentSummary.isFullyPaid ? 'All dues settled for this order' : 'Keep exact amount ready'}
+                  </p>
+                </div>
+              </div>
+              <p className={`text-base font-black shrink-0 ${paymentSummary.isFullyPaid ? 'text-emerald-800' : 'text-amber-800'}`}>
+                {paymentSummary.isFullyPaid ? '₹0.00' : formatMoney(paymentSummary.amountToCollect)}
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* Order Summary & View Invoice Row */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-4">
             <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600">
@@ -360,34 +396,35 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             <h3 className="font-bold text-slate-900 text-sm">Order Summary</h3>
           </div>
 
-          <div className="space-y-3 text-xs mb-4">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Order ID</span>
+          <div className="space-y-3">
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Order ID</span>
               <span className="font-medium text-slate-900">{order.order_number}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Order Date</span>
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Order Date</span>
               <span className="font-medium text-slate-900">{orderDate} • {orderTime}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Items</span>
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Items</span>
               <span className="font-medium text-slate-900">{itemCount}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Amount Paid</span>
-              <span className="font-bold text-slate-900">{formatMoney(paymentSummary.totalPaid)}</span>
+            <div className="flex justify-between text-xs text-slate-500 items-center mt-1">
+              <span>Amount Paid</span>
+              <span className="font-black text-xl" style={{ color: PRIMARY_COLOR }}>
+                {formatMoney(paymentSummary.totalPaid)}
+              </span>
             </div>
           </div>
 
-          {/* View Invoice CTA with Popup Logic */}
           <button 
             onClick={handleInvoiceClick}
             disabled={isPrinting || isCancelled}
-            className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-slate-100"
+            className="w-full flex items-center justify-between mt-4 pt-4 border-t border-slate-100 active:scale-95 transition-transform"
           >
             <div className="flex items-center gap-2">
-              {isPrinting ? <Loader2 size={16} className="text-slate-600 animate-spin" /> : <FileText size={16} className="text-slate-600" />}
-              <span className="text-xs font-bold text-slate-800">
+              {isPrinting ? <Loader2 size={16} className="text-slate-600 animate-spin" /> : <FileText size={16} className="text-slate-900" />}
+              <span className="text-xs font-bold text-slate-900">
                 {isPrinting ? 'Preparing Invoice...' : 'View Invoice'}
               </span>
             </div>
@@ -395,38 +432,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </button>
         </section>
 
-        {/* Billed To (Restored original logic) */}
-        {billingAddress && (
-          <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
-                <Building2 size={16} />
-              </div>
-              <h2 className="font-bold text-slate-900 text-sm">Billed To</h2>
-            </div>
-            <div className="space-y-1 ml-9">
-              <p className="text-sm font-black text-slate-900">
-                {billingAddress.business_name || 'Customer'}
-              </p>
-              {billingAddress.gstin ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full px-2 py-0.5 mt-1">
-                  GSTIN · {billingAddress.gstin}
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-slate-50 text-slate-500 border border-slate-200 rounded-full px-2 py-0.5 mt-1">
-                  Unregistered
-                </span>
-              )}
-              {billingLines.length > 0 && (
-                <p className="text-xs text-slate-600 leading-relaxed mt-2">
-                  {billingLines.join(', ')}
-                </p>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* Items List */}
+        {/* Items Card (with Image fallback handling) */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -442,16 +448,21 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
 
           <div className="space-y-4">
             {items.map((item) => {
-              // Reliably resolve image from standard join aliases
+              // Attempting multiple common Supabase join structures for products.image_url
               const imageUrl = (item as any).products?.image_url || (item as any).product?.image_url || (item as any).image_url || '';
+              
               return (
                 <div key={item.id} className="flex gap-3">
                   <div className="h-16 w-16 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center p-1">
-                    <CachedImage 
-                      src={imageUrl} 
-                      alt={item.product_name}
-                      className="h-full w-full object-contain mix-blend-multiply"
-                    />
+                    {imageUrl ? (
+                      <CachedImage 
+                        src={imageUrl} 
+                        alt={item.product_name}
+                        className="h-full w-full object-contain mix-blend-multiply"
+                      />
+                    ) : (
+                      <Package size={24} className="text-slate-300" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
                     <h4 className="text-sm font-bold text-slate-900 truncate">
@@ -475,118 +486,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </div>
         </section>
 
-        {/* Detailed Payment Breakdown (Restored your exact beautiful UI) */}
-        <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
-              <Receipt size={16} />
-            </div>
-            <h2 className="font-bold text-slate-900 text-sm">Payment Breakdown</h2>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs text-slate-500">
-              <span>Subtotal</span>
-              <span className="font-semibold text-slate-700">₹{Number(order.subtotal).toLocaleString('en-IN')}</span>
-            </div>
-
-            {Number(order.discount) > 0 && (
-              <div className="flex justify-between text-xs text-emerald-600">
-                <span>Discount</span>
-                <span className="font-bold">- ₹{Number(order.discount).toLocaleString('en-IN')}</span>
-              </div>
-            )}
-
-            {Number(order.cgst_amount) > 0 && (
-              <div className="flex justify-between text-xs text-slate-500">
-                <span>CGST</span>
-                <span className="font-semibold text-slate-700">₹{Number(order.cgst_amount).toLocaleString('en-IN')}</span>
-              </div>
-            )}
-
-            {Number(order.sgst_amount) > 0 && (
-              <div className="flex justify-between text-xs text-slate-500">
-                <span>SGST</span>
-                <span className="font-semibold text-slate-700">₹{Number(order.sgst_amount).toLocaleString('en-IN')}</span>
-              </div>
-            )}
-
-            <div className="flex justify-between text-xs text-slate-500">
-              <span>Delivery fee</span>
-              <span className="font-semibold text-slate-700">₹{Number(order.delivery_fee).toLocaleString('en-IN')}</span>
-            </div>
-
-            <div className="border-t border-dashed border-slate-200 mt-2 pt-2.5 flex justify-between items-baseline">
-              <span className="text-sm font-black text-slate-900">Total Order Value</span>
-              <span className="text-lg font-black text-slate-900 tracking-tight">
-                {formatMoney(Number(order.total) || 0)}
-              </span>
-            </div>
-          </div>
-
-          {(paymentSummary.walletPaid > 0 || paymentSummary.onlinePaid > 0 || paymentSummary.codPaid > 0 || (!isCancelled && !paymentSummary.isFullyPaid)) && (
-            <div className="mt-4 pt-4 border-t border-dashed border-slate-200 space-y-2">
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Payment Methods</p>
-
-              {paymentSummary.walletPaid > 0 && (
-                <div className="flex justify-between text-xs text-emerald-700 font-bold items-center bg-emerald-50/60 border border-emerald-100 rounded-xl px-3 py-2.5">
-                  <span className="flex items-center gap-1.5"><Wallet size={13} /> Paid via Wallet</span>
-                  <span>- {formatMoney(paymentSummary.walletPaid)}</span>
-                </div>
-              )}
-
-              {paymentSummary.onlinePaid > 0 && (
-                <div className="flex justify-between text-xs text-blue-700 font-bold items-center bg-blue-50/60 border border-blue-100 rounded-xl px-3 py-2.5">
-                  <span className="flex items-center gap-1.5"><CreditCard size={13} /> Paid Online (Razorpay)</span>
-                  <span>- {formatMoney(paymentSummary.onlinePaid)}</span>
-                </div>
-              )}
-
-              {paymentSummary.codPaid > 0 && (
-                <div className="flex justify-between text-xs text-emerald-700 font-bold items-center bg-emerald-50/60 border border-emerald-100 rounded-xl px-3 py-2.5">
-                  <span className="flex items-center gap-1.5"><Banknote size={13} /> Paid on Delivery</span>
-                  <span>- {formatMoney(paymentSummary.codPaid)}</span>
-                </div>
-              )}
-
-              {!isCancelled && !paymentSummary.isFullyPaid && (
-                <div className="flex justify-between text-xs text-amber-800 font-black items-center bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 shadow-sm">
-                  <span className="flex items-center gap-1.5"><Banknote size={13} /> Pay on Delivery</span>
-                  <span>{formatMoney(paymentSummary.amountToCollect)}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Refund Breakdown (Restored) */}
-          {isCancelled && (paymentSummary.walletRefunded > 0 || paymentSummary.onlineRefunded > 0) && (
-            <div className="mt-4 pt-4 border-t border-dashed border-slate-200 space-y-2">
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Refund Details</p>
-
-              {paymentSummary.walletRefunded > 0 && (
-                <div className="flex justify-between items-start bg-emerald-50/60 border border-emerald-200 rounded-xl px-3 py-2.5">
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <span className="flex items-center gap-1.5 text-xs font-black text-emerald-800"><Wallet size={13} /> Wallet Recharged</span>
-                    <span className="text-[10px] text-emerald-600 ml-5">Credited instantly to B2B Wallet</span>
-                  </div>
-                  <span className="text-xs font-black text-emerald-700 shrink-0">+ {formatMoney(paymentSummary.walletRefunded)}</span>
-                </div>
-              )}
-
-              {paymentSummary.onlineRefunded > 0 && (
-                <div className="flex justify-between items-start bg-blue-50/60 border border-blue-200 rounded-xl px-3 py-2.5">
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <span className="flex items-center gap-1.5 text-xs font-black text-blue-800"><CreditCard size={13} /> Bank Refund Initiated</span>
-                    <span className="text-[10px] text-blue-600 ml-5">Expect Razorpay credit in 2-3 business days</span>
-                  </div>
-                  <span className="text-xs font-black text-blue-700 shrink-0">+ {formatMoney(paymentSummary.onlineRefunded)}</span>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-
-        {/* Delivery Address (Change button removed) */}
+        {/* Delivery Address (Change button strictly removed) */}
         {deliveryAddress && (
           <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-3">
@@ -606,22 +506,106 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </section>
         )}
 
-        {/* Need Help CTA (Restored original Headphone UI) */}
-        <button 
-          onClick={() => navigate(`/help?orderId=${order.id}&orderNumber=${encodeURIComponent(order.order_number || '')}`)}
-          className="w-full bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3 text-left hover:bg-slate-50 active:scale-[0.99] transition-transform"
-        >
-          <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 shrink-0">
-            <Headphones size={18} />
+        {/* Beautiful Payment Breakdown */}
+        <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600">
+              <Receipt size={16} />
+            </div>
+            <h2 className="font-bold text-slate-900 text-sm">Payment Breakdown</h2>
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-bold text-slate-900">Need help with this order?</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">Cancel, update address, or ask delivery questions</p>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Subtotal</span>
+              <span className="font-semibold text-slate-700">₹{Number(order.subtotal).toLocaleString('en-IN')}</span>
+            </div>
+
+            {Number(order.discount) > 0 && (
+              <div className="flex justify-between text-xs text-emerald-600">
+                <span>Discount</span>
+                <span className="font-bold">- ₹{Number(order.discount).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+
+            {Number(order.delivery_fee) > 0 && (
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Delivery fee</span>
+                <span className="font-semibold text-slate-700">₹{Number(order.delivery_fee).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+
+            <div className="border-t border-dashed border-slate-200 mt-2 pt-2.5 flex justify-between items-baseline">
+              <span className="text-sm font-black text-slate-900">Total Order Value</span>
+              <span className="text-lg font-black text-slate-900 tracking-tight">
+                {formatMoney(Number(order.total) || 0)}
+              </span>
+            </div>
           </div>
-          <ChevronRight size={18} className="text-slate-400 shrink-0" />
-        </button>
+
+          {/* Paid Methods UI styled beautifully */}
+          {(paymentSummary.walletPaid > 0 || paymentSummary.onlinePaid > 0 || paymentSummary.codPaid > 0 || (!isCancelled && !paymentSummary.isFullyPaid)) && (
+            <div className="mt-4 pt-4 border-t border-dashed border-slate-200 space-y-2.5">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Payment Methods</p>
+
+              {paymentSummary.walletPaid > 0 && (
+                <div className="flex justify-between text-xs text-emerald-700 font-bold items-center bg-emerald-50/60 border border-emerald-100 rounded-xl px-3 py-2.5">
+                  <span className="flex items-center gap-1.5"><Wallet size={13} /> Paid via Wallet</span>
+                  <span>- {formatMoney(paymentSummary.walletPaid)}</span>
+                </div>
+              )}
+
+              {paymentSummary.onlinePaid > 0 && (
+                <div className="flex justify-between text-xs text-blue-700 font-bold items-center bg-blue-50/60 border border-blue-100 rounded-xl px-3 py-2.5">
+                  <span className="flex items-center gap-1.5"><CreditCard size={13} /> Paid Online</span>
+                  <span>- {formatMoney(paymentSummary.onlinePaid)}</span>
+                </div>
+              )}
+
+              {paymentSummary.codPaid > 0 && (
+                <div className="flex justify-between text-xs text-emerald-700 font-bold items-center bg-emerald-50/60 border border-emerald-100 rounded-xl px-3 py-2.5">
+                  <span className="flex items-center gap-1.5"><Banknote size={13} /> Paid on Delivery</span>
+                  <span>- {formatMoney(paymentSummary.codPaid)}</span>
+                </div>
+              )}
+
+              {!isCancelled && !paymentSummary.isFullyPaid && (
+                <div className="flex justify-between text-xs text-amber-800 font-black items-center bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 shadow-sm">
+                  <span className="flex items-center gap-1.5"><Banknote size={13} /> Pay on Delivery</span>
+                  <span>{formatMoney(paymentSummary.amountToCollect)}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
         
       </main>
+
+      {/* Invoice Modal Overlay */}
+      {showInvoiceModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setShowInvoiceModal(false)}
+          />
+          <div className="relative bg-white rounded-[24px] p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="mx-auto h-12 w-12 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: `${PRIMARY_COLOR}12`, color: PRIMARY_COLOR }}>
+              <Receipt size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-center text-slate-900">Invoice Unavailable</h3>
+            <p className="text-sm text-slate-500 text-center mt-2 leading-relaxed">
+              You can view and download your invoice once the product is successfully delivered.
+            </p>
+            <button 
+              onClick={() => setShowInvoiceModal(false)} 
+              className="mt-6 w-full py-3.5 rounded-xl font-bold text-white shadow-md active:scale-95 transition-transform" 
+              style={{ backgroundColor: PRIMARY_COLOR }}
+            >
+              Okay, got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

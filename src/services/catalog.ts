@@ -448,8 +448,9 @@ export async function fetchOrderDetail(
   if (oe || !order) return null;
   const { data: items } = await supabase
     .from('order_items')
-    .select('*')
+    .select('*, products(image_url)') // <-- This joins the image
     .eq('order_id', orderId);
+
   let address: DbAddress | null = null;
   if ((order as DbOrder).address_id) {
     const { data: addr } = await supabase

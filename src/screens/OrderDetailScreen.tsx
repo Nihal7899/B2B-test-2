@@ -207,7 +207,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
     );
   }
 
-  // Timeline Mapping
+  // Exact UI Timeline Mapping
   const statusStageMap: Record<string, number> = {
     pending: 0,
     confirmed: 1,
@@ -274,7 +274,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
 
       <main className="flex-1 px-4 py-4 space-y-4 w-full max-w-lg mx-auto pb-8">
         
-        {/* Restored Hero Payment Card */}
+        {/* Dark Green Top Payment Banner */}
         <div 
           className="rounded-3xl p-5 text-white shadow-lg relative overflow-hidden" 
           style={{ background: `linear-gradient(to bottom right, #012b1d, ${PRIMARY_COLOR}, #03543a)` }}
@@ -306,7 +306,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-white/5 blur-2xl pointer-events-none" />
         </div>
 
-        {/* Order Status & Timeline Card (Matched exactly to image) */}
+        {/* Order Status & Timeline Card */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
@@ -348,10 +348,9 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                   const isPlaced = step.id === 0;
                   const Icon = step.icon;
                   
-                  // Exact UI matching for the circles
                   let circleBg = 'white';
-                  let circleBorder = '#e2e8f0'; // slate-200
-                  let iconColor = '#94a3b8'; // slate-400
+                  let circleBorder = '#e2e8f0'; 
+                  let iconColor = '#94a3b8'; 
 
                   if (isCompleted || (isCurrent && isPlaced)) {
                     circleBg = PRIMARY_COLOR;
@@ -396,7 +395,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           )}
         </section>
 
-        {/* Order Summary & View Invoice Row */}
+        {/* Order Summary with Remaining Payment */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-4">
             <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600">
@@ -418,28 +417,75 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
               <span>Items</span>
               <span className="font-medium text-slate-900">{itemCount}</span>
             </div>
-            <div className="flex justify-between text-xs text-slate-500 items-center mt-2">
-              <span>Amount Paid</span>
-              <span className="font-black text-xl" style={{ color: PRIMARY_COLOR }}>
-                {formatMoney(paymentSummary.totalPaid)}
-              </span>
+            
+            <div className="pt-2 mt-2 border-t border-dashed border-slate-200">
+              <div className="flex justify-between text-xs text-slate-500 items-center">
+                <span>Amount Paid</span>
+                <span className="font-black text-lg" style={{ color: PRIMARY_COLOR }}>
+                  {formatMoney(paymentSummary.totalPaid)}
+                </span>
+              </div>
+              
+              {!paymentSummary.isFullyPaid && !isCancelled && (
+                <div className="flex justify-between text-xs text-amber-600 items-center mt-1">
+                  <span className="font-bold">Remaining Payment (COD)</span>
+                  <span className="font-bold">{formatMoney(paymentSummary.amountToCollect)}</span>
+                </div>
+              )}
             </div>
           </div>
-
-          <button 
-            onClick={handleInvoiceClick}
-            disabled={isPrinting || isCancelled}
-            className="w-full flex items-center justify-between mt-4 pt-4 border-t border-slate-100 active:scale-95 transition-transform"
-          >
-            <div className="flex items-center gap-2">
-              {isPrinting ? <Loader2 size={16} className="text-slate-600 animate-spin" /> : <FileText size={16} className="text-slate-900" />}
-              <span className="text-xs font-bold text-slate-900">
-                {isPrinting ? 'Preparing Invoice...' : 'View Invoice'}
-              </span>
-            </div>
-            <ChevronRight size={16} className="text-slate-400" />
-          </button>
         </section>
+
+        {/* Billed To Details */}
+        {billingAddress && (
+          <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+                <Building2 size={16} />
+              </div>
+              <h2 className="font-bold text-slate-900 text-sm">Billed To</h2>
+            </div>
+            <div className="space-y-1 ml-9">
+              <p className="text-sm font-black text-slate-900">
+                {billingAddress.business_name || 'Customer'}
+              </p>
+              {billingAddress.gstin ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full px-2 py-0.5 mt-1">
+                  GSTIN · {billingAddress.gstin}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-slate-50 text-slate-500 border border-slate-200 rounded-full px-2 py-0.5 mt-1">
+                  Unregistered
+                </span>
+              )}
+              {billingLines.length > 0 && (
+                <p className="text-xs text-slate-600 leading-relaxed mt-2">
+                  {billingLines.join(', ')}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Delivery Address Details */}
+        {deliveryAddress && (
+          <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600">
+                <MapPin size={16} />
+              </div>
+              <h3 className="font-bold text-slate-900 text-sm">Delivery Address</h3>
+            </div>
+            <div className="ml-9">
+              <p className="text-sm font-bold text-slate-900">{deliveryAddress.recipient_name || 'Customer'}</p>
+              <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                {deliveryAddress.line1}
+                {deliveryAddress.line2 ? `, ${deliveryAddress.line2}` : ''},<br/>
+                {deliveryAddress.city}, {deliveryAddress.state} - {deliveryAddress.postal_code}
+              </p>
+            </div>
+          </section>
+        )}
 
         {/* Items Card */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
@@ -457,9 +503,8 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
 
           <div className="space-y-4">
             {items.map((item) => {
-              // NOTE: This relies on how your fetchOrderDetail joins the products table.
-              // We need your exact backend function to fix this line if it's still broken.
-              const imageUrl = (item as any).products?.image_url || (item as any).product?.image_url || (item as any).image_url || '';
+              // This requires updating your fetchOrderDetail function as mentioned above
+              const imageUrl = (item as any).products?.image_url;
               
               return (
                 <div key={item.id} className="flex gap-3">
@@ -496,58 +541,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </div>
         </section>
 
-        {/* Restored: Billed To Details */}
-        {billingAddress && (
-          <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
-                <Building2 size={16} />
-              </div>
-              <h2 className="font-bold text-slate-900 text-sm">Billed To</h2>
-            </div>
-            <div className="space-y-1 ml-9">
-              <p className="text-sm font-black text-slate-900">
-                {billingAddress.business_name || 'Customer'}
-              </p>
-              {billingAddress.gstin ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full px-2 py-0.5 mt-1">
-                  GSTIN · {billingAddress.gstin}
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-slate-50 text-slate-500 border border-slate-200 rounded-full px-2 py-0.5 mt-1">
-                  Unregistered
-                </span>
-              )}
-              {billingLines.length > 0 && (
-                <p className="text-xs text-slate-600 leading-relaxed mt-2">
-                  {billingLines.join(', ')}
-                </p>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* Delivery Address (Change button strictly removed) */}
-        {deliveryAddress && (
-          <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600">
-                <MapPin size={16} />
-              </div>
-              <h3 className="font-bold text-slate-900 text-sm">Delivery Address</h3>
-            </div>
-            <div className="ml-9">
-              <p className="text-sm font-bold text-slate-900">{deliveryAddress.recipient_name || 'Customer'}</p>
-              <p className="text-xs text-slate-500 leading-relaxed mt-1">
-                {deliveryAddress.line1}
-                {deliveryAddress.line2 ? `, ${deliveryAddress.line2}` : ''},<br/>
-                {deliveryAddress.city}, {deliveryAddress.state} - {deliveryAddress.postal_code}
-              </p>
-            </div>
-          </section>
-        )}
-
-        {/* Restored: Detailed Payment Breakdown */}
+        {/* Detailed Payment Breakdown */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-4">
             <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600">
@@ -568,6 +562,27 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                 <span className="font-bold">- ₹{Number(order.discount).toLocaleString('en-IN')}</span>
               </div>
             )}
+            
+            {Number(order.promo_discount) > 0 && (
+              <div className="flex justify-between text-xs text-emerald-600">
+                <span>Promo Code Discount</span>
+                <span className="font-bold">- ₹{Number(order.promo_discount).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+
+            {Number(order.cgst_amount) > 0 && (
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>CGST</span>
+                <span className="font-semibold text-slate-700">₹{Number(order.cgst_amount).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+            
+            {Number(order.sgst_amount) > 0 && (
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>SGST</span>
+                <span className="font-semibold text-slate-700">₹{Number(order.sgst_amount).toLocaleString('en-IN')}</span>
+              </div>
+            )}
 
             {Number(order.delivery_fee) > 0 && (
               <div className="flex justify-between text-xs text-slate-500">
@@ -584,7 +599,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             </div>
           </div>
 
-          {/* Paid Methods */}
+          {/* Paid Methods UI styled beautifully */}
           {(paymentSummary.walletPaid > 0 || paymentSummary.onlinePaid > 0 || paymentSummary.codPaid > 0 || (!isCancelled && !paymentSummary.isFullyPaid)) && (
             <div className="mt-4 pt-4 border-t border-dashed border-slate-200 space-y-2.5">
               <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Payment Methods</p>
@@ -619,38 +634,26 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             </div>
           )}
 
-          {/* Refund Details */}
-          {isCancelled && (paymentSummary.walletRefunded > 0 || paymentSummary.onlineRefunded > 0) && (
-            <div className="mt-4 pt-4 border-t border-dashed border-slate-200 space-y-2">
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Refund Details</p>
-
-              {paymentSummary.walletRefunded > 0 && (
-                <div className="flex justify-between items-start bg-emerald-50/60 border border-emerald-200 rounded-xl px-3 py-2.5">
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <span className="flex items-center gap-1.5 text-xs font-black text-emerald-800"><Wallet size={13} /> Wallet Recharged</span>
-                    <span className="text-[10px] text-emerald-600 ml-5">Credited instantly to B2B Wallet</span>
-                  </div>
-                  <span className="text-xs font-black text-emerald-700 shrink-0">+ {formatMoney(paymentSummary.walletRefunded)}</span>
-                </div>
-              )}
-
-              {paymentSummary.onlineRefunded > 0 && (
-                <div className="flex justify-between items-start bg-blue-50/60 border border-blue-200 rounded-xl px-3 py-2.5">
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <span className="flex items-center gap-1.5 text-xs font-black text-blue-800"><CreditCard size={13} /> Bank Refund Initiated</span>
-                    <span className="text-[10px] text-blue-600 ml-5">Expect Razorpay credit in 2-3 business days</span>
-                  </div>
-                  <span className="text-xs font-black text-blue-700 shrink-0">+ {formatMoney(paymentSummary.onlineRefunded)}</span>
-                </div>
-              )}
+          {/* View Invoice Button underneath Payment Breakdown */}
+          <button 
+            onClick={handleInvoiceClick}
+            disabled={isPrinting || isCancelled}
+            className="w-full flex items-center justify-between mt-4 pt-4 border-t border-slate-100 active:scale-95 transition-transform"
+          >
+            <div className="flex items-center gap-2">
+              {isPrinting ? <Loader2 size={16} className="text-slate-600 animate-spin" /> : <FileText size={16} className="text-slate-900" />}
+              <span className="text-xs font-bold text-slate-900">
+                {isPrinting ? 'Preparing Invoice...' : 'View Invoice'}
+              </span>
             </div>
-          )}
+            <ChevronRight size={16} className="text-slate-400" />
+          </button>
         </section>
 
-        {/* Restored: Need Help CTA */}
+        {/* Need Help CTA */}
         <button 
           onClick={() => navigate(`/help?orderId=${order.id}&orderNumber=${encodeURIComponent(order.order_number || '')}`)}
-          className="w-full bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3 text-left hover:bg-slate-50 active:scale-[0.99] transition-transform mt-2"
+          className="w-full bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3 text-left hover:bg-slate-50 active:scale-[0.99] transition-transform"
         >
           <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 shrink-0">
             <Headphones size={18} />

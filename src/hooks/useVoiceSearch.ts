@@ -49,6 +49,9 @@ export function useVoiceSearch({
   const onResultRef = useRef(onResult);
   const langRef = useRef(lang);
 
+  // Stable ref for stop() so callbacks defined earlier can call it without TDZ
+  const stopRef = useRef<(() => Promise<void>) | null>(null);
+
   useEffect(() => {
     onTranscriptRef.current = onTranscript;
   }, [onTranscript]);
@@ -111,13 +114,30 @@ export function useVoiceSearch({
     };
   }, [cleanupAll, isNative]);
 
-  /** Fire onResult exactly once per session. */
+  /**
+   * Fire onResult exactly once per session, then auto-stop the recognizer.
+   * The auto-stop is what prevents the "reopen shows listening but native isn't
+   * actually listening" bug — native is guaranteed to be released after every
+   * successful result.
+   */
   const fireFinalResult = useCallback((text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
     if (hasFiredResultRef.current) return;
     hasFiredResultRef.current = true;
-    onResultRef.current?.(trimmed);
+
+    try {
+      onResultRef.current?.(trimmed);
+    } catch {}
+
+    // Auto-stop after the parent's onResult has had a tick to run.
+    // Uses stopRef to avoid circular dependency / TDZ.
+    const stopFn = stopRef.current;
+    if (stopFn) {
+      setTimeout(() => {
+        void stopFn();
+      }, 100);
+    }
   }, []);
 
   /** Public stop — kills the current native/web session and resets UI flags. */
@@ -140,6 +160,11 @@ export function useVoiceSearch({
 
     setIsListening(false);
   }, [isNative, cleanupAll]);
+
+  // Sync stop into ref so fireFinalResult can call it
+  useEffect(() => {
+    stopRef.current = stop;
+  }, [stop]);
 
   const reset = useCallback(() => {
     setError(null);
@@ -171,7 +196,7 @@ export function useVoiceSearch({
           }
         }
 
-        // Partial results — only active for this session
+        // Live partial results
         const partialListener = await NativeSpeechRecognition.addListener(
           'partialResults',
           (data: { matches: string[] }) => {
@@ -193,7 +218,7 @@ export function useVoiceSearch({
         );
         nativeListenersRef.current.push(partialListener);
 
-        // Listening-state changes — only active for this session
+        // Listening-state changes
         const stateListener = await NativeSpeechRecognition.addListener(
           'listeningState',
           (data: { status: 'started' | 'stopped' }) => {
@@ -212,8 +237,8 @@ export function useVoiceSearch({
 
         if (sessionId !== sessionIdRef.current) return;
 
-        // Optimistically set listening state BEFORE start() (Android doesn't
-        // always emit 'started')
+        // Optimistically set listening state BEFORE start() — Android doesn't
+        // always emit a 'started' event.
         setIsListening(true);
 
         const result = await NativeSpeechRecognition.start({
@@ -286,7 +311,6 @@ export function useVoiceSearch({
           const lastResult = event.results[event.results.length - 1];
           if (lastResult?.isFinal && cleaned) {
             fireFinalResult(cleaned);
-            setTimeout(() => stop(), 200);
           }
         };
 
@@ -326,16 +350,16 @@ export function useVoiceSearch({
         setIsListening(false);
       }
     },
-    [setTranscriptSafe, fireFinalResult, stop]
+    [setTranscriptSafe, fireFinalResult]
   );
 
   /**
-   * Public start.
-   * ALWAYS performs a fresh start: cleans up any previous session, aborts
-   * any lingering native/web recognition, resets state, then starts.
+   * Public start — always performs a fresh start.
+   * Cleans up any previous session, aborts stale native/web recognition,
+   * bumps the session id (invalidating late events), then starts.
    */
   const start = useCallback(async () => {
-    // 1. Kill any existing session (native or web) and remove its listeners
+    // 1. Kill any existing session
     cleanupAll();
     if (isNative) {
       try {
@@ -348,7 +372,7 @@ export function useVoiceSearch({
       recognitionRef.current = null;
     }
 
-    // 2. Bump session id — invalidates any late-firing events from the old session
+    // 2. Bump session id — any event from the old session is now stale
     const sessionId = sessionIdRef.current + 1;
     sessionIdRef.current = sessionId;
 
@@ -373,7 +397,16 @@ export function useVoiceSearch({
         fireFinalResult(transcriptRef.current);
       }
     }, timeoutMs);
-  }, [isNative, cleanupAll, startNative, startWeb, stop, timeoutMs, setTranscriptSafe, fireFinalResult]);
+  }, [
+    isNative,
+    cleanupAll,
+    startNative,
+    startWeb,
+    stop,
+    timeoutMs,
+    setTranscriptSafe,
+    fireFinalResult,
+  ]);
 
   return {
     isListening,

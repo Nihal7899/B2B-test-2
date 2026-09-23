@@ -124,23 +124,14 @@ export function SearchScreen({
   const voiceAutoTriggeredRef = useRef(false);
 
   // ---------- VOICE HOOK ----------
+  // Ref holds the real onResult handler so the hook can be initialized above
+  // `handleVoiceResult` without triggering a TDZ error
+  // ("Cannot access 'stopVoiceSearch' before initialization").
+  const voiceResultHandlerRef = useRef<(text: string) => void>(() => {});
+
   const handleVoiceTranscript = useCallback((text: string) => {
     setQuery(text);
   }, []);
-
-const handleVoiceResult = useCallback(
-  (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    setQuery(trimmed);
-    setSearchParams({ q: trimmed });
-    setShowVoiceModal(false);
-    // IMPORTANT: kill the native session immediately so reopening the modal
-    // starts a fresh recognizer instead of reusing a stale one.
-    void stopVoiceSearch();
-  },
-  [setSearchParams, stopVoiceSearch],
-);
 
   const {
     isListening,
@@ -153,10 +144,30 @@ const handleVoiceResult = useCallback(
   } = useVoiceSearch({
     lang: 'en-IN',
     onTranscript: handleVoiceTranscript,
-    onResult: handleVoiceResult,
+    // Wrapper reads from ref — hook doesn't need `stopVoiceSearch` at call time
+    onResult: (text: string) => voiceResultHandlerRef.current(text),
     timeoutMs: 10000,
     nativeSilenceMs: 1200,
   });
+
+  const handleVoiceResult = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      setQuery(trimmed);
+      setSearchParams({ q: trimmed });
+      setShowVoiceModal(false);
+      // Extra safety: kill any lingering native session so reopening the
+      // modal always starts a fresh recognizer.
+      void stopVoiceSearch();
+    },
+    [setSearchParams, stopVoiceSearch],
+  );
+
+  // Keep the ref in sync with the latest handler
+  useEffect(() => {
+    voiceResultHandlerRef.current = handleVoiceResult;
+  }, [handleVoiceResult]);
 
   const openVoiceModal = useCallback(() => {
     // Blur first so the keyboard doesn't pop open over the voice modal
@@ -181,17 +192,17 @@ const handleVoiceResult = useCallback(
     void stopVoiceSearch();
   }, [stopVoiceSearch]);
 
-const handleVoiceConfirm = useCallback(
-  (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    setQuery(trimmed);
-    setSearchParams({ q: trimmed });
-    setShowVoiceModal(false);
-    void stopVoiceSearch();
-  },
-  [setSearchParams, stopVoiceSearch],
-);
+  const handleVoiceConfirm = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      setQuery(trimmed);
+      setSearchParams({ q: trimmed });
+      setShowVoiceModal(false);
+      void stopVoiceSearch();
+    },
+    [setSearchParams, stopVoiceSearch],
+  );
 
   const handleVoiceRetry = useCallback(() => {
     resetVoiceSearch();

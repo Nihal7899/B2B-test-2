@@ -103,7 +103,7 @@ export function VoiceSearchModal({
       aria-modal="true"
       aria-label="Voice search"
     >
-      {/* Backdrop - Reduced blur */}
+      {/* Backdrop */}
       <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-[2px] animate-in fade-in duration-200" />
 
       {/* Clean White Square Card matching the image */}
@@ -111,24 +111,25 @@ export function VoiceSearchModal({
         className="relative w-full max-w-[340px] h-[340px] bg-white rounded-[32px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden animate-in zoom-in-95 duration-250 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Animated Continuous Bottom Waves */}
+        {/* Pitch Amplification Bottom Waves */}
         <div className="absolute bottom-0 left-0 right-0 pointer-events-none h-32 overflow-hidden flex items-end">
-          {/* Back Wave Track (Slower) */}
-          <div className="absolute bottom-0 left-0 w-[200%] flex h-[110%] items-end vs-wave-animate-slow opacity-70">
-            {[1, 2].map((key) => (
-              <svg key={`back-${key}`} viewBox="0 0 1440 320" className="w-1/2 h-full fill-[#ccf0e2]" preserveAspectRatio="none">
-                <path d="M0,128L60,149.3C120,171,240,213,360,208C480,203,600,149,720,138.7C840,128,960,160,1080,181.3C1200,203,1320,213,1380,218.7L1440,224L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z"></path>
-              </svg>
-            ))}
-          </div>
-          {/* Front Wave Track (Faster) */}
-          <div className="absolute bottom-0 left-0 w-[200%] flex h-full items-end vs-wave-animate-fast">
-            {[1, 2].map((key) => (
-              <svg key={`front-${key}`} viewBox="0 0 1440 320" className="w-1/2 h-full fill-[#e0f6ef]" preserveAspectRatio="none">
-                <path d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,197.3C672,192,768,160,864,165.3C960,171,1056,213,1152,229.3C1248,245,1344,235,1392,229.3L1440,224L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
-              </svg>
-            ))}
-          </div>
+          {/* Back Wave */}
+          <svg 
+            viewBox="0 0 1440 320" 
+            className="absolute bottom-0 left-0 w-full h-[120%] fill-[#ccf0e2] vs-amplify-slow" 
+            preserveAspectRatio="none"
+          >
+            <path d="M0,128L60,149.3C120,171,240,213,360,208C480,203,600,149,720,138.7C840,128,960,160,1080,181.3C1200,203,1320,213,1380,218.7L1440,224L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z"></path>
+          </svg>
+          
+          {/* Front Wave */}
+          <svg 
+            viewBox="0 0 1440 320" 
+            className="absolute bottom-0 left-0 w-full h-[110%] fill-[#e0f6ef] vs-amplify-fast" 
+            preserveAspectRatio="none"
+          >
+            <path d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,197.3C672,192,768,160,864,165.3C960,171,1056,213,1152,229.3C1248,245,1344,235,1392,229.3L1440,224L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+          </svg>
         </div>
 
         {/* Close Button */}
@@ -222,7 +223,7 @@ export function VoiceSearchModal({
             {subtitle}
           </p>
 
-          {/* Language Pill (No Chevron) */}
+          {/* Language Pill */}
           <div className="mt-5 flex items-center gap-1.5 bg-[#e8f6f1] px-4 py-1.5 rounded-full text-[#0d5235]">
             <Globe size={14} strokeWidth={2.2} />
             <span className="text-[13px] font-semibold">{lang === 'en-IN' ? 'English (India)' : lang}</span>
@@ -283,17 +284,20 @@ export function VoiceSearchModal({
             50%      { transform: scaleY(1.1); opacity: 1;   }
           }
 
-          /* Continuous perfect looping bottom waves */
-          .vs-wave-animate-fast {
-            animation: slideWave 8s linear infinite;
+          /* Bottom Wave Amplification (Pitch up and down effect) */
+          .vs-amplify-fast {
+            transform-origin: bottom center;
+            animation: amplifyWave 2s ease-in-out infinite alternate;
           }
-          .vs-wave-animate-slow {
-            animation: slideWave 12s linear infinite;
+          
+          .vs-amplify-slow {
+            transform-origin: bottom center;
+            animation: amplifyWave 3s ease-in-out infinite alternate-reverse;
           }
 
-          @keyframes slideWave {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
+          @keyframes amplifyWave {
+            0% { transform: scaleY(0.9); }
+            100% { transform: scaleY(1.15); }
           }
         `}</style>
       </div>

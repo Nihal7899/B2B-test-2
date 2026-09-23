@@ -175,7 +175,7 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   if (loading && orders.length === 0) {
     return (
       <div className="min-h-screen bg-white">
-        <div className="safe-top mx-auto max-w-lg px-4 pb-6 pt-3">
+        <div className="safe-top mx-auto max-w-lg px-4 pb-2 pt-3">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
               <div className="h-5 w-32 animate-pulse rounded-md bg-emerald-900/10" />

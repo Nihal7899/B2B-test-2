@@ -1,8 +1,24 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Search, MapPin, X, Loader2, Check, AlertCircle, Crosshair } from 'lucide-react';
+import {
+  Search,
+  MapPin,
+  X,
+  Loader2,
+  Check,
+  AlertCircle,
+  Crosshair,
+  ChevronLeft,
+  Navigation,
+} from 'lucide-react';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/lib/supabase';
 import { checkPointInDeliveryRange } from '@/services/catalog';
 import { getFastCurrentPosition } from '@/services/location';
+
+/* -------------------------------------------------------------------------- */
+/*  Types                                                                     */
+/* -------------------------------------------------------------------------- */
 
 interface LocationPickerProps {
   initialLat?: number | null;
@@ -35,13 +51,76 @@ interface ResolvedAddress {
   formatted_address: string;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Constants                                                                 */
+/* -------------------------------------------------------------------------- */
+
 const DEFAULT_LAT = 12.9716;
 const DEFAULT_LNG = 77.5946;
 
-export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: LocationPickerProps) {
+/** Dark, brand-aligned map theme (soft greens, muted roads, calm water). */
+const MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#eef4ee' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#3d5c48' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }] },
+  {
+    featureType: 'administrative',
+    elementType: 'geometry.stroke',
+    stylers: [{ color: '#c9d8cd' }],
+  },
+  {
+    featureType: 'administrative.land_parcel',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#7a9a86' }],
+  },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#e3efe5' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#d8e9da' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#5b7d67' }] },
+  { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#c1dec5' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#3f6b4a' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#d9e6db' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#5b7d67' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#cbe1d0' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#b4d2ba' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#dfece1' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#bcd9e8' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4a7a92' }] },
+];
+
+/* -------------------------------------------------------------------------- */
+/*  Haptics helper                                                            */
+/* -------------------------------------------------------------------------- */
+
+async function triggerHaptic(style: ImpactStyle = ImpactStyle.Medium) {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      await Haptics.impact({ style });
+    } else if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(style === ImpactStyle.Light ? 8 : 15);
+    }
+  } catch {
+    /* silently ignore — haptics are best-effort */
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Component                                                                 */
+/* -------------------------------------------------------------------------- */
+
+export function LocationPicker({
+  initialLat,
+  initialLng,
+  onConfirm,
+  onCancel,
+}: LocationPickerProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
+
+  /** Last coords we already resolved — used to skip redundant geocodes. */
+  const lastResolvedRef = useRef<{ lat: number; lng: number } | null>(null);
+  /** Monotonic token — drops stale async responses that land out of order. */
+  const requestTokenRef = useRef(0);
 
   const [mapReady, setMapReady] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
@@ -63,28 +142,18 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
   const [checkingRange, setCheckingRange] = useState(false);
   const [rangeCheckError, setRangeCheckError] = useState<string | null>(null);
 
-  const checkDeliveryRange = useCallback(async (latVal: number, lngVal: number) => {
-    setCheckingRange(true);
-    setRangeCheckError(null);
-    try {
-      const inRange = await checkPointInDeliveryRange(latVal, lngVal);
-      setIsInDeliveryRange(inRange);
-    } catch (err) {
-      console.error('Range check failed', err);
-      setRangeCheckError('Could not check delivery availability.');
-      setIsInDeliveryRange(null);
-    } finally {
-      setCheckingRange(false);
-    }
-  }, []);
+  /* ---------------------------------------------------------------------- */
+  /*  Network actions (token-guarded against stale responses)               */
+  /* ---------------------------------------------------------------------- */
 
-  const reverseGeocode = useCallback(async (latVal: number, lngVal: number) => {
+  const reverseGeocode = useCallback(async (latVal: number, lngVal: number, token: number) => {
     setGeocoding(true);
     setLocationError(null);
     try {
       const { data, error } = await supabase.functions.invoke('maps', {
         body: { action: 'reverse_geocode', lat: latVal, lng: lngVal },
       });
+      if (token !== requestTokenRef.current) return;
       if (error) throw error;
       if (data?.address) {
         const a = data.address;
@@ -100,12 +169,50 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
         setAddress(null);
       }
     } catch (err) {
+      if (token !== requestTokenRef.current) return;
       console.error('Reverse geocode failed', err);
       setLocationError('Could not fetch address for this location.');
       setAddress(null);
+    } finally {
+      if (token === requestTokenRef.current) setGeocoding(false);
     }
-    setGeocoding(false);
   }, []);
+
+  const checkDeliveryRange = useCallback(async (latVal: number, lngVal: number, token: number) => {
+    setCheckingRange(true);
+    setRangeCheckError(null);
+    try {
+      const inRange = await checkPointInDeliveryRange(latVal, lngVal);
+      if (token !== requestTokenRef.current) return;
+      setIsInDeliveryRange(inRange);
+    } catch (err) {
+      if (token !== requestTokenRef.current) return;
+      console.error('Range check failed', err);
+      setRangeCheckError('Could not check delivery availability.');
+      setIsInDeliveryRange(null);
+    } finally {
+      if (token === requestTokenRef.current) setCheckingRange(false);
+    }
+  }, []);
+
+  /**
+   * Single entry point for "resolve whatever is under the pin now".
+   * No debounce — the map's `idle` event already fires once per gesture.
+   */
+  const settleLocation = useCallback(
+    (latVal: number, lngVal: number) => {
+      const token = ++requestTokenRef.current;
+      setLat(latVal);
+      setLng(lngVal);
+      void reverseGeocode(latVal, lngVal, token);
+      void checkDeliveryRange(latVal, lngVal, token);
+    },
+    [reverseGeocode, checkDeliveryRange]
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /*  Place search (autocomplete)                                           */
+  /* ---------------------------------------------------------------------- */
 
   const searchPlaces = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -157,8 +264,11 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
           const lngVal = a.longitude ?? lng;
           setLat(latVal);
           setLng(lngVal);
+
+          // Mark resolved BEFORE panTo so the upcoming `idle` skips re-geocoding.
+          lastResolvedRef.current = { lat: latVal, lng: lngVal };
           mapInstanceRef.current?.panTo({ lat: latVal, lng: lngVal });
-          markerRef.current?.setPosition({ lat: latVal, lng: lngVal });
+
           setAddress({
             line1: a.line1 || a.formatted_address || '',
             city: a.city || '',
@@ -167,7 +277,10 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
             place_id: a.place_id ?? null,
             formatted_address: a.formatted_address ?? '',
           });
-          void checkDeliveryRange(latVal, lngVal);
+
+          const token = ++requestTokenRef.current;
+          void checkDeliveryRange(latVal, lngVal, token);
+          void triggerHaptic(ImpactStyle.Medium); // pin lands on the searched spot
         } else {
           setLocationError('Could not find this place. Try a different search.');
         }
@@ -180,26 +293,37 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     [lat, lng, checkDeliveryRange]
   );
 
+  /* ---------------------------------------------------------------------- */
+  /*  Use current location                                                  */
+  /* ---------------------------------------------------------------------- */
+
   const useCurrentLocation = useCallback(async () => {
     setLocating(true);
     setLocationError(null);
-
     try {
       const coords = await getFastCurrentPosition();
       setLat(coords.latitude);
       setLng(coords.longitude);
 
+      // Center the map exactly on the device position so the fixed center pin
+      // lands precisely on the user's actual location.
+      lastResolvedRef.current = { lat: coords.latitude, lng: coords.longitude };
       mapInstanceRef.current?.panTo({ lat: coords.latitude, lng: coords.longitude });
-      markerRef.current?.setPosition({ lat: coords.latitude, lng: coords.longitude });
 
-      void reverseGeocode(coords.latitude, coords.longitude);
-      void checkDeliveryRange(coords.latitude, coords.longitude);
+      const token = ++requestTokenRef.current;
+      void reverseGeocode(coords.latitude, coords.longitude, token);
+      void checkDeliveryRange(coords.latitude, coords.longitude, token);
+      void triggerHaptic(ImpactStyle.Medium);
     } catch (err: any) {
       setLocationError(err?.message || 'Could not retrieve your current location.');
     } finally {
       setLocating(false);
     }
   }, [reverseGeocode, checkDeliveryRange]);
+
+  /* ---------------------------------------------------------------------- */
+  /*  Load Maps API key                                                     */
+  /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
     let cancelled = false;
@@ -227,6 +351,10 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     };
   }, []);
 
+  /* ---------------------------------------------------------------------- */
+  /*  Map setup                                                             */
+  /* ---------------------------------------------------------------------- */
+
   function setupMap() {
     if (!mapRef.current || typeof google === 'undefined' || !google.maps) return;
 
@@ -234,52 +362,46 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     mapInstanceRef.current = new google.maps.Map(mapRef.current, {
       center,
       zoom: 16,
+      styles: MAP_STYLE,
       streetViewControl: false,
       mapTypeControl: false,
       fullscreenControl: false,
-      zoomControl: true,
+      zoomControl: false, // custom zoom is cleaner; gesture handling still works
+      gestureHandling: 'greedy',
+      disableDefaultUI: true,
     });
 
-    markerRef.current = new google.maps.Marker({
-      position: center,
-      map: mapInstanceRef.current,
-      draggable: true,
-      animation: google.maps.Animation.DROP,
+    // Haptic the instant the user lifts their finger — the "pin drop" moment.
+    mapInstanceRef.current.addListener('dragend', () => {
+      void triggerHaptic(ImpactStyle.Medium);
     });
 
-    google.maps.event.addListener(markerRef.current, 'dragend', () => {
-      const pos = markerRef.current?.getPosition();
-      if (pos) {
-        const lt = pos.lat();
-        const ln = pos.lng();
-        setLat(lt);
-        setLng(ln);
-        void reverseGeocode(lt, ln);
-        void checkDeliveryRange(lt, ln);
-      }
-    });
-
+    // Tap-to-move: glide so the tapped point sits under the fixed pin.
     mapInstanceRef.current.addListener('click', (e: any) => {
       if (e.latLng) {
-        const lt = e.latLng.lat();
-        const ln = e.latLng.lng();
-        markerRef.current?.setPosition(e.latLng);
-        setLat(lt);
-        setLng(ln);
-        void reverseGeocode(lt, ln);
-        void checkDeliveryRange(lt, ln);
+        void triggerHaptic(ImpactStyle.Light);
+        mapInstanceRef.current?.panTo(e.latLng);
       }
+    });
+
+    // `idle` fires ONCE per gesture (drag end, inertia settled, panTo finished).
+    // This is the ONLY place we geocode — no center_changed, no debounce.
+    mapInstanceRef.current.addListener('idle', () => {
+      const c = mapInstanceRef.current?.getCenter();
+      if (!c) return;
+      const lt = c.lat();
+      const ln = c.lng();
+
+      const last = lastResolvedRef.current;
+      if (last && Math.abs(last.lat - lt) < 1e-5 && Math.abs(last.lng - ln) < 1e-5) {
+        return; // same point (e.g. right after selectPlace / useCurrentLocation)
+      }
+      lastResolvedRef.current = { lat: lt, lng: ln };
+      settleLocation(lt, ln);
     });
 
     setMapReady(true);
-
-    if (!initialLat || !initialLng) {
-      void reverseGeocode(center.lat, center.lng);
-      void checkDeliveryRange(center.lat, center.lng);
-    } else {
-      void reverseGeocode(initialLat, initialLng);
-      void checkDeliveryRange(initialLat, initialLng);
-    }
+    // No explicit initial geocode — the first `idle` fires it for us.
   }
 
   useEffect(() => {
@@ -300,6 +422,10 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey]);
 
+  /* ---------------------------------------------------------------------- */
+  /*  Debounced autocomplete                                                */
+  /* ---------------------------------------------------------------------- */
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchQuery.trim().length >= 2) {
@@ -311,10 +437,29 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     return () => clearTimeout(timer);
   }, [searchQuery, searchPlaces]);
 
+  /* ---------------------------------------------------------------------- */
+  /*  Cleanup — invalidate any in-flight request on unmount                 */
+  /* ---------------------------------------------------------------------- */
+
+  useEffect(
+    () => () => {
+      requestTokenRef.current++;
+    },
+    []
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /*  Confirm — read live map center so mid-drag taps are never stale       */
+  /* ---------------------------------------------------------------------- */
+
   const handleConfirm = () => {
+    const c = mapInstanceRef.current?.getCenter();
+    const finalLat = c ? c.lat() : lat;
+    const finalLng = c ? c.lng() : lng;
+    void triggerHaptic(ImpactStyle.Medium);
     onConfirm({
-      latitude: lat,
-      longitude: lng,
+      latitude: finalLat,
+      longitude: finalLng,
       line1: address?.line1 ?? '',
       city: address?.city ?? '',
       state: address?.state ?? '',
@@ -323,21 +468,40 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
     });
   };
 
+  const confirmDisabled =
+    !mapReady || isInDeliveryRange === false || checkingRange;
+
+  /* ---------------------------------------------------------------------- */
+  /*  Render                                                                */
+  /* ---------------------------------------------------------------------- */
+
   return (
-    <div className="fixed inset-0 z-[200] bg-white flex flex-col">
-      {/* HEADER WITH SAFE TOP */}
-      <div className="shrink-0 border-b border-ink-100 bg-white safe-top">
-        <div className="flex items-center gap-2 px-4 h-14">
-          <button onClick={onCancel} className="h-9 w-9 flex items-center justify-center rounded-lg text-ink-600 hover:bg-ink-50">
-            <X size={20} />
+    <div className="fixed inset-0 z-[200] bg-white flex flex-col overflow-hidden">
+      {/* ============================ HEADER ============================ */}
+      <div className="shrink-0 bg-white safe-top">
+        <div className="flex items-center gap-3 px-4 h-14">
+          <button
+            onClick={onCancel}
+            aria-label="Back"
+            className="h-10 w-10 flex items-center justify-center rounded-full bg-ink-50 text-ink-700 active:scale-90 transition-transform"
+          >
+            <ChevronLeft size={20} />
           </button>
-          <h2 className="text-base font-bold text-ink-900">Select location</h2>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-[15px] font-bold text-ink-900 leading-tight">
+              Select delivery location
+            </h2>
+            <p className="text-[11px] text-ink-400 leading-tight mt-0.5">
+              Move the map to pin your exact spot
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="relative px-4 py-3 border-b border-ink-100 shrink-0">
-        <div className="flex items-center gap-2 bg-ink-50 rounded-xl h-11 px-3 border border-ink-200 focus-within:border-brand-500">
-          <Search size={17} className="text-ink-400 shrink-0" />
+      {/* ============================ SEARCH ============================ */}
+      <div className="relative px-4 pb-3 shrink-0 bg-white">
+        <div className="flex items-center gap-2.5 bg-ink-50 rounded-2xl h-12 px-3.5 border border-ink-100 focus-within:border-brand-500 focus-within:bg-white transition-colors">
+          <Search size={18} className="text-ink-400 shrink-0" />
           <input
             type="text"
             value={searchQuery}
@@ -348,29 +512,44 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
             onBlur={() => {
               setTimeout(() => setShowSuggestions(false), 200);
             }}
-            placeholder="Search for a place or address..."
-            className="flex-1 bg-transparent text-sm outline-none"
+            placeholder="Search area, street, landmark…"
+            className="flex-1 bg-transparent text-[14px] text-ink-800 placeholder:text-ink-400 outline-none"
           />
-          {searching && <Loader2 size={16} className="animate-spin text-brand-600" />}
+          {searching && <Loader2 size={16} className="animate-spin text-brand-600 shrink-0" />}
           {searchQuery && !searching && (
-            <button onClick={() => { setSearchQuery(''); setSuggestions([]); }}>
-              <X size={15} className="text-ink-400" />
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSuggestions([]);
+              }}
+              aria-label="Clear search"
+              className="h-5 w-5 flex items-center justify-center rounded-full bg-ink-200 text-white"
+            >
+              <X size={12} />
             </button>
           )}
         </div>
 
         {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute left-4 right-4 mt-1 bg-white border border-ink-200 rounded-xl shadow-lg max-h-64 overflow-y-auto z-20">
+          <div className="absolute left-4 right-4 mt-1.5 bg-white border border-ink-100 rounded-2xl shadow-[0_12px_40px_-12px_rgba(20,83,45,0.25)] max-h-72 overflow-y-auto z-30">
             {suggestions.map((s) => (
               <button
                 key={s.place_id || s.description}
                 onClick={() => void selectPlace(s.place_id, s.description)}
-                className="w-full text-left px-3 py-2.5 hover:bg-ink-50 border-b border-ink-50 last:border-0 flex items-start gap-2"
+                className="w-full text-left px-3.5 py-3 hover:bg-ink-50 active:bg-ink-100 border-b border-ink-50 last:border-0 flex items-start gap-3 transition-colors"
               >
-                <MapPin size={15} className="text-ink-400 shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-ink-800 truncate">{s.main_text}</p>
-                  <p className="text-[11px] text-ink-400 truncate">{s.secondary_text}</p>
+                <div className="h-8 w-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0 mt-0.5">
+                  <MapPin size={15} className="text-brand-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13.5px] font-semibold text-ink-800 truncate">
+                    {s.main_text}
+                  </p>
+                  {s.secondary_text && (
+                    <p className="text-[11.5px] text-ink-400 truncate mt-0.5">
+                      {s.secondary_text}
+                    </p>
+                  )}
                 </div>
               </button>
             ))}
@@ -378,25 +557,28 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
         )}
       </div>
 
-      <div className="relative flex-1 min-h-[300px]">
+      {/* ============================= MAP ============================= */}
+      <div className="relative flex-1 min-h-[280px] bg-ink-50">
         {!mapReady && !keyError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-ink-50">
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 size={28} className="animate-spin text-brand-600" />
-              <p className="text-xs text-ink-400">Loading map...</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-ink-50 z-10">
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-white shadow-sm flex items-center justify-center">
+                <Loader2 size={22} className="animate-spin text-brand-600" />
+              </div>
+              <p className="text-[12px] font-medium text-ink-400">Loading map…</p>
             </div>
           </div>
         )}
 
         {keyError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-ink-50 px-6">
-            <div className="flex flex-col items-center gap-3 text-center max-w-[280px]">
+          <div className="absolute inset-0 flex items-center justify-center bg-ink-50 px-6 z-10">
+            <div className="flex flex-col items-center gap-3 text-center max-w-[300px]">
               <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center text-red-500">
-                <AlertCircle size={28} />
+                <AlertCircle size={26} />
               </div>
-              <p className="text-sm font-bold text-ink-800">Map unavailable</p>
-              <p className="text-xs text-ink-500">
-                The map service could not be loaded. You can still search for a place above.
+              <p className="text-[14px] font-bold text-ink-800">Map unavailable</p>
+              <p className="text-[12px] text-ink-500 leading-relaxed">
+                We couldn't load the map right now. You can still search for a place above.
               </p>
             </div>
           </div>
@@ -404,88 +586,205 @@ export function LocationPicker({ initialLat, initialLng, onConfirm, onCancel }: 
 
         <div ref={mapRef} className="absolute inset-0" />
 
+        {/* -------- FIXED CENTER PIN (map moves underneath it) -------- */}
         {mapReady && (
-          <button
-            onClick={() => void useCurrentLocation()}
-            disabled={locating}
-            className="absolute bottom-4 right-4 h-12 w-12 rounded-full bg-white shadow-lg border border-ink-200 flex items-center justify-center text-brand-600 tap-highlight active:scale-90 transition-transform z-10"
-            aria-label="Use current location"
-          >
-            {locating ? <Loader2 size={20} className="animate-spin" /> : <Crosshair size={20} />}
-          </button>
-        )}
+          <>
+            {/* Ground shadow at exact center */}
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[4]">
+              <div className="h-2.5 w-6 rounded-full bg-black/25 blur-[3px]" />
+            </div>
 
-        {geocoding && mapReady && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm shadow-lg rounded-full px-4 py-2 flex items-center gap-2 z-10">
-            <Loader2 size={14} className="animate-spin text-brand-600" />
-            <span className="text-xs font-semibold text-ink-700">Fetching address...</span>
-          </div>
+            {/* Teardrop pin — tip sits exactly at map center */}
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full z-[5]">
+              <div className="animate-[pinBounce_0.4s_ease-out]">
+                <svg
+                  width="42"
+                  height="54"
+                  viewBox="0 0 42 54"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="drop-shadow-[0_8px_12px_rgba(20,83,45,0.35)]"
+                >
+                  <path
+                    d="M21 0C9.4 0 0 9.4 0 21c0 11.5 21 33 21 33s21-21.5 21-33C42 9.4 32.6 0 21 0z"
+                    fill="#14532d"
+                  />
+                  <circle cx="21" cy="20" r="8" fill="#ffffff" />
+                  <circle cx="21" cy="20" r="3.5" fill="#14532d" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Delivery-range chip — floating top-center */}
+            {(isInDeliveryRange !== null || checkingRange) && (
+              <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-10">
+                <div
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 shadow-md backdrop-blur-md border text-[11.5px] font-semibold transition-colors ${
+                    isInDeliveryRange === false
+                      ? 'bg-red-50/95 border-red-200 text-red-700'
+                      : isInDeliveryRange === true
+                        ? 'bg-green-50/95 border-green-200 text-green-700'
+                        : 'bg-white/95 border-ink-100 text-ink-600'
+                  }`}
+                >
+                  {checkingRange ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      <span>Checking…</span>
+                    </>
+                  ) : isInDeliveryRange ? (
+                    <>
+                      <Check size={12} />
+                      <span>In delivery area</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle size={12} />
+                      <span>Outside delivery area</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Locate-me FAB */}
+            <button
+              onClick={() => void useCurrentLocation()}
+              disabled={locating}
+              className="absolute bottom-4 right-4 h-12 w-12 rounded-full bg-white shadow-[0_8px_24px_-6px_rgba(20,83,45,0.35)] border border-ink-100 flex items-center justify-center text-brand-600 active:scale-90 transition-transform z-10 disabled:opacity-70"
+              aria-label="Use current location"
+            >
+              {locating ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : (
+                <Crosshair size={20} />
+              )}
+            </button>
+
+            {/* Fetching-address pill */}
+            {geocoding && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md shadow-[0_8px_24px_-8px_rgba(20,83,45,0.35)] rounded-full px-4 py-2 flex items-center gap-2 z-10 border border-ink-100">
+                <Loader2 size={13} className="animate-spin text-brand-600" />
+                <span className="text-[11.5px] font-semibold text-ink-700">
+                  Finding address…
+                </span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
+      {/* ====================== ERROR STRIP ====================== */}
       {locationError && (
-        <div className="shrink-0 px-4 py-2 bg-red-50 border-t border-red-100 flex items-start gap-2">
+        <div className="shrink-0 px-4 py-2.5 bg-red-50 border-t border-red-100 flex items-start gap-2">
           <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
-          <p className="text-xs text-red-700 flex-1">{locationError}</p>
-          <button onClick={() => setLocationError(null)} className="text-red-400 shrink-0">
+          <p className="text-[12px] text-red-700 flex-1 leading-snug">{locationError}</p>
+          <button
+            onClick={() => setLocationError(null)}
+            className="text-red-400 shrink-0"
+            aria-label="Dismiss"
+          >
             <X size={14} />
           </button>
         </div>
       )}
 
-      {isInDeliveryRange !== null && (
-        <div className={`shrink-0 px-4 py-2 flex items-center gap-2 text-sm font-bold ${
-          isInDeliveryRange ? 'bg-green-50 border-t border-green-200 text-green-700' : 'bg-red-50 border-t border-red-200 text-red-700'
-        }`}>
-          {isInDeliveryRange ? <Check size={16} className="text-green-600 shrink-0" /> : <AlertCircle size={16} className="text-red-600 shrink-0" />}
-          <span className="flex-1">
-            {isInDeliveryRange ? '✅ This location is within our delivery area' : '❌ This location is outside our delivery area'}
-          </span>
-          {checkingRange && <Loader2 size={14} className="animate-spin ml-auto" />}
-        </div>
-      )}
-
       {rangeCheckError && (
-        <div className="shrink-0 px-4 py-1 bg-red-50 border-t border-red-100">
-          <p className="text-xs text-red-500">{rangeCheckError}</p>
+        <div className="shrink-0 px-4 py-1.5 bg-red-50 border-t border-red-100">
+          <p className="text-[11px] text-red-500">{rangeCheckError}</p>
         </div>
       )}
 
-      {/* FOOTER WITH SAFE BOTTOM */}
-      <div className="shrink-0 border-t border-ink-100 px-4 pt-3 bg-white safe-bottom">
-        <div className="space-y-3 pb-3">
+      {/* ====================== BOTTOM SHEET ====================== */}
+      <div className="shrink-0 bg-white border-t border-ink-100 rounded-t-3xl -mt-4 relative z-20 shadow-[0_-8px_32px_-12px_rgba(20,83,45,0.15)] safe-bottom">
+        {/* Drag handle (visual affordance only) */}
+        <div className="flex justify-center pt-2.5">
+          <div className="h-1 w-10 rounded-full bg-ink-200" />
+        </div>
+
+        <div className="px-5 pt-3 pb-4 space-y-3.5">
+          {/* Address block */}
           {address ? (
-            <div className="flex items-start gap-2.5">
-              <MapPin size={17} className="text-brand-600 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-full bg-brand-50 flex items-center justify-center shrink-0 mt-0.5">
+                <MapPin size={17} className="text-brand-600" />
+              </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-ink-800 truncate">{address.line1 || 'Selected location'}</p>
-                <p className="text-xs text-ink-500 mt-0.5 truncate">
-                  {address.city && address.state ? `${address.city}, ${address.state}` : ''}{' '}
-                  {address.postal_code ? `- ${address.postal_code}` : ''}
+                <p className="text-[10.5px] font-bold uppercase tracking-wider text-ink-400 mb-0.5">
+                  Deliver to
                 </p>
-                <p className="text-[10px] text-ink-400 mt-0.5">{lat.toFixed(5)}, {lng.toFixed(5)}</p>
+                <p className="text-[14px] font-bold text-ink-900 leading-snug line-clamp-1">
+                  {address.line1 || 'Selected location'}
+                </p>
+                {(address.city || address.state || address.postal_code) && (
+                  <p className="text-[12px] text-ink-500 mt-0.5 line-clamp-1">
+                    {[address.city, address.state].filter(Boolean).join(', ')}
+                    {address.postal_code ? ` - ${address.postal_code}` : ''}
+                  </p>
+                )}
+                <p className="text-[10.5px] text-ink-400 mt-1 font-mono">
+                  {lat.toFixed(5)}, {lng.toFixed(5)}
+                </p>
               </div>
             </div>
           ) : !geocoding && mapReady ? (
-            <div className="flex items-start gap-2.5">
-              <MapPin size={17} className="text-ink-300 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-full bg-ink-50 flex items-center justify-center shrink-0 mt-0.5">
+                <Navigation size={16} className="text-ink-400" />
+              </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-ink-400">No address resolved</p>
-                <p className="text-xs text-ink-400 mt-0.5">Drag the pin or tap on the map to set your location.</p>
-                <p className="text-[10px] text-ink-400 mt-0.5">{lat.toFixed(5)}, {lng.toFixed(5)}</p>
+                <p className="text-[10.5px] font-bold uppercase tracking-wider text-ink-400 mb-0.5">
+                  Deliver to
+                </p>
+                <p className="text-[14px] font-bold text-ink-500">No address resolved</p>
+                <p className="text-[12px] text-ink-400 mt-0.5 leading-snug">
+                  Drag the map so the pin sits on your location.
+                </p>
+                <p className="text-[10.5px] text-ink-400 mt-1 font-mono">
+                  {lat.toFixed(5)}, {lng.toFixed(5)}
+                </p>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex items-start gap-3 animate-pulse">
+              <div className="h-9 w-9 rounded-full bg-ink-100 shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-2 pt-1">
+                <div className="h-2.5 w-16 rounded bg-ink-100" />
+                <div className="h-3.5 w-3/4 rounded bg-ink-100" />
+                <div className="h-2.5 w-1/2 rounded bg-ink-100" />
+              </div>
+            </div>
+          )}
 
+          {/* Confirm button */}
           <button
             onClick={handleConfirm}
-            disabled={!mapReady || isInDeliveryRange === false || checkingRange}
-            className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+            disabled={confirmDisabled}
+            className="w-full h-[52px] rounded-2xl bg-gradient-to-b from-[#1a6b3a] to-[#14532d] text-white text-[15px] font-bold flex items-center justify-center gap-2 shadow-[0_8px_20px_-6px_rgba(20,83,45,0.5)] active:scale-[0.98] transition-transform disabled:opacity-50 disabled:shadow-none disabled:active:scale-100"
           >
-            <Check size={18} /> Confirm location
+            {checkingRange ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Checking availability…
+              </>
+            ) : (
+              <>
+                <Check size={18} strokeWidth={3} />
+                Confirm location
+              </>
+            )}
           </button>
         </div>
       </div>
+
+      {/* Pin bounce keyframe (Tailwind arbitrary animation) */}
+      <style>{`
+        @keyframes pinBounce {
+          0%   { transform: translateY(-14px) scale(0.9); opacity: 0; }
+          60%  { transform: translateY(2px) scale(1.02); opacity: 1; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

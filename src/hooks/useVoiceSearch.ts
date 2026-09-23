@@ -41,6 +41,7 @@ export function useVoiceSearch({
   const nativeListenersRef = useRef<{ remove: () => void }[]>([]);
   const nativeSilenceTimerRef = useRef<number | null>(null);
   const sessionIdRef = useRef(0);
+  const isStartingRef = useRef(false);
 
   const transcriptRef = useRef('');
   const hasFiredResultRef = useRef(false);
@@ -48,8 +49,6 @@ export function useVoiceSearch({
   const onTranscriptRef = useRef(onTranscript);
   const onResultRef = useRef(onResult);
   const langRef = useRef(lang);
-
-  // Stable ref for stop() so callbacks defined earlier can call it without TDZ
   const stopRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
@@ -84,12 +83,13 @@ export function useVoiceSearch({
   }, []);
 
   const removeNativeListeners = useCallback(() => {
-    nativeListenersRef.current.forEach((l) => {
+    const listeners = nativeListenersRef.current;
+    nativeListenersRef.current = [];
+    listeners.forEach((l) => {
       try {
         l.remove();
       } catch {}
     });
-    nativeListenersRef.current = [];
   }, []);
 
   const cleanupAll = useCallback(() => {
@@ -107,18 +107,16 @@ export function useVoiceSearch({
         } catch {}
         recognitionRef.current = null;
       }
+      // NOTE: do NOT call removeAllListeners() here — it wipes listeners globally
+      // and can break the plugin on remount. Only our own listeners are removed.
       if (isNative) {
         NativeSpeechRecognition.stop().catch(() => {});
-        NativeSpeechRecognition.removeAllListeners().catch(() => {});
       }
     };
   }, [cleanupAll, isNative]);
 
   /**
    * Fire onResult exactly once per session, then auto-stop the recognizer.
-   * The auto-stop is what prevents the "reopen shows listening but native isn't
-   * actually listening" bug — native is guaranteed to be released after every
-   * successful result.
    */
   const fireFinalResult = useCallback((text: string) => {
     const trimmed = text.trim();
@@ -128,10 +126,10 @@ export function useVoiceSearch({
 
     try {
       onResultRef.current?.(trimmed);
-    } catch {}
+    } catch (err) {
+      console.warn('[Voice] onResult threw:', err);
+    }
 
-    // Auto-stop after the parent's onResult has had a tick to run.
-    // Uses stopRef to avoid circular dependency / TDZ.
     const stopFn = stopRef.current;
     if (stopFn) {
       setTimeout(() => {
@@ -140,14 +138,14 @@ export function useVoiceSearch({
     }
   }, []);
 
-  /** Public stop — kills the current native/web session and resets UI flags. */
+  /** Public stop — kills the current session. Never awaited internally. */
   const stop = useCallback(async () => {
     cleanupAll();
 
     if (isNative) {
-      try {
-        await NativeSpeechRecognition.stop();
-      } catch {}
+      // Fire-and-forget. Never await this — some Android builds never resolve
+      // plugin.stop() when no session is running, which would hang callers.
+      NativeSpeechRecognition.stop().catch(() => {});
     } else if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -159,9 +157,9 @@ export function useVoiceSearch({
     }
 
     setIsListening(false);
+    isStartingRef.current = false;
   }, [isNative, cleanupAll]);
 
-  // Sync stop into ref so fireFinalResult can call it
   useEffect(() => {
     stopRef.current = stop;
   }, [stop]);
@@ -178,17 +176,27 @@ export function useVoiceSearch({
   const startNative = useCallback(
     async (sessionId: number) => {
       try {
+        console.log('[Voice] startNative: sessionId =', sessionId);
+
         const { available } = await NativeSpeechRecognition.available();
-        if (sessionId !== sessionIdRef.current) return;
+        console.log('[Voice] available =', available);
+        if (sessionId !== sessionIdRef.current) {
+          console.log('[Voice] aborted: session changed after available()');
+          return;
+        }
         if (!available) {
           setError('Speech recognition is not available on this device.');
           return;
         }
 
         const check = await NativeSpeechRecognition.checkPermissions();
+        console.log('[Voice] checkPermissions =', check);
         if (sessionId !== sessionIdRef.current) return;
+
         if (check.speechRecognition !== 'granted') {
+          console.log('[Voice] requesting permissions…');
           const requested = await NativeSpeechRecognition.requestPermissions();
+          console.log('[Voice] requestPermissions =', requested);
           if (sessionId !== sessionIdRef.current) return;
           if (requested.speechRecognition !== 'granted') {
             setError('Microphone permission denied.');
@@ -196,7 +204,7 @@ export function useVoiceSearch({
           }
         }
 
-        // Live partial results
+        console.log('[Voice] attaching partialResults listener');
         const partialListener = await NativeSpeechRecognition.addListener(
           'partialResults',
           (data: { matches: string[] }) => {
@@ -204,6 +212,7 @@ export function useVoiceSearch({
             const text = data.matches?.[0]?.trim();
             if (!text) return;
 
+            console.log('[Voice] partial:', text);
             setTranscriptSafe(text);
             onTranscriptRef.current?.(text);
 
@@ -218,10 +227,11 @@ export function useVoiceSearch({
         );
         nativeListenersRef.current.push(partialListener);
 
-        // Listening-state changes
+        console.log('[Voice] attaching listeningState listener');
         const stateListener = await NativeSpeechRecognition.addListener(
           'listeningState',
           (data: { status: 'started' | 'stopped' }) => {
+            console.log('[Voice] listeningState:', data.status);
             if (sessionId !== sessionIdRef.current) return;
             if (data.status === 'started') {
               setIsListening(true);
@@ -237,8 +247,7 @@ export function useVoiceSearch({
 
         if (sessionId !== sessionIdRef.current) return;
 
-        // Optimistically set listening state BEFORE start() — Android doesn't
-        // always emit a 'started' event.
+        console.log('[Voice] calling plugin.start()');
         setIsListening(true);
 
         const result = await NativeSpeechRecognition.start({
@@ -249,6 +258,7 @@ export function useVoiceSearch({
           popup: false,
         });
 
+        console.log('[Voice] plugin.start() resolved:', result);
         if (sessionId !== sessionIdRef.current) return;
 
         const finalText = result?.matches?.[0]?.trim() || transcriptRef.current;
@@ -258,6 +268,7 @@ export function useVoiceSearch({
           fireFinalResult(finalText);
         }
       } catch (err: any) {
+        console.error('[Voice] startNative error:', err);
         if (sessionId !== sessionIdRef.current) return;
         const msg = err?.message || 'Voice search failed. Try again.';
         if (!msg.toLowerCase().includes('cancel')) {
@@ -355,22 +366,24 @@ export function useVoiceSearch({
 
   /**
    * Public start — always performs a fresh start.
-   * Cleans up any previous session, aborts stale native/web recognition,
-   * bumps the session id (invalidating late events), then starts.
+   *
+   * IMPORTANT: On native, we do NOT call plugin.stop() before starting.
+   * The community plugin's stop() can hang or throw when no session exists,
+   * blocking the whole startup. We rely on sessionId to invalidate stale events.
    */
   const start = useCallback(async () => {
-    // 1. Kill any existing session
-    cleanupAll();
-    if (isNative) {
-      try {
-        await NativeSpeechRecognition.stop();
-      } catch {}
-    } else if (recognitionRef.current) {
-      try {
-        recognitionRef.current.abort();
-      } catch {}
-      recognitionRef.current = null;
+    console.log('[Voice] start() called, isNative =', isNative);
+
+    if (isStartingRef.current) {
+      console.log('[Voice] already starting, ignoring');
+      return;
     }
+    isStartingRef.current = true;
+
+    // 1. Clear our own timers + listeners (does NOT touch plugin state)
+    clearTimeoutRef();
+    clearNativeSilenceTimer();
+    removeNativeListeners();
 
     // 2. Bump session id — any event from the old session is now stale
     const sessionId = sessionIdRef.current + 1;
@@ -383,10 +396,14 @@ export function useVoiceSearch({
     setIsListening(false);
 
     // 4. Start fresh
-    if (isNative) {
-      await startNative(sessionId);
-    } else {
-      startWeb(sessionId);
+    try {
+      if (isNative) {
+        await startNative(sessionId);
+      } else {
+        startWeb(sessionId);
+      }
+    } finally {
+      isStartingRef.current = false;
     }
 
     // 5. Safety auto-stop
@@ -399,7 +416,9 @@ export function useVoiceSearch({
     }, timeoutMs);
   }, [
     isNative,
-    cleanupAll,
+    clearTimeoutRef,
+    clearNativeSilenceTimer,
+    removeNativeListeners,
     startNative,
     startWeb,
     stop,

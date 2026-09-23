@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { X, Mic, MicOff, AlertCircle, Search, RotateCcw } from 'lucide-react';
+import { X, Mic, AlertCircle, Search } from 'lucide-react';
 
 interface VoiceSearchModalProps {
   open: boolean;
@@ -12,7 +12,7 @@ interface VoiceSearchModalProps {
   lang?: string;
 }
 
-const BAR_COUNT = 22;
+const BAR_COUNT = 9;
 
 export function VoiceSearchModal({
   open,
@@ -33,10 +33,10 @@ export function VoiceSearchModal({
   const barSeeds = useMemo(
     () =>
       Array.from({ length: BAR_COUNT }, () => ({
-        maxHeight: 10 + Math.random() * 22,
+        maxHeight: 10 + Math.random() * 16,
         minHeight: 4 + Math.random() * 4,
-        duration: 0.7 + Math.random() * 0.7,
-        delay: Math.random() * 1.2,
+        duration: 0.65 + Math.random() * 0.6,
+        delay: Math.random() * 0.9,
       })),
     []
   );
@@ -76,7 +76,6 @@ export function VoiceSearchModal({
 
     if (!grew) return;
 
-    // Briefly add "boost" class — mimics reactivity without touching the mic
     container.classList.add('vs-wave-boost');
     const t = window.setTimeout(() => {
       container.classList.remove('vs-wave-boost');
@@ -86,275 +85,223 @@ export function VoiceSearchModal({
 
   if (!open) return null;
 
-  const title = showError
-    ? 'Voice Search Failed'
-    : isListening
-    ? 'Listening…'
-    : hasTranscript
-    ? 'Did you mean?'
-    : 'Voice Search';
-
-  const subtitle = showError
-    ? error
-    : isListening
-    ? 'Speak now'
-    : hasTranscript
-    ? 'Tap Search to look this up'
-    : 'Tap the mic to start';
-
   const handleConfirm = () => {
     if (!canConfirm) return;
     onConfirm(trimmedTranscript);
   };
 
+  // Tap the mic tile: start / retry when idle, stop when listening
+  const handleMicPress = () => {
+    if (isListening) {
+      onClose();
+      return;
+    }
+    onRetry();
+  };
+
+  const statusText = showError
+    ? 'Tap to try again'
+    : isListening
+    ? 'Listening…'
+    : hasTranscript
+    ? 'Did you mean?'
+    : 'Tap to speak';
+
   return (
     <div
-      className="fixed inset-0 z-[400] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[400] flex items-center justify-center p-6"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="Voice search"
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200" />
+      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-200" />
 
-      {/* Compact centered card */}
+      {/* Content */}
       <div
-        className="relative w-full max-w-[340px] bg-gradient-to-b from-[#031b14] via-[#022a1d] to-[#02402c] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.65)] border border-emerald-400/15 overflow-hidden animate-in zoom-in-95 duration-250"
+        className="relative flex flex-col items-center animate-in zoom-in-95 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top gloss line */}
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent" />
-
-        {/* Ambient corner glow */}
-        <div className="pointer-events-none absolute -top-16 -right-16 h-40 w-40 rounded-full bg-emerald-500/25 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-emerald-600/20 blur-3xl" />
-
         {/* Close */}
         <button
           onClick={onClose}
           aria-label="Close voice search"
-          className="absolute top-3.5 right-3.5 h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white/85 active:scale-90 transition-all z-20"
+          className="absolute -top-3 -right-3 z-30 h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/15 flex items-center justify-center text-white/85 active:scale-90 transition-all"
         >
-          <X size={14} strokeWidth={2.6} />
+          <X size={15} strokeWidth={2.6} />
         </button>
 
-        <div className="relative px-6 pt-8 pb-6 flex flex-col items-center">
-          {/* Mic circle with rings */}
+        <div className="relative">
+          {/* Expanding rings (listening only) */}
+          {isListening && !showError && (
+            <div className="pointer-events-none absolute inset-0">
+              <span className="vs-ring" />
+              <span className="vs-ring" />
+              <span className="vs-ring" />
+            </div>
+          )}
+
+          {/* Ambient glow */}
           <div
-            className="relative flex items-center justify-center"
-            style={{ height: 96, width: 96 }}
+            className={`pointer-events-none absolute -inset-8 rounded-[80px] blur-3xl transition-colors duration-500 ${
+              showError
+                ? 'bg-rose-500/30'
+                : isListening
+                ? 'bg-emerald-400/35'
+                : 'bg-emerald-500/15'
+            }`}
+          />
+
+          {/* Mic tile */}
+          <button
+            type="button"
+            onClick={handleMicPress}
+            aria-label={isListening ? 'Stop listening' : 'Start voice search'}
+            className={`relative h-[150px] w-[150px] rounded-[44px] overflow-hidden border flex items-center justify-center transition-all duration-300 active:scale-[0.93] ${
+              showError
+                ? 'bg-gradient-to-br from-rose-400 via-red-500 to-red-700 border-rose-200/30 shadow-[0_25px_70px_-20px_rgba(244,63,94,0.85)]'
+                : isListening
+                ? 'bg-gradient-to-br from-emerald-300 via-emerald-500 to-emerald-700 border-emerald-200/40 shadow-[0_25px_70px_-15px_rgba(16,185,129,0.9)]'
+                : 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-700 border-emerald-200/25 shadow-[0_25px_70px_-22px_rgba(16,185,129,0.75)] hover:brightness-110'
+            }`}
           >
-            {isListening && !showError && (
-              <>
-                <span className="vs-ring vs-ring-1" />
-                <span className="vs-ring vs-ring-2" />
-                <span className="vs-ring vs-ring-3" />
-              </>
-            )}
+            {/* Glass sheen */}
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent" />
+            <span className="pointer-events-none absolute inset-0 rounded-[44px] ring-1 ring-inset ring-white/20" />
 
-            <div
-              className={`absolute h-16 w-16 rounded-full blur-2xl transition-colors duration-500 ${
-                showError
-                  ? 'bg-red-500/45'
-                  : isListening
-                  ? 'bg-emerald-400/55'
-                  : 'bg-emerald-500/30'
-              }`}
-            />
-
-            <div
-              className={`relative h-[68px] w-[68px] rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 ${
-                showError
-                  ? 'bg-gradient-to-br from-red-500 to-red-600'
-                  : isListening
-                  ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 vs-mic-pulse'
-                  : 'bg-gradient-to-br from-emerald-500/85 to-emerald-700/85'
+            {/* Big icon */}
+            <span
+              className={`relative z-10 transition-transform duration-300 ${
+                isListening ? '-translate-y-2.5' : ''
               }`}
             >
               {showError ? (
-                <AlertCircle size={26} className="text-white" strokeWidth={2.3} />
-              ) : isListening ? (
-                <MicOff size={26} className="text-white" strokeWidth={2.3} />
-              ) : (
-                <Mic size={26} className="text-white" strokeWidth={2.3} />
-              )}
-            </div>
-          </div>
-
-          {/* Status */}
-          <h3 className="mt-4 text-[15px] font-black text-white tracking-[-0.01em] text-center">
-            {title}
-          </h3>
-          <p className="mt-1 text-[11.5px] font-semibold text-emerald-100/75 text-center leading-relaxed min-h-[16px]">
-            {subtitle}
-          </p>
-
-          {/* Waveform bars */}
-          {isListening && !showError && (
-            <div
-              ref={barsContainerRef}
-              className="vs-wave mt-4 h-10 w-full flex items-center justify-center gap-[3px] px-1"
-            >
-              {barSeeds.map((seed, i) => (
-                <div
-                  key={i}
-                  className="vs-bar"
-                  style={{
-                    // @ts-ignore -- CSS custom properties
-                    '--vs-max-h': `${seed.maxHeight}px`,
-                    // @ts-ignore
-                    '--vs-min-h': `${seed.minHeight}px`,
-                    animationDuration: `${seed.duration}s`,
-                    animationDelay: `${seed.delay}s`,
-                  }}
+                <AlertCircle
+                  size={46}
+                  strokeWidth={2.2}
+                  className="text-white drop-shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
                 />
-              ))}
-            </div>
-          )}
-
-          {/* Transcript preview */}
-          {(hasTranscript || isListening) && (
-            <div
-              className={`mt-4 w-full rounded-xl px-3.5 py-2.5 border transition-all duration-200 ${
-                hasTranscript
-                  ? 'bg-white/[0.09] border-white/15'
-                  : 'bg-white/[0.04] border-white/10'
-              }`}
-            >
-              {hasTranscript ? (
-                <div className="flex items-start gap-2">
-                  <Search
-                    size={13}
-                    className="text-emerald-300 shrink-0 mt-0.5"
-                    strokeWidth={2.4}
-                  />
-                  <p className="text-[13px] font-bold text-white leading-snug break-words">
-                    {trimmedTranscript}
-                  </p>
-                </div>
               ) : (
-                <p className="text-[11.5px] italic text-white/40 font-medium text-center">
-                  Your speech will appear here…
-                </p>
+                <Mic
+                  size={46}
+                  strokeWidth={2.2}
+                  className="text-white drop-shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                />
               )}
-            </div>
-          )}
+            </span>
 
-          {/* Action buttons */}
-          <div className="mt-5 w-full flex items-center gap-2">
-            {showError ? (
-              <>
-                <button
-                  onClick={onClose}
-                  className="flex-1 h-11 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[13px] font-black active:scale-95 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={onRetry}
-                  className="flex-1 h-11 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[13px] font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-1.5"
-                >
-                  <RotateCcw size={13} strokeWidth={2.6} />
-                  Try Again
-                </button>
-              </>
-            ) : isListening ? (
-              <button
-                onClick={onClose}
-                className="w-full h-11 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[13px] font-black active:scale-95 transition-all"
+            {/* Waves (listening only) */}
+            {isListening && !showError && (
+              <div
+                ref={barsContainerRef}
+                className="vs-wave absolute bottom-5 left-0 right-0 h-8 flex items-end justify-center gap-[3px] px-5"
               >
-                Cancel
-              </button>
-            ) : hasTranscript ? (
-              <>
-                <button
-                  onClick={onClose}
-                  className="flex-1 h-11 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[13px] font-black active:scale-95 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirm}
-                  className="flex-1 h-11 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[13px] font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-1.5"
-                >
-                  <Search size={14} strokeWidth={2.8} />
-                  Search
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={onRetry}
-                className="w-full h-11 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[13px] font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-1.5"
-              >
-                <Mic size={14} strokeWidth={2.6} />
-                Start Speaking
-              </button>
+                {barSeeds.map((seed, i) => (
+                  <span
+                    key={i}
+                    className="vs-bar"
+                    style={{
+                      // @ts-ignore -- CSS custom properties
+                      '--vs-max-h': `${seed.maxHeight}px`,
+                      // @ts-ignore
+                      '--vs-min-h': `${seed.minHeight}px`,
+                      animationDuration: `${seed.duration}s`,
+                      animationDelay: `${seed.delay}s`,
+                    }}
+                  />
+                ))}
+              </div>
             )}
-          </div>
-
-          {/* Language hint */}
-          <p className="mt-3.5 text-[9.5px] font-bold text-white/35 tracking-[0.14em] uppercase">
-            {lang === 'en-IN' ? 'English (India)' : lang}
-          </p>
+          </button>
         </div>
 
-        {/* Scoped styles */}
-        <style>{`
-          .vs-ring {
-            position: absolute;
-            border-radius: 9999px;
-            border: 2px solid rgba(52, 211, 153, 0.5);
-            pointer-events: none;
-            animation: vsRingExpand 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
-            width: 68px;
-            height: 68px;
-          }
-          .vs-ring-1 { animation-delay: 0s; }
-          .vs-ring-2 { animation-delay: 0.8s; }
-          .vs-ring-3 { animation-delay: 1.6s; }
+        {/* Status */}
+        <div className="mt-6 flex flex-col items-center min-h-[44px]">
+          <p
+            className={`text-[12px] font-bold tracking-[0.02em] ${
+              showError ? 'text-rose-200/90' : 'text-white/55'
+            }`}
+          >
+            {statusText}
+          </p>
 
-          @keyframes vsRingExpand {
-            0%   { transform: scale(1);   opacity: 0.85; border-width: 2px; }
-            70%  { opacity: 0.2; }
-            100% { transform: scale(1.9); opacity: 0;   border-width: 0.5px; }
-          }
+          {showError && (
+            <p className="mt-1.5 max-w-[260px] text-center text-[11.5px] font-medium text-rose-200/70 leading-snug">
+              {error}
+            </p>
+          )}
 
-          .vs-mic-pulse {
-            animation: vsMicPulse 1.6s ease-in-out infinite;
-          }
-          @keyframes vsMicPulse {
-            0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4), 0 20px 40px -12px rgba(0,0,0,0.5); }
-            50%      { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(52, 211, 153, 0), 0 20px 40px -12px rgba(0,0,0,0.5); }
-          }
+          {!showError && hasTranscript && !isListening && (
+            <p className="mt-2 max-w-[280px] text-center text-[16px] font-black text-white leading-snug break-words">
+              {trimmedTranscript}
+            </p>
+          )}
 
-          /* Waveform */
-          .vs-wave {
-            transition: transform 0.2s ease-out;
-          }
-          .vs-wave-boost {
-            transform: scaleY(1.25);
-          }
+          {canConfirm && !isListening && (
+            <button
+              onClick={handleConfirm}
+              className="mt-5 h-11 px-7 rounded-full bg-white text-emerald-950 text-[13px] font-black flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-emerald-950/40 hover:bg-emerald-50"
+            >
+              <Search size={14} strokeWidth={3} />
+              Search
+            </button>
+          )}
+        </div>
 
-          .vs-bar {
-            display: inline-block;
-            width: 3px;
-            height: 6px;
-            border-radius: 9999px;
-            background: linear-gradient(180deg, #6ee7b7 0%, #10b981 100%);
-            box-shadow: 0 0 6px rgba(16, 185, 129, 0.35);
-            animation-name: vsBarPulse;
-            animation-iteration-count: infinite;
-            animation-timing-function: ease-in-out;
-            will-change: height;
-          }
-
-          @keyframes vsBarPulse {
-            0%, 100% { height: var(--vs-min-h, 5px);  opacity: 0.55; }
-            50%      { height: var(--vs-max-h, 20px); opacity: 1;    }
-          }
-        `}</style>
+        {/* Language hint */}
+        <p className="mt-5 text-[9px] font-bold text-white/25 tracking-[0.18em] uppercase">
+          {lang === 'en-IN' ? 'English (India)' : lang}
+        </p>
       </div>
+
+      {/* Scoped styles */}
+      <style>{`
+        .vs-ring {
+          position: absolute;
+          inset: 0;
+          border-radius: 44px;
+          border: 2px solid rgba(52, 211, 153, 0.55);
+          pointer-events: none;
+          animation: vsRingExpand 2.6s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+        }
+        .vs-ring:nth-child(1) { animation-delay: 0s; }
+        .vs-ring:nth-child(2) { animation-delay: 0.85s; }
+        .vs-ring:nth-child(3) { animation-delay: 1.7s; }
+
+        @keyframes vsRingExpand {
+          0%   { transform: scale(1);   opacity: 0.75; border-width: 2px; }
+          70%  { opacity: 0.15; }
+          100% { transform: scale(1.6); opacity: 0;    border-width: 1px; }
+        }
+
+        /* Waveform */
+        .vs-wave {
+          transform-origin: bottom center;
+          transition: transform 0.2s ease-out;
+        }
+        .vs-wave-boost {
+          transform: scaleY(1.2);
+        }
+
+        .vs-bar {
+          display: block;
+          width: 3px;
+          height: 6px;
+          border-radius: 9999px;
+          background: linear-gradient(180deg, #ffffff 0%, #a7f3d0 100%);
+          box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+          animation-name: vsBarPulse;
+          animation-iteration-count: infinite;
+          animation-timing-function: ease-in-out;
+          will-change: height;
+        }
+
+        @keyframes vsBarPulse {
+          0%, 100% { height: var(--vs-min-h, 5px);  opacity: 0.5; }
+          50%      { height: var(--vs-max-h, 20px); opacity: 1;   }
+        }
+      `}</style>
     </div>
   );
 }

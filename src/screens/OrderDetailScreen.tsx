@@ -11,9 +11,13 @@ import {
   Receipt,
   FileText,
   ShoppingCart,
-  Info,
   ChevronRight,
   RefreshCw,
+  Wallet,
+  CreditCard,
+  Banknote,
+  Building2,
+  Headphones,
 } from 'lucide-react';
 import { fetchOrderDetail } from '@/services/catalog';
 import type { DbOrder, DbOrderItem, DbAddress } from '@/services/catalog';
@@ -170,6 +174,18 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
     }
   };
 
+  const normalizedStatus = (order?.status || '').trim().toLowerCase();
+  const isCancelled = normalizedStatus === 'cancelled';
+
+  // Strict check: Only print if delivered
+  const handleInvoiceClick = () => {
+    if (normalizedStatus !== 'delivered') {
+      alert("You can view the invoice once the product is delivered.");
+      return;
+    }
+    handlePrint();
+  };
+
   if (loading && !order) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -189,12 +205,9 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
     );
   }
 
-  const normalizedStatus = (order.status || '').trim().toLowerCase();
-  const isCancelled = normalizedStatus === 'cancelled';
-
-  // Map backend status to 4-step UI timeline
+  // Map backend status to UI timeline
   const statusStageMap: Record<string, number> = {
-    pending: 1,
+    pending: 0,
     confirmed: 1,
     packed: 1,
     ready_for_pickup: 1,
@@ -212,20 +225,29 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
   ];
 
   const orderDate = new Date(order.created_at).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+    day: 'numeric', month: 'short', year: 'numeric',
   });
   const orderTime = new Date(order.created_at).toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
+    hour: '2-digit', minute: '2-digit',
   });
 
   const itemCount = items.reduce((sum, i) => sum + (i.quantity || 0), 0);
 
+  const billingLines = billingAddress
+    ? [
+        billingAddress.address_line_1,
+        billingAddress.address_line_2,
+        billingAddress.landmark,
+        billingAddress.city && billingAddress.state
+          ? `${billingAddress.city}, ${billingAddress.state}`
+          : billingAddress.city || billingAddress.state,
+        billingAddress.pincode,
+      ].filter((p): p is string => !!p && p.trim().length > 0)
+    : [];
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Sticky Header */}
+      {/* Sticky Header - No extra padding, just safe-top */}
       <header 
         className="safe-top sticky top-0 z-50 flex items-center justify-between px-4 py-3 shadow-md"
         style={{ backgroundColor: PRIMARY_COLOR }}
@@ -247,10 +269,9 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
         </button>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 px-4 py-4 space-y-4 w-full max-w-lg mx-auto">
         
-        {/* Order Status Card */}
+        {/* Order Status & Timeline */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
@@ -276,11 +297,9 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             </div>
           </div>
 
-          {/* Timeline */}
           {!isCancelled && (
             <div className="relative mt-8 mb-2">
               <div className="absolute top-4 left-6 right-6 h-[2px] bg-slate-100 -z-10"></div>
-              
               <div 
                 className="absolute top-4 left-6 h-[2px] -z-10 transition-all duration-500"
                 style={{ 
@@ -322,7 +341,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             </div>
           )}
           
-          {/* Cancel Reason Warning */}
           {isCancelled && order.cancel_reason && (
             <div className="mt-4 p-3 rounded-xl bg-red-50 border border-red-100 flex items-start gap-2 text-red-700">
               <XCircle size={16} className="shrink-0 mt-0.5" />
@@ -333,7 +351,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           )}
         </section>
 
-        {/* Order Summary & Billed Details */}
+        {/* Order Summary */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-4">
             <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600">
@@ -342,7 +360,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
             <h3 className="font-bold text-slate-900 text-sm">Order Summary</h3>
           </div>
 
-          <div className="space-y-3 text-xs">
+          <div className="space-y-3 text-xs mb-4">
             <div className="flex justify-between">
               <span className="text-slate-500">Order ID</span>
               <span className="font-medium text-slate-900">{order.order_number}</span>
@@ -355,60 +373,17 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
               <span className="text-slate-500">Items</span>
               <span className="font-medium text-slate-900">{itemCount}</span>
             </div>
-          </div>
-
-          {/* Detailed Billed Section */}
-          <div className="mt-4 pt-4 border-t border-dashed border-slate-200 space-y-2.5 text-xs">
-            <div className="flex justify-between text-slate-600">
-              <span>Item Total</span>
-              <span className="font-medium text-slate-900">₹{Number(order.subtotal).toLocaleString('en-IN')}</span>
-            </div>
-            {Number(order.delivery_fee) > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>Delivery Fee</span>
-                <span className="font-medium text-slate-900">₹{Number(order.delivery_fee).toLocaleString('en-IN')}</span>
-              </div>
-            )}
-            
-            {paymentSummary.walletPaid > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>Wallet Paid</span>
-                <span className="font-bold" style={{ color: PRIMARY_COLOR }}>-₹{paymentSummary.walletPaid.toLocaleString('en-IN')}</span>
-              </div>
-            )}
-            {paymentSummary.onlinePaid > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>Online Paid</span>
-                <span className="font-bold" style={{ color: PRIMARY_COLOR }}>-₹{paymentSummary.onlinePaid.toLocaleString('en-IN')}</span>
-              </div>
-            )}
-            {paymentSummary.codPaid > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>Paid via COD</span>
-                <span className="font-bold" style={{ color: PRIMARY_COLOR }}>-₹{paymentSummary.codPaid.toLocaleString('en-IN')}</span>
-              </div>
-            )}
-
-            {!paymentSummary.isFullyPaid && !isCancelled && (
-              <div className="flex justify-between text-slate-600 font-bold">
-                <span className="text-amber-600">Pending Amount (COD)</span>
-                <span className="text-amber-600">₹{paymentSummary.amountToCollect.toLocaleString('en-IN')}</span>
-              </div>
-            )}
-            
-            <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-100">
-              <span className="font-bold text-slate-900 text-sm">Amount Paid</span>
-              <span className="font-black text-lg" style={{ color: PRIMARY_COLOR }}>
-                {formatMoney(paymentSummary.totalPaid)}
-              </span>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Amount Paid</span>
+              <span className="font-bold text-slate-900">{formatMoney(paymentSummary.totalPaid)}</span>
             </div>
           </div>
 
-          {/* View Invoice CTA */}
+          {/* View Invoice CTA with Popup Logic */}
           <button 
-            onClick={handlePrint}
+            onClick={handleInvoiceClick}
             disabled={isPrinting || isCancelled}
-            className="w-full mt-4 flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-slate-100"
           >
             <div className="flex items-center gap-2">
               {isPrinting ? <Loader2 size={16} className="text-slate-600 animate-spin" /> : <FileText size={16} className="text-slate-600" />}
@@ -420,7 +395,38 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </button>
         </section>
 
-        {/* Items Card */}
+        {/* Billed To (Restored original logic) */}
+        {billingAddress && (
+          <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+                <Building2 size={16} />
+              </div>
+              <h2 className="font-bold text-slate-900 text-sm">Billed To</h2>
+            </div>
+            <div className="space-y-1 ml-9">
+              <p className="text-sm font-black text-slate-900">
+                {billingAddress.business_name || 'Customer'}
+              </p>
+              {billingAddress.gstin ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full px-2 py-0.5 mt-1">
+                  GSTIN · {billingAddress.gstin}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-slate-50 text-slate-500 border border-slate-200 rounded-full px-2 py-0.5 mt-1">
+                  Unregistered
+                </span>
+              )}
+              {billingLines.length > 0 && (
+                <p className="text-xs text-slate-600 leading-relaxed mt-2">
+                  {billingLines.join(', ')}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Items List */}
         <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -435,53 +441,163 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </div>
 
           <div className="space-y-4">
-            {items.map((item) => (
-              <div key={item.id} className="flex gap-3">
-                <div className="h-16 w-16 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
-                  <CachedImage 
-                    src={(item as any).image_url || (item as any).image || ''} 
-                    alt={item.product_name}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <h4 className="text-sm font-bold text-slate-900 truncate">
-                    {item.brand ? `${item.brand} ` : ''}{item.product_name}
-                  </h4>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-slate-500">
-                      {item.quantity} unit • ₹{Number(item.unit_price).toLocaleString('en-IN')}
-                    </span>
-                    <span 
-                      className="text-[9px] font-bold px-2 py-0.5 rounded-full capitalize"
-                      style={isCancelled ? { backgroundColor: '#fef2f2', borderColor: '#fecaca', color: '#b91c1c' } : { backgroundColor: `${PRIMARY_COLOR}08`, color: PRIMARY_COLOR }}
-                    >
-                      {isCancelled ? 'Cancelled' : normalizedStatus.replace(/_/g, ' ')}
-                    </span>
+            {items.map((item) => {
+              // Reliably resolve image from standard join aliases
+              const imageUrl = (item as any).products?.image_url || (item as any).product?.image_url || (item as any).image_url || '';
+              return (
+                <div key={item.id} className="flex gap-3">
+                  <div className="h-16 w-16 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center p-1">
+                    <CachedImage 
+                      src={imageUrl} 
+                      alt={item.product_name}
+                      className="h-full w-full object-contain mix-blend-multiply"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <h4 className="text-sm font-bold text-slate-900 truncate">
+                      {item.brand ? `${item.brand} ` : ''}{item.product_name}
+                    </h4>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-slate-500">
+                        {item.quantity} unit • ₹{Number(item.unit_price).toLocaleString('en-IN')}
+                      </span>
+                      <span 
+                        className="text-[9px] font-bold px-2 py-0.5 rounded-full capitalize border"
+                        style={isCancelled ? { backgroundColor: '#fef2f2', borderColor: '#fecaca', color: '#b91c1c' } : { backgroundColor: `${PRIMARY_COLOR}08`, borderColor: `${PRIMARY_COLOR}20`, color: PRIMARY_COLOR }}
+                      >
+                        {isCancelled ? 'Cancelled' : normalizedStatus.replace(/_/g, ' ')}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
-        {/* Delivery Address */}
+        {/* Detailed Payment Breakdown (Restored your exact beautiful UI) */}
+        <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+              <Receipt size={16} />
+            </div>
+            <h2 className="font-bold text-slate-900 text-sm">Payment Breakdown</h2>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Subtotal</span>
+              <span className="font-semibold text-slate-700">₹{Number(order.subtotal).toLocaleString('en-IN')}</span>
+            </div>
+
+            {Number(order.discount) > 0 && (
+              <div className="flex justify-between text-xs text-emerald-600">
+                <span>Discount</span>
+                <span className="font-bold">- ₹{Number(order.discount).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+
+            {Number(order.cgst_amount) > 0 && (
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>CGST</span>
+                <span className="font-semibold text-slate-700">₹{Number(order.cgst_amount).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+
+            {Number(order.sgst_amount) > 0 && (
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>SGST</span>
+                <span className="font-semibold text-slate-700">₹{Number(order.sgst_amount).toLocaleString('en-IN')}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Delivery fee</span>
+              <span className="font-semibold text-slate-700">₹{Number(order.delivery_fee).toLocaleString('en-IN')}</span>
+            </div>
+
+            <div className="border-t border-dashed border-slate-200 mt-2 pt-2.5 flex justify-between items-baseline">
+              <span className="text-sm font-black text-slate-900">Total Order Value</span>
+              <span className="text-lg font-black text-slate-900 tracking-tight">
+                {formatMoney(Number(order.total) || 0)}
+              </span>
+            </div>
+          </div>
+
+          {(paymentSummary.walletPaid > 0 || paymentSummary.onlinePaid > 0 || paymentSummary.codPaid > 0 || (!isCancelled && !paymentSummary.isFullyPaid)) && (
+            <div className="mt-4 pt-4 border-t border-dashed border-slate-200 space-y-2">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Payment Methods</p>
+
+              {paymentSummary.walletPaid > 0 && (
+                <div className="flex justify-between text-xs text-emerald-700 font-bold items-center bg-emerald-50/60 border border-emerald-100 rounded-xl px-3 py-2.5">
+                  <span className="flex items-center gap-1.5"><Wallet size={13} /> Paid via Wallet</span>
+                  <span>- {formatMoney(paymentSummary.walletPaid)}</span>
+                </div>
+              )}
+
+              {paymentSummary.onlinePaid > 0 && (
+                <div className="flex justify-between text-xs text-blue-700 font-bold items-center bg-blue-50/60 border border-blue-100 rounded-xl px-3 py-2.5">
+                  <span className="flex items-center gap-1.5"><CreditCard size={13} /> Paid Online (Razorpay)</span>
+                  <span>- {formatMoney(paymentSummary.onlinePaid)}</span>
+                </div>
+              )}
+
+              {paymentSummary.codPaid > 0 && (
+                <div className="flex justify-between text-xs text-emerald-700 font-bold items-center bg-emerald-50/60 border border-emerald-100 rounded-xl px-3 py-2.5">
+                  <span className="flex items-center gap-1.5"><Banknote size={13} /> Paid on Delivery</span>
+                  <span>- {formatMoney(paymentSummary.codPaid)}</span>
+                </div>
+              )}
+
+              {!isCancelled && !paymentSummary.isFullyPaid && (
+                <div className="flex justify-between text-xs text-amber-800 font-black items-center bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 shadow-sm">
+                  <span className="flex items-center gap-1.5"><Banknote size={13} /> Pay on Delivery</span>
+                  <span>{formatMoney(paymentSummary.amountToCollect)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Refund Breakdown (Restored) */}
+          {isCancelled && (paymentSummary.walletRefunded > 0 || paymentSummary.onlineRefunded > 0) && (
+            <div className="mt-4 pt-4 border-t border-dashed border-slate-200 space-y-2">
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Refund Details</p>
+
+              {paymentSummary.walletRefunded > 0 && (
+                <div className="flex justify-between items-start bg-emerald-50/60 border border-emerald-200 rounded-xl px-3 py-2.5">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="flex items-center gap-1.5 text-xs font-black text-emerald-800"><Wallet size={13} /> Wallet Recharged</span>
+                    <span className="text-[10px] text-emerald-600 ml-5">Credited instantly to B2B Wallet</span>
+                  </div>
+                  <span className="text-xs font-black text-emerald-700 shrink-0">+ {formatMoney(paymentSummary.walletRefunded)}</span>
+                </div>
+              )}
+
+              {paymentSummary.onlineRefunded > 0 && (
+                <div className="flex justify-between items-start bg-blue-50/60 border border-blue-200 rounded-xl px-3 py-2.5">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="flex items-center gap-1.5 text-xs font-black text-blue-800"><CreditCard size={13} /> Bank Refund Initiated</span>
+                    <span className="text-[10px] text-blue-600 ml-5">Expect Razorpay credit in 2-3 business days</span>
+                  </div>
+                  <span className="text-xs font-black text-blue-700 shrink-0">+ {formatMoney(paymentSummary.onlineRefunded)}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Delivery Address (Change button removed) */}
         {deliveryAddress && (
           <section className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600">
-                  <MapPin size={16} />
-                </div>
-                <h3 className="font-bold text-slate-900 text-sm">Delivery Address</h3>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600">
+                <MapPin size={16} />
               </div>
-              <button className="text-xs font-bold" style={{ color: PRIMARY_COLOR }}>
-                Change &gt;
-              </button>
+              <h3 className="font-bold text-slate-900 text-sm">Delivery Address</h3>
             </div>
-            <div className="ml-8 mt-1">
-              <p className="text-xs font-bold text-slate-800">{deliveryAddress.recipient_name || 'Customer'}</p>
-              <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
+            <div className="ml-9">
+              <p className="text-sm font-bold text-slate-900">{deliveryAddress.recipient_name || 'Customer'}</p>
+              <p className="text-xs text-slate-500 leading-relaxed mt-1">
                 {deliveryAddress.line1}
                 {deliveryAddress.line2 ? `, ${deliveryAddress.line2}` : ''},<br/>
                 {deliveryAddress.city}, {deliveryAddress.state} - {deliveryAddress.postal_code}
@@ -490,24 +606,19 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           </section>
         )}
 
-        {/* Need Help CTA */}
+        {/* Need Help CTA (Restored original Headphone UI) */}
         <button 
           onClick={() => navigate(`/help?orderId=${order.id}&orderNumber=${encodeURIComponent(order.order_number || '')}`)}
-          className="w-full bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center justify-between active:scale-[0.98] transition-transform"
+          className="w-full bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3 text-left hover:bg-slate-50 active:scale-[0.99] transition-transform"
         >
-          <div className="flex items-center gap-3">
-            <div 
-              className="h-8 w-8 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: `${PRIMARY_COLOR}12`, color: PRIMARY_COLOR }}
-            >
-              <Info size={16} />
-            </div>
-            <div className="text-left">
-              <h3 className="text-sm font-bold text-slate-900">Need help with your order?</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Our team is here to assist you.</p>
-            </div>
+          <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 shrink-0">
+            <Headphones size={18} />
           </div>
-          <ChevronRight size={18} className="text-slate-400" />
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-slate-900">Need help with this order?</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">Cancel, update address, or ask delivery questions</p>
+          </div>
+          <ChevronRight size={18} className="text-slate-400 shrink-0" />
         </button>
         
       </main>

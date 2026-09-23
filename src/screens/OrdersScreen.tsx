@@ -9,11 +9,16 @@ interface OrdersScreenProps {
 }
 
 const ITEMS_PER_PAGE = 20;
-const TITLE_BAR_HEIGHT = 56;
 
 type FilterKey = 'all' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
 
-const FILTERS: FilterKey[] = ['all', 'Processing', 'Out for Delivery', 'Delivered', 'Cancelled'];
+const FILTERS: FilterKey[] = [
+  'all',
+  'Processing',
+  'Out for Delivery',
+  'Delivered',
+  'Cancelled',
+];
 
 export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -170,23 +175,17 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   if (loading && orders.length === 0) {
     return (
       <div className="min-h-screen bg-white">
-        <div className="safe-top sticky top-0 z-30 bg-emerald-950">
-          <div className="mx-auto flex h-14 max-w-lg items-center px-4">
-            <div className="h-5 w-32 animate-pulse rounded bg-white/10" />
-          </div>
-        </div>
-        <div
-          className="sticky z-10 bg-gradient-to-b from-emerald-950 to-emerald-900"
-          style={{ top: `calc(env(safe-area-inset-top, 0px) + ${TITLE_BAR_HEIGHT}px)` }}
-        >
-          <div className="flex gap-2 px-4 pb-8 pt-1">
-            {[64, 88, 100, 76, 84].map((w, i) => (
-              <div key={i} className="h-8 shrink-0 animate-pulse rounded-full bg-white/10" style={{ width: w }} />
-            ))}
+        <div className="safe-top mx-auto max-w-lg px-4 pb-6 pt-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-5 w-32 animate-pulse rounded-md bg-emerald-900/10" />
+              <div className="h-3 w-44 animate-pulse rounded-md bg-emerald-900/[0.06]" />
+            </div>
+            <div className="h-9 w-9 animate-pulse rounded-xl bg-emerald-900/[0.08]" />
           </div>
         </div>
         <div className="flex min-h-[55vh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-800" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-900/15 border-t-emerald-900" />
         </div>
       </div>
     );
@@ -195,61 +194,57 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   /* ─────────────── MAIN UI ─────────────── */
   return (
     <div className="min-h-screen bg-white">
+      <div className="safe-top mx-auto max-w-lg px-4 pb-6">
 
-      {/* ══════ LAYER 1 · STICKY TITLE BAR (always on top) ══════ */}
-      <div className="safe-top sticky top-0 z-30 bg-emerald-950">
-        <div className="mx-auto flex h-14 max-w-lg items-center justify-between gap-3 px-4">
-          <div className="min-w-0">
-            <h1 className="truncate text-[17px] font-extrabold leading-tight tracking-tight text-white">
+        {/* ── Original non-sticky header ───────────────────────────── */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-extrabold tracking-tight text-emerald-950">
               Your orders
             </h1>
-            <p className="mt-0.5 text-[10px] font-medium tracking-wide text-emerald-200/50">
-              Track &amp; manage your purchases
+            <p className="mt-0.5 text-xs font-medium text-emerald-900/50">
+              Track and manage your purchases
             </p>
           </div>
           <button
             onClick={handleManualRefresh}
             disabled={refreshing}
-            aria-label="Refresh"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-emerald-50 transition-all duration-200 hover:bg-white/10 active:scale-95 disabled:opacity-50"
+            aria-label="Refresh orders"
+            className="grid h-9 w-9 place-items-center rounded-xl border border-emerald-900/10 bg-white text-emerald-900 shadow-sm transition-all active:scale-95 disabled:opacity-60"
           >
-            <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
+            <RefreshCw
+              size={16}
+              className={refreshing ? 'animate-spin text-emerald-800' : ''}
+            />
           </button>
         </div>
-      </div>
 
-      {/* ══════ LAYER 2 · STICKY PILLS BAR (gets covered by cards) ══════ */}
-      <div
-        className="sticky z-10 bg-gradient-to-b from-emerald-950 via-emerald-950 to-emerald-900"
-        style={{ top: `calc(env(safe-area-inset-top, 0px) + ${TITLE_BAR_HEIGHT}px)` }}
-      >
-        <div className="no-scrollbar mx-auto flex max-w-lg gap-2 overflow-x-auto px-4 pb-8 pt-1">
-          {FILTERS.map((f) => {
-            const active = filter === f;
-            return (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-bold tracking-wide transition-all duration-200 ${
-                  active
-                    ? 'bg-white text-emerald-950 shadow-md shadow-emerald-950/30'
-                    : 'border border-white/15 bg-white/[0.06] text-emerald-100/70 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                {f === 'all' ? 'All orders' : f}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ══════ LAYER 3 · CARDS (overlap header → concave, scroll over pills) ══════ */}
-      <main className="relative z-20 -mt-6 px-4 pb-8">
         {orders.length === 0 && !loadingMore ? (
           <EmptyState filter={filter} />
         ) : (
           <>
-            <div className="space-y-3">
+            {/* ── Filter pills · active = dark green ─────────────────── */}
+            <div className="no-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4">
+              {FILTERS.map((f) => {
+                const active = filter === f;
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold tracking-wide transition-all duration-200 ${
+                      active
+                        ? 'bg-emerald-900 text-white shadow-md shadow-emerald-900/25'
+                        : 'border border-emerald-900/10 bg-white text-emerald-900/70 hover:border-emerald-900/20 hover:bg-emerald-900/[0.04] hover:text-emerald-900'
+                    }`}
+                  >
+                    {f === 'all' ? 'All orders' : f}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ── Orders list ────────────────────────────────────────── */}
+            <div className="mt-4 space-y-3">
               {orders.map((order) => (
                 <OrderCard
                   key={order.id}
@@ -259,25 +254,29 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
               ))}
 
               <div ref={sentinelRef} className="flex h-12 items-center justify-center">
-                {loadingMore && <Loader2 size={22} className="animate-spin text-emerald-800" />}
+                {loadingMore && <Loader2 size={22} className="animate-spin text-emerald-900" />}
               </div>
             </div>
 
-            {/* Support card */}
+            {/* ── Support card ───────────────────────────────────────── */}
             <div className="relative mt-6 overflow-hidden rounded-2xl border border-emerald-900/10 bg-white p-5 text-center shadow-[0_4px_20px_-10px_rgba(6,78,59,0.2)]">
               <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-emerald-900/40 to-transparent" />
               <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white shadow-sm shadow-emerald-900/25">
                 <ClipboardList size={20} />
               </div>
-              <p className="mt-3 text-sm font-bold text-emerald-950">Need help with an order?</p>
-              <p className="mt-1 text-xs font-medium text-emerald-900/50">Our support team is here for you</p>
+              <p className="mt-3 text-sm font-bold text-emerald-950">
+                Need help with an order?
+              </p>
+              <p className="mt-1 text-xs font-medium text-emerald-900/50">
+                Our support team is here for you
+              </p>
               <button className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-emerald-900 px-4 py-2 text-xs font-bold text-white transition-all duration-200 hover:bg-emerald-800 active:scale-95">
                 Contact support
               </button>
             </div>
           </>
         )}
-      </main>
+      </div>
     </div>
   );
 }
@@ -292,7 +291,9 @@ function EmptyState({ filter }: { filter: FilterKey }) {
           <Package size={34} strokeWidth={1.6} />
         </div>
       </div>
-      <h2 className="mt-5 text-lg font-extrabold tracking-tight text-emerald-950">No orders found</h2>
+      <h2 className="mt-5 text-lg font-extrabold tracking-tight text-emerald-950">
+        No orders found
+      </h2>
       <p className="mt-1.5 max-w-[260px] text-[13px] leading-relaxed text-emerald-900/50">
         {filter === 'all'
           ? 'Your order history will appear here once you place your first order.'

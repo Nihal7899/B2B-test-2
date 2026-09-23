@@ -9,16 +9,11 @@ interface OrdersScreenProps {
 }
 
 const ITEMS_PER_PAGE = 20;
+const TITLE_BAR_HEIGHT = 56;
 
 type FilterKey = 'all' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
 
-const FILTERS: FilterKey[] = [
-  'all',
-  'Processing',
-  'Out for Delivery',
-  'Delivered',
-  'Cancelled',
-];
+const FILTERS: FilterKey[] = ['all', 'Processing', 'Out for Delivery', 'Delivered', 'Cancelled'];
 
 export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -26,7 +21,6 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('all');
 
-  // Pagination State
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -59,7 +53,6 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     }
 
     const { data: orderData, count, error } = await query.range(from, to);
-
     if (error || !orderData || orderData.length === 0) return { orders: [], count: 0 };
 
     const orderIds = orderData.map((o) => o.id);
@@ -90,7 +83,6 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     };
 
     const validOrders: Order[] = [];
-
     orderData.forEach((db) => {
       const p = paymentsByOrder[db.id];
       if (p && p.provider === 'razorpay' && p.status === 'failed') return;
@@ -100,9 +92,7 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
         id: db.id,
         orderNo: db.order_number,
         date: new Date(db.created_at).toLocaleDateString('en-IN', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
+          day: 'numeric', month: 'short', year: 'numeric',
         }),
         itemCount: items.reduce((sum: number, i: any) => sum + i.quantity, 0),
         total: Number(db.total),
@@ -119,15 +109,10 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
       if (targetPage === 1) setLoading(true);
       else setLoadingMore(true);
     }
-
     try {
       const { orders: newOrders, count } = await fetchPaginatedOrders(targetPage, filter);
-
-      if (targetPage === 1) {
-        setOrders(newOrders);
-      } else {
-        setOrders((prev) => [...prev, ...newOrders]);
-      }
+      if (targetPage === 1) setOrders(newOrders);
+      else setOrders((prev) => [...prev, ...newOrders]);
 
       setPage(targetPage);
       setHasMore(targetPage * ITEMS_PER_PAGE < count);
@@ -142,44 +127,33 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     }
   }, [filter, fetchPaginatedOrders]);
 
-  useEffect(() => {
-    void loadOrders(1, false);
-  }, [filter, loadOrders]);
+  useEffect(() => { void loadOrders(1, false); }, [filter, loadOrders]);
 
-  const sentinelRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (loadingMore) return;
-      if (observer.current) observer.current.disconnect();
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasMore) {
-          void loadOrders(page + 1, false);
-        }
-      });
-      if (node) observer.current.observe(node);
-    },
-    [loadingMore, hasMore, page, loadOrders]
-  );
+  const sentinelRef = useCallback((node: HTMLDivElement | null) => {
+    if (loadingMore) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasMore) void loadOrders(page + 1, false);
+    });
+    if (node) observer.current.observe(node);
+  }, [loadingMore, hasMore, page, loadOrders]);
 
   useEffect(() => {
     let active = true;
-
     const handleKeepAliveFocus = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
       if (active && (customEvent.detail?.key === '/orders' || customEvent.detail?.key === 'orders')) {
         void loadOrders(1, true);
       }
     };
-
     const handleVisibilityChange = () => {
       const isCurrentlyActive = window.location.pathname.includes('/orders');
       if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
         void loadOrders(1, true);
       }
     };
-
     window.addEventListener('keepalive:activated', handleKeepAliveFocus);
     window.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       active = false;
       window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
@@ -192,87 +166,90 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     void loadOrders(1, true);
   };
 
-  /* ──────────────────────────  LOADING STATE  ────────────────────────── */
+  /* ─────────────── LOADING SKELETON ─────────────── */
   if (loading && orders.length === 0) {
     return (
       <div className="min-h-screen bg-white">
-        <header className="safe-top sticky top-0 z-30 bg-white/95 backdrop-blur-md">
-          <div className="mx-auto flex max-w-lg items-center justify-between px-4 pb-3.5 pt-3">
-            <div className="space-y-2">
-              <div className="h-4 w-32 animate-pulse rounded-md bg-emerald-900/10" />
-              <div className="h-3 w-44 animate-pulse rounded-md bg-emerald-900/[0.06]" />
-            </div>
-            <div className="h-10 w-10 animate-pulse rounded-xl bg-emerald-900/[0.08]" />
+        <div className="safe-top sticky top-0 z-30 bg-emerald-950">
+          <div className="mx-auto flex h-14 max-w-lg items-center px-4">
+            <div className="h-5 w-32 animate-pulse rounded bg-white/10" />
           </div>
-          <div className="h-[2px] bg-gradient-to-r from-transparent via-emerald-900/30 to-transparent" />
-        </header>
+        </div>
+        <div
+          className="sticky z-10 bg-gradient-to-b from-emerald-950 to-emerald-900"
+          style={{ top: `calc(env(safe-area-inset-top, 0px) + ${TITLE_BAR_HEIGHT}px)` }}
+        >
+          <div className="flex gap-2 px-4 pb-8 pt-1">
+            {[64, 88, 100, 76, 84].map((w, i) => (
+              <div key={i} className="h-8 shrink-0 animate-pulse rounded-full bg-white/10" style={{ width: w }} />
+            ))}
+          </div>
+        </div>
         <div className="flex min-h-[55vh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-900/15 border-t-emerald-900" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-800" />
         </div>
       </div>
     );
   }
 
-  /* ──────────────────────────────  MAIN UI  ────────────────────────────── */
+  /* ─────────────── MAIN UI ─────────────── */
   return (
     <div className="min-h-screen bg-white">
-      {/* ── Sticky header with subtle dark-green accent border ───────────── */}
-      <header className="safe-top sticky top-0 z-30 bg-white/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 pb-3.5 pt-3">
+
+      {/* ══════ LAYER 1 · STICKY TITLE BAR (always on top) ══════ */}
+      <div className="safe-top sticky top-0 z-30 bg-emerald-950">
+        <div className="mx-auto flex h-14 max-w-lg items-center justify-between gap-3 px-4">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-extrabold tracking-tight text-emerald-950">
+            <h1 className="truncate text-[17px] font-extrabold leading-tight tracking-tight text-white">
               Your orders
             </h1>
-            <p className="mt-0.5 text-xs font-medium text-emerald-900/50">
-              Track and manage your purchases
+            <p className="mt-0.5 text-[10px] font-medium tracking-wide text-emerald-200/50">
+              Track &amp; manage your purchases
             </p>
           </div>
-
           <button
             onClick={handleManualRefresh}
             disabled={refreshing}
-            aria-label="Refresh orders"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-emerald-900/10 bg-emerald-900/[0.04] text-emerald-900 transition-all duration-200 hover:bg-emerald-900/[0.08] active:scale-95 disabled:opacity-60"
+            aria-label="Refresh"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/5 text-emerald-50 transition-all duration-200 hover:bg-white/10 active:scale-95 disabled:opacity-50"
           >
-            <RefreshCw
-              size={16}
-              className={refreshing ? 'animate-spin text-emerald-800' : ''}
-            />
+            <RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />
           </button>
         </div>
+      </div>
 
-        {/* Subtle dark-green gradient hairline instead of a heavy border */}
-        <div className="h-[2px] bg-gradient-to-r from-transparent via-emerald-900/30 to-transparent" />
-      </header>
+      {/* ══════ LAYER 2 · STICKY PILLS BAR (gets covered by cards) ══════ */}
+      <div
+        className="sticky z-10 bg-gradient-to-b from-emerald-950 via-emerald-950 to-emerald-900"
+        style={{ top: `calc(env(safe-area-inset-top, 0px) + ${TITLE_BAR_HEIGHT}px)` }}
+      >
+        <div className="no-scrollbar mx-auto flex max-w-lg gap-2 overflow-x-auto px-4 pb-8 pt-1">
+          {FILTERS.map((f) => {
+            const active = filter === f;
+            return (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-bold tracking-wide transition-all duration-200 ${
+                  active
+                    ? 'bg-white text-emerald-950 shadow-md shadow-emerald-950/30'
+                    : 'border border-white/15 bg-white/[0.06] text-emerald-100/70 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                {f === 'all' ? 'All orders' : f}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-      {/* ── Content ──────────────────────────────────────────────────────── */}
-      <main className="mx-auto max-w-lg px-4 pb-6">
+      {/* ══════ LAYER 3 · CARDS (overlap header → concave, scroll over pills) ══════ */}
+      <main className="relative z-20 -mt-6 px-4 pb-8">
         {orders.length === 0 && !loadingMore ? (
           <EmptyState filter={filter} />
         ) : (
           <>
-            {/* Filter chips */}
-            <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pt-4">
-              {FILTERS.map((f) => {
-                const active = filter === f;
-                return (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold tracking-wide transition-all duration-200 ${
-                      active
-                        ? 'bg-emerald-900 text-white shadow-md shadow-emerald-900/20'
-                        : 'border border-emerald-900/10 bg-white text-emerald-900/70 hover:border-emerald-900/20 hover:bg-emerald-900/[0.04] hover:text-emerald-900'
-                    }`}
-                  >
-                    {f === 'all' ? 'All orders' : f}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Orders list */}
-            <div className="mt-4 space-y-3">
+            <div className="space-y-3">
               {orders.map((order) => (
                 <OrderCard
                   key={order.id}
@@ -282,22 +259,18 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
               ))}
 
               <div ref={sentinelRef} className="flex h-12 items-center justify-center">
-                {loadingMore && <Loader2 size={22} className="animate-spin text-emerald-900" />}
+                {loadingMore && <Loader2 size={22} className="animate-spin text-emerald-800" />}
               </div>
             </div>
 
-            {/* Support card — white with dark-green accents */}
-            <div className="relative mt-6 overflow-hidden rounded-2xl border border-emerald-900/10 bg-white p-5 text-center shadow-sm">
+            {/* Support card */}
+            <div className="relative mt-6 overflow-hidden rounded-2xl border border-emerald-900/10 bg-white p-5 text-center shadow-[0_4px_20px_-10px_rgba(6,78,59,0.2)]">
               <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-emerald-900/40 to-transparent" />
-              <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-emerald-900 text-white shadow-sm">
+              <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white shadow-sm shadow-emerald-900/25">
                 <ClipboardList size={20} />
               </div>
-              <p className="mt-3 text-sm font-bold text-emerald-950">
-                Need help with an order?
-              </p>
-              <p className="mt-1 text-xs font-medium text-emerald-900/50">
-                Our support team is here for you
-              </p>
+              <p className="mt-3 text-sm font-bold text-emerald-950">Need help with an order?</p>
+              <p className="mt-1 text-xs font-medium text-emerald-900/50">Our support team is here for you</p>
               <button className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-emerald-900 px-4 py-2 text-xs font-bold text-white transition-all duration-200 hover:bg-emerald-800 active:scale-95">
                 Contact support
               </button>
@@ -309,20 +282,17 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   );
 }
 
-/* ──────────────────────────────  EMPTY STATE  ────────────────────────────── */
+/* ─────────────── EMPTY STATE ─────────────── */
 function EmptyState({ filter }: { filter: FilterKey }) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
       <div className="relative">
-        {/* soft dark-green glow ring */}
         <div className="absolute inset-0 -m-3 rounded-[28px] bg-emerald-900/[0.06] blur-md" />
         <div className="relative grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white shadow-lg shadow-emerald-900/25">
           <Package size={34} strokeWidth={1.6} />
         </div>
       </div>
-      <h2 className="mt-5 text-lg font-extrabold tracking-tight text-emerald-950">
-        No orders found
-      </h2>
+      <h2 className="mt-5 text-lg font-extrabold tracking-tight text-emerald-950">No orders found</h2>
       <p className="mt-1.5 max-w-[260px] text-[13px] leading-relaxed text-emerald-900/50">
         {filter === 'all'
           ? 'Your order history will appear here once you place your first order.'

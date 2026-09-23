@@ -46,7 +46,6 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
       .eq('user_id', authUser.id)
       .order('created_at', { ascending: false });
 
-    // Apply strict filtering at the database query level
     if (currentFilter !== 'all') {
       if (currentFilter === 'Processing') {
         query = query.in('status', ['pending', 'confirmed', 'packed', 'ready_for_pickup']);
@@ -94,7 +93,6 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
 
     orderData.forEach((db) => {
       const p = paymentsByOrder[db.id];
-      // Hide failed payments to keep view clean
       if (p && p.provider === 'razorpay' && p.status === 'failed') return;
 
       const items = itemsByOrder[db.id] || [];
@@ -144,12 +142,10 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     }
   }, [filter, fetchPaginatedOrders]);
 
-  // Fetch when filter tab changes
   useEffect(() => {
     void loadOrders(1, false);
   }, [filter, loadOrders]);
 
-  // Sentinel Ref for Intersection Observer
   const sentinelRef = useCallback(
     (node: HTMLDivElement | null) => {
       if (loadingMore) return;
@@ -164,7 +160,6 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     [loadingMore, hasMore, page, loadOrders]
   );
 
-  // Background Data Refresh Listeners (Restores page 1 quietly to update order statuses)
   useEffect(() => {
     let active = true;
 
@@ -200,18 +195,19 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   /* ──────────────────────────  LOADING STATE  ────────────────────────── */
   if (loading && orders.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F5FAF7]">
-        <header className="safe-top sticky top-0 z-30 bg-gradient-to-b from-emerald-900 to-emerald-950 shadow-lg shadow-emerald-950/20">
+      <div className="min-h-screen bg-white">
+        <header className="safe-top sticky top-0 z-30 bg-white/95 backdrop-blur-md">
           <div className="mx-auto flex max-w-lg items-center justify-between px-4 pb-3.5 pt-3">
             <div className="space-y-2">
-              <div className="h-4 w-32 animate-pulse rounded-md bg-white/10" />
-              <div className="h-3 w-44 animate-pulse rounded-md bg-white/[0.07]" />
+              <div className="h-4 w-32 animate-pulse rounded-md bg-emerald-900/10" />
+              <div className="h-3 w-44 animate-pulse rounded-md bg-emerald-900/[0.06]" />
             </div>
-            <div className="h-10 w-10 animate-pulse rounded-xl bg-white/10" />
+            <div className="h-10 w-10 animate-pulse rounded-xl bg-emerald-900/[0.08]" />
           </div>
+          <div className="h-[2px] bg-gradient-to-r from-transparent via-emerald-900/30 to-transparent" />
         </header>
         <div className="flex min-h-[55vh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-800" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-900/15 border-t-emerald-900" />
         </div>
       </div>
     );
@@ -219,15 +215,15 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
 
   /* ──────────────────────────────  MAIN UI  ────────────────────────────── */
   return (
-    <div className="min-h-screen bg-[#F5FAF7]">
-      {/* ── Sticky dark green header ─────────────────────────────────────── */}
-      <header className="safe-top sticky top-0 z-30 bg-gradient-to-b from-emerald-900 to-emerald-950 shadow-lg shadow-emerald-950/20">
+    <div className="min-h-screen bg-white">
+      {/* ── Sticky header with subtle dark-green accent border ───────────── */}
+      <header className="safe-top sticky top-0 z-30 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 pb-3.5 pt-3">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-extrabold tracking-tight text-white">
+            <h1 className="truncate text-xl font-extrabold tracking-tight text-emerald-950">
               Your orders
             </h1>
-            <p className="mt-0.5 text-xs font-medium text-emerald-200/70">
+            <p className="mt-0.5 text-xs font-medium text-emerald-900/50">
               Track and manage your purchases
             </p>
           </div>
@@ -236,14 +232,17 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
             onClick={handleManualRefresh}
             disabled={refreshing}
             aria-label="Refresh orders"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/10 text-emerald-50 transition-all duration-200 hover:bg-white/20 active:scale-95 disabled:opacity-60"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-emerald-900/10 bg-emerald-900/[0.04] text-emerald-900 transition-all duration-200 hover:bg-emerald-900/[0.08] active:scale-95 disabled:opacity-60"
           >
             <RefreshCw
               size={16}
-              className={refreshing ? 'animate-spin text-emerald-300' : ''}
+              className={refreshing ? 'animate-spin text-emerald-800' : ''}
             />
           </button>
         </div>
+
+        {/* Subtle dark-green gradient hairline instead of a heavy border */}
+        <div className="h-[2px] bg-gradient-to-r from-transparent via-emerald-900/30 to-transparent" />
       </header>
 
       {/* ── Content ──────────────────────────────────────────────────────── */}
@@ -262,8 +261,8 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
                     onClick={() => setFilter(f)}
                     className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold tracking-wide transition-all duration-200 ${
                       active
-                        ? 'bg-emerald-900 text-white shadow-md shadow-emerald-900/25'
-                        : 'border border-emerald-100 bg-white text-emerald-800 hover:bg-emerald-50'
+                        ? 'bg-emerald-900 text-white shadow-md shadow-emerald-900/20'
+                        : 'border border-emerald-900/10 bg-white text-emerald-900/70 hover:border-emerald-900/20 hover:bg-emerald-900/[0.04] hover:text-emerald-900'
                     }`}
                   >
                     {f === 'all' ? 'All orders' : f}
@@ -282,21 +281,21 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
                 />
               ))}
 
-              {/* Sentinel for Intersection Observer */}
               <div ref={sentinelRef} className="flex h-12 items-center justify-center">
-                {loadingMore && <Loader2 size={22} className="animate-spin text-emerald-800" />}
+                {loadingMore && <Loader2 size={22} className="animate-spin text-emerald-900" />}
               </div>
             </div>
 
-            {/* Support card */}
-            <div className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-5 text-center shadow-sm">
-              <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-white text-emerald-800 shadow-sm ring-1 ring-emerald-100">
+            {/* Support card — white with dark-green accents */}
+            <div className="relative mt-6 overflow-hidden rounded-2xl border border-emerald-900/10 bg-white p-5 text-center shadow-sm">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-emerald-900/40 to-transparent" />
+              <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-emerald-900 text-white shadow-sm">
                 <ClipboardList size={20} />
               </div>
               <p className="mt-3 text-sm font-bold text-emerald-950">
                 Need help with an order?
               </p>
-              <p className="mt-1 text-xs font-medium text-emerald-800/70">
+              <p className="mt-1 text-xs font-medium text-emerald-900/50">
                 Our support team is here for you
               </p>
               <button className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-emerald-900 px-4 py-2 text-xs font-bold text-white transition-all duration-200 hover:bg-emerald-800 active:scale-95">
@@ -314,13 +313,17 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
 function EmptyState({ filter }: { filter: FilterKey }) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
-      <div className="grid h-20 w-20 place-items-center rounded-3xl border border-emerald-100 bg-emerald-50 text-emerald-800 shadow-sm">
-        <Package size={34} strokeWidth={1.5} />
+      <div className="relative">
+        {/* soft dark-green glow ring */}
+        <div className="absolute inset-0 -m-3 rounded-[28px] bg-emerald-900/[0.06] blur-md" />
+        <div className="relative grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white shadow-lg shadow-emerald-900/25">
+          <Package size={34} strokeWidth={1.6} />
+        </div>
       </div>
       <h2 className="mt-5 text-lg font-extrabold tracking-tight text-emerald-950">
         No orders found
       </h2>
-      <p className="mt-1.5 max-w-[260px] text-[13px] leading-relaxed text-emerald-800/60">
+      <p className="mt-1.5 max-w-[260px] text-[13px] leading-relaxed text-emerald-900/50">
         {filter === 'all'
           ? 'Your order history will appear here once you place your first order.'
           : `You don't have any orders with the status "${filter}".`}

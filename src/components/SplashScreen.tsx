@@ -58,13 +58,13 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
     // Flip the base HTML canvas to white behind the scenes.
     // This removes the green background from the transparent navbar area 
     // exactly as the splash screen fades out, preserving your seamless boot.
-    document.documentElement.style.setProperty('background-color', '#ffffff', 'important');
-    document.body.style.setProperty('background-color', '#ffffff', 'important');
+    document.documentElement.style.setProperty('background-color', '#fdfdfd', 'important');
+    document.body.style.setProperty('background-color', '#fdfdfd', 'important');
     const rootEl = document.getElementById('root');
-    if (rootEl) rootEl.style.setProperty('background-color', '#ffffff', 'important');
+    if (rootEl) rootEl.style.setProperty('background-color', '#fdfdfd', 'important');
     
     const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) metaTheme.setAttribute('content', '#ffffff');
+    if (metaTheme) metaTheme.setAttribute('content', '#fdfdfd');
     // ---------------
 
     const doneTimer = setTimeout(() => {

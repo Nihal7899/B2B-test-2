@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
+import { getInvoiceConfig } from '@/services/invoice.service';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 
@@ -148,6 +149,41 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
     grandTotal: 0,
   });
 
+  // Vendor info (from invoice config)
+  const [vendorGst, setVendorGst] = useState('');
+  const [vendorName, setVendorName] = useState('');
+  // Customer's default business GST (fallback)
+  const [defaultBusinessGst, setDefaultBusinessGst] = useState('');
+
+  // ── Load vendor GST from invoice config ──
+  useEffect(() => {
+    void (async () => {
+      try {
+        const cfg = await getInvoiceConfig();
+        setVendorGst(cfg?.company_gst || '');
+        setVendorName(cfg?.company_name || '');
+      } catch (e) {
+        console.warn('Failed to load invoice config:', e);
+      }
+    })();
+  }, []);
+
+  // ── Load customer's default business GST (fallback) ──
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      const { data } = await supabase
+        .from('businesses')
+        .select('gstin, is_default, created_at')
+        .eq('owner_user_id', user.id)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data?.gstin) setDefaultBusinessGst(data.gstin);
+    })();
+  }, [user]);
+
   const dateFilterLabel = useCallback(() => {
     switch (period) {
       case 'today': return 'Today';
@@ -196,7 +232,7 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
       let query = supabase
         .from('orders')
         .select(
-          'id, total, created_at, updated_at, user_id, order_number, subtotal, discount, delivery_fee, gst_amount, cgst_amount, sgst_amount, business_snapshot'
+          'id, total, created_at, updated_at, user_id, order_number, subtotal, discount, delivery_fee, gst_amount, cgst_amount, sgst_amount, business_snapshot, billing_address_snapshot'
         )
         .eq('status', 'delivered')
         .eq('user_id', user.id)               // ← ONLY the current customer
@@ -227,19 +263,31 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
         const sgst = Number(o.sgst_amount || 0) + deliveryCgst;
         const totalGst = cgst + sgst;
 
-        // Prefer immutable snapshot of the billing profile at order time
-        const snap = (o as any).business_snapshot as
+        // ── Customer GST resolution (matches gstBill.ts priority) ──
+        const bizSnap = (o as any).business_snapshot as
           | { business_name?: string; gstin?: string | null }
-          | null
-          | undefined;
+          | null | undefined;
+        const billSnap = (o as any).billing_address_snapshot as
+          | { business_name?: string; gstin?: string | null }
+          | null | undefined;
+
+        let custName = bizSnap?.business_name || fallbackName;
+        let custGst = bizSnap?.gstin || '';
+
+        // billing_address_snapshot overrides (this was the missing piece)
+        if (billSnap?.business_name) custName = billSnap.business_name;
+        if (billSnap?.gstin) custGst = billSnap.gstin;
+
+        // Final fallback: user's default business GST
+        if (!custGst) custGst = defaultBusinessGst;
 
         return {
           id: o.id,
           invoice_number: o.order_number,
           created_at: o.created_at,
-          customer_name: snap?.business_name || fallbackName,
+          customer_name: custName,
           customer_phone: fallbackPhone,
-          customer_gst: snap?.gstin || '',
+          customer_gst: custGst,
           subtotal,
           discount,
           delivery_fee: deliveryFee,
@@ -276,7 +324,7 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
     } finally {
       setLoading(false);
     }
-  }, [user, profile, getDateRange]);
+  }, [user, profile, getDateRange, defaultBusinessGst]);
 
   useEffect(() => {
     void load();
@@ -294,9 +342,11 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
       const summaryData = gstReport.map((g) => ({
         'Invoice No': g.invoice_number,
         'Invoice Date': new Date(g.created_at).toLocaleDateString('en-IN'),
+        'Vendor Name': vendorName || '-',
+        'Vendor GSTIN': vendorGst || '-',
         'Customer Name': g.customer_name,
         'Customer Phone': g.customer_phone || '-',
-        'Customer GSTIN': g.customer_gst || '-',
+        'Customer GSTIN': g.customer_gst || 'Unregistered',
         'Gross Total (₹)': Number(g.subtotal.toFixed(2)),
         'Discount (₹)': g.discount > 0 ? -Number(g.discount.toFixed(2)) : 0,
         'Delivery Fee (₹)': Number(g.delivery_fee.toFixed(2)),
@@ -310,6 +360,8 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
       summaryData.push({
         'Invoice No': 'TOTAL RECONCILIATION',
         'Invoice Date': '',
+        'Vendor Name': '',
+        'Vendor GSTIN': '',
         'Customer Name': '',
         'Customer Phone': '',
         'Customer GSTIN': '',
@@ -348,6 +400,7 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
             detailsData.push({
               'Record Type': 'INVOICE HEADER',
               'Invoice No': g.invoice_number,
+              'Vendor GSTIN': vendorGst || '-',
               'Date': new Date(g.created_at).toLocaleDateString('en-IN'),
               'Customer / Consignee': g.customer_name,
               'GSTIN': g.customer_gst || 'Unregistered',
@@ -378,6 +431,7 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
               detailsData.push({
                 'Record Type': `Item #${idx + 1}`,
                 'Invoice No': g.invoice_number,
+                'Vendor GSTIN': vendorGst || '-',
                 'Date': '',
                 'Customer / Consignee': '',
                 'GSTIN': '',
@@ -402,6 +456,7 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
               detailsData.push({
                 'Record Type': 'Service',
                 'Invoice No': g.invoice_number,
+                'Vendor GSTIN': vendorGst || '-',
                 'Date': '',
                 'Customer / Consignee': '',
                 'GSTIN': '',
@@ -423,6 +478,7 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
             detailsData.push({
               'Record Type': 'BILL SUMMARY',
               'Invoice No': g.invoice_number,
+              'Vendor GSTIN': vendorGst || '-',
               'Date': '',
               'Customer / Consignee': 'TOTALS FOR INVOICE',
               'GSTIN': '',
@@ -441,10 +497,11 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
 
             // Spacer
             detailsData.push({
-              'Record Type': '', 'Invoice No': '', 'Date': '', 'Customer / Consignee': '',
-              'GSTIN': '', 'Item Description': '', 'HSN/SAC': '', 'Qty': '', 'Unit Rate (₹)': '',
-              'Gross Amount (₹)': '', 'Discount (₹)': '', 'Taxable Value (₹)': '',
-              'GST%': '', 'CGST (₹)': '', 'SGST (₹)': '', 'Row Total (₹)': '',
+              'Record Type': '', 'Invoice No': '', 'Vendor GSTIN': '', 'Date': '',
+              'Customer / Consignee': '', 'GSTIN': '', 'Item Description': '',
+              'HSN/SAC': '', 'Qty': '', 'Unit Rate (₹)': '', 'Gross Amount (₹)': '',
+              'Discount (₹)': '', 'Taxable Value (₹)': '', 'GST%': '',
+              'CGST (₹)': '', 'SGST (₹)': '', 'Row Total (₹)': '',
             });
           });
         }
@@ -454,14 +511,17 @@ export function GSTReportScreen({ onBack }: GSTReportScreenProps) {
       const ws1 = XLSX.utils.json_to_sheet(summaryData);
       const ws2 = XLSX.utils.json_to_sheet(detailsData);
 
+      // Optimized Column Widths
       ws1['!cols'] = [
-        { wch: 18 }, { wch: 14 }, { wch: 25 }, { wch: 16 }, { wch: 18 },
-        { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 22 },
+        { wch: 18 }, { wch: 14 }, { wch: 25 }, { wch: 18 }, { wch: 25 },
+        { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 16 },
+        { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 22 },
       ];
       ws2['!cols'] = [
-        { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 25 }, { wch: 18 },
-        { wch: 34 }, { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 16 },
-        { wch: 14 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 16 },
+        { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 25 },
+        { wch: 18 }, { wch: 34 }, { wch: 12 }, { wch: 8 }, { wch: 14 },
+        { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 10 }, { wch: 12 },
+        { wch: 12 }, { wch: 16 },
       ];
 
       XLSX.utils.book_append_sheet(wb, ws1, 'GST Summary');

@@ -249,31 +249,33 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
     : [];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col relative">
-      {/* Sticky Header with +4px top padding (pt-4) and increased height */}
-      <header 
-        className="safe-top sticky top-0 z-50 flex items-center justify-between px-4 pt-4 pb-3 shadow-md"
-        style={{ backgroundColor: PRIMARY_COLOR }}
-      >
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-1 -ml-1 text-white active:scale-95 transition-transform">
-            <ArrowLeft size={24} />
-          </button>
-          <div className="text-white">
-            <h1 className="text-lg font-bold leading-tight">Order Details</h1>
-            <p className="text-[11px] text-white/80 mt-0.5">Track and manage your order</p>
-          </div>
-        </div>
-        <button 
-          onClick={loadData}
-          className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-white active:scale-95 transition-transform"
-        >
-          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-        </button>
-      </header>
-
-      <main className="flex-1 px-4 py-4 space-y-4 w-full max-w-lg mx-auto pb-8">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <div className="safe-top pt-2 px-4 pb-8 space-y-4 max-w-lg mx-auto w-full">
         
+        {/* Original Non-Sticky Header Design */}
+        <div className="flex items-start gap-3">
+          <button
+            onClick={onBack}
+            className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm active:scale-95 transition-transform shrink-0 mt-0.5 text-slate-700"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-extrabold text-slate-900 tracking-tight truncate">
+              {order.order_number}
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {orderDate} · {itemCount} {itemCount === 1 ? 'item' : 'items'}
+            </p>
+          </div>
+          <button 
+            onClick={loadData}
+            className="h-9 w-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 shadow-sm active:scale-95 transition-transform shrink-0 mt-0.5"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
         {/* Dark Green Top Payment Banner */}
         <div 
           className="rounded-3xl p-5 text-white shadow-lg relative overflow-hidden" 
@@ -507,7 +509,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
               
               return (
                 <div key={item.id} className="flex gap-3 items-center">
-                  {/* Filled Image Container matches CategoryProductCard layout */}
                   <div className="relative w-16 h-16 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
                     {imageUrl ? (
                       <CachedImage 
@@ -535,7 +536,6 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
                       </span>
                     </div>
                   </div>
-                  {/* Line Total price next to item */}
                   <div className="shrink-0 text-right self-center">
                     <span className="text-sm font-black text-slate-900">
                       ₹{Number(item.line_total).toLocaleString('en-IN')}
@@ -671,7 +671,7 @@ export function OrderDetailScreen({ orderId, onBack }: OrderDetailScreenProps) {
           <ChevronRight size={18} className="text-slate-400 shrink-0" />
         </button>
         
-      </main>
+      </div>
 
       {/* Invoice Modal Overlay */}
       {showInvoiceModal && (

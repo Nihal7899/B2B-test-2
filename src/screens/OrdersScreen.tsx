@@ -10,21 +10,11 @@ interface OrdersScreenProps {
 
 const ITEMS_PER_PAGE = 20;
 
-type FilterKey = 'all' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
-
-const FILTERS: FilterKey[] = [
-  'all',
-  'Processing',
-  'Out for Delivery',
-  'Delivered',
-  'Cancelled',
-];
-
 export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<FilterKey>('all');
+  const [filter, setFilter] = useState<'all' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled'>('all');
 
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -88,6 +78,7 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     };
 
     const validOrders: Order[] = [];
+
     orderData.forEach((db) => {
       const p = paymentsByOrder[db.id];
       if (p && p.provider === 'razorpay' && p.status === 'failed') return;
@@ -97,7 +88,9 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
         id: db.id,
         orderNo: db.order_number,
         date: new Date(db.created_at).toLocaleDateString('en-IN', {
-          day: 'numeric', month: 'short', year: 'numeric',
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
         }),
         itemCount: items.reduce((sum: number, i: any) => sum + i.quantity, 0),
         total: Number(db.total),
@@ -114,10 +107,15 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
       if (targetPage === 1) setLoading(true);
       else setLoadingMore(true);
     }
+
     try {
       const { orders: newOrders, count } = await fetchPaginatedOrders(targetPage, filter);
-      if (targetPage === 1) setOrders(newOrders);
-      else setOrders((prev) => [...prev, ...newOrders]);
+
+      if (targetPage === 1) {
+        setOrders(newOrders);
+      } else {
+        setOrders((prev) => [...prev, ...newOrders]);
+      }
 
       setPage(targetPage);
       setHasMore(targetPage * ITEMS_PER_PAGE < count);
@@ -132,33 +130,44 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     }
   }, [filter, fetchPaginatedOrders]);
 
-  useEffect(() => { void loadOrders(1, false); }, [filter, loadOrders]);
+  useEffect(() => {
+    void loadOrders(1, false);
+  }, [filter, loadOrders]);
 
-  const sentinelRef = useCallback((node: HTMLDivElement | null) => {
-    if (loadingMore) return;
-    if (observer.current) observer.current.disconnect();
-    observer.current = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && hasMore) void loadOrders(page + 1, false);
-    });
-    if (node) observer.current.observe(node);
-  }, [loadingMore, hasMore, page, loadOrders]);
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (loadingMore) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          void loadOrders(page + 1, false);
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [loadingMore, hasMore, page, loadOrders]
+  );
 
   useEffect(() => {
     let active = true;
+
     const handleKeepAliveFocus = (e: Event) => {
       const customEvent = e as CustomEvent<{ key?: string }>;
       if (active && (customEvent.detail?.key === '/orders' || customEvent.detail?.key === 'orders')) {
         void loadOrders(1, true);
       }
     };
+
     const handleVisibilityChange = () => {
       const isCurrentlyActive = window.location.pathname.includes('/orders');
       if (document.visibilityState === 'visible' && active && isCurrentlyActive) {
         void loadOrders(1, true);
       }
     };
+
     window.addEventListener('keepalive:activated', handleKeepAliveFocus);
     window.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       active = false;
       window.removeEventListener('keepalive:activated', handleKeepAliveFocus);
@@ -171,134 +180,86 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
     void loadOrders(1, true);
   };
 
-  /* ─────────────── LOADING SKELETON ─────────────── */
+  const filters: ('all' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled')[] = [
+    'all',
+    'Processing',
+    'Out for Delivery',
+    'Delivered',
+    'Cancelled',
+  ];
+
   if (loading && orders.length === 0) {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="safe-top mx-auto max-w-lg px-4 pb-2 pt-3">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="h-5 w-32 animate-pulse rounded-md bg-emerald-900/10" />
-              <div className="h-3 w-44 animate-pulse rounded-md bg-emerald-900/[0.06]" />
-            </div>
-            <div className="h-9 w-9 animate-pulse rounded-xl bg-emerald-900/[0.08]" />
-          </div>
-        </div>
-        <div className="flex min-h-[55vh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-900/15 border-t-emerald-900" />
-        </div>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
       </div>
     );
   }
 
-  /* ─────────────── MAIN UI ─────────────── */
   return (
-    <div className="min-h-screen bg-white">
-      <div className="safe-top mx-auto max-w-lg px-4 pb-[73px]">
+    <div className="safe-top px-4 pb-[73px] space-y-4 max-w-lg mx-auto">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Your orders</h1>
+          <p className="text-xs text-ink-500 mt-0.5">Track and manage your purchases</p>
+        </div>
+        <button
+          onClick={handleManualRefresh}
+          disabled={refreshing}
+          className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center text-ink-600 shadow-xs active:scale-95 transition-transform"
+        >
+          <RefreshCw size={16} className={refreshing ? 'animate-spin text-brand-600' : ''} />
+        </button>
+      </div>
 
-        {/* ── Original non-sticky header ───────────────────────────── */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-extrabold tracking-tight text-emerald-950">
-              Your orders
-            </h1>
-            <p className="mt-0.5 text-xs font-medium text-emerald-900/50">
-              Track and manage your purchases
-            </p>
+      {orders.length === 0 && !loadingMore ? (
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+          <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600">
+            <Package size={36} strokeWidth={1.5} />
           </div>
-          <button
-            onClick={handleManualRefresh}
-            disabled={refreshing}
-            aria-label="Refresh orders"
-            className="grid h-9 w-9 place-items-center rounded-xl border border-emerald-900/10 bg-white text-emerald-900 shadow-sm transition-all active:scale-95 disabled:opacity-60"
-          >
-            <RefreshCw
-              size={16}
-              className={refreshing ? 'animate-spin text-emerald-800' : ''}
-            />
-          </button>
+          <h2 className="text-lg font-extrabold text-ink-900 mt-5">No orders found</h2>
+          <p className="text-sm text-ink-500 mt-1 max-w-[250px]">
+            {filter === 'all'
+              ? 'Your order history will appear here once you place your first order.'
+              : `You don't have any orders with the status "${filter}".`}
+          </p>
         </div>
-
-        {orders.length === 0 && !loadingMore ? (
-          <EmptyState filter={filter} />
-        ) : (
-          <>
-            {/* ── Filter pills · active = dark green ─────────────────── */}
-            <div className="no-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4">
-              {FILTERS.map((f) => {
-                const active = filter === f;
-                return (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold tracking-wide transition-all duration-200 ${
-                      active
-                        ? 'bg-emerald-900 text-white shadow-md shadow-emerald-900/25'
-                        : 'border border-emerald-900/10 bg-white text-emerald-900/70 hover:border-emerald-900/20 hover:bg-emerald-900/[0.04] hover:text-emerald-900'
-                    }`}
-                  >
-                    {f === 'all' ? 'All orders' : f}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* ── Orders list ────────────────────────────────────────── */}
-            <div className="mt-4 space-y-3">
-              {orders.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  onClick={() => onOrderClick(order.id)}
-                />
-              ))}
-
-              <div ref={sentinelRef} className="flex h-12 items-center justify-center">
-                {loadingMore && <Loader2 size={22} className="animate-spin text-emerald-900" />}
-              </div>
-            </div>
-
-            {/* ── Support card ───────────────────────────────────────── */}
-            <div className="relative mt-6 overflow-hidden rounded-2xl border border-emerald-900/10 bg-white p-5 text-center shadow-[0_4px_20px_-10px_rgba(6,78,59,0.2)]">
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-emerald-900/40 to-transparent" />
-              <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white shadow-sm shadow-emerald-900/25">
-                <ClipboardList size={20} />
-              </div>
-              <p className="mt-3 text-sm font-bold text-emerald-950">
-                Need help with an order?
-              </p>
-              <p className="mt-1 text-xs font-medium text-emerald-900/50">
-                Our support team is here for you
-              </p>
-              <button className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-emerald-900 px-4 py-2 text-xs font-bold text-white transition-all duration-200 hover:bg-emerald-800 active:scale-95">
-                Contact support
+      ) : (
+        <>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {filters.map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all ${
+                  filter === f
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : 'bg-white border border-ink-200 text-ink-600 hover:bg-ink-50'
+                }`}
+              >
+                {f === 'all' ? 'All orders' : f}
               </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+            ))}
+          </div>
 
-/* ─────────────── EMPTY STATE ─────────────── */
-function EmptyState({ filter }: { filter: FilterKey }) {
-  return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
-      <div className="relative">
-        <div className="absolute inset-0 -m-3 rounded-[28px] bg-emerald-900/[0.06] blur-md" />
-        <div className="relative grid h-20 w-20 place-items-center rounded-3xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white shadow-lg shadow-emerald-900/25">
-          <Package size={34} strokeWidth={1.6} />
-        </div>
-      </div>
-      <h2 className="mt-5 text-lg font-extrabold tracking-tight text-emerald-950">
-        No orders found
-      </h2>
-      <p className="mt-1.5 max-w-[260px] text-[13px] leading-relaxed text-emerald-900/50">
-        {filter === 'all'
-          ? 'Your order history will appear here once you place your first order.'
-          : `You don't have any orders with the status "${filter}".`}
-      </p>
+          <div className="space-y-3">
+            {orders.map((order) => (
+              <OrderCard key={order.id} order={order} onClick={() => onOrderClick(order.id)} />
+            ))}
+
+            <div ref={sentinelRef} className="h-10 flex items-center justify-center mt-4">
+              {loadingMore && <Loader2 size={24} className="animate-spin text-brand-600" />}
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-brand-50 p-4 text-center mt-6">
+            <ClipboardList size={23} className="mx-auto text-brand-600" />
+            <p className="text-sm font-bold text-brand-900 mt-2">Need help with an order?</p>
+            <p className="text-xs text-brand-700 mt-1">Our support team is here for you</p>
+            <button className="mt-3 text-xs font-bold text-brand-700 hover:underline">Contact support</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -800,19 +800,30 @@ function App() {
   const isLargeScreenView = isWarehouseView || isInvestor || screen === 'investor' || screen === 'admin';
 
   // --- DYNAMIC BOTTOM NAV VISIBILITY CHECK ---
+  // Restricts the bottom navigation bar to ONLY show on the 5 primary tabs.
+  // This automatically hides the navbar on sub-screens like Order Detail, Addresses, GST Report, etc.
   const isBottomNavVisible =
     !isDedicatedStaff &&
     !needsForceUpdate &&
-    screen !== 'categoryDetail' &&
-    screen !== 'search' &&
-    screen !== 'product' &&
-    screen !== 'cart' &&
-    screen !== 'checkout' &&
-    screen !== 'warehouse' &&
-    screen !== 'investor' &&
-    screen !== 'delivery' &&
-    screen !== 'store' &&
-    screen !== 'brand';
+    (screen === 'home' ||
+     screen === 'categories' ||
+     screen === 'wishlist' ||
+     screen === 'orders' ||
+     screen === 'account');
+
+  // Calculates exact padding based on the active screen
+  let mainPaddingClass = 'pb-0';
+  if (isBottomNavVisible) {
+    if (screen === 'home' || screen === 'categories') {
+      // Home and Categories already have massive spacers built into their files (e.g. pb-36 and h-32).
+      // Giving them pb-0 here prevents the massive gap shown in your screenshots.
+      mainPaddingClass = 'pb-0';
+    } else {
+      // Account, Wishlist, and Orders get exactly 64px (pb-16) to clear the navbar, plus safe-bottom for the iPhone notch.
+      // Their own internal padding (pb-12 / pb-6) will provide a perfect visual gap above the navbar.
+      mainPaddingClass = 'pb-16 safe-bottom';
+    }
+  }
 
   return (
     <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
@@ -821,8 +832,7 @@ function App() {
           isLargeScreenView ? 'max-w-7xl' : 'max-w-[720px]'
         }`}
       >
-        {/* Main wrapper: pt-0 ensures no double padding at the top, and pb-28 gives comfortable breathing room when bottom nav is present */}
-        <main className={`flex-1 pt-0 ${isBottomNavVisible ? 'pb-28' : 'pb-0'}`}>
+        <main className={`flex-1 pt-0 ${mainPaddingClass}`}>
           <BackButtonHandler disableBack={isDedicatedStaff || needsForceUpdate} />
           
           {isHomeReady && (

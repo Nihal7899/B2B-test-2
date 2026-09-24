@@ -252,6 +252,24 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     }
   }, []);
 
+  // Sync selection to database just like Home / Cart screen
+  const handleSelectAddress = async (addr: DbAddress) => {
+    setSelectedAddr(addr.id);
+    setShowAddressSheet(false);
+
+    try {
+      const currentDefault = addresses.find((a) => a.is_default);
+      if (currentDefault && currentDefault.id !== addr.id) {
+        await supabase.from('addresses').update({ is_default: false }).eq('id', currentDefault.id);
+      }
+      await supabase.from('addresses').update({ is_default: true }).eq('id', addr.id);
+      
+      void refreshAddresses();
+    } catch (err) {
+      console.warn('Failed to set default address', err);
+    }
+  };
+
   // Sync on navigation return or tab focus
   useEffect(() => {
     const handleKeepAlive = (e: Event) => {
@@ -573,6 +591,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
     <div className="min-h-screen bg-[#f6f7f9] pb-40 scroll-smooth">
       {/* ==================== STICKY HEADER ==================== */}
       <header className="sticky top-0 z-40 px-3 safe-top bg-gradient-to-b from-[#f6f7f9] via-[#f6f7f9] to-[#f6f7f9]/0">
+        <div className="h-1 shrink-0" />
         <div className="rounded-2xl bg-[#02402c] p-1.5 flex items-center gap-1.5 shadow-[0_10px_28px_-12px_rgba(2,64,44,0.55)]">
           <button
             onClick={onBack}
@@ -975,6 +994,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                 <p className="text-[11px] text-red-500 font-bold">{error}</p>
               </div>
             )}
+            <div className="h-1 shrink-0 mt-1" />
           </div>
         </div>
       </div>
@@ -993,7 +1013,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
             return (
               <button
                 key={addr.id}
-                onClick={() => { setSelectedAddr(addr.id); setShowAddressSheet(false); }}
+                onClick={() => void handleSelectAddress(addr)}
                 className={`w-full text-left p-3.5 rounded-2xl border-2 transition-all ${
                   isSel
                     ? 'border-[#02402c] bg-gradient-to-br from-[#02402c]/[0.04] to-transparent shadow-[0_6px_20px_-12px_rgba(2,64,44,0.4)]'

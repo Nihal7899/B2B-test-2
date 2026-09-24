@@ -430,23 +430,40 @@ function App() {
     return location.pathname;
   }, [screen, location.pathname, location.search, isDeliveryPartner, isWarehouseManager, isInvestor, deliveryTab]);
 
-  const isFullBleed =
-    isDedicatedStaff ||
-    screen === 'home' ||
-    screen === 'store' ||
-    screen === 'categories' ||
-    screen === 'categoryDetail' ||
-    screen === 'brand' ||
-    screen === 'search' ||
-    screen === 'product' ||
-    screen === 'investor'; 
+  const isFullBleed = true;
+
+
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product', 'investor']; 
-    const isDarkBg = darkHeaderScreens.includes(screen);
-    setFullScreenSystemBars(!isDarkBg);
-  }, [screen]);
+
+    const applySystemBars = () => {
+      const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product', 'investor']; 
+      const isDarkBg = darkHeaderScreens.includes(screen);
+      setFullScreenSystemBars(!isDarkBg);
+    };
+
+    // 1. Run on screen or user change with a delay to outlast NavigationBar.show()
+    const timeoutId = setTimeout(() => {
+      applySystemBars();
+    }, 350);
+
+    // 2. Run on background resume with a delay to outlast the OS window manager reset
+    const appStateListener = CapApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) {
+        setTimeout(() => {
+          applySystemBars();
+        }, 350);
+      }
+    });
+
+    return () => {
+      clearTimeout(timeoutId);
+      appStateListener.then(listener => listener.remove()).catch(() => {});
+    };
+  }, [screen, user]);
+
+
 
   const initPushRef = useRef(false);
 

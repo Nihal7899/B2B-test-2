@@ -376,7 +376,8 @@ export function VoiceSearchModal({
               /* Fallback Static HTML Mic View */
               <>
                 <div className={`flex items-center gap-1.5 transition-opacity ${isListening && !showError ? 'opacity-100' : 'opacity-0'}`}>
-                  {WAVE_BARS_LEFT.map((b, i) => <div key={`l-${i}`} className="w-1 rounded-full bg-[#0d5235] animate-pulse" style={{ height: b.h, animationDelay: \`\${b.delay}s\` }} />)}
+                  {WAVE_BARS_LEFT.map((b, i) => <div key={`l-${i}`} className="w-1 rounded-full bg-[#0d5235] animate-pulse" style={{ height: b.h, animationDelay: `${b.delay}s` }}
+
                 </div>
                 <div onClick={onRetry} className={`relative flex items-center justify-center w-[68px] h-[68px] rounded-full shadow-lg cursor-pointer transition-all ${showError ? 'bg-red-600' : 'bg-[#0d5235] animate-pulse'}`}>
                   {showError ? <AlertCircle size={28} className="text-white" /> : isListening ? <MicOff size={28} className="text-white" /> : <Mic size={28} className="text-white" />}

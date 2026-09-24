@@ -14,7 +14,8 @@ import {
   RefreshCw,
   BadgeCheck,
   TrendingUp,
-  Headphones,   // <-- NEW
+  Headphones,
+  Receipt,
 } from 'lucide-react';
 
 import { useAuth } from '@/auth';
@@ -261,6 +262,23 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
               <div>
                 <p className="text-xs font-bold text-ink-900">Saved Wishlist</p>
                 <p className="text-[10px] text-ink-400">Favorite products & recurring restocks</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-ink-400" />
+          </button>
+          
+          {/* NEW: GST Reports */}
+          <button
+            onClick={() => onNavigate('gstReport')}
+            className="w-full p-3.5 flex items-center justify-between hover:bg-ink-50 transition text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+                <Receipt size={18} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-ink-900">GST Reports</p>
+                <p className="text-[10px] text-ink-400">Download tax invoices & GST summary</p>
               </div>
             </div>
             <ChevronRight size={16} className="text-ink-400" />

@@ -301,7 +301,7 @@ export function CartScreen({ cart, onProduct, onShop, onCheckout, onBack }: Cart
   if (cart.items.length === 0) {
     return (
       <div className="min-h-screen bg-[#f6f7f9] flex flex-col">
-        <header className="sticky top-0 z-40 px-3 safe-top pb-2 bg-gradient-to-b from-[#f6f7f9] via-[#f6f7f9] to-[#f6f7f9]/0">
+        <header className="sticky top-0 z-40 px-3 safe-top bg-gradient-to-b from-[#f6f7f9] via-[#f6f7f9] to-[#f6f7f9]/0">
           <div className="rounded-2xl bg-[#02402c] p-1.5 flex items-center gap-1.5 shadow-[0_10px_28px_-12px_rgba(2,64,44,0.55)]">
             <button
               type="button"

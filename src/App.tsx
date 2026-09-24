@@ -79,6 +79,7 @@ import {
 import { getOrFetchHomeData, getHomeDataSync } from '@/services/homePreload';
 import { startContinuousLocationWatch, stopContinuousLocationWatch } from '@/services/location';
 import HelpCenterScreen from '@/screens/HelpCenterScreen';
+import { GSTReportScreen } from '@/screens/GSTReportScreen';
 
 // ----------------------------------------------------
 // CURRENT APP VERSION CONSTANT
@@ -110,6 +111,7 @@ const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   brand: '/brand',
   wallet: '/wallet',
   helpCenter: '/help',
+  gstReport: '/gst-report',   // <-- NEW
 };
 
 const PATH_TO_SCREEN: Record<string, ScreenName | 'investor'> =
@@ -768,6 +770,9 @@ function App() {
         
       case 'helpCenter':
         return <HelpCenterScreen />;
+        
+      case 'gstReport':                                  // <-- NEW
+        return <GSTReportScreen onBack={() => goTo('account')} />;
 
       case 'brand':
         return <BrandScreen />;

@@ -161,7 +161,8 @@ export type ScreenName =
   | 'banner'
   | 'search'
   | 'wallet'
-  | 'helpCenter';   // <-- NEW
+  | 'helpCenter'
+  | 'gstReport';   // <-- NEW
 
 export interface Business {
   id: string;

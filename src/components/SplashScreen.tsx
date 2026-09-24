@@ -11,7 +11,7 @@ interface SplashScreenProps {
 
 export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
   const [exiting, setExiting] = useState(false);
-  const [showText, setShowText] = useState(false); // Restored the text animation state
+  const [showText, setShowText] = useState(false);
   const onFinishRef = useRef(onFinish);
 
   useEffect(() => {
@@ -36,7 +36,6 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
     const bridge = document.getElementById('splash-bridge');
     if (bridge) bridge.remove();
 
-    // Trigger the staggered text fade-in after 150ms
     const textTimer = setTimeout(() => setShowText(true), 150);
 
     const fallbackTimer = setTimeout(() => {
@@ -54,6 +53,20 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
     if (!isReady || exiting) return;
 
     setExiting(true);
+
+    // --- THE FIX ---
+    // Flip the base HTML canvas to white behind the scenes.
+    // This removes the green background from the transparent navbar area 
+    // exactly as the splash screen fades out, preserving your seamless boot.
+    document.documentElement.style.setProperty('background-color', '#ffffff', 'important');
+    document.body.style.setProperty('background-color', '#ffffff', 'important');
+    const rootEl = document.getElementById('root');
+    if (rootEl) rootEl.style.setProperty('background-color', '#ffffff', 'important');
+    
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', '#ffffff');
+    // ---------------
+
     const doneTimer = setTimeout(() => {
       onFinishRef.current();
     }, 250);
@@ -70,8 +83,6 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
       <div className="absolute -top-32 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-[#5ce5b4]/10 blur-[130px]" />
 
       <div className="relative w-full h-full select-none">
-        
-        {/* LOGO EXACTLY ALIGNED TO HTML BRIDGE */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 1536 1535"
@@ -98,7 +109,6 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
           </g>
         </svg>
 
-        {/* RESTORED ANIMATION WITH transform-gpu FOR SAFETY */}
         <div
           className={`absolute top-1/2 left-1/2 -translate-x-1/2 mt-[90px] flex flex-col items-center justify-center w-full transition-all duration-700 ease-out transform-gpu ${
             showText ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'

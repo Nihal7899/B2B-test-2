@@ -837,7 +837,7 @@ export function HomeScreen({
         </div>
       </div>
 
-      <div className="space-y-6 pt-4 pb-16 transform-gpu">
+      <div className="space-y-6 pt-4 pb-17 transform-gpu">
         {topBanner && <PromoAdBanner banner={topBanner} onAction={onBannerAction} />}
 
         {topSliderBanners.length > 0 && (

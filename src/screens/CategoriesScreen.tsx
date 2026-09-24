@@ -130,7 +130,7 @@ export function CategoriesScreen({ onBack }: { onBack: () => void }) {
             <ChevronRight size={16} className="text-gray-300" />
           </button>
         ))}
-        <div className="h-32 w-full shrink-0" aria-hidden="true" />
+        <div className="h-28 w-full shrink-0" aria-hidden="true" />
       </div>
     </div>
   );

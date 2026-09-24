@@ -111,7 +111,7 @@ const SCREEN_TO_PATH: Record<ScreenName | 'investor', string> = {
   brand: '/brand',
   wallet: '/wallet',
   helpCenter: '/help',
-  gstReport: '/gst-report',   // <-- NEW
+  gstReport: '/gst-report',
 };
 
 const PATH_TO_SCREEN: Record<string, ScreenName | 'investor'> =
@@ -229,7 +229,6 @@ function App() {
   useEffect(() => {
     let active = true;
 
-    // 1. Exit immediately if running in a web browser
     if (!Capacitor.isNativePlatform()) return;
 
     const checkAppVersion = async () => {
@@ -263,7 +262,6 @@ function App() {
       active = false;
     };
   }, []);
-  // ------------------------
 
   useEffect(() => {
     let active = true;
@@ -296,8 +294,6 @@ function App() {
     };
   }, [user, authLoading]);
 
-
-
   const filterConfigRef = useRef<FilterConfig | null>(null);
   const filterTitleRef = useRef('Products');
 
@@ -308,18 +304,16 @@ function App() {
   const isInvestor = role === 'investor';
   const isDedicatedStaff = isDeliveryPartner || isWarehouseManager;
 
-  // --- ZOMATO-STYLE CONTINUOUS FOREGROUND GPS STREAM ---
+  // --- CONTINUOUS FOREGROUND GPS STREAM ---
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || !user || isDedicatedStaff) return;
 
-    // Start continuous hardware watch
     void startContinuousLocationWatch();
 
     return () => {
       void stopContinuousLocationWatch();
     };
   }, [user, isDedicatedStaff]);
-  // -----------------------------------------------------
 
   const deliveryTab = useMemo(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -430,40 +424,28 @@ function App() {
     return location.pathname;
   }, [screen, location.pathname, location.search, isDeliveryPartner, isWarehouseManager, isInvestor, deliveryTab]);
 
-  const isFullBleed = true;
-
-
-
+  // --- DYNAMIC SYSTEM BARS & RECENT APPS RESUME ---
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
     const applySystemBars = () => {
       const darkHeaderScreens = ['home', 'store', 'brand', 'categoryDetail', 'search', 'product', 'investor']; 
       const isDarkBg = darkHeaderScreens.includes(screen);
-      setFullScreenSystemBars(!isDarkBg);
+      void setFullScreenSystemBars(!isDarkBg);
     };
 
-    // 1. Run on screen or user change with a delay to outlast NavigationBar.show()
-    const timeoutId = setTimeout(() => {
-      applySystemBars();
-    }, 350);
+    applySystemBars();
 
-    // 2. Run on background resume with a delay to outlast the OS window manager reset
     const appStateListener = CapApp.addListener('appStateChange', ({ isActive }) => {
       if (isActive) {
-        setTimeout(() => {
-          applySystemBars();
-        }, 350);
+        applySystemBars();
       }
     });
 
     return () => {
-      clearTimeout(timeoutId);
-      appStateListener.then(listener => listener.remove()).catch(() => {});
+      appStateListener.then((l) => l.remove()).catch(() => {});
     };
   }, [screen, user]);
-
-
 
   const initPushRef = useRef(false);
 
@@ -670,8 +652,6 @@ function App() {
           />
         );
 
-
-
       case 'orderDetail': {
         const orderId = new URLSearchParams(location.search).get('id');
         if (!orderId) return <Navigate to="/orders" replace />;
@@ -685,14 +665,12 @@ function App() {
             onBack={() => navigate(-1)} 
             onSaved={() => {
               if (isFromCheckout) {
-                navigate(-1); // Safely returns to checkout without creating a loop
+                navigate(-1);
               }
-              // If not from checkout, do nothing (stays on the addresses screen)
             }} 
           />
         );
       }
-
 
       case 'wishlist':
         return <WishlistScreen cart={cart} onProduct={openProduct} onShop={() => goTo('home')} />;
@@ -788,7 +766,7 @@ function App() {
       case 'helpCenter':
         return <HelpCenterScreen />;
         
-      case 'gstReport':                                  // <-- NEW
+      case 'gstReport':
         return <GSTReportScreen onBack={() => goTo('account')} />;
 
       case 'brand':
@@ -821,6 +799,21 @@ function App() {
   const isWarehouseView = isWarehouseManager || screen === 'warehouse';
   const isLargeScreenView = isWarehouseView || isInvestor || screen === 'investor' || screen === 'admin';
 
+  // --- DYNAMIC BOTTOM NAV VISIBILITY CHECK ---
+  const isBottomNavVisible =
+    !isDedicatedStaff &&
+    !needsForceUpdate &&
+    screen !== 'categoryDetail' &&
+    screen !== 'search' &&
+    screen !== 'product' &&
+    screen !== 'cart' &&
+    screen !== 'checkout' &&
+    screen !== 'warehouse' &&
+    screen !== 'investor' &&
+    screen !== 'delivery' &&
+    screen !== 'store' &&
+    screen !== 'brand';
+
   return (
     <div className="min-h-screen bg-ink-100 flex flex-col justify-between">
       <div
@@ -828,7 +821,8 @@ function App() {
           isLargeScreenView ? 'max-w-7xl' : 'max-w-[720px]'
         }`}
       >
-        <main className={`flex-1 ${isFullBleed ? 'pb-0 pt-0' : 'safe-top pt-4 pb-24'}`}>
+        {/* Main wrapper: pt-0 ensures no double padding at the top, and pb-28 gives comfortable breathing room when bottom nav is present */}
+        <main className={`flex-1 pt-0 ${isBottomNavVisible ? 'pb-28' : 'pb-0'}`}>
           <BackButtonHandler disableBack={isDedicatedStaff || needsForceUpdate} />
           
           {isHomeReady && (
@@ -847,27 +841,16 @@ function App() {
           )}
         </main>
 
-        {!isDedicatedStaff &&
-          !needsForceUpdate &&
-          screen !== 'categoryDetail' &&
-          screen !== 'search' &&
-          screen !== 'product' &&
-          screen !== 'cart' &&
-          screen !== 'checkout' &&   // <-- add this
-          screen !== 'warehouse' &&
-          screen !== 'investor' &&
-          screen !== 'delivery' &&
-          screen !== 'store' &&
-          screen !== 'brand' && (
-            <div className="safe-bottom bg-white border-t border-gray-100">
-              <BottomNavigation
-                active={screen as any}
-                onNavigate={goTo as any}
-              />
-            </div>
-          )}
+        {isBottomNavVisible && (
+          <div className="safe-bottom bg-white border-t border-gray-100">
+            <BottomNavigation
+              active={screen as any}
+              onNavigate={goTo as any}
+            />
+          </div>
+        )}
 
-        {/* Forced Update Bottom Sheet - Displays after splash screen finishes */}
+        {/* Forced Update Bottom Sheet */}
         {!showSplash && needsForceUpdate && versionData && (
           <AppUpdateBottomSheet
             versionData={versionData}

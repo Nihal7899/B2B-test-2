@@ -6,11 +6,12 @@ import { OrderCard } from '@/components/OrderCard';
 
 interface OrdersScreenProps {
   onOrderClick: (orderId: string) => void;
+  onHelpCenter: () => void;
 }
 
 const ITEMS_PER_PAGE = 20;
 
-export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
+export function OrdersScreen({ onOrderClick, onHelpCenter }: OrdersScreenProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -191,7 +192,7 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   if (loading && orders.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
+        <div className="h-8 w-8 rounded-full border-2 border-emerald-200 border-t-emerald-900 animate-spin" />
       </div>
     );
   }
@@ -208,13 +209,13 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
           disabled={refreshing}
           className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center text-ink-600 shadow-xs active:scale-95 transition-transform"
         >
-          <RefreshCw size={16} className={refreshing ? 'animate-spin text-brand-600' : ''} />
+          <RefreshCw size={16} className={refreshing ? 'animate-spin text-emerald-900' : ''} />
         </button>
       </div>
 
       {orders.length === 0 && !loadingMore ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-          <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600">
+          <div className="h-20 w-20 rounded-3xl bg-emerald-50 flex items-center justify-center text-emerald-900">
             <Package size={36} strokeWidth={1.5} />
           </div>
           <h2 className="text-lg font-extrabold text-ink-900 mt-5">No orders found</h2>
@@ -233,7 +234,7 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
                 onClick={() => setFilter(f)}
                 className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all ${
                   filter === f
-                    ? 'bg-brand-600 text-white shadow-sm'
+                    ? 'bg-emerald-900 text-white shadow-sm'
                     : 'bg-white border border-ink-200 text-ink-600 hover:bg-ink-50'
                 }`}
               >
@@ -248,16 +249,21 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
             ))}
 
             <div ref={sentinelRef} className="h-10 flex items-center justify-center mt-4">
-              {loadingMore && <Loader2 size={24} className="animate-spin text-brand-600" />}
+              {loadingMore && <Loader2 size={24} className="animate-spin text-emerald-900" />}
             </div>
           </div>
 
-          <div className="rounded-2xl bg-brand-50 p-4 text-center mt-6">
-            <ClipboardList size={23} className="mx-auto text-brand-600" />
-            <p className="text-sm font-bold text-brand-900 mt-2">Need help with an order?</p>
-            <p className="text-xs text-brand-700 mt-1">Our support team is here for you</p>
-            <button className="mt-3 text-xs font-bold text-brand-700 hover:underline">Contact support</button>
-          </div>
+          <button
+            onClick={onHelpCenter}
+            className="w-full rounded-2xl bg-emerald-50 p-4 text-center mt-6 active:scale-[0.98] transition-transform"
+          >
+            <ClipboardList size={23} className="mx-auto text-emerald-900" />
+            <p className="text-sm font-bold text-emerald-950 mt-2">Need help with an order?</p>
+            <p className="text-xs text-emerald-800 mt-1">Our support team is here for you</p>
+            <span className="inline-block mt-3 text-xs font-bold text-emerald-900 hover:underline">
+              Contact support
+            </span>
+          </button>
         </>
       )}
     </div>

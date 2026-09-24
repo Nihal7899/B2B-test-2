@@ -621,7 +621,7 @@ function App() {
         return <CategoriesScreen onBack={() => goTo('home')} />;
 
       case 'orders':
-        return <OrdersScreen onOrderClick={openOrder} />;
+        return <OrdersScreen onOrderClick={openOrder} onHelpCenter={() => goTo('helpCenter')} />;
 
       case 'cart':
         return (

@@ -363,13 +363,10 @@ export function HomeScreen({
       setAddresses(list);
 
       if (list.length > 0) {
-        setSelectedAddr((prevSelected) => {
-          if (prevSelected && list.some((a) => a.id === prevSelected)) {
-            return prevSelected;
-          }
-          const def = list.find((a) => a.is_default) || list[0];
-          return def.id;
-        });
+        // FIX: Always sync to the database's default address. 
+        // This ensures if it was changed in Cart/Checkout, the Home screen updates immediately.
+        const def = list.find((a) => a.is_default) || list[0];
+        setSelectedAddr(def.id);
       } else {
         setSelectedAddr(null);
       }
@@ -895,7 +892,9 @@ export function HomeScreen({
 
             case 'quick_reorder':
               return reorderProducts.length > 0 ? (
-                <ProductCarousel
+                
+
+<ProductCarousel
                   key={section.id}
                   title={section.title || 'Buy Again'}
                   products={reorderProducts}
@@ -912,7 +911,9 @@ export function HomeScreen({
 
             case 'recently_viewed':
               return recentlyViewed.length > 0 ? (
-                <ProductCarousel
+                
+
+<ProductCarousel
                   key={section.id}
                   title={section.title || 'Recently Viewed'}
                   products={recentlyViewed}
@@ -929,7 +930,9 @@ export function HomeScreen({
 
             case 'popular_products':
               return popularProducts.length > 0 ? (
-                <ProductCarousel
+                
+
+<ProductCarousel
                   key={section.id}
                   title={section.title || 'Popular Products'}
                   products={popularProducts}
@@ -946,7 +949,9 @@ export function HomeScreen({
 
             case 'volume_deals':
               return volumeDeals.length > 0 ? (
-                <ProductCarousel
+                
+
+<ProductCarousel
                   key={section.id}
                   title={section.title || 'Volume Savings'}
                   products={volumeDeals}
@@ -963,7 +968,9 @@ export function HomeScreen({
 
             case 'deals':
               return deals.length > 0 ? (
-                <ProductCarousel
+                
+
+<ProductCarousel
                   key={section.id}
                   title={section.title || 'Wholesale Deals'}
                   products={deals}
@@ -980,7 +987,9 @@ export function HomeScreen({
 
             case 'new_arrivals':
               return newArrivals.length > 0 ? (
-                <ProductCarousel
+                
+
+<ProductCarousel
                   key={section.id}
                   title={section.title || 'New Arrivals'}
                   products={newArrivals}
@@ -997,7 +1006,9 @@ export function HomeScreen({
 
             case 'top_rated':
               return topRated.length > 0 ? (
-                <ProductCarousel
+                
+
+<ProductCarousel
                   key={section.id}
                   title={section.title || 'Top Rated by Businesses'}
                   products={topRated}
@@ -1014,7 +1025,9 @@ export function HomeScreen({
 
             case 'limited_stock':
               return limitedStock.length > 0 ? (
-                <ProductCarousel
+                
+
+<ProductCarousel
                   key={section.id}
                   title={section.title || 'Fast Selling / Low Stock'}
                   products={limitedStock}
@@ -1031,7 +1044,9 @@ export function HomeScreen({
 
             case 'brand_spotlight':
               return brandSpotlight && brandSpotlight.products.length > 0 ? (
-                <ProductCarousel
+                
+
+<ProductCarousel
                   key={section.id}
                   title={section.title || `Spotlight: ${brandSpotlight.brandName}`}
                   products={brandSpotlight.products}
@@ -1048,7 +1063,9 @@ export function HomeScreen({
 
             case 'essentials':
               return essentials.length > 0 ? (
-                <ProductCarousel
+                
+
+<ProductCarousel
                   key={section.id}
                   title={section.title || 'Everyday Essentials'}
                   products={essentials}

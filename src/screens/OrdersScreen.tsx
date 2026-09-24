@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { ClipboardList, Package, RefreshCw, Loader2 } from 'lucide-react';
+import { ClipboardList, Package, RefreshCw } from 'lucide-react';
 import type { Order } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { OrderCard } from '@/components/OrderCard';
@@ -10,6 +10,47 @@ interface OrdersScreenProps {
 }
 
 const ITEMS_PER_PAGE = 20;
+
+/* ─────────────── Dark-green ring loader (no bg, no halo, no core) ─────────────── */
+function OrderLoader({ size = 56 }: { size?: number }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 64 64"
+      width={size}
+      height={size}
+      fill="none"
+      role="img"
+      aria-label="Loading"
+      style={{ color: '#064e3b' }}
+    >
+      <style>{`
+        .ap-r1, .ap-r2, .ap-r3 {
+          stroke: currentColor;
+          stroke-linecap: round;
+          fill: none;
+          transform-box: view-box;
+          transform-origin: center;
+          animation-iteration-count: infinite;
+          animation-timing-function: linear;
+        }
+        .ap-r1 { stroke-width: 2;   stroke-dasharray: 34 14 9 43; opacity: .95; animation-name: ap-cw;  animation-duration: 2.8s; }
+        .ap-r2 { stroke-width: 2.4; stroke-dasharray: 24 10 24 42; opacity: .72; animation-name: ap-ccw; animation-duration: 3.9s; }
+        .ap-r3 { stroke-width: 2.8; stroke-dasharray: 16 12 16 56; opacity: .52; animation-name: ap-cw;  animation-duration: 2.1s; }
+        @keyframes ap-cw  { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes ap-ccw { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+          .ap-r1, .ap-r2, .ap-r3 { animation: none; }
+          .ap-r2 { transform: rotate(42deg); }
+          .ap-r3 { transform: rotate(-28deg); }
+        }
+      `}</style>
+      <circle className="ap-r1" cx="32" cy="32" r="27" pathLength="100" />
+      <circle className="ap-r2" cx="32" cy="32" r="20" pathLength="100" />
+      <circle className="ap-r3" cx="32" cy="32" r="13" pathLength="100" />
+    </svg>
+  );
+}
 
 export function OrdersScreen({ onOrderClick, onHelpCenter }: OrdersScreenProps) {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -189,16 +230,17 @@ export function OrdersScreen({ onOrderClick, onHelpCenter }: OrdersScreenProps) 
     'Cancelled',
   ];
 
+  /* ─────────────── Initial loading state ─────────────── */
   if (loading && orders.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="h-8 w-8 rounded-full border-2 border-emerald-200 border-t-emerald-900 animate-spin" />
+        <OrderLoader size={56} />
       </div>
     );
   }
 
   return (
-    <div className="safe-top px-4 pb-[73px] space-y-4 max-w-lg mx-auto">
+    <div className="safe-top px-4 pb-6 space-y-4 max-w-lg mx-auto">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Your orders</h1>
@@ -248,8 +290,9 @@ export function OrdersScreen({ onOrderClick, onHelpCenter }: OrdersScreenProps) 
               <OrderCard key={order.id} order={order} onClick={() => onOrderClick(order.id)} />
             ))}
 
-            <div ref={sentinelRef} className="h-10 flex items-center justify-center mt-4">
-              {loadingMore && <Loader2 size={24} className="animate-spin text-emerald-900" />}
+            {/* Bottom "load more" sentinel — reuses the same ring loader at a smaller size */}
+            <div ref={sentinelRef} className="h-12 flex items-center justify-center mt-4">
+              {loadingMore && <OrderLoader size={32} />}
             </div>
           </div>
 

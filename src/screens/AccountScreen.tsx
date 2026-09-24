@@ -63,7 +63,7 @@ export function AccountScreen({ onNavigate }: AccountScreenProps) {
 
 
   return (
-    <div className="safe-top px-4 pb-17 space-y-4 max-w-lg mx-auto">
+    <div className="safe-top px-4 pb-[68px] space-y-4 max-w-lg mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

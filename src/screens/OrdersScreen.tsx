@@ -194,7 +194,7 @@ export function OrdersScreen({ onOrderClick }: OrdersScreenProps) {
   /* ─────────────── MAIN UI ─────────────── */
   return (
     <div className="min-h-screen bg-white">
-      <div className="safe-top mx-auto max-w-lg px-4 pb-14">
+      <div className="safe-top mx-auto max-w-lg px-4 pb-17">
 
         {/* ── Original non-sticky header ───────────────────────────── */}
         <div className="flex items-center justify-between">

@@ -1112,17 +1112,17 @@ export function DeliveryScreen({
                         key={assignment.id}
                         className="bg-white border border-slate-200/80 rounded-[26px] p-4 sm:p-5 shadow-[0_4px_24px_rgba(0,0,0,0.03)] space-y-3.5 hover:border-emerald-200 transition-all"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-2xl bg-[#0a382c] text-[#59D9B6] flex items-center justify-center shadow-xs">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <div className="h-10 w-10 rounded-2xl bg-[#0a382c] text-[#59D9B6] flex items-center justify-center shadow-xs shrink-0">
                               <Package size={18} strokeWidth={2.2} />
                             </div>
-                            <div>
-                              <p className="text-sm font-black text-slate-900 tracking-tight">{order.order_number}</p>
-                              <p className="text-[11px] font-semibold text-slate-400 mt-0.5 flex items-center gap-1.5">
-                                <span>Assigned: {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-black text-slate-900 tracking-tight truncate">{order.order_number}</p>
+                              <p className="text-[11px] font-semibold text-slate-400 mt-0.5 flex flex-wrap items-center gap-1.5">
+                                <span className="whitespace-nowrap">Assigned: {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
                                 {distanceKm != null && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 font-black text-[10px]">
+                                  <span className="inline-flex whitespace-nowrap shrink-0 items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 font-black text-[10px]">
                                     <MapPin size={9} />
                                     {distanceKm.toFixed(2)} km
                                   </span>
@@ -1132,7 +1132,7 @@ export function DeliveryScreen({
                           </div>
 
                           <span
-                            className={`text-[9px] font-black uppercase rounded-full px-3 py-1 tracking-wider inline-flex items-center gap-1.5 ${
+                            className={`text-[8.5px] sm:text-[9px] font-black uppercase rounded-full px-2 py-1 sm:px-3 tracking-wider inline-flex items-center gap-1 sm:gap-1.5 whitespace-nowrap shrink-0 ${
                               isDelivered
                                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                 : assignment.status === 'out_for_delivery'
@@ -1141,7 +1141,7 @@ export function DeliveryScreen({
                             }`}
                           >
                             <span
-                              className={`h-1.5 w-1.5 rounded-full ${
+                              className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                                 isDelivered ? 'bg-emerald-600' : assignment.status === 'out_for_delivery' ? 'bg-sky-600' : 'bg-emerald-600'
                               }`}
                             />

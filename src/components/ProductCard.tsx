@@ -338,7 +338,9 @@ export const QuantitySelector = React.memo(function QuantitySelector({
   theme = DEFAULT_THEME,
 }: QuantitySelectorProps) {
   const { primaryColor = '#02402c' } = theme;
-  const buttonSize = size === 'md' ? 'h-6 w-6' : 'h-5.5 w-5.5';
+  
+  // 1. Increase button widths (e.g., changed w-6 to w-8, and w-5.5 to w-7)
+  const buttonSize = size === 'md' ? 'h-6 w-8' : 'h-5.5 w-7';
 
   return (
     <div
@@ -359,7 +361,8 @@ export const QuantitySelector = React.memo(function QuantitySelector({
       </button>
 
       <span
-        className="min-w-[15px] text-center text-[9.5px] font-black"
+        // 2. Increase the number container width (e.g., changed min-w-[15px] to min-w-[28px])
+        className="min-w-[28px] text-center text-[9.5px] font-black"
         style={{ color: primaryColor }}
       >
         {quantity}
@@ -380,6 +383,7 @@ export const QuantitySelector = React.memo(function QuantitySelector({
     </div>
   );
 });
+
 
 interface ProductCarouselProps {
   title: string;

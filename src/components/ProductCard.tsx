@@ -339,12 +339,13 @@ export const QuantitySelector = React.memo(function QuantitySelector({
 }: QuantitySelectorProps) {
   const { primaryColor = '#02402c' } = theme;
   
-  // 1. Increase button widths (e.g., changed w-6 to w-8, and w-5.5 to w-7)
-  const buttonSize = size === 'md' ? 'h-6 w-8' : 'h-5.5 w-7';
+  // Matched height to the 'Add' button (h-7) and made them perfect squares
+  const buttonSize = size === 'md' ? 'h-8 w-8' : 'h-7 w-7';
 
   return (
     <div
-      className="flex items-center gap-0.5 rounded-lg p-0.5 shadow-2xs"
+      // Added shrink-0 so the entire selector never gets squished by the price container
+      className="flex shrink-0 items-center gap-0.5 rounded-lg p-0.5 shadow-2xs"
       style={{ backgroundColor: `${primaryColor}18` }}
     >
       <button
@@ -353,16 +354,18 @@ export const QuantitySelector = React.memo(function QuantitySelector({
           e.stopPropagation();
           onDecrement();
         }}
-        className={`flex ${buttonSize} items-center justify-center rounded-md bg-white shadow-2xs active:scale-90`}
+        // Added shrink-0 to maintain perfect button proportions
+        className={`flex ${buttonSize} shrink-0 items-center justify-center rounded-md bg-white shadow-2xs active:scale-90`}
         style={{ color: primaryColor }}
         aria-label="Decrease quantity"
       >
-        <Minus size={9} />
+        {/* Increased icon size slightly to balance the larger button */}
+        <Minus size={11} strokeWidth={2.5} />
       </button>
 
       <span
-        // 2. Increase the number container width (e.g., changed min-w-[15px] to min-w-[28px])
-        className="min-w-[28px] text-center text-[9.5px] font-black"
+        // Used a fixed width (w-7) to keep the selector's total width stable regardless of digit count
+        className="w-7 shrink-0 text-center text-[10.5px] font-black"
         style={{ color: primaryColor }}
       >
         {quantity}
@@ -374,15 +377,16 @@ export const QuantitySelector = React.memo(function QuantitySelector({
           e.stopPropagation();
           onIncrement();
         }}
-        className={`flex ${buttonSize} items-center justify-center rounded-md bg-white shadow-2xs active:scale-90`}
+        className={`flex ${buttonSize} shrink-0 items-center justify-center rounded-md bg-white shadow-2xs active:scale-90`}
         style={{ color: primaryColor }}
         aria-label="Increase quantity"
       >
-        <Plus size={9} />
+        <Plus size={11} strokeWidth={2.5} />
       </button>
     </div>
   );
 });
+
 
 
 interface ProductCarouselProps {

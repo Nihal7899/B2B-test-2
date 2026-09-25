@@ -105,7 +105,7 @@ export function SplashScreen({ onFinish, isReady = false }: SplashScreenProps) {
             <div className="h-[1.5px] w-6 sm:w-8 bg-[#89c74e] rounded-full" />
             {/* Removed uppercase class to properly respect HoReCa casing */}
             <span className="text-[10px] sm:text-[11px] font-bold tracking-[0.32em] text-[#e8f4de]">
-              B 2 B . HoReCa
+              B 2 B . H o R e C a
             </span>
             <div className="h-[1.5px] w-6 sm:w-8 bg-[#89c74e] rounded-full" />
           </div>

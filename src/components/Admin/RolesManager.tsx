@@ -1,6 +1,8 @@
 // src/components/admin/RolesManager.tsx
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Loader2, Search, X, Shield, User, Building2, Truck, LineChart } from 'lucide-react';
+import {
+  Loader2, Search, X, Shield, User, Building2, Truck, LineChart, Lock,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 // --- Helpers ---
@@ -37,41 +39,108 @@ const SkeletonCard = () => (
   </div>
 );
 
-// --- Confirmation Dialog ---
-const ConfirmDialog = ({
+// --- PIN Dialog (replaces the plain ConfirmDialog) ---
+const RoleChangePinDialog = ({
   isOpen,
   onConfirm,
   onCancel,
-  title,
-  message,
+  user,
+  newRoleLabel,
+  error,
+  loading,
 }: {
   isOpen: boolean;
-  onConfirm: () => void;
+  onConfirm: (pin: string) => void;
   onCancel: () => void;
-  title: string;
-  message: string;
+  user: { full_name: string; phone: string } | null;
+  newRoleLabel: string;
+  error: string;
+  loading: boolean;
 }) => {
+  const [pin, setPin] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Reset pin when the dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setPin('');
+      const t = setTimeout(() => inputRef.current?.focus(), 80);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
+  // Clear pin when an error appears (wrong PIN → clean slate)
+  useEffect(() => {
+    if (error) setPin('');
+  }, [error]);
+
   if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin.length === 4 && !loading) onConfirm(pin);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl max-w-sm w-full shadow-xl p-6 space-y-4">
-        <h3 className="text-lg font-bold text-ink-900">{title}</h3>
-        <p className="text-sm text-ink-600">{message}</p>
-        <div className="flex gap-3 justify-end pt-2">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white rounded-2xl max-w-sm w-full shadow-xl p-6 space-y-4"
+      >
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center mb-3">
+            <Lock size={20} />
+          </div>
+          <h3 className="text-lg font-bold text-ink-900">Enter Security PIN</h3>
+          <p className="text-xs text-ink-500 mt-1 leading-relaxed">
+            You're about to change{' '}
+            <span className="font-bold text-ink-700">
+              {user?.full_name || 'this user'}
+            </span>
+            's role to{' '}
+            <span className="font-bold text-brand-700">{newRoleLabel}</span>.
+            <br />
+            Enter the 4-digit admin PIN to confirm.
+          </p>
+        </div>
+
+        <input
+          ref={inputRef}
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={4}
+          value={pin}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+            setPin(v);
+          }}
+          placeholder="••••"
+          className="w-full h-14 text-center text-2xl font-bold tracking-[0.8em] rounded-xl border border-ink-200 bg-ink-50/50 outline-none focus:border-brand-500 focus:bg-white transition-colors"
+        />
+
+        {error && (
+          <p className="text-xs text-red-600 text-center font-medium">{error}</p>
+        )}
+
+        <div className="flex gap-3 justify-end pt-1">
           <button
+            type="button"
             onClick={onCancel}
-            className="h-9 px-4 rounded-lg border border-ink-200 text-sm font-medium text-ink-700 hover:bg-ink-50"
+            disabled={loading}
+            className="h-9 px-4 rounded-lg border border-ink-200 text-sm font-medium text-ink-700 hover:bg-ink-50 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
-            onClick={onConfirm}
-            className="h-9 px-4 rounded-lg bg-brand-600 text-white text-sm font-bold hover:bg-brand-700"
+            type="submit"
+            disabled={pin.length !== 4 || loading}
+            className="h-9 px-4 rounded-lg bg-brand-600 text-white text-sm font-bold hover:bg-brand-700 disabled:opacity-50 flex items-center gap-2 min-w-[90px] justify-center"
           >
-            Confirm
+            {loading ? <Loader2 size={14} className="animate-spin" /> : 'Confirm'}
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 };
@@ -82,7 +151,7 @@ export default function RolesManager() {
     { user_id: string; role: string; full_name: string; phone: string }[]
   >([]);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [listLoading, setListLoading] = useState(false); // for reset (search)
+  const [listLoading, setListLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
@@ -90,16 +159,18 @@ export default function RolesManager() {
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState<number | null>(null);
 
-  // Confirmation dialog
+  // Role change + PIN dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingRoleChange, setPendingRoleChange] = useState<{
     userId: string;
     newRole: string;
   } | null>(null);
+  const [pinError, setPinError] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   const LIMIT = 20;
 
-  // --- Fetch logic (same as before) ---
+  // --- Fetch users (unchanged) ---
   useEffect(() => {
     let isMounted = true;
     const fetchUsers = async () => {
@@ -232,7 +303,7 @@ export default function RolesManager() {
     }
   }, [loadingMore, hasMore, listLoading]);
 
-  // --- Infinite scroll with Intersection Observer ---
+  // --- Infinite scroll ---
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -249,33 +320,75 @@ export default function RolesManager() {
     return () => observer.disconnect();
   }, [hasMore, listLoading, loadMore]);
 
-  // --- Role change with confirmation ---
+  // --- Role change with PIN confirmation ---
   const openConfirmDialog = (userId: string, newRole: string) => {
     setPendingRoleChange({ userId, newRole });
+    setPinError('');
     setDialogOpen(true);
   };
 
-  const confirmRoleChange = async () => {
+  const confirmRoleChange = async (enteredPin: string) => {
     if (!pendingRoleChange) return;
     const { userId, newRole } = pendingRoleChange;
 
-    setUsers((prev) =>
-      prev.map((u) => (u.user_id === userId ? { ...u, role: newRole } : u))
-    );
-    setDialogOpen(false);
-    setPendingRoleChange(null);
+    setVerifying(true);
+    setPinError('');
 
     try {
-      await supabase.rpc('set_user_role', { p_user_id: userId, p_role: newRole });
+      // Always fetch the freshest PIN so a freshly-changed PIN works immediately
+      const { data, error: fetchErr } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'role_change_pin')
+        .maybeSingle();
+
+      if (fetchErr) throw fetchErr;
+
+      const expectedPin =
+        data?.value &&
+        typeof data.value === 'object' &&
+        data.value !== null &&
+        'pin' in data.value
+          ? String((data.value as { pin: unknown }).pin)
+          : '';
+
+      if (!expectedPin) {
+        setPinError('No PIN configured. Ask an admin to set one in App Settings.');
+        setVerifying(false);
+        return;
+      }
+
+      if (enteredPin !== expectedPin) {
+        setPinError('Incorrect PIN. Please try again.');
+        setVerifying(false);
+        return;
+      }
+
+      // Correct PIN — optimistic update & close dialog
+      setUsers((prev) =>
+        prev.map((u) => (u.user_id === userId ? { ...u, role: newRole } : u))
+      );
+      setDialogOpen(false);
+      setPendingRoleChange(null);
+      setVerifying(false);
+
+      const { error: rpcErr } = await supabase.rpc('set_user_role', {
+        p_user_id: userId,
+        p_role: newRole,
+      });
+      if (rpcErr) throw rpcErr;
     } catch (err) {
       console.error('Role update failed:', err);
-      setPage(0);
+      setPinError('Something went wrong. Please try again.');
+      setVerifying(false);
+      setPage(0); // refetch on failure
     }
   };
 
   const cancelDialog = () => {
     setDialogOpen(false);
     setPendingRoleChange(null);
+    setPinError('');
   };
 
   // --- Role info ---
@@ -288,6 +401,14 @@ export default function RolesManager() {
   };
 
   const showSkeletons = initialLoading || listLoading;
+
+  const pendingUser = pendingRoleChange
+    ? users.find((u) => u.user_id === pendingRoleChange.userId) ?? null
+    : null;
+
+  const pendingRoleLabel = pendingRoleChange
+    ? roleInfo[pendingRoleChange.newRole]?.label ?? pendingRoleChange.newRole
+    : '';
 
   return (
     <div className="space-y-4">
@@ -380,25 +501,26 @@ export default function RolesManager() {
             })}
       </div>
 
-      {/* Sentinel element – triggers infinite scroll */}
+      {/* Sentinel */}
       {hasMore && !showSkeletons && (
         <div ref={sentinelRef} className="h-8 flex items-center justify-center">
           {loadingMore && <Loader2 size={18} className="animate-spin text-brand-500" />}
         </div>
       )}
 
-      {/* No more message */}
       {!hasMore && users.length > 0 && !showSkeletons && (
         <p className="text-center text-xs text-ink-400 pt-2">No more users</p>
       )}
 
-      {/* Confirmation Dialog */}
-      <ConfirmDialog
+      {/* PIN-protected role change dialog */}
+      <RoleChangePinDialog
         isOpen={dialogOpen}
         onConfirm={confirmRoleChange}
         onCancel={cancelDialog}
-        title="Change role"
-        message={`Are you sure you want to change this user's role to "${roleInfo[pendingRoleChange?.newRole || 'customer']?.label}"?`}
+        user={pendingUser}
+        newRoleLabel={pendingRoleLabel}
+        error={pinError}
+        loading={verifying}
       />
     </div>
   );

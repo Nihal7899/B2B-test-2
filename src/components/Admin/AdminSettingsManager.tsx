@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Save, Radar, Check, Phone, MessageCircle } from 'lucide-react';
+import {
+  Loader2, Save, Radar, Check, Phone, MessageCircle,
+  KeyRound, Eye, EyeOff,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function AdminSettingsManager() {
   const [radiusKm, setRadiusKm] = useState('2');
   const [supportPhone, setSupportPhone] = useState('');
   const [supportWhatsapp, setSupportWhatsapp] = useState('');
+  const [roleChangePin, setRoleChangePin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -17,7 +22,12 @@ export default function AdminSettingsManager() {
       const { data, error: err } = await supabase
         .from('app_settings')
         .select('key, value')
-        .in('key', ['dispatch_radius_km', 'support_phone', 'support_whatsapp']);
+        .in('key', [
+          'dispatch_radius_km',
+          'support_phone',
+          'support_whatsapp',
+          'role_change_pin',
+        ]);
 
       if (cancelled) return;
       if (err) {
@@ -32,6 +42,9 @@ export default function AdminSettingsManager() {
           }
           if (row.key === 'support_whatsapp' && row.value && 'number' in row.value) {
             setSupportWhatsapp(String(row.value.number));
+          }
+          if (row.key === 'role_change_pin' && row.value && 'pin' in row.value) {
+            setRoleChangePin(String(row.value.pin));
           }
         });
       }
@@ -61,6 +74,12 @@ export default function AdminSettingsManager() {
       return;
     }
 
+    const cleanPin = roleChangePin.trim();
+    if (!/^\d{4}$/.test(cleanPin)) {
+      setError('Role change PIN must be exactly 4 digits.');
+      return;
+    }
+
     setSaving(true);
     setError('');
 
@@ -69,20 +88,26 @@ export default function AdminSettingsManager() {
       { key: 'dispatch_radius_km', value: { km }, updated_at: now },
       { key: 'support_phone', value: { number: cleanPhone }, updated_at: now },
       { key: 'support_whatsapp', value: { number: cleanWhatsapp }, updated_at: now },
+      { key: 'role_change_pin', value: { pin: cleanPin }, updated_at: now },
     ];
 
-    const { error: err } = await supabase
-      .from('app_settings')
-      .upsert(rows, { onConflict: 'key' });
+    try {
+      const { error: err } = await supabase
+        .from('app_settings')
+        .upsert(rows, { onConflict: 'key' });
 
-    setSaving(false);
-    if (err) {
-      setError(err.message || 'Could not save settings.');
-      return;
+      if (err) {
+        setError(err.message || 'Could not save settings.');
+        return;
+      }
+
+      setSavedAt(Date.now());
+      setTimeout(() => setSavedAt(null), 2500);
+    } catch (e: any) {
+      setError(e?.message || 'Could not save settings.');
+    } finally {
+      setSaving(false);
     }
-
-    setSavedAt(Date.now());
-    setTimeout(() => setSavedAt(null), 2500);
   };
 
   if (loading) {
@@ -168,6 +193,48 @@ export default function AdminSettingsManager() {
             placeholder="+919876543210"
             className="mt-3 w-full h-11 rounded-xl border border-ink-200 px-3 text-sm font-bold outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
           />
+        </div>
+      </div>
+
+      {/* Role change security PIN */}
+      <div className="bg-white border border-ink-100 rounded-2xl shadow-card p-5 space-y-3">
+        <div>
+          <label className="text-xs font-bold text-ink-700 flex items-center gap-1.5">
+            <KeyRound size={13} className="text-amber-600" />
+            Role change security PIN
+          </label>
+          <p className="text-[11px] text-ink-400 mt-1 leading-relaxed">
+            A 4-digit PIN required to confirm any role change from the Roles Manager.
+            Share it only with trusted admins. You will be prompted every time a role is changed.
+          </p>
+
+          <div className="mt-3 relative">
+            <input
+              type={showPin ? 'text' : 'password'}
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              value={roleChangePin}
+              onChange={(e) =>
+                setRoleChangePin(e.target.value.replace(/\D/g, '').slice(0, 4))
+              }
+              placeholder="••••"
+              className="w-full h-11 rounded-xl border border-ink-200 px-3 pr-11 text-sm font-bold tracking-[0.5em] outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPin((s) => !s)}
+              aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
+            >
+              {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+
+          <p className="text-[10px] text-ink-400 mt-2">
+            Must be exactly 4 digits (0–9). If left blank, admins won't be able to change
+            any user's role until a PIN is set here.
+          </p>
         </div>
       </div>
 

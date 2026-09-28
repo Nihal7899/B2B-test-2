@@ -7,6 +7,92 @@ CREATE TABLE public.system_settings (
 
 INSERT INTO public.system_settings (key, value) VALUES ('delivery', '{"free_threshold": 2000}');
 
+
+
+-- ==============================================
+-- 1. Product Volume Pricing
+-- ==============================================
+CREATE TABLE public.product_volume_pricing (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  min_quantity int NOT NULL CHECK (min_quantity >= 1),
+  max_quantity int,                           -- NULL means unlimited
+  unit_price numeric NOT NULL CHECK (unit_price >= 0),
+  discount_percent numeric CHECK (discount_percent >= 0 AND discount_percent <= 100),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT volume_pricing_range_check CHECK (
+    min_quantity < max_quantity OR max_quantity IS NULL
+  )
+);
+
+CREATE INDEX idx_volume_pricing_product ON product_volume_pricing(product_id);
+
+-- ==============================================
+-- 2. Extend Products (GST & HSN)
+-- ==============================================
+ALTER TABLE public.products ADD COLUMN hsn_code text;
+ALTER TABLE public.products ADD COLUMN gst_percentage numeric DEFAULT 0 CHECK (gst_percentage >= 0 AND gst_percentage <= 100);
+
+-- ==============================================
+-- 3. Promo Codes
+-- ==============================================
+CREATE TABLE public.promo_codes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code text NOT NULL UNIQUE,
+  discount_type text NOT NULL CHECK (discount_type IN ('percentage', 'fixed')),
+  discount_value numeric NOT NULL CHECK (discount_value > 0),
+  min_order_value numeric DEFAULT 0,
+  max_discount_amount numeric,               -- for percentage discounts
+  applies_to text DEFAULT 'all' CHECK (applies_to IN ('all', 'category', 'product')),
+  applies_to_ids uuid[],                     -- array of category/product IDs
+  start_date timestamptz,
+  end_date timestamptz,
+  usage_limit int,                           -- total uses allowed
+  used_count int NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.promo_code_usage (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  promo_code_id uuid NOT NULL REFERENCES public.promo_codes(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  used_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- ==============================================
+-- 4. Delivery Zones & Charges
+-- ==============================================
+CREATE TABLE public.delivery_zones (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  pincodes text[] NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.delivery_charges (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  zone_id uuid NOT NULL REFERENCES public.delivery_zones(id) ON DELETE CASCADE,
+  min_order_value numeric DEFAULT 0,
+  max_order_value numeric,                   -- NULL = no upper limit
+  charge numeric NOT NULL CHECK (charge >= 0),
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- ==============================================
+-- 5. Extend Orders (GST, promo, delivery zone)
+-- ==============================================
+ALTER TABLE public.orders ADD COLUMN gst_amount numeric DEFAULT 0;
+ALTER TABLE public.orders ADD COLUMN promo_code_id uuid REFERENCES public.promo_codes(id);
+ALTER TABLE public.orders ADD COLUMN promo_discount numeric DEFAULT 0;
+ALTER TABLE public.orders ADD COLUMN delivery_zone_id uuid REFERENCES public.delivery_zones(id);
+
 drop function if exists public.create_order(uuid, jsonb, text, uuid);
 
 create or replace function public.create_order(
@@ -208,91 +294,6 @@ end;
 $$;
 
 grant execute on function public.create_order(uuid, jsonb, text, uuid) to authenticated;
-
--- ==============================================
--- 1. Product Volume Pricing
--- ==============================================
-CREATE TABLE public.product_volume_pricing (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
-  min_quantity int NOT NULL CHECK (min_quantity >= 1),
-  max_quantity int,                           -- NULL means unlimited
-  unit_price numeric NOT NULL CHECK (unit_price >= 0),
-  discount_percent numeric CHECK (discount_percent >= 0 AND discount_percent <= 100),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT volume_pricing_range_check CHECK (
-    min_quantity < max_quantity OR max_quantity IS NULL
-  )
-);
-
-CREATE INDEX idx_volume_pricing_product ON product_volume_pricing(product_id);
-
--- ==============================================
--- 2. Extend Products (GST & HSN)
--- ==============================================
-ALTER TABLE public.products ADD COLUMN hsn_code text;
-ALTER TABLE public.products ADD COLUMN gst_percentage numeric DEFAULT 0 CHECK (gst_percentage >= 0 AND gst_percentage <= 100);
-
--- ==============================================
--- 3. Promo Codes
--- ==============================================
-CREATE TABLE public.promo_codes (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code text NOT NULL UNIQUE,
-  discount_type text NOT NULL CHECK (discount_type IN ('percentage', 'fixed')),
-  discount_value numeric NOT NULL CHECK (discount_value > 0),
-  min_order_value numeric DEFAULT 0,
-  max_discount_amount numeric,               -- for percentage discounts
-  applies_to text DEFAULT 'all' CHECK (applies_to IN ('all', 'category', 'product')),
-  applies_to_ids uuid[],                     -- array of category/product IDs
-  start_date timestamptz,
-  end_date timestamptz,
-  usage_limit int,                           -- total uses allowed
-  used_count int NOT NULL DEFAULT 0,
-  is_active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE public.promo_code_usage (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  promo_code_id uuid NOT NULL REFERENCES public.promo_codes(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
-  used_at timestamptz NOT NULL DEFAULT now()
-);
-
--- ==============================================
--- 4. Delivery Zones & Charges
--- ==============================================
-CREATE TABLE public.delivery_zones (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  pincodes text[] NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE public.delivery_charges (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  zone_id uuid NOT NULL REFERENCES public.delivery_zones(id) ON DELETE CASCADE,
-  min_order_value numeric DEFAULT 0,
-  max_order_value numeric,                   -- NULL = no upper limit
-  charge numeric NOT NULL CHECK (charge >= 0),
-  is_active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-
--- ==============================================
--- 5. Extend Orders (GST, promo, delivery zone)
--- ==============================================
-ALTER TABLE public.orders ADD COLUMN gst_amount numeric DEFAULT 0;
-ALTER TABLE public.orders ADD COLUMN promo_code_id uuid REFERENCES public.promo_codes(id);
-ALTER TABLE public.orders ADD COLUMN promo_discount numeric DEFAULT 0;
-ALTER TABLE public.orders ADD COLUMN delivery_zone_id uuid REFERENCES public.delivery_zones(id);
-
 -- ==============================================
 -- 6. (Optional) Indexes for performance
 -- ==============================================

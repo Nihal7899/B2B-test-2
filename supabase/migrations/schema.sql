@@ -13,8 +13,11 @@ CREATE TABLE public.profiles (
   registration_status text NOT NULL DEFAULT 'unregistered'::text CHECK (registration_status = ANY (ARRAY['unregistered'::text, 'registered'::text])),
   staff_registration_status text NOT NULL DEFAULT 'unregistered'::text CHECK (staff_registration_status = ANY (ARRAY['unregistered'::text, 'registered'::text])),
   current_cod_balance numeric NOT NULL DEFAULT 0 CHECK (current_cod_balance >= 0::numeric),
+  current_warehouse_id uuid,
+  delivery_type text DEFAULT 'standard'::text CHECK (delivery_type = ANY (ARRAY['standard'::text, 'express'::text])),
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
+  CONSTRAINT profiles_current_warehouse_id_fkey FOREIGN KEY (current_warehouse_id) REFERENCES public.delivery_ranges(id)
 );
 CREATE TABLE public.user_roles (
   user_id uuid NOT NULL,
@@ -64,6 +67,7 @@ CREATE TABLE public.products (
   subcategory_id uuid,
   image_urls ARRAY DEFAULT '{}'::text[],
   stock_threshold integer NOT NULL DEFAULT 0,
+  barcode text,
   CONSTRAINT products_pkey PRIMARY KEY (id),
   CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id),
   CONSTRAINT products_subcategory_id_fkey FOREIGN KEY (subcategory_id) REFERENCES public.subcategories(id)
@@ -222,6 +226,13 @@ CREATE TABLE public.businesses (
   gst_verified_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  is_default boolean NOT NULL DEFAULT false,
+  address_line_1 text,
+  address_line_2 text,
+  city text,
+  state text,
+  landmark text,
+  pincode text,
   CONSTRAINT businesses_pkey PRIMARY KEY (id),
   CONSTRAINT businesses_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES auth.users(id)
 );
@@ -400,6 +411,7 @@ CREATE TABLE public.delivery_charges (
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  estimated_time text DEFAULT '45 mins'::text,
   CONSTRAINT delivery_charges_pkey PRIMARY KEY (id),
   CONSTRAINT delivery_charges_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES public.delivery_zones(id)
 );
@@ -615,4 +627,34 @@ CREATE TABLE public.warehouse_sync_signals (
   id integer NOT NULL DEFAULT 1,
   last_updated timestamp with time zone DEFAULT now(),
   CONSTRAINT warehouse_sync_signals_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.app_versions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  app_version text NOT NULL,
+  playstore_link text NOT NULL,
+  app_store_link text NOT NULL,
+  release_notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT app_versions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.faqs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  question text NOT NULL,
+  answer text NOT NULL,
+  category text NOT NULL DEFAULT 'general'::text,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT faqs_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.faq_feedback (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  faq_id uuid NOT NULL,
+  user_id uuid,
+  helpful boolean NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT faq_feedback_pkey PRIMARY KEY (id),
+  CONSTRAINT faq_feedback_faq_id_fkey FOREIGN KEY (faq_id) REFERENCES public.faqs(id),
+  CONSTRAINT faq_feedback_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );

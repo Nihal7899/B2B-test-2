@@ -1,3 +1,7 @@
+-- 0. Add missing personal_name column to profiles
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS personal_name text DEFAULT ''::text;
+
 -- 1. Fetch delivery partners with real profile names
 CREATE OR REPLACE FUNCTION public.get_delivery_partners()
 RETURNS TABLE (

@@ -533,10 +533,10 @@ with check (
 );
 
 -- Add delivery_type to profiles
-ALTER TABLE public.profiles ADD COLUMN IF NOT NULL delivery_type text DEFAULT 'standard' CHECK (delivery_type IN ('standard', 'express'));
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS delivery_type text DEFAULT 'standard' CHECK (delivery_type IN ('standard', 'express'));
 
 -- Add estimated_time to delivery_charges
-ALTER TABLE public.delivery_charges ADD COLUMN IF NOT NULL estimated_time text DEFAULT '45 mins';
+ALTER TABLE public.delivery_charges ADD COLUMN IF NOT exists estimated_time text DEFAULT '45 mins';
 
 
 DROP FUNCTION IF EXISTS public.get_delivery_charge(text, numeric);

@@ -26,3 +26,27 @@ ON public.payments FOR SELECT TO authenticated USING (
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.delivery_assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+
+
+-- 0b. Generic role checker with admin override
+--     Returns true if the user has the given role, OR if they are an admin.
+CREATE OR REPLACE FUNCTION public.has_role_recursive_safe(
+  p_user_id uuid,
+  p_role text
+)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles
+    WHERE user_roles.user_id = p_user_id
+      AND (
+        user_roles.role::text = p_role
+        OR user_roles.role::text = 'admin'   -- admin override
+      )
+  );
+$$;

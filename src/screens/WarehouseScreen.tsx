@@ -26,7 +26,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
-  Filter,
   Truck,
   Sparkles,
   ArrowRight,
@@ -38,9 +37,8 @@ import {
   Wifi,
   SlidersHorizontal,
   ArrowUpDown,
-  AlertOctagon,
   Layers,
-  MapPin,           // NEW
+  MapPin,
   ScanLine,
   AlertCircle,
 } from 'lucide-react';
@@ -82,15 +80,7 @@ interface ProductInventory {
   image_urls?: string[];
   is_available: boolean;
   category_id?: string;
-  barcode?: string;   // <-- NEW
-}
-
-interface PaymentRecord {
-  id: string;
-  order_id: string;
-  provider: string;
-  amount: number;
-  status: string;
+  barcode?: string;
 }
 
 interface PaymentSummary {
@@ -125,17 +115,6 @@ type InvoiceDatePreset = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'cus
 
 const ORDERS_PER_PAGE = 12;
 const INVOICES_PER_PAGE = 12;
-
-const isTodayDate = (dateString: string | null | undefined): boolean => {
-  if (!dateString) return false;
-  const d = new Date(dateString);
-  const now = new Date();
-  return (
-    d.getDate() === now.getDate() &&
-    d.getMonth() === now.getMonth() &&
-    d.getFullYear() === now.getFullYear()
-  );
-};
 
 function CafKartLogo({ className = 'h-8 w-8' }: { className?: string }) {
   return (
@@ -239,7 +218,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'invoices' | 'inventory' | 'low_stock'>('dashboard');
   const [orderStatusPill, setOrderStatusPill] = useState<string>('all');
 
-  // State to track if we are viewing the category list or the drilled-down products grid
   const [inventoryViewMode, setInventoryViewMode] = useState<'categories' | 'products'>('categories');
 
   useEffect(() => {
@@ -264,7 +242,6 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  // NEW: Store independent collections for the different tabs and limits
   const [orders, setOrders] = useState<DbOrder[]>([]);
   const [invoices, setInvoices] = useState<DbOrder[]>([]);
   const [priorityOrders, setPriorityOrders] = useState<DbOrder[]>([]);
@@ -312,15 +289,12 @@ export function WarehouseScreen({ onBack, isDedicatedRole = false }: WarehouseSc
     driverName: string;
   } | null>(null);
   
-  // --- Barcode Scan to Update Stock ---
-const [scanStockOpen, setScanStockOpen] = useState(false);
-const [scannedBarcode, setScannedBarcode] = useState('');
-const [scannedProduct, setScannedProduct] = useState<ProductInventory | null>(null);
-const [scanLookupStatus, setScanLookupStatus] = useState<
-  'idle' | 'searching' | 'found' | 'not_found'
->('idle');
-const [scanStockValue, setScanStockValue] = useState(0);
-const [scanSaving, setScanSaving] = useState(false);
+  const [scanStockOpen, setScanStockOpen] = useState(false);
+  const [scannedBarcode, setScannedBarcode] = useState('');
+  const [scannedProduct, setScannedProduct] = useState<ProductInventory | null>(null);
+  const [scanLookupStatus, setScanLookupStatus] = useState<'idle' | 'searching' | 'found' | 'not_found'>('idle');
+  const [scanStockValue, setScanStockValue] = useState(0);
+  const [scanSaving, setScanSaving] = useState(false);
 
   const isStaffUnregistered = !profile?.staff_registration_status || profile.staff_registration_status === 'unregistered';
 
@@ -353,9 +327,6 @@ const [scanSaving, setScanSaving] = useState(false);
     }
   }, []);
 
-  // NEW: Dedicated function to load the urgent action items on the dashboard.
-  // Prefers the delivery_address_snapshot embedded in the order row so past orders
-  // never shift when the customer edits their live address.
   const loadPriorityOrders = useCallback(async () => {
     try {
       const { data } = await supabase.from('orders')
@@ -372,14 +343,12 @@ const [scanSaving, setScanSaving] = useState(false);
           data.forEach((o: any) => {
             const snap = o.delivery_address_snapshot;
             if (snap && snap.recipient_name && o.address_id) {
-              // Keyed by address_id so the existing render path (addressMap[ord.address_id]) keeps working
               clone[o.address_id] = snap;
             }
           });
           return clone;
         });
 
-        // Fetch live addresses only for legacy priority orders missing a snapshot
         const legacyAddressIds = data
           .filter((o: any) => !o.delivery_address_snapshot && o.address_id)
           .map((o: any) => o.address_id)
@@ -403,7 +372,6 @@ const [scanSaving, setScanSaving] = useState(false);
     }
   }, []);
 
-  // NEW: Helper to merge RPC payload results into the local state dictionaries
   const extractRPCDataToState = (fetchedOrders: any[], setTargetOrders: any) => {
     setTargetOrders(fetchedOrders);
     const newAddrMap = { ...addressMap };
@@ -411,17 +379,14 @@ const [scanSaving, setScanSaving] = useState(false);
     const newPayMap = { ...paymentsMap };
 
     fetchedOrders.forEach((ord: any) => {
-      // Address object — RPC already prefers snapshot, so this is authoritative
       if (ord.address_obj && ord.address_id) {
         newAddrMap[ord.address_id] = ord.address_obj;
       }
       
-      // Assignment object
       if (ord.assignment_obj) {
         newAssignMap[ord.id] = ord.assignment_obj;
       }
 
-      // Payments array
       let walletPaid = 0;
       let onlinePaid = 0;
       let codPaid = 0;
@@ -472,7 +437,6 @@ const [scanSaving, setScanSaving] = useState(false);
     setPaymentsMap(newPayMap);
   };
 
-  // NEW: Server Paginated Fetch for the Active Orders Queue
   const loadServerOrders = useCallback(async () => {
     try {
       const { data, error } = await supabase.rpc('get_paginated_warehouse_orders', {
@@ -493,7 +457,6 @@ const [scanSaving, setScanSaving] = useState(false);
     }
   }, [orderStatusPill, ordersPage, searchQuery, orderSortField, orderSortDirection]);
 
-  // NEW: Server Paginated Fetch for the Invoices/Historical Queue
   const loadServerInvoices = useCallback(async () => {
     try {
       const now = new Date();
@@ -539,7 +502,6 @@ const [scanSaving, setScanSaving] = useState(false);
     }
   }, [invoiceDatePreset, customStartDate, customEndDate, searchQuery, invoicesPage, invoiceDateField]);
 
-  // UNCHANGED: Loads all inventory products
   const loadInventory = useCallback(async () => {
     try {
       const { data } = await supabase
@@ -552,7 +514,6 @@ const [scanSaving, setScanSaving] = useState(false);
     }
   }, []);
 
-  // NEW: Consolidate initialization loaders
   const loadAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([
@@ -572,7 +533,6 @@ const [scanSaving, setScanSaving] = useState(false);
     void loadAll();
   }, [loadAll]);
 
-  // Tab change triggers for isolated list reloads
   useEffect(() => {
     if (activeTab === 'orders' || activeTab === 'dashboard') void loadServerOrders();
   }, [activeTab, loadServerOrders]);
@@ -581,13 +541,12 @@ const [scanSaving, setScanSaving] = useState(false);
     if (activeTab === 'invoices') void loadServerInvoices();
   }, [activeTab, loadServerInvoices]);
 
-  // NEW: Optimized realtime mutator avoiding full DB re-fetches
+  // FIXED: Real-time mutation and automatic server re-fetching for active queues
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let debounceTimer: NodeJS.Timeout;
 
     const handleRealtimeSpike = (payload: any) => {
-      // If it's a specific driver assignment broadcast
       if (payload.type === 'broadcast' && payload.event === 'assignment_changed') {
         const { orderId, newDriverId } = payload.payload;
         setAssignmentsMap(prev => ({ ...prev, [orderId]: { ...prev[orderId], delivery_partner_id: newDriverId } }));
@@ -596,15 +555,15 @@ const [scanSaving, setScanSaving] = useState(false);
         return;
       }
 
-      // If we got an exact row update from postgres, mutate in memory
       if (payload.table === 'orders' && payload.eventType === 'UPDATE') {
-        const updatedOrder = payload.new;
-        setOrders(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o));
-        setInvoices(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o));
-        setPriorityOrders(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o));
-        void loadStats();
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          void loadServerOrders();
+          void loadServerInvoices();
+          void loadStats();
+          void loadPriorityOrders();
+        }, 150);
       } else {
-        // Fallback for massive spikes or un-parsed updates: debounced targeted refresh
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           if (activeTab === 'orders' || activeTab === 'dashboard') void loadServerOrders();
@@ -621,12 +580,10 @@ const [scanSaving, setScanSaving] = useState(false);
       const channelName = `warehouse_signal_sync_${user.id}`;
       channel = supabase
         .channel(channelName)
-        // Listen to explicit order row changes instead of empty warehouse_sync_signals
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleRealtimeSpike)
         .on('broadcast', { event: 'assignment_changed' }, handleRealtimeSpike)
         .subscribe((status, err) => {
           if (err) console.error('[Warehouse Realtime] Error:', err);
-          else if (status === 'SUBSCRIBED') console.log('[Warehouse Realtime] Signal Sync ACTIVE 🟢');
         });
     });
 
@@ -662,10 +619,15 @@ const [scanSaving, setScanSaving] = useState(false);
     }
   };
 
-  // Helper to instantly mutate local state without waiting for realtime/refetch
-  const updateLocalOrderState = (orderId: string, status: string) => {
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
-    setPriorityOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+  // FIXED: Immediately remove order from current view list if its new status doesn't match active filter pill
+  const updateLocalOrderState = (orderId: string, newStatus: string) => {
+    setOrders((prev) => {
+      if (orderStatusPill !== 'all' && orderStatusPill !== newStatus && !(orderStatusPill === 'assign_partner' && newStatus === 'packed')) {
+        return prev.filter((o) => o.id !== orderId);
+      }
+      return prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o));
+    });
+    setPriorityOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
   };
 
   const handleConfirmOrder = async (orderId: string) => {
@@ -677,7 +639,7 @@ const [scanSaving, setScanSaving] = useState(false);
       } else {
         updateLocalOrderState(orderId, 'confirmed');
         showToast('Order confirmed and stock allocated', 'success');
-        await Promise.all([loadStats(), loadInventory()]);
+        await Promise.all([loadStats(), loadInventory(), loadServerOrders()]);
         void sendWarehouseUpdateBroadcast();
       }
     } finally {
@@ -697,7 +659,7 @@ const [scanSaving, setScanSaving] = useState(false);
       } else {
         updateLocalOrderState(orderId, status);
         showToast(`Order marked as ${status.replace(/_/g, ' ')}`, 'success');
-        await loadStats();
+        await Promise.all([loadStats(), loadServerOrders()]);
         void sendWarehouseUpdateBroadcast();
       }
     } finally {
@@ -738,7 +700,7 @@ const [scanSaving, setScanSaving] = useState(false);
         showToast('Order cancelled, inventory restored & refund initiated', 'info');
         setCancelModalOrderId(null);
         setCustomCancelReason('');
-        await Promise.all([loadStats(), loadInventory()]);
+        await Promise.all([loadStats(), loadInventory(), loadServerOrders()]);
         void sendWarehouseUpdateBroadcast();
       }
     } finally {
@@ -797,7 +759,7 @@ const [scanSaving, setScanSaving] = useState(false);
 
       showToast('Driver assigned & order ready for pickup', 'success');
       setEditingDriverOrderId(null);
-      await loadStats();
+      await Promise.all([loadStats(), loadServerOrders()]);
     } catch (err: any) {
       showToast('Failed to assign driver: ' + err.message, 'error');
     } finally {
@@ -859,72 +821,72 @@ const [scanSaving, setScanSaving] = useState(false);
     }
   };
   
-const resetScanFlow = () => {
-  setScannedBarcode('');
-  setScannedProduct(null);
-  setScanLookupStatus('idle');
-  setScanStockValue(0);
-  setScanSaving(false);
-};
-
-const closeScanFlow = () => {
-  setScanStockOpen(false);
-  resetScanFlow();
-};
-
-const handleBarcodeScanned = async (code: string) => {
-  const clean = code.trim();
-  setScannedBarcode(clean);
-  setScannedProduct(null);
-  setScanLookupStatus('searching');
-
-  const { data, error } = await supabase
-    .from('products')
-    .select(
-      'id, name, brand, pack_size, stock_quantity, stock_threshold, wholesale_price, mrp, image_url, image_urls, is_available, category_id, barcode'
-    )
-    .eq('barcode', clean)
-    .maybeSingle();
-
-  if (error || !data) {
-    setScanLookupStatus('not_found');
-    return;
-  }
-
-  const prod = data as ProductInventory;
-  setScannedProduct(prod);
-  setScanStockValue(prod.stock_quantity ?? 0);
-  setScanLookupStatus('found');
-};
-
-const handleScanSaveStock = async () => {
-  if (!scannedProduct) return;
-  const next = Math.max(0, Math.floor(scanStockValue));
-  setScanSaving(true);
-  try {
-    const { error } = await supabase
-      .from('products')
-      .update({ stock_quantity: next, updated_at: new Date().toISOString() })
-      .eq('id', scannedProduct.id);
-
-    if (error) {
-      showToast('Failed to update stock: ' + error.message, 'error');
-    } else {
-      setProducts((prev) =>
-        prev.map((p) => (p.id === scannedProduct.id ? { ...p, stock_quantity: next } : p))
-      );
-      showToast(
-        `Stock updated: ${scannedProduct.brand} ${scannedProduct.name} → ${next}`,
-        'success'
-      );
-      void sendWarehouseUpdateBroadcast();
-      void loadStats();
-      closeScanFlow();
-    }
-  } finally {
+  const resetScanFlow = () => {
+    setScannedBarcode('');
+    setScannedProduct(null);
+    setScanLookupStatus('idle');
+    setScanStockValue(0);
     setScanSaving(false);
-  }
-};
+  };
+
+  const closeScanFlow = () => {
+    setScanStockOpen(false);
+    resetScanFlow();
+  };
+
+  const handleBarcodeScanned = async (code: string) => {
+    const clean = code.trim();
+    setScannedBarcode(clean);
+    setScannedProduct(null);
+    setScanLookupStatus('searching');
+
+    const { data, error } = await supabase
+      .from('products')
+      .select(
+        'id, name, brand, pack_size, stock_quantity, stock_threshold, wholesale_price, mrp, image_url, image_urls, is_available, category_id, barcode'
+      )
+      .eq('barcode', clean)
+      .maybeSingle();
+
+    if (error || !data) {
+      setScanLookupStatus('not_found');
+      return;
+    }
+
+    const prod = data as ProductInventory;
+    setScannedProduct(prod);
+    setScanStockValue(prod.stock_quantity ?? 0);
+    setScanLookupStatus('found');
+  };
+
+  const handleScanSaveStock = async () => {
+    if (!scannedProduct) return;
+    const next = Math.max(0, Math.floor(scanStockValue));
+    setScanSaving(true);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ stock_quantity: next, updated_at: new Date().toISOString() })
+        .eq('id', scannedProduct.id);
+
+      if (error) {
+        showToast('Failed to update stock: ' + error.message, 'error');
+      } else {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === scannedProduct.id ? { ...p, stock_quantity: next } : p))
+        );
+        showToast(
+          `Stock updated: ${scannedProduct.brand} ${scannedProduct.name} → ${next}`,
+          'success'
+        );
+        void sendWarehouseUpdateBroadcast();
+        void loadStats();
+        closeScanFlow();
+      }
+    } finally {
+      setScanSaving(false);
+    }
+  };
 
   const orderPills = [
     { id: 'all', label: 'All' },
@@ -944,7 +906,6 @@ const handleScanSaveStock = async () => {
   useEffect(() => {
     setInvoicesPage(1);
   }, [searchQuery, invoiceDatePreset, customStartDate, customEndDate, invoiceDateField]);
-
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -1716,7 +1677,6 @@ const handleScanSaveStock = async () => {
                                 </button>
                               </div>
                           
-                              {/* NEW: Batch dispatch entry point */}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1998,11 +1958,7 @@ const handleScanSaveStock = async () => {
 
           {(activeTab === 'inventory' || activeTab === 'low_stock') && (
             <div className="flex flex-col gap-4">
-              
               {activeTab === 'inventory' && inventoryViewMode === 'categories' ? (
-                // =========================================
-                // CATEGORY LIST VIEW
-                // =========================================
                 <div className="mx-auto w-full max-w-2xl space-y-2.5 pb-10">
                   <button
                     onClick={() => {
@@ -2051,11 +2007,7 @@ const handleScanSaveStock = async () => {
                   ))}
                 </div>
               ) : (
-                // =========================================
-                // PRODUCTS GRID VIEW (Inventory & Low Stock)
-                // =========================================
                 <div className="flex flex-col gap-4 pb-10">
-                  
                   {activeTab === 'inventory' && (
                     <div className="flex items-center gap-3 mb-1">
                       <button
@@ -2073,7 +2025,6 @@ const handleScanSaveStock = async () => {
                     </div>
                   )}
 
-                  {/* Localized Search Bar */}
                   <div className="relative w-full group shrink-0">
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-teal-400/15 to-[#59D9B6]/20 rounded-2xl blur-xs -z-10 group-focus-within:opacity-100 opacity-60 transition-opacity" />
                     <div className="relative flex items-center bg-white/95 backdrop-blur-sm border border-emerald-900/15 rounded-2xl shadow-sm focus-within:border-[#0a382c] focus-within:ring-2 focus-within:ring-[#59D9B6]/40 transition-all">
@@ -2102,7 +2053,6 @@ const handleScanSaveStock = async () => {
                     </div>
                   </div>
 
-                  {/* Product Grid */}
                   {(activeTab === 'inventory' ? filteredProducts : lowStockProducts).length === 0 ? (
                     <div className="bg-white border border-slate-200/80 rounded-[26px] p-12 text-center text-slate-400 space-y-2 mt-2">
                       <Boxes size={40} className="mx-auto text-slate-300" />
@@ -2254,10 +2204,8 @@ const handleScanSaveStock = async () => {
         </main>
       </div>
 
-      {/* MOBILE BOTTOM NAVIGATION BAR */}
       <nav className="fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom md:hidden overflow-x-auto no-scrollbar">
         <div className="min-w-max w-full max-w-2xl mx-auto flex items-center justify-between h-16 px-2 gap-2 sm:justify-around">
-          
           <button
             onClick={() => {
               setActiveTab('dashboard');
@@ -2341,7 +2289,6 @@ const handleScanSaveStock = async () => {
               </span>
             )}
           </button>
-
         </div>
       </nav>
 
@@ -2665,6 +2612,7 @@ const handleScanSaveStock = async () => {
         }}
         onCancel={() => setStockConfirmDialog({ isOpen: false })}
       />
+
       {nearbyModal && (
         <NearbyOrdersModal
           referenceOrderId={nearbyModal.orderId}
@@ -2672,7 +2620,23 @@ const handleScanSaveStock = async () => {
           driverId={nearbyModal.driverId}
           driverName={nearbyModal.driverName}
           onClose={() => setNearbyModal(null)}
-          onAssigned={() => {
+          onAssigned={async (assignedOrderIds?: string[]) => {
+            const syncChannel = supabase.channel('delivery_dispatch_sync');
+            if (assignedOrderIds && assignedOrderIds.length > 0) {
+              for (const ordId of assignedOrderIds) {
+                await syncChannel.send({
+                  type: 'broadcast',
+                  event: 'assignment_changed',
+                  payload: { orderId: ordId, previousDriverId: null, newDriverId: nearbyModal.driverId },
+                });
+              }
+            } else {
+              await syncChannel.send({
+                type: 'broadcast',
+                event: 'assignment_changed',
+                payload: { orderId: nearbyModal.orderId, previousDriverId: null, newDriverId: nearbyModal.driverId },
+              });
+            }
             void loadServerOrders();
             void loadStats();
             void loadPriorityOrders();
@@ -2681,7 +2645,6 @@ const handleScanSaveStock = async () => {
         />
       )}
       
-      {/* Floating: Scan barcode to update stock — only visible in Inventory & Low Stock tabs */}
       {(activeTab === 'inventory' || activeTab === 'low_stock') && (
         <button
           onClick={() => {

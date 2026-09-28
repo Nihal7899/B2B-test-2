@@ -151,3 +151,5 @@ CREATE TRIGGER trg_order_status_push_notification
 AFTER UPDATE OF status ON public.orders
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_order_status_push_notification();
+
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'investor';

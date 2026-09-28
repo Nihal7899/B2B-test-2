@@ -1,6 +1,9 @@
 -- 1. Remove the JWT policy we tried earlier
 DROP POLICY IF EXISTS "Staff can view orders natively" ON public.orders;
 
+
+DROP POLICY IF EXISTS  "Warehouse managers can view orders" ON public.orders;
+DROP POLICY IF EXISTS  "Admins can view orders" ON public.orders;
 -- 2. Restore your original Warehouse Manager SELECT policy
 CREATE POLICY "Warehouse managers can view orders"
 ON public.orders FOR SELECT

@@ -53,21 +53,19 @@ CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON public.order_items (pro
 CREATE OR REPLACE FUNCTION public.get_popular_products(limit_count integer DEFAULT 12)
 RETURNS SETOF public.products AS $$
 BEGIN
-RETURN QUERY
-SELECT p.*
-FROM public.products p
-LEFT JOIN (
-SELECT product_id, SUM(quantity) as total_sold
-FROM public.order_items
-GROUP BY product_id
-) oi ON oi.product_id = p.id
-WHERE p.is_active = true
-ORDER BY COALESCE(oi.total_sold, 0) DESC, p.rating DESC, p.created_at DESC
-LIMIT limit_count;
+    RETURN QUERY
+    SELECT p.*
+    FROM public.products p
+    LEFT JOIN (
+        SELECT product_id, SUM(quantity) AS total_sold
+        FROM public.order_items
+        GROUP BY product_id
+    ) oi ON oi.product_id = p.id
+    WHERE p.is_active = true
+    ORDER BY COALESCE(oi.total_sold, 0) DESC, p.rating DESC, p.created_at DESC
+    LIMIT limit_count;
 END;
-
-\[
- LANGUAGE plpgsql SECURITY DEFINER;  
+$$ LANGUAGE plpgsql SECURITY DEFINER;
   
 -- 5. Default Sections Configuration  
 INSERT INTO public.home_sections (title, subtitle, section_type, banner_position, banner_size, sort_order, is_active)  
@@ -86,4 +84,3 @@ ON CONFLICT DO NOTHING;
   
   
 
-\]

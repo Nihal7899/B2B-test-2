@@ -1,0 +1,39 @@
+CREATE TRIGGER profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER user_roles_updated_at BEFORE UPDATE ON public.user_roles FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER categories_updated_at BEFORE UPDATE ON public.categories FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER products_updated_at BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER promotions_updated_at BEFORE UPDATE ON public.promotions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER carts_updated_at BEFORE UPDATE ON public.carts FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER cart_items_updated_at BEFORE UPDATE ON public.cart_items FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER addresses_updated_at BEFORE UPDATE ON public.addresses FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER orders_updated_at BEFORE UPDATE ON public.orders FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER delivery_assignments_updated_at BEFORE UPDATE ON public.delivery_assignments FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER payments_updated_at BEFORE UPDATE ON public.payments FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER set_product_code AFTER INSERT ON public.products FOR EACH ROW WHEN ((new.product_code IS NULL)) EXECUTE FUNCTION generate_product_code();
+
+CREATE TRIGGER on_profile_wallet_created AFTER INSERT ON public.profiles FOR EACH ROW EXECUTE FUNCTION handle_new_user_wallet();
+
+CREATE TRIGGER trg_order_cancellation_wallet_refund AFTER UPDATE OF status ON public.orders FOR EACH ROW EXECUTE FUNCTION handle_order_cancellation_refund();
+
+CREATE TRIGGER trg_order_status_push_notification AFTER UPDATE OF status ON public.orders FOR EACH ROW EXECUTE FUNCTION handle_order_status_push_notification();
+
+CREATE TRIGGER trg_delivery_partner_assigned AFTER INSERT OR UPDATE OF delivery_partner_id ON public.delivery_assignments FOR EACH ROW EXECUTE FUNCTION handle_delivery_partner_assignment();
+
+CREATE TRIGGER on_user_role_created AFTER INSERT OR UPDATE ON public.user_roles FOR EACH ROW EXECUTE FUNCTION sync_role_to_app_metadata();
+
+CREATE TRIGGER trg_orders_sync AFTER INSERT OR DELETE OR UPDATE ON public.orders FOR EACH STATEMENT EXECUTE FUNCTION notify_warehouse_sync();
+
+CREATE TRIGGER trg_delivery_sync AFTER INSERT OR DELETE OR UPDATE ON public.delivery_assignments FOR EACH STATEMENT EXECUTE FUNCTION notify_warehouse_sync();
+
+CREATE TRIGGER trg_payments_sync AFTER INSERT OR DELETE OR UPDATE ON public.payments FOR EACH STATEMENT EXECUTE FUNCTION notify_warehouse_sync();

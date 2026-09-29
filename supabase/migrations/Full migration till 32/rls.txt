@@ -1,0 +1,440 @@
+CREATE POLICY profiles_select_own ON public.profiles AS PERMISSIVE FOR SELECT TO authenticated USING (((id = auth.uid()) OR is_admin()));
+
+CREATE POLICY profiles_update_own ON public.profiles AS PERMISSIVE FOR UPDATE TO authenticated USING ((id = auth.uid())) WITH CHECK ((id = auth.uid()));
+
+CREATE POLICY categories_select_active ON public.categories AS PERMISSIVE FOR SELECT TO authenticated USING ((is_active OR is_admin()));
+
+CREATE POLICY categories_insert_admin ON public.categories AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (is_admin());
+
+CREATE POLICY categories_update_admin ON public.categories AS PERMISSIVE FOR UPDATE TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+
+CREATE POLICY categories_delete_admin ON public.categories AS PERMISSIVE FOR DELETE TO authenticated USING (is_admin());
+
+CREATE POLICY products_select_active ON public.products AS PERMISSIVE FOR SELECT TO authenticated USING ((is_active OR is_admin()));
+
+CREATE POLICY products_insert_admin ON public.products AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (is_admin());
+
+CREATE POLICY products_update_staff ON public.products AS PERMISSIVE FOR UPDATE TO authenticated USING ((is_admin() OR has_role('warehouse_manager'::app_role))) WITH CHECK ((is_admin() OR has_role('warehouse_manager'::app_role)));
+
+CREATE POLICY products_delete_admin ON public.products AS PERMISSIVE FOR DELETE TO authenticated USING (is_admin());
+
+CREATE POLICY promotions_select_active ON public.promotions AS PERMISSIVE FOR SELECT TO authenticated USING ((is_active OR is_admin()));
+
+CREATE POLICY promotions_insert_admin ON public.promotions AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (is_admin());
+
+CREATE POLICY promotions_update_admin ON public.promotions AS PERMISSIVE FOR UPDATE TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+
+CREATE POLICY promotions_delete_admin ON public.promotions AS PERMISSIVE FOR DELETE TO authenticated USING (is_admin());
+
+CREATE POLICY wishlists_select_own ON public.wishlists AS PERMISSIVE FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+
+CREATE POLICY wishlists_insert_own ON public.wishlists AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((user_id = auth.uid()));
+
+CREATE POLICY wishlists_delete_own ON public.wishlists AS PERMISSIVE FOR DELETE TO authenticated USING ((user_id = auth.uid()));
+
+CREATE POLICY carts_select_own ON public.carts AS PERMISSIVE FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+
+CREATE POLICY carts_update_own ON public.carts AS PERMISSIVE FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
+
+CREATE POLICY cart_items_select_own ON public.cart_items AS PERMISSIVE FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM carts c
+  WHERE ((c.id = cart_items.cart_id) AND (c.user_id = auth.uid())))));
+
+CREATE POLICY cart_items_insert_own ON public.cart_items AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
+   FROM carts c
+  WHERE ((c.id = cart_items.cart_id) AND (c.user_id = auth.uid())))));
+
+CREATE POLICY cart_items_update_own ON public.cart_items AS PERMISSIVE FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM carts c
+  WHERE ((c.id = cart_items.cart_id) AND (c.user_id = auth.uid()))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM carts c
+  WHERE ((c.id = cart_items.cart_id) AND (c.user_id = auth.uid())))));
+
+CREATE POLICY cart_items_delete_own ON public.cart_items AS PERMISSIVE FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM carts c
+  WHERE ((c.id = cart_items.cart_id) AND (c.user_id = auth.uid())))));
+
+CREATE POLICY delivery_insert_staff ON public.delivery_assignments AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (is_operations_staff());
+
+CREATE POLICY businesses_select_own_or_admin ON public.businesses AS PERMISSIVE FOR SELECT TO authenticated USING (((owner_user_id = auth.uid()) OR is_admin()));
+
+CREATE POLICY businesses_insert_own ON public.businesses AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((owner_user_id = auth.uid()));
+
+CREATE POLICY businesses_update_own_or_admin ON public.businesses AS PERMISSIVE FOR UPDATE TO authenticated USING (((owner_user_id = auth.uid()) OR is_admin())) WITH CHECK (((owner_user_id = auth.uid()) OR is_admin()));
+
+CREATE POLICY businesses_delete_own_or_admin ON public.businesses AS PERMISSIVE FOR DELETE TO authenticated USING (((owner_user_id = auth.uid()) OR is_admin()));
+
+CREATE POLICY business_outlets_select_own_or_admin ON public.business_outlets AS PERMISSIVE FOR SELECT TO authenticated USING ((is_admin() OR (EXISTS ( SELECT 1
+   FROM businesses b
+  WHERE ((b.id = business_outlets.business_id) AND (b.owner_user_id = auth.uid()))))));
+
+CREATE POLICY business_outlets_insert_own_or_admin ON public.business_outlets AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((is_admin() OR (EXISTS ( SELECT 1
+   FROM businesses b
+  WHERE ((b.id = business_outlets.business_id) AND (b.owner_user_id = auth.uid()))))));
+
+CREATE POLICY "Admins can delete invoice design" ON public.invoice_design AS PERMISSIVE FOR DELETE TO authenticated USING (auth_helpers.is_admin());
+
+CREATE POLICY "Anyone can view promo codes" ON public.promo_codes AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Admins can insert promo codes" ON public.promo_codes AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can update promo codes" ON public.promo_codes AS PERMISSIVE FOR UPDATE TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can delete promo codes" ON public.promo_codes AS PERMISSIVE FOR DELETE TO authenticated USING (auth_helpers.is_admin());
+
+CREATE POLICY business_outlets_update_own_or_admin ON public.business_outlets AS PERMISSIVE FOR UPDATE TO authenticated USING ((is_admin() OR (EXISTS ( SELECT 1
+   FROM businesses b
+  WHERE ((b.id = business_outlets.business_id) AND (b.owner_user_id = auth.uid())))))) WITH CHECK ((is_admin() OR (EXISTS ( SELECT 1
+   FROM businesses b
+  WHERE ((b.id = business_outlets.business_id) AND (b.owner_user_id = auth.uid()))))));
+
+CREATE POLICY business_outlets_delete_own_or_admin ON public.business_outlets AS PERMISSIVE FOR DELETE TO authenticated USING ((is_admin() OR (EXISTS ( SELECT 1
+   FROM businesses b
+  WHERE ((b.id = business_outlets.business_id) AND (b.owner_user_id = auth.uid()))))));
+
+CREATE POLICY home_banners_select_active ON public.home_banners AS PERMISSIVE FOR SELECT TO anon, authenticated USING (((is_active = true) AND ((start_at IS NULL) OR (start_at <= now())) AND ((end_at IS NULL) OR (end_at >= now()))));
+
+CREATE POLICY home_banners_select_admin ON public.home_banners AS PERMISSIVE FOR SELECT TO authenticated USING (is_admin());
+
+CREATE POLICY home_banners_insert_admin ON public.home_banners AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (is_admin());
+
+CREATE POLICY home_banners_update_admin ON public.home_banners AS PERMISSIVE FOR UPDATE TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+
+CREATE POLICY home_banners_delete_admin ON public.home_banners AS PERMISSIVE FOR DELETE TO authenticated USING (is_admin());
+
+CREATE POLICY public_select_smart_collections ON public.smart_collections AS PERMISSIVE FOR SELECT TO anon, authenticated USING (true);
+
+CREATE POLICY admin_insert_smart_collections ON public.smart_collections AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY admin_update_smart_collections ON public.smart_collections AS PERMISSIVE FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY admin_delete_smart_collections ON public.smart_collections AS PERMISSIVE FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY public_select_home_banners ON public.home_banners AS PERMISSIVE FOR SELECT TO anon, authenticated USING (true);
+
+CREATE POLICY admin_insert_home_banners ON public.home_banners AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY admin_update_home_banners ON public.home_banners AS PERMISSIVE FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY admin_delete_home_banners ON public.home_banners AS PERMISSIVE FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY "Anyone can view product volume pricing" ON public.product_volume_pricing AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Admins can insert product volume pricing" ON public.product_volume_pricing AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can update product volume pricing" ON public.product_volume_pricing AS PERMISSIVE FOR UPDATE TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can delete product volume pricing" ON public.product_volume_pricing AS PERMISSIVE FOR DELETE TO authenticated USING (auth_helpers.is_admin());
+
+CREATE POLICY "Service role wallet transactions mutations" ON public.wallet_transactions AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+CREATE POLICY "Admins can insert orders" ON public.orders AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY "Anyone can read delivery_ranges" ON public.delivery_ranges AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Users can view own promo code usage" ON public.promo_code_usage AS PERMISSIVE FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+
+CREATE POLICY "Customers can view own order items" ON public.order_items AS PERMISSIVE FOR SELECT TO authenticated USING (((EXISTS ( SELECT 1
+   FROM orders
+  WHERE ((orders.id = order_items.order_id) AND (orders.user_id = auth.uid())))) AND (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'customer'::app_role))))));
+
+CREATE POLICY "Warehouse managers can view order items" ON public.order_items AS PERMISSIVE FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'warehouse_manager'::app_role)))));
+
+CREATE POLICY "Warehouse managers can update order items" ON public.order_items AS PERMISSIVE FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'warehouse_manager'::app_role))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'warehouse_manager'::app_role)))));
+
+CREATE POLICY "Admins can update invoice config" ON public.invoice_config AS PERMISSIVE FOR UPDATE TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can delete invoice config" ON public.invoice_config AS PERMISSIVE FOR DELETE TO authenticated USING (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can view order items" ON public.order_items AS PERMISSIVE FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY "Admins can insert order items" ON public.order_items AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY "Admins can update order items" ON public.order_items AS PERMISSIVE FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY "Admins can delete order items" ON public.order_items AS PERMISSIVE FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY "Customers can view own payments" ON public.payments AS PERMISSIVE FOR SELECT TO authenticated USING (((user_id = auth.uid()) AND (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'customer'::app_role))))));
+
+CREATE POLICY "Anyone can view invoice design" ON public.invoice_design AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Admins can insert invoice design" ON public.invoice_design AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can update invoice design" ON public.invoice_design AS PERMISSIVE FOR UPDATE TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can view payments" ON public.payments AS PERMISSIVE FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY "Admins can insert payments" ON public.payments AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY "Admins can update payments" ON public.payments AS PERMISSIVE FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY "Admins can delete payments" ON public.payments AS PERMISSIVE FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY "Admins can insert user roles" ON public.user_roles AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Delivery partners can view assigned orders" ON public.orders AS PERMISSIVE FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM delivery_assignments da
+  WHERE ((da.order_id = orders.id) AND (da.delivery_partner_id = auth.uid())))));
+
+CREATE POLICY "Delivery partners can view assigned order items" ON public.order_items AS PERMISSIVE FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM delivery_assignments da
+  WHERE ((da.order_id = order_items.order_id) AND (da.delivery_partner_id = auth.uid())))));
+
+CREATE POLICY "Delivery partners can view assigned order addresses" ON public.addresses AS PERMISSIVE FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM (orders o
+     JOIN delivery_assignments da ON ((da.order_id = o.id)))
+  WHERE ((o.address_id = addresses.id) AND (da.delivery_partner_id = auth.uid())))));
+
+CREATE POLICY "Warehouse managers can view all addresses" ON public.addresses AS PERMISSIVE FOR SELECT TO authenticated USING (auth_helpers.is_warehouse_manager());
+
+CREATE POLICY "Users can view own addresses" ON public.addresses AS PERMISSIVE FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+
+CREATE POLICY "Users can insert own addresses" ON public.addresses AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((user_id = auth.uid()));
+
+CREATE POLICY "Users can update own addresses" ON public.addresses AS PERMISSIVE FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
+
+CREATE POLICY "Users can delete own addresses" ON public.addresses AS PERMISSIVE FOR DELETE TO authenticated USING ((user_id = auth.uid()));
+
+CREATE POLICY "Allow read for all" ON public.delivery_zones AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Allow read for all" ON public.delivery_charges AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Allow all for admins" ON public.delivery_zones AS PERMISSIVE FOR ALL TO public USING (is_admin());
+
+CREATE POLICY "Allow all for admins" ON public.delivery_charges AS PERMISSIVE FOR ALL TO public USING (is_admin());
+
+CREATE POLICY "Admins can modify delivery_ranges" ON public.delivery_ranges AS PERMISSIVE FOR ALL TO public USING (((auth.role() = 'admin'::text) OR (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = ANY (ARRAY['admin'::app_role, 'warehouse_manager'::app_role])))))));
+
+CREATE POLICY "Users can manage own subscriptions" ON public.user_push_subscriptions AS PERMISSIVE FOR ALL TO public USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
+
+CREATE POLICY "Admins can read all notifications" ON public.push_notifications AS PERMISSIVE FOR SELECT TO public USING (auth_helpers.is_admin());
+
+CREATE POLICY "Anyone can view invoice config" ON public.invoice_config AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Admins can insert invoice config" ON public.invoice_config AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Users can insert own promo code usage" ON public.promo_code_usage AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((user_id = auth.uid()));
+
+CREATE POLICY "Admins can view promo code usage" ON public.promo_code_usage AS PERMISSIVE FOR SELECT TO authenticated USING (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can insert promo code usage" ON public.promo_code_usage AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can update promo code usage" ON public.promo_code_usage AS PERMISSIVE FOR UPDATE TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can delete promo code usage" ON public.promo_code_usage AS PERMISSIVE FOR DELETE TO authenticated USING (auth_helpers.is_admin());
+
+CREATE POLICY "Anyone can view stores" ON public.stores AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Admins can insert stores" ON public.stores AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can update stores" ON public.stores AS PERMISSIVE FOR UPDATE TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can delete stores" ON public.stores AS PERMISSIVE FOR DELETE TO authenticated USING (auth_helpers.is_admin());
+
+CREATE POLICY "Anyone can view trusted brands" ON public.trusted_brands AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Admins can insert trusted brands" ON public.trusted_brands AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can update trusted brands" ON public.trusted_brands AS PERMISSIVE FOR UPDATE TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can delete trusted brands" ON public.trusted_brands AS PERMISSIVE FOR DELETE TO authenticated USING (auth_helpers.is_admin());
+
+CREATE POLICY "Users can view own wallet" ON public.wallets AS PERMISSIVE FOR SELECT TO public USING ((auth.uid() = user_id));
+
+CREATE POLICY "Users can view own wallet transactions" ON public.wallet_transactions AS PERMISSIVE FOR SELECT TO public USING ((auth.uid() = user_id));
+
+CREATE POLICY "Service role wallet mutations" ON public.wallets AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+CREATE POLICY "Admins can view all settlements" ON public.delivery_partner_cod_settlements AS PERMISSIVE FOR SELECT TO authenticated USING (((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))) OR (auth.uid() = delivery_partner_id)));
+
+CREATE POLICY "Admins can insert settlements" ON public.delivery_partner_cod_settlements AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'admin'::app_role)))));
+
+CREATE POLICY "Investors can view profiles" ON public.profiles AS PERMISSIVE FOR SELECT TO authenticated USING (auth_helpers.is_investor());
+
+CREATE POLICY "Users can insert own carts" ON public.carts AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((user_id = auth.uid()));
+
+CREATE POLICY "Warehouse managers can view delivery assignments" ON public.delivery_assignments AS PERMISSIVE FOR SELECT TO authenticated USING (realtime_bypass_warehouse_check());
+
+CREATE POLICY "Warehouse managers can view payments" ON public.payments AS PERMISSIVE FOR SELECT TO authenticated USING (realtime_bypass_warehouse_check());
+
+CREATE POLICY "Admins can view user roles" ON public.user_roles AS PERMISSIVE FOR SELECT TO authenticated USING (has_role_recursive_safe(auth.uid(), 'admin'::text));
+
+CREATE POLICY "Warehouse managers can view user roles" ON public.user_roles AS PERMISSIVE FOR SELECT TO authenticated USING (has_role_recursive_safe(auth.uid(), 'warehouse_manager'::text));
+
+CREATE POLICY "Users can view own roles" ON public.user_roles AS PERMISSIVE FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+
+CREATE POLICY "Admins can update user roles" ON public.user_roles AS PERMISSIVE FOR UPDATE TO authenticated USING (has_role_recursive_safe(auth.uid(), 'admin'::text));
+
+CREATE POLICY "Admins can delete user roles" ON public.user_roles AS PERMISSIVE FOR DELETE TO authenticated USING (has_role_recursive_safe(auth.uid(), 'admin'::text));
+
+CREATE POLICY "Staff and delivery can view payments" ON public.payments AS PERMISSIVE FOR SELECT TO authenticated USING (((auth.uid() = user_id) OR (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = ANY (ARRAY['admin'::app_role, 'warehouse_manager'::app_role, 'delivery_partner'::app_role])))))));
+
+CREATE POLICY "Investors can view payments" ON public.payments AS PERMISSIVE FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'investor'::app_role)))));
+
+CREATE POLICY "Warehouse managers can update orders" ON public.orders AS PERMISSIVE FOR UPDATE TO authenticated USING (has_role_recursive_safe(auth.uid(), 'warehouse_manager'::text));
+
+CREATE POLICY "Admins can update orders" ON public.orders AS PERMISSIVE FOR UPDATE TO authenticated USING (has_role_recursive_safe(auth.uid(), 'admin'::text));
+
+CREATE POLICY "Investors can view orders" ON public.orders AS PERMISSIVE FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role = 'investor'::app_role)))));
+
+CREATE POLICY delivery_select_allowed ON public.delivery_assignments AS PERMISSIVE FOR SELECT TO authenticated USING (((delivery_partner_id = auth.uid()) OR has_role_recursive_safe(auth.uid(), 'admin'::text) OR has_role_recursive_safe(auth.uid(), 'warehouse_manager'::text)));
+
+CREATE POLICY delivery_update_allowed ON public.delivery_assignments AS PERMISSIVE FOR UPDATE TO authenticated USING (((delivery_partner_id = auth.uid()) OR has_role_recursive_safe(auth.uid(), 'admin'::text) OR has_role_recursive_safe(auth.uid(), 'warehouse_manager'::text)));
+
+CREATE POLICY "Customers can view own orders" ON public.orders AS PERMISSIVE FOR SELECT TO authenticated USING (((user_id = auth.uid()) AND has_role_recursive_safe(auth.uid(), 'customer'::text)));
+
+CREATE POLICY "Allow public read access" ON public.home_banners AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Allow public read access" ON public.categories AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Allow public read access" ON public.subcategories AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Allow public read access" ON public.products AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Allow public read access" ON public.product_volume_pricing AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Allow public read access" ON public.trusted_brands AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Allow public read access" ON public.stores AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Admins can delete orders" ON public.orders AS PERMISSIVE FOR DELETE TO authenticated USING (has_role_recursive_safe(auth.uid(), 'admin'::text));
+
+CREATE POLICY "Allow public read on sync signals" ON public.warehouse_sync_signals AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Warehouse managers can view orders" ON public.orders AS PERMISSIVE FOR SELECT TO authenticated USING (realtime_bypass_warehouse_check());
+
+CREATE POLICY "Admins can view orders" ON public.orders AS PERMISSIVE FOR SELECT TO authenticated USING (has_role_recursive_safe(auth.uid(), 'admin'::text));
+
+CREATE POLICY "Admins can manage app settings" ON public.app_settings AS PERMISSIVE FOR ALL TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Anyone can view home sections" ON public.home_sections AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Admins can manage home sections" ON public.home_sections AS PERMISSIVE FOR ALL TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can manage notification channels" ON public.notification_channels AS PERMISSIVE FOR ALL TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Anyone can view search synonyms" ON public.search_synonyms AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Admins can manage search synonyms" ON public.search_synonyms AS PERMISSIVE FOR ALL TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Anyone can view subcategories" ON public.subcategories AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Admins can manage subcategories" ON public.subcategories AS PERMISSIVE FOR ALL TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can manage WhatsApp campaigns" ON public.whatsapp_campaigns AS PERMISSIVE FOR ALL TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can manage WhatsApp message logs" ON public.whatsapp_message_logs AS PERMISSIVE FOR ALL TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins can manage WhatsApp templates" ON public.whatsapp_templates AS PERMISSIVE FOR ALL TO authenticated USING (auth_helpers.is_admin()) WITH CHECK (auth_helpers.is_admin());
+
+CREATE POLICY "Admins and warehouse managers can manage businesses" ON public.businesses AS PERMISSIVE FOR ALL TO authenticated USING ((auth_helpers.is_admin() OR auth_helpers.is_warehouse_manager())) WITH CHECK ((auth_helpers.is_admin() OR auth_helpers.is_warehouse_manager()));
+
+CREATE POLICY "Users can insert own profile" ON public.profiles AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK ((id = auth.uid()));
+
+CREATE POLICY "Allow public read-only access to app_versions" ON public.app_versions AS PERMISSIVE FOR SELECT TO public USING (true);
+
+CREATE POLICY "Allow public read access" ON public.home_sections AS PERMISSIVE FOR SELECT TO public USING (true);
+
+
+-- Enable RLS only on tables that have RLS policies in your rls.txt
+ALTER TABLE public.profiles                              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.categories                            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products                              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.promotions                            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wishlists                             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.carts                                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cart_items                            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.delivery_assignments                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.businesses                            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.business_outlets                      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invoice_design                        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.promo_codes                           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.smart_collections                     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.home_banners                          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_volume_pricing                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wallet_transactions                   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders                                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.delivery_ranges                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.promo_code_usage                      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_items                           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invoice_config                        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payments                              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles                            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.addresses                             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.delivery_zones                        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.delivery_charges                      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_push_subscriptions               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.push_notifications                    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stores                                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.trusted_brands                        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wallets                               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.delivery_partner_cod_settlements      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_settings                          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.home_sections                         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notification_channels                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.search_synonyms                       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subcategories                         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.whatsapp_campaigns                    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.whatsapp_message_logs                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.whatsapp_templates                    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.warehouse_sync_signals                ENABLE ROW LEVEL SECURITY;

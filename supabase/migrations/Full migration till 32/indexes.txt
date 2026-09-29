@@ -1,0 +1,194 @@
+-- Requires the pg_trgm extension for the *_trgm indexes:
+-- CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX IF NOT EXISTS addresses_business_id_idx ON public.addresses USING btree (business_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS addresses_pkey ON public.addresses USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS app_settings_key_key ON public.app_settings USING btree (key);
+
+CREATE UNIQUE INDEX IF NOT EXISTS app_settings_pkey ON public.app_settings USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS app_versions_pkey ON public.app_versions USING btree (id);
+
+CREATE INDEX IF NOT EXISTS business_outlets_business_id_idx ON public.business_outlets USING btree (business_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS business_outlets_pkey ON public.business_outlets USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS businesses_owner_default_uniq ON public.businesses USING btree (owner_user_id) WHERE (is_default = true);
+
+CREATE INDEX IF NOT EXISTS businesses_owner_user_id_idx ON public.businesses USING btree (owner_user_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS businesses_pkey ON public.businesses USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS cart_items_pkey ON public.cart_items USING btree (cart_id, product_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS carts_pkey ON public.carts USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS carts_user_id_key ON public.carts USING btree (user_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS categories_pkey ON public.categories USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS categories_slug_key ON public.categories USING btree (slug);
+
+CREATE UNIQUE INDEX IF NOT EXISTS delivery_assignments_order_id_key ON public.delivery_assignments USING btree (order_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS delivery_assignments_pkey ON public.delivery_assignments USING btree (id);
+
+CREATE INDEX IF NOT EXISTS delivery_partner_status_idx ON public.delivery_assignments USING btree (delivery_partner_id, status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS delivery_charges_pkey ON public.delivery_charges USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS delivery_partner_cod_settlements_pkey ON public.delivery_partner_cod_settlements USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS delivery_ranges_pkey ON public.delivery_ranges USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS delivery_zones_pkey ON public.delivery_zones USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS faq_feedback_pkey ON public.faq_feedback USING btree (id);
+
+CREATE INDEX IF NOT EXISTS idx_faq_feedback_faq ON public.faq_feedback USING btree (faq_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS faqs_pkey ON public.faqs USING btree (id);
+
+CREATE INDEX IF NOT EXISTS idx_faqs_active_order ON public.faqs USING btree (is_active, category, sort_order);
+
+CREATE UNIQUE INDEX IF NOT EXISTS home_banners_pkey ON public.home_banners USING btree (id);
+
+CREATE INDEX IF NOT EXISTS home_banners_schedule_idx ON public.home_banners USING btree (is_active, display_order, start_at, end_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS home_sections_pkey ON public.home_sections USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_config_pkey ON public.invoice_config USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS invoice_design_pkey ON public.invoice_design USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS notification_channels_channel_id_key ON public.notification_channels USING btree (channel_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS notification_channels_pkey ON public.notification_channels USING btree (id);
+
+CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON public.order_items USING btree (product_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS order_items_pkey ON public.order_items USING btree (id);
+
+CREATE INDEX IF NOT EXISTS idx_orders_delivery_zone ON public.orders USING btree (delivery_zone_id);
+
+CREATE INDEX IF NOT EXISTS idx_orders_promo_code ON public.orders USING btree (promo_code_id);
+
+CREATE INDEX IF NOT EXISTS idx_orders_status_created_at ON public.orders USING btree (status, created_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS orders_order_number_key ON public.orders USING btree (order_number);
+
+CREATE UNIQUE INDEX IF NOT EXISTS orders_pkey ON public.orders USING btree (id);
+
+CREATE INDEX IF NOT EXISTS orders_status_idx ON public.orders USING btree (status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS orders_user_created_idx ON public.orders USING btree (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_payments_status_created_at ON public.payments USING btree (status, created_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS payments_pkey ON public.payments USING btree (id);
+
+CREATE INDEX IF NOT EXISTS idx_volume_pricing_product ON public.product_volume_pricing USING btree (product_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS product_volume_pricing_pkey ON public.product_volume_pricing USING btree (id);
+
+CREATE INDEX IF NOT EXISTS idx_products_brand_trgm ON public.products USING gin (brand gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_products_category_id ON public.products USING btree (category_id);
+
+CREATE INDEX IF NOT EXISTS idx_products_code_trgm ON public.products USING gin (product_code gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_products_desc_trgm ON public.products USING gin (description gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_products_discount_stock ON public.products USING btree (discount_percentage, stock_quantity, is_available);
+
+CREATE INDEX IF NOT EXISTS idx_products_is_active ON public.products USING btree (is_active);
+
+CREATE INDEX IF NOT EXISTS idx_products_name_trgm ON public.products USING gin (name gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_products_pack_trgm ON public.products USING gin (pack_size gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_products_subcategory ON public.products USING btree (subcategory_id);
+
+CREATE INDEX IF NOT EXISTS idx_products_subcategory_id ON public.products USING btree (subcategory_id);
+
+CREATE INDEX IF NOT EXISTS products_active_idx ON public.products USING btree (is_active, created_at DESC) WHERE (is_active = true);
+
+CREATE UNIQUE INDEX IF NOT EXISTS products_barcode_unique ON public.products USING btree (barcode) WHERE ((barcode IS NOT NULL) AND (barcode <> ''::text));
+
+CREATE INDEX IF NOT EXISTS products_category_active_idx ON public.products USING btree (category_id, is_active) WHERE (is_active = true);
+
+CREATE UNIQUE INDEX IF NOT EXISTS products_pkey ON public.products USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS products_product_code_key ON public.products USING btree (product_code);
+
+CREATE UNIQUE INDEX IF NOT EXISTS products_slug_key ON public.products USING btree (slug);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_created_at ON public.profiles USING btree (created_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_pkey ON public.profiles USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS promo_code_usage_pkey ON public.promo_code_usage USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS promo_codes_code_key ON public.promo_codes USING btree (code);
+
+CREATE UNIQUE INDEX IF NOT EXISTS promo_codes_pkey ON public.promo_codes USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS promotions_pkey ON public.promotions USING btree (id);
+
+CREATE INDEX IF NOT EXISTS promotions_schedule_idx ON public.promotions USING btree (is_active, sort_order, start_at, end_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS push_notifications_pkey ON public.push_notifications USING btree (id);
+
+CREATE INDEX IF NOT EXISTS idx_synonyms_is_active ON public.search_synonyms USING btree (is_active);
+
+CREATE UNIQUE INDEX IF NOT EXISTS search_synonyms_keyword_key ON public.search_synonyms USING btree (keyword);
+
+CREATE UNIQUE INDEX IF NOT EXISTS search_synonyms_pkey ON public.search_synonyms USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS smart_collections_pkey ON public.smart_collections USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS stores_pkey ON public.stores USING btree (id);
+
+CREATE INDEX IF NOT EXISTS idx_subcategories_category ON public.subcategories USING btree (category_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS subcategories_pkey ON public.subcategories USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS subcategories_slug_key ON public.subcategories USING btree (slug);
+
+CREATE UNIQUE INDEX IF NOT EXISTS system_settings_pkey ON public.system_settings USING btree (key);
+
+CREATE INDEX IF NOT EXISTS idx_trusted_brands_config ON public.trusted_brands USING gin (config);
+
+CREATE UNIQUE INDEX IF NOT EXISTS trusted_brands_pkey ON public.trusted_brands USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_push_subscriptions_user_device ON public.user_push_subscriptions USING btree (user_id, onesignal_player_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS user_push_subscriptions_pkey ON public.user_push_subscriptions USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS user_roles_pkey ON public.user_roles USING btree (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_tx_ref ON public.wallet_transactions USING btree (reference_id);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_tx_user ON public.wallet_transactions USING btree (user_id, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS wallet_transactions_pkey ON public.wallet_transactions USING btree (id);
+
+CREATE INDEX IF NOT EXISTS idx_wallets_user ON public.wallets USING btree (user_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS wallets_pkey ON public.wallets USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS wallets_user_id_key ON public.wallets USING btree (user_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS warehouse_sync_signals_pkey ON public.warehouse_sync_signals USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_campaigns_pkey ON public.whatsapp_campaigns USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_message_logs_pkey ON public.whatsapp_message_logs USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_templates_pkey ON public.whatsapp_templates USING btree (id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_templates_template_name_key ON public.whatsapp_templates USING btree (template_name);
+
+CREATE UNIQUE INDEX IF NOT EXISTS wishlists_pkey ON public.wishlists USING btree (user_id, product_id);

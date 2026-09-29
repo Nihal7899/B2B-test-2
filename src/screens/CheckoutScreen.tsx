@@ -159,7 +159,10 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod');
+  
+  // ALERTS (Modified for distinct stock errors)
   const [showPaymentAlert, setShowPaymentAlert] = useState(false);
+  const [paymentAlertTitle, setPaymentAlertTitle] = useState('Payment Issue');
   const [paymentAlertMsg, setPaymentAlertMsg] = useState('');
 
   // Sheets
@@ -423,6 +426,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
       cart.clearPromo();
       onOrderPlaced(orderId);
     } catch {
+      setPaymentAlertTitle('Payment Issue');
       setPaymentAlertMsg('Payment verification failed. Your order is on hold.');
       setShowPaymentAlert(true);
       setPlacing(false);
@@ -530,6 +534,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
                 stopKeepAlive();
                 if (!paymentSucceeded) {
                   void supabase.functions.invoke('razorpay', { body: { action: 'cancel_order', order_id: orderId } });
+                  setPaymentAlertTitle('Payment Cancelled');
                   setPaymentAlertMsg('Payment was cancelled.');
                   setShowPaymentAlert(true);
                   setPlacing(false);
@@ -557,7 +562,16 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         onOrderPlaced(orderId);
       }
     } catch (err: any) {
-      setPaymentAlertMsg(err?.message || 'Could not place order. Please try again.');
+      const errorMsg = err?.message || 'Could not place order. Please try again.';
+      
+      // NEW: Intelligent title based on the precise stock error generated directly by the RPC.
+      if (errorMsg.includes('Out of stock') || errorMsg.includes('Insufficient stock')) {
+        setPaymentAlertTitle('Stock Unavailable');
+      } else {
+        setPaymentAlertTitle('Order Issue');
+      }
+      
+      setPaymentAlertMsg(errorMsg);
       setShowPaymentAlert(true);
       sessionStorage.removeItem('active_checkout');
       sessionStorage.removeItem('checkout_order_id');
@@ -1277,7 +1291,7 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
         </div>
       </BottomSheet>
 
-      {/* ==================== PAYMENT ALERT MODAL ==================== */}
+      {/* ==================== PAYMENT / STOCK ALERT MODAL ==================== */}
       {showPaymentAlert && (
         <div
           className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
@@ -1287,13 +1301,19 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
             className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full bg-red-100/70 blur-3xl" />
+            <div className={`pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full blur-3xl ${
+              paymentAlertTitle === 'Stock Unavailable' ? 'bg-amber-100/70' : 'bg-red-100/70'
+            }`} />
             <div className="relative flex flex-col items-center text-center space-y-4">
-              <div className="h-16 w-16 rounded-3xl bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center text-red-500 shrink-0 border-4 border-white shadow-lg shadow-red-100">
+              <div className={`h-16 w-16 rounded-3xl flex items-center justify-center shrink-0 border-4 border-white shadow-lg ${
+                paymentAlertTitle === 'Stock Unavailable' 
+                  ? 'bg-gradient-to-br from-amber-50 to-amber-100 text-amber-500 shadow-amber-100'
+                  : 'bg-gradient-to-br from-red-50 to-red-100 text-red-500 shadow-red-100'
+              }`}>
                 <AlertCircle size={28} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-[17px] font-black text-slate-900 tracking-[-0.01em]">Payment Issue</h3>
+                <h3 className="text-[17px] font-black text-slate-900 tracking-[-0.01em]">{paymentAlertTitle}</h3>
                 <p className="text-[13.5px] text-slate-500 mt-2 leading-relaxed font-medium">{paymentAlertMsg}</p>
               </div>
               <button

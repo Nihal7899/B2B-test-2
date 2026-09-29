@@ -1,0 +1,1939 @@
+CREATE OR REPLACE FUNCTION public.has_role_recursive_safe(requesting_user_id uuid, target_role text)
+ RETURNS boolean
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = requesting_user_id
+    AND role::text = target_role
+  );
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.sync_role_to_app_metadata()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  UPDATE auth.users
+  SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object('user_role', NEW.role)
+  WHERE id = NEW.user_id;
+  RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.set_default_business(p_business_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_user uuid := auth.uid();
+  v_owner uuid;
+begin
+  if v_user is null then raise exception 'Not authenticated'; end if;
+
+  select owner_user_id into v_owner
+  from public.businesses
+  where id = p_business_id;
+
+  if v_owner is null or v_owner <> v_user then
+    raise exception 'Not your business';
+  end if;
+
+  update public.businesses
+    set is_default = false
+    where owner_user_id = v_user
+      and is_default = true
+      and id <> p_business_id;
+
+  update public.businesses
+    set is_default = true
+    where id = p_business_id;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.cancel_order_warehouse(p_order_id uuid, p_reason text DEFAULT 'Cancelled by warehouse manager'::text)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_current_status TEXT;
+  v_item RECORD;
+BEGIN
+  -- Fetch current status
+  SELECT status INTO v_current_status
+  FROM orders
+  WHERE id = p_order_id;
+
+  IF v_current_status IS NULL THEN
+    RAISE EXCEPTION 'Order not found';
+  END IF;
+
+  IF v_current_status = 'cancelled' THEN
+    RAISE EXCEPTION 'Order is already cancelled';
+  END IF;
+
+  IF v_current_status = 'delivered' THEN
+    RAISE EXCEPTION 'Cannot cancel an order that has already been delivered';
+  END IF;
+
+  -- Restore inventory if order was confirmed or downstream in dispatch
+  IF v_current_status IN ('confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery') THEN
+    FOR v_item IN
+      SELECT product_id, quantity
+      FROM order_items
+      WHERE order_id = p_order_id
+    LOOP
+      UPDATE products
+      SET stock_quantity = COALESCE(stock_quantity, 0) + v_item.quantity,
+          updated_at = NOW()
+      WHERE id = v_item.product_id;
+    END LOOP;
+  END IF;
+
+  -- Mark order as cancelled with recorded reason
+  UPDATE orders
+  SET status = 'cancelled',
+      cancel_reason = p_reason,
+      updated_at = NOW()
+  WHERE id = p_order_id;
+
+  -- Cancel delivery assignment if present
+  UPDATE delivery_assignments
+  SET status = 'cancelled',
+      updated_at = NOW()
+  WHERE order_id = p_order_id;
+
+  RETURN json_build_object(
+    'success', true,
+    'order_id', p_order_id,
+    'previous_status', v_current_status,
+    'stock_restored', (v_current_status IN ('confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery'))
+  );
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_warehouse_today_stats()
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_result JSON;
+BEGIN
+  SELECT json_build_object(
+    'today_volume', COALESCE(SUM(total) FILTER (
+      WHERE created_at >= CURRENT_DATE 
+        AND status != 'cancelled'
+    ), 0),
+    'today_orders_count', COUNT(*) FILTER (
+      WHERE created_at >= CURRENT_DATE 
+        AND status != 'cancelled'
+    ),
+    'pending_count', COUNT(*) FILTER (WHERE status = 'pending'),
+    'confirmed_count', COUNT(*) FILTER (WHERE status = 'confirmed'),
+    'packed_count', COUNT(*) FILTER (WHERE status = 'packed'),
+    'ready_count', COUNT(*) FILTER (WHERE status = 'ready_for_pickup'),
+    'out_count', COUNT(*) FILTER (WHERE status = 'out_for_delivery'),
+    'delivered_today_count', COUNT(*) FILTER (
+      WHERE status = 'delivered' 
+        AND updated_at >= CURRENT_DATE
+    )
+  ) INTO v_result
+  FROM orders;
+  
+  RETURN v_result;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.notify_warehouse_sync()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+  UPDATE warehouse_sync_signals SET last_updated = NOW() WHERE id = 1;
+  RETURN NULL;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION auth_helpers.is_investor()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (
+      select 1
+          from public.user_roles
+              where user_roles.user_id = auth.uid()
+                    and user_roles.role = 'investor'
+                      );
+                      $function$
+;
+
+CREATE OR REPLACE FUNCTION public.handle_delivery_partner_assignment()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_target_user_id uuid;
+    v_order_number text;
+      v_order_status text;
+        v_channel_id text;
+          v_small_icon text;
+            v_sound text;
+              v_player_ids text[];
+                v_title text;
+                  v_body text;
+                    v_deep_link text;
+                      v_buttons jsonb;
+                        v_data jsonb;
+                          v_payload jsonb;
+
+                            -- REPLACE THESE WITH YOUR ACTUAL CREDENTIALS
+                               v_supabase_url text := 'https://tdbfdgcwobpwybkryttx.supabase.co';
+                                 v_service_key  text := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkYmZkZ2N3b2Jwd3lia3J5dHR4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjQwNTg2MywiZXhwIjoyMTAxOTgxODYzfQ.knns2aeWkziyiE3-OrRf72u5te5X929Rz248c1P3nmQ';
+                                 BEGIN
+                                   -- 1. Ensure a partner is assigned
+                                     IF NEW.delivery_partner_id IS NULL THEN
+                                         RETURN NEW;
+                                           END IF;
+
+                                             -- 2. If it's an UPDATE, only fire if the delivery partner actually changed
+                                               IF TG_OP = 'UPDATE' AND OLD.delivery_partner_id IS NOT DISTINCT FROM NEW.delivery_partner_id THEN
+                                                   RETURN NEW;
+                                                     END IF;
+
+                                                       v_target_user_id := NEW.delivery_partner_id;
+
+                                                         -- 3. Fetch order details for the notification text
+                                                           SELECT order_number, status INTO v_order_number, v_order_status
+                                                             FROM public.orders
+                                                               WHERE id = NEW.order_id;
+
+                                                                 -- 4. Query channel_id, small_icon, and sound dynamically
+                                                                   SELECT channel_id, small_icon, sound
+                                                                     INTO v_channel_id, v_small_icon, v_sound
+                                                                       FROM public.notification_channels
+                                                                         WHERE lower(trim(name)) = 'ready_for_pickup'
+                                                                           LIMIT 1;
+
+                                                                             -- 5. Fetch OneSignal Player IDs
+                                                                               SELECT array_agg(DISTINCT onesignal_player_id)
+                                                                                 INTO v_player_ids
+                                                                                   FROM public.user_push_subscriptions
+                                                                                     WHERE user_id = v_target_user_id
+                                                                                         AND onesignal_player_id IS NOT NULL
+                                                                                             AND trim(onesignal_player_id) <> '';
+
+                                                                                               IF v_player_ids IS NULL OR array_length(v_player_ids, 1) IS NULL THEN
+                                                                                                   RETURN NEW;
+                                                                                                     END IF;
+
+                                                                                                       -- 6. Setup Notification Content
+                                                                                                         v_title := 'New Delivery Assigned! 🚚';
+                                                                                                           v_body := 'Order #' || COALESCE(v_order_number, 'Unknown') || ' has been assigned to you for pickup.';
+                                                                                                             v_deep_link := '/delivery?tab=pending';
+                                                                                                               v_buttons := jsonb_build_array(jsonb_build_object('id', 'view_delivery', 'text', 'View Assignment'));
+                                                                                                                 v_data := jsonb_build_object('order_id', NEW.order_id, 'order_number', v_order_number, 'status', v_order_status, 'screen', 'delivery', 'tab', 'pending', 'url', v_deep_link);
+
+                                                                                                                   -- 7. Add sound and channel data to payload exactly like your existing function
+                                                                                                                     v_payload := jsonb_build_object(
+                                                                                                                         'playerIds', to_jsonb(v_player_ids),
+                                                                                                                             'userId', v_target_user_id,
+                                                                                                                                 'title', v_title,
+                                                                                                                                     'body', v_body,
+                                                                                                                                         'channelId', v_channel_id,
+                                                                                                                                             'smallIcon', v_small_icon,
+                                                                                                                                                 'sound', v_sound,
+                                                                                                                                                     'accentColor', '0a382c',
+                                                                                                                                                         'deepLink', v_deep_link,
+                                                                                                                                                             'buttons', v_buttons,
+                                                                                                                                                                 'data', v_data
+                                                                                                                                                                   );
+
+                                                                                                                                                                     -- 8. Log notification
+                                                                                                                                                                       BEGIN
+                                                                                                                                                                           INSERT INTO public.push_notifications (
+                                                                                                                                                                                 title, body, data, audience, small_icon, sound, deep_link, action_buttons, status
+                                                                                                                                                                                     ) VALUES (
+                                                                                                                                                                                           v_title, v_body, v_data, 'targeted', v_small_icon, v_sound, v_deep_link, v_buttons, 'sent'
+                                                                                                                                                                                               );
+                                                                                                                                                                                                 EXCEPTION WHEN OTHERS THEN
+                                                                                                                                                                                                     RAISE WARNING 'Failed to log notification: %', SQLERRM;
+                                                                                                                                                                                                       END;
+
+                                                                                                                                                                                                         -- 9. Dispatch to correct Edge Function URL
+                                                                                                                                                                                                           BEGIN
+                                                                                                                                                                                                               PERFORM net.http_post(
+                                                                                                                                                                                                                     url := v_supabase_url || '/functions/v1/send-push-notification',
+                                                                                                                                                                                                                           headers := jsonb_build_object(
+                                                                                                                                                                                                                                   'Content-Type', 'application/json',
+                                                                                                                                                                                                                                           'apikey', v_service_key,
+                                                                                                                                                                                                                                                   'Authorization', 'Bearer ' || v_service_key,
+                                                                                                                                                                                                                                                           'x-trigger-secret', 'stackknit_trigger_secret'
+                                                                                                                                                                                                                                                                 ),
+                                                                                                                                                                                                                                                                       body := v_payload
+                                                                                                                                                                                                                                                                           );
+                                                                                                                                                                                                                                                                             EXCEPTION WHEN OTHERS THEN
+                                                                                                                                                                                                                                                                                 RAISE WARNING 'Push dispatch failed: %', SQLERRM;
+                                                                                                                                                                                                                                                                                   END;
+
+                                                                                                                                                                                                                                                                                     RETURN NEW;
+                                                                                                                                                                                                                                                                                     END;
+                                                                                                                                                                                                                                                                                     $function$
+;
+
+CREATE OR REPLACE FUNCTION public.set_user_role(p_user_id uuid, p_role app_role)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$ begin if not public.is_admin() then raise exception 'Not authorized'; end if; insert into public.user_roles(user_id,role) values(p_user_id,p_role) on conflict(user_id) do update set role=excluded.role,updated_at=now(); end; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_paginated_invoices(p_start_date timestamp with time zone DEFAULT NULL::timestamp with time zone, p_end_date timestamp with time zone DEFAULT NULL::timestamp with time zone, p_search text DEFAULT ''::text, p_page integer DEFAULT 1, p_page_size integer DEFAULT 12, p_sort_field text DEFAULT 'created_at'::text)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_offset INT;
+  v_total INT;
+  v_result JSON;
+BEGIN
+  v_offset := (p_page - 1) * p_page_size;
+
+  SELECT COUNT(o.id) INTO v_total
+  FROM orders o
+  LEFT JOIN addresses a ON o.address_id = a.id
+  WHERE 
+    (p_start_date IS NULL OR (p_sort_field = 'created_at' AND o.created_at >= p_start_date) OR (p_sort_field = 'updated_at' AND o.updated_at >= p_start_date))
+    AND (p_end_date IS NULL OR (p_sort_field = 'created_at' AND o.created_at <= p_end_date) OR (p_sort_field = 'updated_at' AND o.updated_at <= p_end_date))
+    AND (
+      p_search = '' OR 
+      o.order_number ILIKE '%' || p_search || '%' OR 
+      a.recipient_name ILIKE '%' || p_search || '%'
+    );
+
+  SELECT json_build_object(
+    'total', v_total,
+    'orders', COALESCE(json_agg(row_to_json(sub)), '[]'::json)
+  ) INTO v_result
+  FROM (
+    SELECT 
+      o.*,
+      row_to_json(a) as address_obj,
+      (SELECT json_agg(row_to_json(p)) FROM payments p WHERE p.order_id = o.id) as payments_arr
+    FROM orders o
+    LEFT JOIN addresses a ON o.address_id = a.id
+    WHERE 
+      (p_start_date IS NULL OR (p_sort_field = 'created_at' AND o.created_at >= p_start_date) OR (p_sort_field = 'updated_at' AND o.updated_at >= p_start_date))
+      AND (p_end_date IS NULL OR (p_sort_field = 'created_at' AND o.created_at <= p_end_date) OR (p_sort_field = 'updated_at' AND o.updated_at <= p_end_date))
+      AND (
+        p_search = '' OR 
+        o.order_number ILIKE '%' || p_search || '%' OR 
+        a.recipient_name ILIKE '%' || p_search || '%'
+      )
+    ORDER BY 
+      CASE WHEN p_sort_field = 'created_at' THEN o.created_at END DESC,
+      CASE WHEN p_sort_field = 'updated_at' THEN o.updated_at END DESC
+    LIMIT p_page_size OFFSET v_offset
+  ) sub;
+
+  RETURN v_result;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.realtime_is_warehouse_manager()
+ RETURNS boolean
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM user_roles
+    WHERE user_id = auth.uid()
+    AND role = 'warehouse_manager'
+  );
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.create_order(p_address_id uuid, p_items jsonb, p_promo_code text DEFAULT NULL::text, p_delivery_zone_id uuid DEFAULT NULL::uuid, p_business_id uuid DEFAULT NULL::uuid)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_order_id UUID;
+  v_user_id UUID;
+  v_subtotal NUMERIC;
+  v_discount NUMERIC := 0;
+  v_delivery_fee NUMERIC := 0;
+  v_total NUMERIC;
+  v_promo_id UUID;
+  v_discount_type TEXT;
+  v_discount_value NUMERIC;
+  v_min_order_value NUMERIC;
+  v_max_discount_amount NUMERIC;
+  v_is_active BOOLEAN;
+  v_start_date TIMESTAMPTZ;
+  v_end_date TIMESTAMPTZ;
+  v_usage_limit INTEGER;
+  v_used_count INTEGER;
+  v_gst_total NUMERIC := 0;
+  v_discount_ratio NUMERIC := 0;
+  v_pincode TEXT;
+  v_zone_id UUID;
+  v_charge NUMERIC;
+  v_business_snapshot JSONB := NULL;
+  v_delivery_address_snapshot JSONB := NULL;
+  v_billing_address_snapshot JSONB := NULL;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  -- 1. Delivery address snapshot + pincode capture
+  SELECT
+    jsonb_build_object(
+      'id', a.id,
+      'label', a.label,
+      'recipient_name', a.recipient_name,
+      'phone', a.phone,
+      'line1', a.line1,
+      'line2', a.line2,
+      'city', a.city,
+      'state', a.state,
+      'postal_code', a.postal_code,
+      'latitude', a.latitude,
+      'longitude', a.longitude,
+      'place_id', a.place_id
+    ),
+    a.postal_code
+  INTO v_delivery_address_snapshot, v_pincode
+  FROM addresses a
+  WHERE a.id = p_address_id AND a.user_id = v_user_id;
+
+  IF v_pincode IS NULL THEN
+    RAISE EXCEPTION 'Invalid address: address not found or does not belong to user';
+  END IF;
+
+  -- 2. Business snapshot + billing address snapshot
+  IF p_business_id IS NOT NULL THEN
+    SELECT
+      jsonb_build_object(
+        'id', b.id,
+        'business_name', b.business_name,
+        'business_type', b.business_type,
+        'gst_registered', b.gst_registered,
+        'gstin', b.gstin,
+        'gst_verification_status', b.gst_verification_status,
+        'address_line_1', b.address_line_1,
+        'address_line_2', b.address_line_2,
+        'city', b.city,
+        'state', b.state,
+        'landmark', b.landmark,
+        'pincode', b.pincode
+      ),
+      jsonb_build_object(
+        'business_name', b.business_name,
+        'gstin', b.gstin,
+        'address_line_1', b.address_line_1,
+        'address_line_2', b.address_line_2,
+        'city', b.city,
+        'state', b.state,
+        'landmark', b.landmark,
+        'pincode', b.pincode
+      )
+    INTO v_business_snapshot, v_billing_address_snapshot
+    FROM businesses b
+    WHERE b.id = p_business_id AND b.owner_user_id = v_user_id;
+
+    IF v_business_snapshot IS NULL THEN
+      RAISE EXCEPTION 'Invalid business: business not found or does not belong to user';
+    END IF;
+  END IF;
+
+  -- 3. Compute subtotal and GST with volume pricing
+  WITH item_pricing AS (
+    SELECT
+      i.product_id,
+      i.quantity,
+      p.wholesale_price,
+      p.gst_percentage,
+      p.product_code,
+      COALESCE(
+        (SELECT unit_price
+         FROM product_volume_pricing vp
+         WHERE vp.product_id = p.id
+           AND i.quantity >= vp.min_quantity
+           AND (vp.max_quantity IS NULL OR i.quantity <= vp.max_quantity)
+         ORDER BY vp.unit_price ASC
+         LIMIT 1),
+        p.wholesale_price
+      ) AS effective_price
+    FROM jsonb_to_recordset(p_items) AS i(product_id UUID, quantity INT)
+    JOIN products p ON p.id = i.product_id
+    WHERE p.is_active = true
+  )
+  SELECT
+    SUM(effective_price * quantity),
+    SUM(effective_price * quantity * (gst_percentage / 100))
+  INTO v_subtotal, v_gst_total
+  FROM item_pricing;
+
+  IF v_subtotal IS NULL OR v_subtotal = 0 THEN
+    RAISE EXCEPTION 'No valid items or all items are inactive';
+  END IF;
+
+  -- 4. Compute delivery fee
+  SELECT charge, zone_id INTO v_charge, v_zone_id
+  FROM get_delivery_charge(v_pincode, v_subtotal);
+
+  IF v_charge IS NOT NULL THEN
+    v_delivery_fee := v_charge;
+    IF p_delivery_zone_id IS NULL AND v_zone_id IS NOT NULL THEN
+      p_delivery_zone_id := v_zone_id;
+    END IF;
+  END IF;
+
+  -- 5. Validate promo code with explicit error messages
+  IF p_promo_code IS NOT NULL THEN
+    -- Lookup WITHOUT filtering by active/dates/usage so we can give a precise message
+    SELECT
+      id, discount_type, discount_value, min_order_value, max_discount_amount,
+      is_active, start_date, end_date, usage_limit, used_count
+    INTO
+      v_promo_id, v_discount_type, v_discount_value, v_min_order_value, v_max_discount_amount,
+      v_is_active, v_start_date, v_end_date, v_usage_limit, v_used_count
+    FROM promo_codes
+    WHERE code = UPPER(p_promo_code);
+
+    IF v_promo_id IS NULL THEN
+      RAISE EXCEPTION 'Invalid promo code';
+    END IF;
+
+    IF NOT v_is_active THEN
+      RAISE EXCEPTION 'This promo code is no longer active';
+    END IF;
+
+    IF v_start_date IS NOT NULL AND v_start_date > now() THEN
+      RAISE EXCEPTION 'This promo code is not active yet';
+    END IF;
+
+    IF v_end_date IS NOT NULL AND v_end_date < now() THEN
+      RAISE EXCEPTION 'This promo code has expired';
+    END IF;
+
+    IF v_usage_limit IS NOT NULL AND v_used_count >= v_usage_limit THEN
+      RAISE EXCEPTION 'This promo code is no longer valid';
+    END IF;
+
+    IF v_min_order_value IS NOT NULL AND v_subtotal < v_min_order_value THEN
+      RAISE EXCEPTION 'Minimum order value for this promo code is ₹%', v_min_order_value;
+    END IF;
+
+    -- Compute discount
+    IF v_discount_type = 'percentage' THEN
+      v_discount := v_subtotal * (v_discount_value / 100);
+      IF v_max_discount_amount IS NOT NULL AND v_discount > v_max_discount_amount THEN
+        v_discount := v_max_discount_amount;
+      END IF;
+    ELSE
+      v_discount := v_discount_value;
+    END IF;
+
+    IF v_discount > v_subtotal THEN
+      v_discount := v_subtotal;
+    END IF;
+  END IF;
+
+  -- 6. GST adjustment on discount
+  IF v_discount > 0 AND v_subtotal > 0 THEN
+    v_discount_ratio := v_discount / v_subtotal;
+    v_gst_total := v_gst_total * (1 - v_discount_ratio);
+  END IF;
+
+  -- 7. Total
+  v_total := v_subtotal - v_discount + v_delivery_fee + v_gst_total;
+
+  -- 8. Insert order
+  INSERT INTO orders (
+    user_id, address_id, status, subtotal, discount, delivery_fee, total,
+    promo_code_id, delivery_zone_id, order_number,
+    gst_amount, cgst_amount, sgst_amount,
+    business_snapshot,
+    delivery_address_snapshot,
+    billing_address_snapshot
+  )
+  VALUES (
+    v_user_id, p_address_id, 'pending', v_subtotal, v_discount, v_delivery_fee, v_total,
+    v_promo_id, p_delivery_zone_id,
+    'SK-' || to_char(now(), 'YYYY') || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)),
+    v_gst_total, v_gst_total / 2, v_gst_total / 2,
+    v_business_snapshot,
+    v_delivery_address_snapshot,
+    v_billing_address_snapshot
+  )
+  RETURNING id INTO v_order_id;
+
+  -- 9. Insert order items
+  INSERT INTO order_items (
+    order_id, product_id, brand, product_name, pack_size,
+    unit_price, mrp, quantity, line_total,
+    hsn_code, gst_percentage, product_code
+  )
+  SELECT
+    v_order_id, p.id, p.brand, p.name, p.pack_size,
+    COALESCE(
+      (SELECT unit_price FROM product_volume_pricing vp
+       WHERE vp.product_id = p.id
+         AND i.quantity >= vp.min_quantity
+         AND (vp.max_quantity IS NULL OR i.quantity <= vp.max_quantity)
+       ORDER BY vp.unit_price ASC LIMIT 1),
+      p.wholesale_price
+    ),
+    p.mrp, i.quantity,
+    COALESCE(
+      (SELECT unit_price FROM product_volume_pricing vp
+       WHERE vp.product_id = p.id
+         AND i.quantity >= vp.min_quantity
+         AND (vp.max_quantity IS NULL OR i.quantity <= vp.max_quantity)
+       ORDER BY vp.unit_price ASC LIMIT 1),
+      p.wholesale_price
+    ) * i.quantity,
+    p.hsn_code, p.gst_percentage, p.product_code
+  FROM jsonb_to_recordset(p_items) AS i(product_id UUID, quantity INT)
+  JOIN products p ON p.id = i.product_id
+  WHERE p.is_active = true;
+
+  -- 10. Increment promo code usage
+  IF v_promo_id IS NOT NULL THEN
+    UPDATE promo_codes
+    SET used_count = used_count + 1,
+        updated_at = now()
+    WHERE id = v_promo_id;
+  END IF;
+
+  RETURN v_order_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.check_realtime_warehouse_role(requesting_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = requesting_user_id
+    AND role = 'warehouse_manager'
+  );
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_paginated_warehouse_orders(p_status text DEFAULT 'all'::text, p_page integer DEFAULT 1, p_page_size integer DEFAULT 12, p_search text DEFAULT ''::text, p_sort_field text DEFAULT 'created_at'::text, p_sort_dir text DEFAULT 'desc'::text)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_offset INT;
+  v_total INT;
+  v_result JSON;
+BEGIN
+  v_offset := (p_page - 1) * p_page_size;
+
+  SELECT COUNT(o.id) INTO v_total
+  FROM orders o
+  LEFT JOIN addresses a ON o.address_id = a.id
+  WHERE
+    (
+      (p_status = 'all' AND o.status::text IN ('pending', 'confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery')) OR
+      (p_status = 'assign_partner' AND o.status::text = 'packed') OR
+      (o.status::text = p_status)
+    )
+    AND (
+      p_search = '' OR
+      o.order_number ILIKE '%' || p_search || '%' OR
+      a.recipient_name ILIKE '%' || p_search || '%' OR
+      (o.delivery_address_snapshot->>'recipient_name') ILIKE '%' || p_search || '%'
+    );
+
+  SELECT json_build_object(
+    'total', v_total,
+    'orders', COALESCE(json_agg(row_to_json(sub)), '[]'::json)
+  ) INTO v_result
+  FROM (
+    SELECT
+      o.*,
+      COALESCE(o.delivery_address_snapshot::json, row_to_json(a)) as address_obj,
+      (SELECT json_agg(row_to_json(p)) FROM payments p WHERE p.order_id = o.id) as payments_arr,
+      (SELECT row_to_json(da) FROM delivery_assignments da WHERE da.order_id = o.id) as assignment_obj
+    FROM orders o
+    LEFT JOIN addresses a ON o.address_id = a.id
+    WHERE
+      (
+        (p_status = 'all' AND o.status::text IN ('pending', 'confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery')) OR
+        (p_status = 'assign_partner' AND o.status::text = 'packed') OR
+        (o.status::text = p_status)
+      )
+      AND (
+        p_search = '' OR
+        o.order_number ILIKE '%' || p_search || '%' OR
+        a.recipient_name ILIKE '%' || p_search || '%' OR
+        (o.delivery_address_snapshot->>'recipient_name') ILIKE '%' || p_search || '%'
+      )
+    ORDER BY
+      CASE WHEN p_sort_field = 'created_at' AND p_sort_dir = 'asc' THEN o.created_at END ASC,
+      CASE WHEN p_sort_field = 'created_at' AND p_sort_dir = 'desc' THEN o.created_at END DESC,
+      CASE WHEN p_sort_field = 'updated_at' AND p_sort_dir = 'asc' THEN o.updated_at END ASC,
+      CASE WHEN p_sort_field = 'updated_at' AND p_sort_dir = 'desc' THEN o.updated_at END DESC
+    LIMIT p_page_size OFFSET v_offset
+  ) sub;
+
+  RETURN v_result;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.assign_delivery_partner(p_order_id uuid, p_partner_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+if not (public.is_admin() or public.has_role('warehouse_manager')) then
+raise exception 'Not authorized';
+end if;
+if not exists (select 1 from public.user_roles where user_id=p_partner_id and role='delivery_partner') then
+raise exception 'Invalid delivery partner';
+end if;
+insert into public.delivery_assignments(order_id,delivery_partner_id,status)
+values(p_order_id,p_partner_id,'ready_for_pickup')
+on conflict(order_id) do update set delivery_partner_id=excluded.delivery_partner_id,status='ready_for_pickup',updated_at=now();
+update public.orders set status='ready_for_pickup' where id=p_order_id;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.handle_order_status_push_notification()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_target_user_id uuid;
+  v_channel_id text;
+  v_small_icon text;
+  v_sound text;
+  v_player_ids text[];
+  v_title text;
+  v_body text;
+  v_deep_link text;
+  v_buttons jsonb;
+  v_data jsonb;
+  v_payload jsonb;
+  v_status text;
+
+  v_supabase_url text := 'https://tdbfdgcwobpwybkryttx.supabase.co';
+  v_service_key  text := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkYmZkZ2N3b2Jwd3lia3J5dHR4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjQwNTg2MywiZXhwIjoyMTAxOTgxODYzfQ.knns2aeWkziyiE3-OrRf72u5te5X929Rz248c1P3nmQ';
+BEGIN
+  IF OLD.status IS NOT DISTINCT FROM NEW.status THEN
+    RETURN NEW;
+  END IF;
+
+  v_status := NEW.status::text;
+
+  IF v_status = 'ready_for_pickup' THEN
+    SELECT delivery_partner_id INTO v_target_user_id
+    FROM public.delivery_assignments
+    WHERE order_id = NEW.id
+    ORDER BY created_at DESC
+    LIMIT 1;
+
+    IF v_target_user_id IS NULL THEN
+      RETURN NEW;
+    END IF;
+  ELSIF v_status IN ('confirmed', 'out_for_delivery', 'delivered', 'cancelled') THEN
+    v_target_user_id := NEW.user_id;
+  ELSE
+    RETURN NEW;
+  END IF;
+
+  -- Query channel_id, small_icon, and the new sound column
+  SELECT channel_id, small_icon, sound
+  INTO v_channel_id, v_small_icon, v_sound
+  FROM public.notification_channels
+  WHERE lower(trim(name)) = lower(trim(v_status))
+  LIMIT 1;
+
+  SELECT array_agg(DISTINCT onesignal_player_id)
+  INTO v_player_ids
+  FROM public.user_push_subscriptions
+  WHERE user_id = v_target_user_id
+    AND onesignal_player_id IS NOT NULL
+    AND trim(onesignal_player_id) <> '';
+
+  IF v_player_ids IS NULL OR array_length(v_player_ids, 1) IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  CASE v_status
+    WHEN 'confirmed' THEN
+      v_title := 'Order is confirmed';
+      v_body := 'Your order #' || NEW.order_number || ' has been confirmed and is being packed.';
+      v_deep_link := '/order?id=' || NEW.id;
+      v_buttons := jsonb_build_array(jsonb_build_object('id', 'view_order', 'text', 'View Order'));
+      v_data := jsonb_build_object('order_id', NEW.id, 'order_number', NEW.order_number, 'status', v_status, 'screen', 'orderDetail', 'url', v_deep_link);
+
+    WHEN 'ready_for_pickup' THEN
+      v_title := 'Order Ready for Pickup';
+      v_body := 'Order #' || NEW.order_number || ' is packed and awaiting pickup at the warehouse.';
+      v_deep_link := '/delivery?tab=pending';
+      v_buttons := jsonb_build_array(jsonb_build_object('id', 'view_pending', 'text', 'View Pending Deliveries'));
+      v_data := jsonb_build_object('order_id', NEW.id, 'order_number', NEW.order_number, 'status', v_status, 'screen', 'delivery', 'tab', 'pending', 'url', v_deep_link);
+
+    WHEN 'out_for_delivery' THEN
+      v_title := 'Order Out for Delivery';
+      v_body := 'Order #' || NEW.order_number || ' is out for delivery. Keep payment ready if COD.';
+      v_deep_link := '/order?id=' || NEW.id;
+      v_buttons := jsonb_build_array(jsonb_build_object('id', 'view_order', 'text', 'View Order'));
+      v_data := jsonb_build_object('order_id', NEW.id, 'order_number', NEW.order_number, 'status', v_status, 'screen', 'orderDetail', 'url', v_deep_link);
+
+    WHEN 'delivered' THEN
+      v_title := 'Order Delivered';
+      v_body := 'Order #' || NEW.order_number || ' has been delivered. Thank you for shopping with us!';
+      v_deep_link := '/order?id=' || NEW.id;
+      v_buttons := jsonb_build_array(jsonb_build_object('id', 'view_order', 'text', 'View Order'));
+      v_data := jsonb_build_object('order_id', NEW.id, 'order_number', NEW.order_number, 'status', v_status, 'screen', 'orderDetail', 'url', v_deep_link);
+
+    WHEN 'cancelled' THEN
+      v_title := 'Order Cancelled';
+      v_body := 'Order #' || NEW.order_number || ' has been cancelled.';
+      v_deep_link := '/order?id=' || NEW.id;
+      v_buttons := jsonb_build_array(jsonb_build_object('id', 'view_order', 'text', 'View Order'));
+      v_data := jsonb_build_object('order_id', NEW.id, 'order_number', NEW.order_number, 'status', v_status, 'screen', 'orderDetail', 'url', v_deep_link);
+
+    ELSE
+      RETURN NEW;
+  END CASE;
+
+  -- Add sound to payload
+  v_payload := jsonb_build_object(
+    'playerIds', to_jsonb(v_player_ids),
+    'userId', v_target_user_id,
+    'title', v_title,
+    'body', v_body,
+    'channelId', v_channel_id,
+    'smallIcon', v_small_icon,
+    'sound', v_sound,
+    'accentColor', '0a382c',
+    'deepLink', v_deep_link,
+    'buttons', v_buttons,
+    'data', v_data
+  );
+
+  BEGIN
+    INSERT INTO public.push_notifications (
+      title, body, data, audience, small_icon, sound, deep_link, action_buttons, status
+    ) VALUES (
+      v_title, v_body, v_data, 'targeted', v_small_icon, v_sound, v_deep_link, v_buttons, 'sent'
+    );
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'Failed to log notification: %', SQLERRM;
+  END;
+
+  BEGIN
+    PERFORM net.http_post(
+      url := v_supabase_url || '/functions/v1/send-push-notification',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'apikey', v_service_key,
+        'Authorization', 'Bearer ' || v_service_key,
+        'x-trigger-secret', 'stackknit_trigger_secret'
+      ),
+      body := v_payload
+    );
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'Push dispatch failed: %', SQLERRM;
+  END;
+
+  RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.topup_wallet(p_amount numeric, p_reference_id text, p_description text DEFAULT 'Wallet Top-up'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_wallet record;
+  v_new_balance numeric;
+  v_tx_id uuid;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Unauthorized';
+  END IF;
+
+  IF p_amount <= 0 THEN
+    RAISE EXCEPTION 'Top-up amount must be greater than zero';
+  END IF;
+
+  SELECT * INTO v_wallet
+  FROM public.wallets
+  WHERE user_id = v_user_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    INSERT INTO public.wallets (user_id, balance)
+    VALUES (v_user_id, p_amount)
+    RETURNING * INTO v_wallet;
+    v_new_balance := p_amount;
+  ELSE
+    v_new_balance := v_wallet.balance + p_amount;
+    UPDATE public.wallets
+    SET balance = v_new_balance, updated_at = now()
+    WHERE id = v_wallet.id;
+  END IF;
+
+  INSERT INTO public.wallet_transactions (
+    wallet_id, user_id, amount, type, purpose, reference_id, description, balance_after
+  ) VALUES (
+    v_wallet.id, v_user_id, p_amount, 'credit', 'topup', p_reference_id, p_description, v_new_balance
+  ) RETURNING id INTO v_tx_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'transaction_id', v_tx_id,
+    'new_balance', v_new_balance
+  );
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$ begin new.updated_at=now(); return new; end; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$ begin insert into public.profiles(id,full_name,phone) values(new.id,coalesce(new.raw_user_meta_data->>'full_name',''),coalesce(new.phone,'')) on conflict(id) do nothing; insert into public.user_roles(user_id,role) values(new.id,'customer') on conflict(user_id) do nothing; insert into public.carts(user_id) values(new.id) on conflict(user_id) do nothing; return new; end; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.has_role(p_role app_role)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$ select exists(select 1 from public.user_roles where user_id=auth.uid() and role=p_role); $function$
+;
+
+CREATE OR REPLACE FUNCTION public.is_admin()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$ select public.has_role('admin'); $function$
+;
+
+CREATE OR REPLACE FUNCTION public.is_operations_staff()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$ select public.has_role('admin') or public.has_role('warehouse_manager'); $function$
+;
+
+CREATE OR REPLACE FUNCTION auth_helpers.is_admin()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+                        select exists (
+                            select 1
+                                from public.user_roles
+                                    where user_roles.user_id = auth.uid()
+                                          and user_roles.role = 'admin'
+                                            );
+                                            $function$
+;
+
+CREATE OR REPLACE FUNCTION auth_helpers.is_warehouse_manager()
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (
+      select 1
+          from public.user_roles
+              where user_roles.user_id = auth.uid()
+                    and user_roles.role = 'warehouse_manager'
+                      );
+                      $function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_investor_dashboard_data()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_ist_now timestamptz := (now() AT TIME ZONE 'UTC') + interval '5 hours 30 minutes';
+    v_today_date date := v_ist_now::date;
+      v_month_start timestamptz := (v_today_date - interval '29 days')::timestamptz;
+        v_prev_month_start timestamptz := (v_today_date - interval '59 days')::timestamptz;
+          
+            v_totals jsonb;
+              v_daily_stats jsonb;
+                v_prev_revenue numeric;
+                  v_status_counts jsonb;
+                    v_payment_totals jsonb;
+                      v_new_customers int;
+                        v_active_customers int;
+                          v_total_customers int;
+                          BEGIN
+                            -- 1. Lifetime & Overall Order Totals
+                              SELECT jsonb_build_object(
+                                  'lifetimeSales', COALESCE(SUM(total) FILTER (WHERE status = 'delivered'), 0),
+                                      'lifetimeOrders', COUNT(*),
+                                          'completedOrders', COUNT(*) FILTER (WHERE status = 'delivered'),
+                                              'cancelledOrders', COUNT(*) FILTER (WHERE status = 'cancelled')
+                                                ) INTO v_totals FROM orders;
+
+                                                  -- 2. Daily Stats (Last 30 Days) - Generates exact 30 day series, joining with aggregated order data
+                                                    SELECT jsonb_agg(
+                                                        jsonb_build_object(
+                                                              'date', d.day,
+                                                                    'revenue', COALESCE(o.revenue, 0),
+                                                                          'orders', COALESCE(o.orders, 0),
+                                                                                'discounts', COALESCE(o.discounts, 0),
+                                                                                      'delivery_fees', COALESCE(o.delivery_fees, 0)
+                                                                                          ) ORDER BY d.day ASC
+                                                                                            ) INTO v_daily_stats
+                                                                                              FROM (
+                                                                                                  SELECT to_char(generate_series(v_month_start, v_ist_now, '1 day'::interval), 'YYYY-MM-DD') AS day
+                                                                                                    ) d
+                                                                                                      LEFT JOIN (
+                                                                                                          SELECT 
+                                                                                                                to_char((created_at AT TIME ZONE 'UTC') + interval '5 hours 30 minutes', 'YYYY-MM-DD') AS order_day,
+                                                                                                                      SUM(total) FILTER (WHERE status = 'delivered') AS revenue,
+                                                                                                                            COUNT(*) AS orders,
+                                                                                                                                  SUM(discount) AS discounts,
+                                                                                                                                        SUM(delivery_fee) AS delivery_fees
+                                                                                                                                            FROM orders
+                                                                                                                                                WHERE created_at >= v_month_start
+                                                                                                                                                    GROUP BY 1
+                                                                                                                                                      ) o ON d.day = o.order_day;
+
+                                                                                                                                                        -- 3. Previous 30 Days Revenue (For growth calculation)
+                                                                                                                                                          SELECT COALESCE(SUM(total), 0) INTO v_prev_revenue
+                                                                                                                                                            FROM orders
+                                                                                                                                                              WHERE status = 'delivered' 
+                                                                                                                                                                  AND created_at >= v_prev_month_start 
+                                                                                                                                                                      AND created_at < v_month_start;
+
+                                                                                                                                                                        -- 4. Status Counts (Last 30 days)
+                                                                                                                                                                          SELECT jsonb_object_agg(status, count) INTO v_status_counts
+                                                                                                                                                                            FROM (
+                                                                                                                                                                                SELECT status, COUNT(*) as count 
+                                                                                                                                                                                    FROM orders 
+                                                                                                                                                                                        WHERE created_at >= v_month_start 
+                                                                                                                                                                                            GROUP BY status
+                                                                                                                                                                                              ) s;
+
+                                                                                                                                                                                                -- 5. Payment Methods (Last 30 days)
+                                                                                                                                                                                                  SELECT jsonb_object_agg(provider, amount) INTO v_payment_totals
+                                                                                                                                                                                                    FROM (
+                                                                                                                                                                                                        SELECT UPPER(provider) as provider, SUM(amount) as amount 
+                                                                                                                                                                                                            FROM payments 
+                                                                                                                                                                                                                WHERE status = 'paid' AND created_at >= v_month_start 
+                                                                                                                                                                                                                    GROUP BY UPPER(provider)
+                                                                                                                                                                                                                      ) p;
+
+                                                                                                                                                                                                                        -- 6. Customer Demographics
+                                                                                                                                                                                                                          SELECT COUNT(*) INTO v_total_customers FROM profiles;
+                                                                                                                                                                                                                            SELECT COUNT(*) INTO v_new_customers FROM profiles WHERE created_at >= v_month_start;
+                                                                                                                                                                                                                              SELECT COUNT(DISTINCT user_id) INTO v_active_customers FROM orders WHERE created_at >= v_month_start;
+
+                                                                                                                                                                                                                                -- 7. Compile and Return Fast JSON Payload
+                                                                                                                                                                                                                                  RETURN jsonb_build_object(
+                                                                                                                                                                                                                                      'totals', COALESCE(v_totals, '{}'::jsonb),
+                                                                                                                                                                                                                                          'dailyStats', COALESCE(v_daily_stats, '[]'::jsonb),
+                                                                                                                                                                                                                                              'prev30DaysRevenue', v_prev_revenue,
+                                                                                                                                                                                                                                                  'statusCounts', COALESCE(v_status_counts, '{}'::jsonb),
+                                                                                                                                                                                                                                                      'paymentTotals', COALESCE(v_payment_totals, '{}'::jsonb),
+                                                                                                                                                                                                                                                          'newCustomers30d', COALESCE(v_new_customers, 0),
+                                                                                                                                                                                                                                                              'activeCustomers30d', COALESCE(v_active_customers, 0),
+                                                                                                                                                                                                                                                                  'totalCustomers', COALESCE(v_total_customers, 0)
+                                                                                                                                                                                                                                                                    );
+                                                                                                                                                                                                                                                                    END;
+                                                                                                                                                                                                                                                                    $function$
+;
+
+CREATE OR REPLACE FUNCTION public.confirm_order(p_order_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_order public.orders%rowtype;
+  v_item record;
+  v_current_stock integer;
+  v_product_name text;
+BEGIN
+  -- 1. Authorization check
+  IF NOT (public.is_admin() OR public.has_role('warehouse_manager')) THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  -- 2. Lock order row
+  SELECT * INTO v_order 
+  FROM public.orders 
+  WHERE id = p_order_id 
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Order not found';
+  END IF;
+
+  IF v_order.status != 'pending' THEN
+    RAISE EXCEPTION 'Only pending orders can be confirmed';
+  END IF;
+
+  -- 3. Lock & validate stock in deterministic order before updating
+  FOR v_item IN 
+    SELECT product_id, SUM(quantity)::integer AS quantity 
+    FROM public.order_items 
+    WHERE order_id = p_order_id 
+    GROUP BY product_id 
+    ORDER BY product_id ASC 
+  LOOP
+    -- Fetch and lock the product row to inspect stock
+    SELECT stock_quantity, name 
+    INTO v_current_stock, v_product_name
+    FROM public.products 
+    WHERE id = v_item.product_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Product with ID % not found', v_item.product_id;
+    END IF;
+
+    -- Validate stock BEFORE the update to prevent CHECK constraint violations
+    IF v_current_stock < v_item.quantity THEN
+      RAISE EXCEPTION 'Insufficient stock for "%": Available %, Requested %',
+        v_product_name, v_current_stock, v_item.quantity;
+    END IF;
+
+    -- Safe deduction
+    UPDATE public.products
+    SET stock_quantity = stock_quantity - v_item.quantity,
+        updated_at = now()
+    WHERE id = v_item.product_id;
+  END LOOP;
+
+  -- 4. Mark order confirmed
+  UPDATE public.orders 
+  SET status = 'confirmed', 
+      updated_at = now() 
+  WHERE id = p_order_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.is_point_in_delivery_range(p_lat double precision, p_lng double precision)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ STABLE
+AS $function$
+                          DECLARE
+                            in_range BOOLEAN;
+                            BEGIN
+                              SELECT EXISTS (
+                                  SELECT 1
+                                      FROM delivery_ranges
+                                          WHERE is_active = true
+                                                AND (
+                                                        -- Haversine formula (earth radius = 6371 km)
+                                                                6371 * acos(
+                                                                          cos(radians(center_lat)) * cos(radians(p_lat)) *
+                                                                                    cos(radians(p_lng) - radians(center_lng)) +
+                                                                                              sin(radians(center_lat)) * sin(radians(p_lat))
+                                                                                                      ) <= radius_km
+                                                                                                            )
+                                                                                                              ) INTO in_range;
+                                                                                                                RETURN COALESCE(in_range, false);
+                                                                                                                END;
+                                                                                                                $function$
+;
+
+CREATE OR REPLACE FUNCTION public.handle_new_user_wallet()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  INSERT INTO public.wallets (user_id, balance)
+  VALUES (NEW.id, 0)
+  ON CONFLICT (user_id) DO NOTHING;
+  RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.cleanup_stale_orders()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_order_ids uuid[];
+  v_count integer := 0;
+BEGIN
+  -- 1. Select strictly pending orders older than 15 minutes
+  SELECT array_agg(o.id)
+  INTO v_order_ids
+  FROM public.orders o
+  WHERE o.status = 'pending'
+    AND o.updated_at < (now() - interval '15 minutes')
+    -- Ignore COD orders (fulfilled on delivery)
+    AND NOT EXISTS (
+      SELECT 1 
+      FROM public.payments p_cod 
+      WHERE p_cod.order_id = o.id 
+        AND p_cod.provider = 'cod'
+    )
+    -- Ignore orders where Razorpay payment succeeded
+    AND NOT EXISTS (
+      SELECT 1 
+      FROM public.payments p_rzp 
+      WHERE p_rzp.order_id = o.id 
+        AND p_rzp.provider = 'razorpay' 
+        AND p_rzp.status = 'paid'
+    )
+    -- Ignore orders that are already 100% paid by wallet
+    AND COALESCE(
+      (SELECT SUM(p_w.amount) 
+       FROM public.payments p_w 
+       WHERE p_w.order_id = o.id 
+         AND p_w.provider = 'wallet' 
+         AND p_w.status = 'paid'), 0
+    ) < o.total;
+
+  -- 2. Exit if no stale orders found
+  IF v_order_ids IS NULL OR array_length(v_order_ids, 1) IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  -- 3. Cancel only orders that are still pending
+  -- (Trigger automatically handles the refund once per order)
+  UPDATE public.orders
+  SET status = 'cancelled', updated_at = now()
+  WHERE id = ANY(v_order_ids)
+    AND status = 'pending';
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+
+  -- 4. Mark pending payment attempts as cancelled
+  UPDATE public.payments
+  SET status = 'cancelled', updated_at = now()
+  WHERE order_id = ANY(v_order_ids)
+    AND status = 'pending';
+
+  RETURN v_count;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_delivery_partners()
+ RETURNS TABLE(id uuid, name text, phone text)
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT 
+    p.id,
+    COALESCE(NULLIF(TRIM(p.full_name), ''), NULLIF(TRIM(p.personal_name), ''), NULLIF(TRIM(p.business_name), ''), 'Delivery Partner') AS name,
+    COALESCE(p.phone, '') AS phone
+  FROM public.user_roles ur
+  JOIN public.profiles p ON p.id = ur.user_id
+  WHERE ur.role = 'delivery_partner';
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.record_cod_settlement(p_delivery_partner_id uuid, p_amount numeric, p_payment_mode text DEFAULT 'cash'::text, p_notes text DEFAULT ''::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_settlement_id uuid;
+  v_admin_id uuid := auth.uid();
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.user_roles 
+    WHERE user_id = v_admin_id AND role::text = 'admin'
+  ) THEN
+    RAISE EXCEPTION 'Unauthorized: Only admins can record COD settlements';
+  END IF;
+
+  IF p_amount <= 0 THEN
+    RAISE EXCEPTION 'Settlement amount must be greater than 0';
+  END IF;
+
+  INSERT INTO public.delivery_partner_cod_settlements (
+    delivery_partner_id,
+    amount,
+    cleared_by,
+    payment_mode,
+    notes
+  )
+  VALUES (
+    p_delivery_partner_id,
+    p_amount,
+    v_admin_id,
+    p_payment_mode,
+    p_notes
+  )
+  RETURNING id INTO v_settlement_id;
+
+  UPDATE public.profiles
+  SET current_cod_balance = GREATEST(0, current_cod_balance - p_amount),
+      updated_at = now()
+  WHERE id = p_delivery_partner_id;
+
+  RETURN v_settlement_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_delivery_partners_cod_summary()
+ RETURNS TABLE(delivery_partner_id uuid, driver_name text, phone text, total_cod_collected numeric, total_cod_settled numeric, outstanding_balance numeric, last_settled_at timestamp with time zone)
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  SELECT 
+    p.id AS delivery_partner_id,
+    COALESCE(NULLIF(TRIM(p.full_name), ''), NULLIF(TRIM(p.personal_name), ''), 'Delivery Partner') AS driver_name,
+    COALESCE(p.phone, '') AS phone,
+    (COALESCE(p.current_cod_balance, 0) + COALESCE(s.total_settled, 0))::numeric AS total_cod_collected,
+    COALESCE(s.total_settled, 0)::numeric AS total_cod_settled,
+    COALESCE(p.current_cod_balance, 0)::numeric AS outstanding_balance,
+    s.last_settled AS last_settled_at
+  FROM public.user_roles ur
+  JOIN public.profiles p ON p.id = ur.user_id
+  LEFT JOIN (
+    SELECT 
+      delivery_partner_id,
+      SUM(amount) AS total_settled,
+      MAX(created_at) AS last_settled
+    FROM public.delivery_partner_cod_settlements
+    GROUP BY delivery_partner_id
+  ) s ON s.delivery_partner_id = p.id
+  WHERE ur.role::text = 'delivery_partner'
+  ORDER BY p.current_cod_balance DESC, p.full_name ASC;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.generate_product_code()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  new_code TEXT;
+  done BOOLEAN;
+BEGIN
+  done := false;
+  WHILE NOT done LOOP
+    new_code := UPPER(
+      SUBSTR(MD5(RANDOM()::TEXT), 1, 4) ||
+      SUBSTR(MD5(RANDOM()::TEXT), 1, 2)
+    );
+    BEGIN
+      -- Try to insert – if unique constraint fails, loop retries
+      UPDATE products SET product_code = new_code WHERE id = NEW.id;
+      done := true;
+    EXCEPTION WHEN unique_violation THEN
+      -- Collision, retry
+    END;
+  END LOOP;
+  RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.handle_order_cancellation_refund()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  -- Strict guard: Fire ONLY when transitioning from non-cancelled to cancelled
+  IF NEW.status = 'cancelled' AND (OLD.status IS DISTINCT FROM 'cancelled') THEN
+    PERFORM public.refund_wallet_payment(
+      NEW.id,
+      'Auto-refund: Order cancelled (Timeout / Aborted / Admin)'
+    );
+
+    UPDATE public.payments
+    SET status = 'cancelled', updated_at = now()
+    WHERE order_id = NEW.id AND status = 'pending';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_popular_products(limit_count integer DEFAULT 12)
+ RETURNS SETOF products
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  RETURN QUERY
+  SELECT p.*
+  FROM public.products p
+  LEFT JOIN (
+    SELECT product_id, SUM(quantity) as total_sold
+    FROM public.order_items
+    GROUP BY product_id
+  ) oi ON oi.product_id = p.id
+  WHERE p.is_active = true
+  ORDER BY COALESCE(oi.total_sold, 0) DESC, p.rating DESC, p.created_at DESC
+  LIMIT limit_count;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.prune_whatsapp_logs(keep_count integer)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  deleted_count integer := 0;
+BEGIN
+  IF keep_count <= 0 THEN
+    -- Explicit WHERE clause satisfies PostgreSQL safe-update checks
+    DELETE FROM public.whatsapp_message_logs
+    WHERE id IS NOT NULL;
+    
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  ELSE
+    WITH logs_to_delete AS (
+      SELECT id
+      FROM public.whatsapp_message_logs
+      ORDER BY created_at DESC
+      OFFSET keep_count
+    )
+    DELETE FROM public.whatsapp_message_logs
+    WHERE id IN (SELECT id FROM logs_to_delete);
+    
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  END IF;
+
+  RETURN deleted_count;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_delivery_charge(p_pincode text, p_subtotal numeric)
+ RETURNS TABLE(charge numeric, zone_id uuid, estimated_time text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_zone_ids uuid[];
+BEGIN
+  SELECT array_agg(id) INTO v_zone_ids
+  FROM public.delivery_zones
+  WHERE p_pincode = ANY(pincodes);
+
+  IF v_zone_ids IS NULL OR array_length(v_zone_ids, 1) = 0 THEN
+    RETURN QUERY SELECT 0::numeric, NULL::uuid, NULL::text;
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    dc.charge,
+    dc.zone_id,
+    dc.estimated_time
+  FROM public.delivery_charges dc
+  WHERE dc.zone_id = ANY(v_zone_ids)
+    AND dc.is_active = true
+    AND (dc.min_order_value IS NULL OR dc.min_order_value <= p_subtotal)
+    AND (dc.max_order_value IS NULL OR dc.max_order_value >= p_subtotal)
+  ORDER BY dc.min_order_value DESC
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 0::numeric, v_zone_ids[1], NULL::text;
+  END IF;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.pay_with_wallet(p_order_id uuid, p_amount numeric)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_wallet record;
+  v_new_balance numeric;
+  v_tx_id uuid;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Unauthorized';
+  END IF;
+
+  IF p_amount <= 0 THEN
+    RAISE EXCEPTION 'Payment amount must be greater than zero';
+  END IF;
+
+  SELECT * INTO v_wallet
+  FROM public.wallets
+  WHERE user_id = v_user_id
+  FOR UPDATE;
+
+  IF NOT FOUND OR v_wallet.balance < p_amount THEN
+    RAISE EXCEPTION 'Insufficient wallet balance';
+  END IF;
+
+  v_new_balance := v_wallet.balance - p_amount;
+
+  UPDATE public.wallets
+  SET balance = v_new_balance, updated_at = now()
+  WHERE id = v_wallet.id;
+
+  INSERT INTO public.wallet_transactions (
+    wallet_id, user_id, amount, type, purpose, reference_id, description, balance_after
+  ) VALUES (
+    v_wallet.id, v_user_id, p_amount, 'debit', 'order_payment', p_order_id::text,
+    'Wallet payment for order #' || p_order_id::text, v_new_balance
+  ) RETURNING id INTO v_tx_id;
+
+  INSERT INTO public.payments (
+    order_id,
+    user_id,
+    provider,
+    amount,
+    status
+  ) VALUES (
+    p_order_id,
+    v_user_id,
+    'wallet',
+    p_amount,
+    'paid'
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'transaction_id', v_tx_id,
+    'debited_amount', p_amount,
+    'remaining_balance', v_new_balance
+  );
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.refund_wallet_payment(p_order_id uuid, p_reason text DEFAULT 'Order cancelled / Checkout aborted'::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_tx record;
+  v_wallet record;
+  v_new_balance numeric;
+BEGIN
+  -- 1. Idempotency Check: Prevent duplicate refunds for the same order
+  IF EXISTS (
+    SELECT 1 
+    FROM public.wallet_transactions
+    WHERE reference_id = p_order_id::text
+      AND type = 'credit'
+      AND purpose = 'refund'
+  ) THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Order wallet deduction has already been refunded');
+  END IF;
+
+  -- 2. Check if a valid wallet debit exists for this order
+  SELECT * INTO v_tx
+  FROM public.wallet_transactions
+  WHERE reference_id = p_order_id::text
+    AND type = 'debit'
+    AND purpose = 'order_payment'
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'No wallet deduction found for this order');
+  END IF;
+
+  -- 3. Lock user wallet row for update
+  SELECT * INTO v_wallet
+  FROM public.wallets
+  WHERE user_id = v_tx.user_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Wallet not found');
+  END IF;
+
+  v_new_balance := v_wallet.balance + v_tx.amount;
+
+  -- 4. Restore wallet balance
+  UPDATE public.wallets
+  SET balance = v_new_balance, updated_at = now()
+  WHERE id = v_wallet.id;
+
+  -- 5. Record refund credit entry in ledger
+  INSERT INTO public.wallet_transactions (
+    wallet_id, user_id, amount, type, purpose, reference_id, description, balance_after
+  ) VALUES (
+    v_wallet.id, v_tx.user_id, v_tx.amount, 'credit', 'refund',
+    p_order_id::text, p_reason, v_new_balance
+  );
+
+  -- 6. Mark payment record as refunded/cancelled
+  UPDATE public.payments
+  SET status = 'cancelled', updated_at = now()
+  WHERE order_id = p_order_id AND provider = 'wallet';
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'refunded_amount', v_tx.amount,
+    'new_balance', v_new_balance
+  );
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.update_order_status(p_order_id uuid, p_status text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_current_status order_status;
+BEGIN
+  -- Authorization check
+  IF NOT (public.is_admin() OR public.has_role('warehouse_manager')) THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  -- Guard against bypassing stock deduction
+  IF p_status = 'confirmed' THEN
+    RAISE EXCEPTION 'Use confirm_order() to confirm an order and deduct stock.';
+  END IF;
+
+  -- Acquire row lock to prevent concurrency conflicts
+  SELECT status INTO v_current_status
+  FROM public.orders
+  WHERE id = p_order_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Order not found';
+  END IF;
+
+  -- Update status with explicit enum cast and refresh timestamp
+  UPDATE public.orders
+  SET status = p_status::order_status,
+      updated_at = now()
+  WHERE id = p_order_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_nearby_packed_orders(p_reference_order_id uuid, p_radius_km numeric DEFAULT NULL::numeric)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_ref_lat numeric;
+  v_ref_lng numeric;
+  v_radius numeric;
+  v_result json;
+begin
+  -- Resolve radius: explicit value > app_settings > 2km default
+  if p_radius_km is null then
+    select coalesce((value->>'km')::numeric, 2)
+    into v_radius
+    from app_settings
+    where key = 'dispatch_radius_km'
+    limit 1;
+
+    if v_radius is null then
+      v_radius := 2;
+    end if;
+  else
+    v_radius := p_radius_km;
+  end if;
+
+  -- Resolve the reference order's coordinates (snapshot first, live fallback)
+  select
+    coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude),
+    coalesce((o.delivery_address_snapshot->>'longitude')::numeric, a.longitude)
+  into v_ref_lat, v_ref_lng
+  from orders o
+  left join addresses a on o.address_id = a.id
+  where o.id = p_reference_order_id;
+
+  if v_ref_lat is null or v_ref_lng is null then
+    return json_build_object('radius_km', v_radius, 'orders', '[]'::json);
+  end if;
+
+  select json_build_object(
+    'radius_km', v_radius,
+    'orders', coalesce(json_agg(row_to_json(sub)), '[]'::json)
+  )
+  into v_result
+  from (
+    select
+      o.id,
+      o.order_number,
+      o.status::text as status,
+      o.total,
+      o.created_at,
+      o.address_id,
+      coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude) as latitude,
+      coalesce((o.delivery_address_snapshot->>'longitude')::numeric, a.longitude) as longitude,
+      coalesce(o.delivery_address_snapshot->>'recipient_name', a.recipient_name) as recipient_name,
+      coalesce(o.delivery_address_snapshot->>'line1', a.line1) as line1,
+      coalesce(o.delivery_address_snapshot->>'city', a.city) as city,
+      coalesce(o.delivery_address_snapshot->>'postal_code', a.postal_code) as postal_code,
+      round(
+        (
+          6371 * acos(
+            least(1, greatest(-1,
+              cos(radians(v_ref_lat)) *
+              cos(radians(coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude))) *
+              cos(radians(coalesce((o.delivery_address_snapshot->>'longitude')::numeric, a.longitude)) - radians(v_ref_lng)) +
+              sin(radians(v_ref_lat)) *
+              sin(radians(coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude)))
+            ))
+          )
+        )::numeric,
+        2
+      ) as distance_km
+    from orders o
+    left join addresses a on o.address_id = a.id
+    where
+      o.id <> p_reference_order_id
+      and o.status::text in ('pending', 'confirmed', 'packed', 'ready_for_pickup')
+      and coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude) is not null
+      and coalesce((o.delivery_address_snapshot->>'longitude')::numeric, a.longitude) is not null
+      and (
+        6371 * acos(
+          least(1, greatest(-1,
+            cos(radians(v_ref_lat)) *
+            cos(radians(coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude))) *
+            cos(radians(coalesce((o.delivery_address_snapshot->>'longitude')::numeric, a.longitude)) - radians(v_ref_lng)) +
+            sin(radians(v_ref_lat)) *
+            sin(radians(coalesce((o.delivery_address_snapshot->>'latitude')::numeric, a.latitude)))
+          ))
+        )
+      ) <= v_radius
+    order by distance_km asc
+    limit 50
+  ) sub;
+
+  return v_result;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.realtime_bypass_warehouse_check()
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'auth_helpers'
+AS $function$
+BEGIN
+  -- Simply return the result of your original, known-working function
+  RETURN auth_helpers.is_warehouse_manager();
+EXCEPTION WHEN OTHERS THEN
+  -- If anything fails internally, return false safely instead of crashing the Realtime engine
+  RETURN false;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.assign_driver_batch(p_order_ids uuid[], p_driver_id uuid)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_order_id uuid;
+  v_status text;
+  v_existing_id uuid;
+  v_assigned uuid[] := '{}';
+  v_skipped jsonb := '[]'::jsonb;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_order_ids is null or array_length(p_order_ids, 1) is null or array_length(p_order_ids, 1) = 0 then
+    raise exception 'No order ids provided';
+  end if;
+
+  if p_driver_id is null then
+    raise exception 'Driver id required';
+  end if;
+
+  foreach v_order_id in array p_order_ids loop
+    begin
+      -- Only packed or ready_for_pickup orders can receive a driver
+      select status::text into v_status from orders where id = v_order_id;
+
+      if v_status is null then
+        v_skipped := v_skipped || jsonb_build_object('order_id', v_order_id, 'reason', 'Order not found');
+        continue;
+      end if;
+
+      if v_status not in ('packed', 'ready_for_pickup') then
+        v_skipped := v_skipped || jsonb_build_object('order_id', v_order_id, 'reason', format('Order is %s, not packed', v_status));
+        continue;
+      end if;
+
+      -- Upsert assignment
+      select id into v_existing_id from delivery_assignments where order_id = v_order_id limit 1;
+
+      if v_existing_id is not null then
+        update delivery_assignments
+        set delivery_partner_id = p_driver_id,
+            status = 'ready_for_pickup',
+            updated_at = now()
+        where id = v_existing_id;
+      else
+        insert into delivery_assignments (order_id, delivery_partner_id, status)
+        values (v_order_id, p_driver_id, 'ready_for_pickup');
+      end if;
+
+      update orders
+      set status = 'ready_for_pickup',
+          updated_at = now()
+      where id = v_order_id;
+
+      v_assigned := array_append(v_assigned, v_order_id);
+    exception when others then
+      v_skipped := v_skipped || jsonb_build_object('order_id', v_order_id, 'reason', sqlerrm);
+    end;
+  end loop;
+
+  return json_build_object(
+    'assigned', coalesce(to_json(v_assigned), '[]'::json),
+    'skipped', v_skipped,
+    'total_assigned', coalesce(array_length(v_assigned, 1), 0),
+    'total_skipped', jsonb_array_length(v_skipped)
+  );
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.complete_delivery(p_assignment_id uuid, p_status text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_order_id uuid;
+  v_driver_id uuid;
+  v_cod_amount numeric := 0;
+  v_target_status order_status;
+BEGIN
+  v_target_status := p_status::order_status;
+
+  SELECT order_id, delivery_partner_id
+  INTO v_order_id, v_driver_id
+  FROM public.delivery_assignments
+  WHERE id = p_assignment_id
+  FOR UPDATE;
+
+  IF v_order_id IS NULL THEN
+    RAISE EXCEPTION 'Assignment not found';
+  END IF;
+
+  UPDATE public.delivery_assignments
+  SET status = v_target_status,
+      delivered_at = CASE WHEN v_target_status = 'delivered' THEN now() ELSE delivered_at END,
+      picked_up_at = CASE WHEN v_target_status = 'out_for_delivery' AND picked_up_at IS NULL THEN now() ELSE picked_up_at END,
+      updated_at = now()
+  WHERE id = p_assignment_id;
+
+  UPDATE public.orders
+  SET status = v_target_status,
+      updated_at = now()
+  WHERE id = v_order_id;
+
+  IF v_target_status = 'delivered' THEN
+    SELECT COALESCE(amount, 0)
+    INTO v_cod_amount
+    FROM public.payments
+    WHERE order_id = v_order_id 
+      AND LOWER(provider::text) = 'cod'
+    LIMIT 1;
+
+    IF v_cod_amount > 0 THEN
+      UPDATE public.payments
+      SET status = 'paid'::payment_status,
+          updated_at = now()
+      WHERE order_id = v_order_id 
+        AND LOWER(provider::text) = 'cod';
+
+      UPDATE public.profiles
+      SET current_cod_balance = current_cod_balance + v_cod_amount,
+          updated_at = now()
+      WHERE id = v_driver_id;
+    END IF;
+  END IF;
+END;
+$function$
+;

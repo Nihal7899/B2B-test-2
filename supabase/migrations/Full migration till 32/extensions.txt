@@ -1,0 +1,16 @@
+-- pg_cron lives in pg_catalog on Supabase
+CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+
+-- pg_net, pg_stat_statements, pgcrypto, uuid-ossp live in "extensions"
+CREATE EXTENSION IF NOT EXISTS pg_net              WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements  WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pgcrypto            WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp"         WITH SCHEMA extensions;
+
+-- pg_trgm lives in "public" on your old DB (this is why gin_trgm_ops was not found)
+CREATE EXTENSION IF NOT EXISTS pg_trgm             WITH SCHEMA public;
+
+-- supabase_vault lives in "vault"
+CREATE EXTENSION IF NOT EXISTS supabase_vault      WITH SCHEMA vault;
+
+-- plpgsql is always present; do not create it.

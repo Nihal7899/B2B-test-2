@@ -1,0 +1,805 @@
+-- Assumptions before running this:
+-- 1) schema auth and table auth.users already exist
+-- 2) auth.uid() exists
+-- 3) gen_random_uuid() is available (pgcrypto / PostgreSQL 13+)
+-- 4) enum types public.app_role, public.order_status, public.payment_status already exist
+--    because they are referenced but not created in the provided file.
+
+-- 1. categories
+CREATE TABLE public.categories (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    slug text NOT NULL,
+    image_url text NOT NULL DEFAULT ''::text,
+    description text NOT NULL DEFAULT ''::text,
+    sort_order integer NOT NULL DEFAULT 0,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    gradient text,
+    CONSTRAINT categories_pkey PRIMARY KEY (id),
+    CONSTRAINT categories_slug_key UNIQUE (slug)
+);
+
+-- 2. subcategories
+CREATE TABLE public.subcategories (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    category_id uuid NOT NULL,
+    name text NOT NULL,
+    slug text NOT NULL,
+    image_url text,
+    description text,
+    sort_order integer DEFAULT 0,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT subcategories_pkey PRIMARY KEY (id),
+    CONSTRAINT subcategories_slug_key UNIQUE (slug),
+    CONSTRAINT subcategories_category_id_fkey FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+);
+
+-- 3. delivery_ranges
+CREATE TABLE public.delivery_ranges (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    center_lat double precision NOT NULL,
+    center_lng double precision NOT NULL,
+    radius_km double precision NOT NULL,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT delivery_ranges_radius_km_check CHECK ((radius_km > (0)::double precision)),
+    CONSTRAINT delivery_ranges_pkey PRIMARY KEY (id)
+);
+
+-- 4. delivery_zones
+CREATE TABLE public.delivery_zones (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    pincodes text[] NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT delivery_zones_pkey PRIMARY KEY (id)
+);
+
+-- 5. delivery_charges
+CREATE TABLE public.delivery_charges (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    zone_id uuid NOT NULL,
+    min_order_value numeric DEFAULT 0,
+    max_order_value numeric,
+    charge numeric NOT NULL,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    estimated_time text DEFAULT '45 mins'::text,
+    CONSTRAINT delivery_charges_charge_check CHECK ((charge >= (0)::numeric)),
+    CONSTRAINT delivery_charges_pkey PRIMARY KEY (id),
+    CONSTRAINT delivery_charges_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES delivery_zones(id) ON DELETE CASCADE
+);
+
+-- 6. promo_codes
+CREATE TABLE public.promo_codes (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    code text NOT NULL,
+    discount_type text NOT NULL,
+    discount_value numeric NOT NULL,
+    min_order_value numeric DEFAULT 0,
+    max_discount_amount numeric,
+    applies_to text DEFAULT 'all'::text,
+    applies_to_ids uuid[],
+    start_date timestamp with time zone,
+    end_date timestamp with time zone,
+    usage_limit integer,
+    used_count integer NOT NULL DEFAULT 0,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT promo_codes_discount_type_check CHECK ((discount_type = ANY (ARRAY['percentage'::text, 'fixed'::text]))),
+    CONSTRAINT promo_codes_discount_value_check CHECK ((discount_value > (0)::numeric)),
+    CONSTRAINT promo_codes_applies_to_check CHECK ((applies_to = ANY (ARRAY['all'::text, 'category'::text, 'product'::text]))),
+    CONSTRAINT promo_codes_pkey PRIMARY KEY (id),
+    CONSTRAINT promo_codes_code_key UNIQUE (code)
+);
+
+-- 7. businesses
+CREATE TABLE public.businesses (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    owner_user_id uuid NOT NULL DEFAULT auth.uid(),
+    business_name text NOT NULL,
+    business_type text,
+    gst_registered boolean NOT NULL DEFAULT false,
+    gstin text,
+    gst_verification_status text NOT NULL DEFAULT 'pending'::text,
+    gst_verified_at timestamp with time zone,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    is_default boolean NOT NULL DEFAULT false,
+    address_line_1 text,
+    address_line_2 text,
+    city text,
+    state text,
+    landmark text,
+    pincode text,
+    CONSTRAINT businesses_gst_verification_status_check CHECK ((gst_verification_status = ANY (ARRAY['pending'::text, 'verified'::text, 'failed'::text]))),
+    CONSTRAINT businesses_pkey PRIMARY KEY (id),
+    CONSTRAINT businesses_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- 8. business_outlets
+CREATE TABLE public.business_outlets (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    business_id uuid NOT NULL,
+    outlet_name text NOT NULL,
+    outlet_type text,
+    phone text,
+    address_line_1 text NOT NULL,
+    address_line_2 text,
+    city text NOT NULL,
+    state text NOT NULL,
+    pincode text NOT NULL,
+    landmark text,
+    latitude numeric,
+    longitude numeric,
+    is_default boolean NOT NULL DEFAULT false,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT business_outlets_pkey PRIMARY KEY (id),
+    CONSTRAINT business_outlets_business_id_fkey FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
+-- 9. addresses
+CREATE TABLE public.addresses (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL DEFAULT auth.uid(),
+    label text NOT NULL DEFAULT 'Business'::text,
+    recipient_name text NOT NULL,
+    phone text NOT NULL,
+    line1 text NOT NULL,
+    line2 text NOT NULL DEFAULT ''::text,
+    city text NOT NULL,
+    state text NOT NULL,
+    postal_code text NOT NULL,
+    latitude numeric(10,7),
+    longitude numeric(10,7),
+    place_id text,
+    is_default boolean NOT NULL DEFAULT false,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    business_id uuid,
+    CONSTRAINT addresses_pkey PRIMARY KEY (id),
+    CONSTRAINT addresses_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,
+    CONSTRAINT addresses_business_id_fkey FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE SET NULL
+);
+
+-- 10. products
+CREATE TABLE public.products (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    category_id uuid,
+    brand text NOT NULL,
+    name text NOT NULL,
+    slug text NOT NULL,
+    pack_size text NOT NULL,
+    mrp numeric(12,2) NOT NULL,
+    wholesale_price numeric(12,2) NOT NULL,
+    moq integer NOT NULL DEFAULT 1,
+    stock_quantity integer NOT NULL DEFAULT 0,
+    image_url text NOT NULL DEFAULT ''::text,
+    description text NOT NULL DEFAULT ''::text,
+    rating numeric(3,2) NOT NULL DEFAULT 0,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    discount_percentage numeric DEFAULT 0,
+    is_available boolean DEFAULT true,
+    min_order_quantity integer DEFAULT 1,
+    brand_id uuid,
+    hsn_code text,
+    gst_percentage numeric DEFAULT 0,
+    product_code text,
+    subcategory_id uuid,
+    image_urls text[] DEFAULT '{}'::text[],
+    stock_threshold integer NOT NULL DEFAULT 0,
+    barcode text,
+    CONSTRAINT products_mrp_check CHECK ((mrp >= (0)::numeric)),
+    CONSTRAINT products_check CHECK (((wholesale_price >= (0)::numeric) AND (wholesale_price <= mrp))),
+    CONSTRAINT products_moq_check CHECK (((moq > 0) AND (moq <= 10000))),
+    CONSTRAINT products_stock_quantity_check CHECK ((stock_quantity >= 0)),
+    CONSTRAINT products_rating_check CHECK (((rating >= (0)::numeric) AND (rating <= (5)::numeric))),
+    CONSTRAINT products_pkey PRIMARY KEY (id),
+    CONSTRAINT products_slug_key UNIQUE (slug),
+    CONSTRAINT products_category_id_fkey FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    CONSTRAINT products_gst_percentage_check CHECK (((gst_percentage >= (0)::numeric) AND (gst_percentage <= (100)::numeric))),
+    CONSTRAINT products_product_code_key UNIQUE (product_code),
+    CONSTRAINT products_subcategory_id_fkey FOREIGN KEY (subcategory_id) REFERENCES subcategories(id) ON DELETE SET NULL
+);
+
+-- 11. carts
+CREATE TABLE public.carts (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL DEFAULT auth.uid(),
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT carts_pkey PRIMARY KEY (id),
+    CONSTRAINT carts_user_id_key UNIQUE (user_id),
+    CONSTRAINT carts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- 12. cart_items
+CREATE TABLE public.cart_items (
+    cart_id uuid NOT NULL,
+    product_id uuid NOT NULL,
+    quantity integer NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT cart_items_quantity_check CHECK (((quantity >= 1) AND (quantity <= 10000))),
+    CONSTRAINT cart_items_pkey PRIMARY KEY (cart_id, product_id),
+    CONSTRAINT cart_items_cart_id_fkey FOREIGN KEY (cart_id) REFERENCES carts(id) ON DELETE CASCADE,
+    CONSTRAINT cart_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+-- 13. orders
+CREATE TABLE public.orders (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    order_number text NOT NULL DEFAULT ((('SK-'::text || to_char(now(), 'YYYY'::text)) || '-'::text) || upper(substr(replace((gen_random_uuid())::text, '-'::text, ''::text), 1, 8))),
+    user_id uuid NOT NULL DEFAULT auth.uid(),
+    address_id uuid,
+    status order_status NOT NULL DEFAULT 'pending'::order_status,
+    subtotal numeric(12,2) NOT NULL DEFAULT 0,
+    discount numeric(12,2) NOT NULL DEFAULT 0,
+    delivery_fee numeric(12,2) NOT NULL DEFAULT 0,
+    total numeric(12,2) NOT NULL DEFAULT 0,
+    notes text NOT NULL DEFAULT ''::text,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    delivery_address_snapshot jsonb,
+    billing_address_snapshot jsonb,
+    business_snapshot jsonb,
+    gst_amount numeric DEFAULT 0,
+    promo_code_id uuid,
+    promo_discount numeric DEFAULT 0,
+    delivery_zone_id uuid,
+    cgst_amount numeric DEFAULT 0,
+    sgst_amount numeric DEFAULT 0,
+    cancel_reason text,
+    CONSTRAINT orders_pkey PRIMARY KEY (id),
+    CONSTRAINT orders_order_number_key UNIQUE (order_number),
+    CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE RESTRICT,
+    CONSTRAINT orders_address_id_fkey FOREIGN KEY (address_id) REFERENCES addresses(id) ON DELETE SET NULL,
+    CONSTRAINT orders_promo_code_id_fkey FOREIGN KEY (promo_code_id) REFERENCES promo_codes(id),
+    CONSTRAINT orders_delivery_zone_id_fkey FOREIGN KEY (delivery_zone_id) REFERENCES delivery_zones(id)
+);
+
+-- 14. order_items
+CREATE TABLE public.order_items (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    order_id uuid NOT NULL,
+    product_id uuid,
+    brand text NOT NULL,
+    product_name text NOT NULL,
+    pack_size text NOT NULL,
+    unit_price numeric(12,2) NOT NULL,
+    mrp numeric(12,2) NOT NULL,
+    quantity integer NOT NULL,
+    line_total numeric(12,2) NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    hsn_code text,
+    gst_percentage numeric DEFAULT 0,
+    product_code text,
+    CONSTRAINT order_items_unit_price_check CHECK ((unit_price >= (0)::numeric)),
+    CONSTRAINT order_items_mrp_check CHECK ((mrp >= (0)::numeric)),
+    CONSTRAINT order_items_quantity_check CHECK ((quantity > 0)),
+    CONSTRAINT order_items_line_total_check CHECK ((line_total >= (0)::numeric)),
+    CONSTRAINT order_items_pkey PRIMARY KEY (id),
+    CONSTRAINT order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    CONSTRAINT order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+);
+
+-- 15. payments
+CREATE TABLE public.payments (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    order_id uuid,
+    user_id uuid NOT NULL DEFAULT auth.uid(),
+    provider text NOT NULL DEFAULT 'razorpay'::text,
+    provider_order_id text,
+    provider_payment_id text,
+    amount numeric(12,2) NOT NULL,
+    status payment_status NOT NULL DEFAULT 'pending'::payment_status,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT payments_amount_check CHECK ((amount >= (0)::numeric)),
+    CONSTRAINT payments_pkey PRIMARY KEY (id),
+    CONSTRAINT payments_order_id_fkey FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    CONSTRAINT payments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE RESTRICT
+);
+
+-- 16. delivery_assignments
+CREATE TABLE public.delivery_assignments (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    order_id uuid NOT NULL,
+    delivery_partner_id uuid,
+    pickup_notes text NOT NULL DEFAULT ''::text,
+    status order_status NOT NULL DEFAULT 'ready_for_pickup'::order_status,
+    picked_up_at timestamp with time zone,
+    delivered_at timestamp with time zone,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT delivery_assignments_pkey PRIMARY KEY (id),
+    CONSTRAINT delivery_assignments_order_id_key UNIQUE (order_id),
+    CONSTRAINT delivery_assignments_order_id_fkey FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    CONSTRAINT delivery_assignments_delivery_partner_id_fkey FOREIGN KEY (delivery_partner_id) REFERENCES auth.users(id) ON DELETE SET NULL
+);
+
+-- 17. delivery_partner_cod_settlements
+CREATE TABLE public.delivery_partner_cod_settlements (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    delivery_partner_id uuid NOT NULL,
+    amount numeric NOT NULL,
+    cleared_by uuid NOT NULL,
+    payment_mode text NOT NULL DEFAULT 'cash'::text,
+    notes text DEFAULT ''::text,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT delivery_partner_cod_settlements_amount_check CHECK ((amount > (0)::numeric)),
+    CONSTRAINT delivery_partner_cod_settlements_payment_mode_check CHECK ((payment_mode = ANY (ARRAY['cash'::text, 'bank_transfer'::text, 'upi'::text]))),
+    CONSTRAINT delivery_partner_cod_settlements_pkey PRIMARY KEY (id),
+    CONSTRAINT delivery_partner_cod_settlements_delivery_partner_id_fkey FOREIGN KEY (delivery_partner_id) REFERENCES auth.users(id) ON DELETE CASCADE,
+    CONSTRAINT delivery_partner_cod_settlements_cleared_by_fkey FOREIGN KEY (cleared_by) REFERENCES auth.users(id)
+);
+
+-- 18. product_volume_pricing
+CREATE TABLE public.product_volume_pricing (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    product_id uuid NOT NULL,
+    min_quantity integer NOT NULL,
+    max_quantity integer,
+    unit_price numeric NOT NULL,
+    discount_percent numeric,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT product_volume_pricing_min_quantity_check CHECK ((min_quantity >= 1)),
+    CONSTRAINT product_volume_pricing_unit_price_check CHECK ((unit_price >= (0)::numeric)),
+    CONSTRAINT product_volume_pricing_discount_percent_check CHECK (((discount_percent >= (0)::numeric) AND (discount_percent <= (100)::numeric))),
+    CONSTRAINT volume_pricing_range_check CHECK (((min_quantity < max_quantity) OR (max_quantity IS NULL))),
+    CONSTRAINT product_volume_pricing_pkey PRIMARY KEY (id),
+    CONSTRAINT product_volume_pricing_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+-- 19. promo_code_usage
+CREATE TABLE public.promo_code_usage (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    promo_code_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    order_id uuid NOT NULL,
+    used_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT promo_code_usage_pkey PRIMARY KEY (id),
+    CONSTRAINT promo_code_usage_promo_code_id_fkey FOREIGN KEY (promo_code_id) REFERENCES promo_codes(id) ON DELETE CASCADE,
+    CONSTRAINT promo_code_usage_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,
+    CONSTRAINT promo_code_usage_order_id_fkey FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);
+
+-- 20. profiles
+CREATE TABLE public.profiles (
+    id uuid NOT NULL,
+    full_name text NOT NULL DEFAULT ''::text,
+    phone text NOT NULL DEFAULT ''::text,
+    business_name text NOT NULL DEFAULT ''::text,
+    avatar_url text,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    personal_name text,
+    registration_status text NOT NULL DEFAULT 'unregistered'::text,
+    staff_registration_status text NOT NULL DEFAULT 'unregistered'::text,
+    current_cod_balance numeric NOT NULL DEFAULT 0,
+    current_warehouse_id uuid,
+    delivery_type text DEFAULT 'standard'::text,
+    CONSTRAINT profiles_pkey PRIMARY KEY (id),
+    CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE,
+    CONSTRAINT profiles_registration_status_check CHECK ((registration_status = ANY (ARRAY['unregistered'::text, 'registered'::text]))),
+    CONSTRAINT profiles_staff_registration_status_check CHECK ((staff_registration_status = ANY (ARRAY['unregistered'::text, 'registered'::text]))),
+    CONSTRAINT profiles_current_cod_balance_check CHECK ((current_cod_balance >= (0)::numeric)),
+    CONSTRAINT profiles_current_warehouse_id_fkey FOREIGN KEY (current_warehouse_id) REFERENCES delivery_ranges(id) ON DELETE SET NULL,
+    CONSTRAINT profiles_delivery_type_check CHECK ((delivery_type = ANY (ARRAY['standard'::text, 'express'::text])))
+);
+
+-- 21. wallets
+CREATE TABLE public.wallets (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL,
+    balance numeric NOT NULL DEFAULT 0,
+    currency text NOT NULL DEFAULT 'INR'::text,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT wallets_balance_check CHECK ((balance >= (0)::numeric)),
+    CONSTRAINT wallets_pkey PRIMARY KEY (id),
+    CONSTRAINT wallets_user_id_key UNIQUE (user_id),
+    CONSTRAINT wallets_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- 22. wallet_transactions
+CREATE TABLE public.wallet_transactions (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    wallet_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    amount numeric NOT NULL,
+    type text NOT NULL,
+    purpose text NOT NULL,
+    reference_id text,
+    description text NOT NULL DEFAULT ''::text,
+    balance_after numeric NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT wallet_transactions_amount_check CHECK ((amount > (0)::numeric)),
+    CONSTRAINT wallet_transactions_type_check CHECK ((type = ANY (ARRAY['credit'::text, 'debit'::text]))),
+    CONSTRAINT wallet_transactions_purpose_check CHECK ((purpose = ANY (ARRAY['topup'::text, 'order_payment'::text, 'refund'::text, 'cashback'::text, 'adjustment'::text]))),
+    CONSTRAINT wallet_transactions_balance_after_check CHECK ((balance_after >= (0)::numeric)),
+    CONSTRAINT wallet_transactions_pkey PRIMARY KEY (id),
+    CONSTRAINT wallet_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON DELETE CASCADE,
+    CONSTRAINT wallet_transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- 23. wishlists
+CREATE TABLE public.wishlists (
+    user_id uuid NOT NULL DEFAULT auth.uid(),
+    product_id uuid NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT wishlists_pkey PRIMARY KEY (user_id, product_id),
+    CONSTRAINT wishlists_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE,
+    CONSTRAINT wishlists_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+-- 24. faqs
+CREATE TABLE public.faqs (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    question text NOT NULL,
+    answer text NOT NULL,
+    category text NOT NULL DEFAULT 'general'::text,
+    sort_order integer NOT NULL DEFAULT 0,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT faqs_pkey PRIMARY KEY (id)
+);
+
+-- 25. faq_feedback
+CREATE TABLE public.faq_feedback (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    faq_id uuid NOT NULL,
+    user_id uuid,
+    helpful boolean NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT faq_feedback_pkey PRIMARY KEY (id),
+    CONSTRAINT faq_feedback_faq_id_fkey FOREIGN KEY (faq_id) REFERENCES faqs(id) ON DELETE CASCADE,
+    CONSTRAINT faq_feedback_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+
+-- 26. whatsapp_campaigns
+CREATE TABLE public.whatsapp_campaigns (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    template_name text NOT NULL,
+    audience_type text NOT NULL DEFAULT 'all'::text,
+    total_recipients integer NOT NULL DEFAULT 0,
+    successful_sends integer NOT NULL DEFAULT 0,
+    failed_sends integer NOT NULL DEFAULT 0,
+    template_params jsonb NOT NULL DEFAULT '{}'::jsonb,
+    button_param text,
+    status text NOT NULL DEFAULT 'completed'::text,
+    sent_by uuid,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT whatsapp_campaigns_pkey PRIMARY KEY (id),
+    CONSTRAINT whatsapp_campaigns_sent_by_fkey FOREIGN KEY (sent_by) REFERENCES auth.users(id)
+);
+
+-- 27. whatsapp_message_logs
+CREATE TABLE public.whatsapp_message_logs (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    campaign_id uuid,
+    user_id uuid,
+    recipient_phone text NOT NULL,
+    status text NOT NULL DEFAULT 'queued'::text,
+    whatsapp_message_id text,
+    error_message text,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT whatsapp_message_logs_pkey PRIMARY KEY (id),
+    CONSTRAINT whatsapp_message_logs_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES whatsapp_campaigns(id) ON DELETE CASCADE,
+    CONSTRAINT whatsapp_message_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+
+-- 28. whatsapp_templates
+CREATE TABLE public.whatsapp_templates (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    template_name text NOT NULL,
+    display_name text NOT NULL,
+    description text DEFAULT ''::text,
+    language text NOT NULL DEFAULT 'en'::text,
+    has_header boolean NOT NULL DEFAULT false,
+    header_type text NOT NULL DEFAULT 'NONE'::text,
+    body_text text NOT NULL,
+    variables_config jsonb NOT NULL DEFAULT '[]'::jsonb,
+    has_dynamic_button boolean NOT NULL DEFAULT false,
+    button_label text DEFAULT 'Visit Website'::text,
+    button_default_param text DEFAULT ''::text,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT whatsapp_templates_header_type_check CHECK ((header_type = ANY (ARRAY['NONE'::text, 'IMAGE'::text, 'DOCUMENT'::text, 'VIDEO'::text, 'TEXT'::text]))),
+    CONSTRAINT whatsapp_templates_pkey PRIMARY KEY (id),
+    CONSTRAINT whatsapp_templates_template_name_key UNIQUE (template_name)
+);
+
+-- 29. app_settings
+CREATE TABLE public.app_settings (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    key text NOT NULL,
+    value jsonb NOT NULL,
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT app_settings_pkey PRIMARY KEY (id),
+    CONSTRAINT app_settings_key_key UNIQUE (key)
+);
+
+-- 30. app_versions
+CREATE TABLE public.app_versions (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    app_version text NOT NULL,
+    playstore_link text NOT NULL,
+    app_store_link text NOT NULL,
+    release_notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT app_versions_pkey PRIMARY KEY (id)
+);
+
+-- 31. home_banners
+CREATE TABLE public.home_banners (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    badge text,
+    title text NOT NULL,
+    description text NOT NULL DEFAULT ''::text,
+    image_url text DEFAULT ''::text,
+    background_color text NOT NULL DEFAULT 'brand'::text,
+    button_text text NOT NULL DEFAULT 'Shop now'::text,
+    action_type text NOT NULL DEFAULT 'OPEN_SCREEN'::text,
+    action_config jsonb NOT NULL DEFAULT '{}'::jsonb,
+    display_order integer NOT NULL DEFAULT 0,
+    is_active boolean NOT NULL DEFAULT false,
+    start_at timestamp with time zone,
+    end_at timestamp with time zone,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    "position" text DEFAULT 'top'::text,
+    bg_type text DEFAULT 'color'::text,
+    bg_color text DEFAULT '#16a34a'::text,
+    bg_gradient text DEFAULT 'from-brand-600 to-brand-800'::text,
+    overlay_enabled boolean DEFAULT false,
+    overlay_color text DEFAULT '#000000'::text,
+    overlay_opacity integer DEFAULT 50,
+    show_cta boolean DEFAULT true,
+    size text DEFAULT 'medium'::text,
+    gradient_from text DEFAULT '#065f46'::text,
+    gradient_to text DEFAULT '#10b981'::text,
+    gradient_direction text DEFAULT 'to right'::text,
+    CONSTRAINT home_banners_pkey PRIMARY KEY (id),
+    CONSTRAINT home_banners_size_check CHECK ((size = ANY (ARRAY['small'::text, 'medium'::text, 'large'::text]))),
+    CONSTRAINT home_banners_position_check CHECK (("position" = ANY (ARRAY['top'::text, 'top_slider'::text, 'carousel'::text, 'middle'::text, 'middle_1'::text, 'middle_2'::text, 'middle_3'::text, 'bottom'::text, 'bottom_popup'::text])))
+);
+
+-- 32. home_sections
+CREATE TABLE public.home_sections (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    title text NOT NULL,
+    subtitle text DEFAULT ''::text,
+    section_type text NOT NULL,
+    banner_position text DEFAULT 'middle_1'::text,
+    banner_size text DEFAULT 'medium'::text,
+    sort_order integer NOT NULL DEFAULT 0,
+    is_active boolean NOT NULL DEFAULT true,
+    config jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT home_sections_banner_size_check CHECK ((banner_size = ANY (ARRAY['small'::text, 'medium'::text, 'large'::text]))),
+    CONSTRAINT home_sections_pkey PRIMARY KEY (id),
+    CONSTRAINT home_sections_section_type_check CHECK ((section_type = ANY (ARRAY['categories'::text, 'popular_products'::text, 'quick_reorder'::text, 'recently_viewed'::text, 'volume_deals'::text, 'new_arrivals'::text, 'top_rated'::text, 'limited_stock'::text, 'brand_spotlight'::text, 'deals'::text, 'essentials'::text, 'stores'::text, 'brands'::text, 'perks'::text, 'banner_slot'::text, 'custom_products'::text])))
+);
+
+-- 33. invoice_config
+CREATE TABLE public.invoice_config (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    company_name text,
+    company_address text,
+    company_gst text,
+    company_phone text,
+    company_email text,
+    company_logo text,
+    bank_name text,
+    bank_account text,
+    bank_ifsc text,
+    terms_conditions text,
+    primary_color text DEFAULT '#1d4ed8'::text,
+    color_opacity numeric DEFAULT 1,
+    first_page_rows integer,
+    next_page_rows integer,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT invoice_config_pkey PRIMARY KEY (id)
+);
+
+-- 34. invoice_design
+CREATE TABLE public.invoice_design (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    settings jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT invoice_design_pkey PRIMARY KEY (id)
+);
+
+-- 35. notification_channels
+CREATE TABLE public.notification_channels (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    channel_id text NOT NULL,
+    name text NOT NULL,
+    description text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    small_icon text,
+    sound text,
+    CONSTRAINT notification_channels_pkey PRIMARY KEY (id),
+    CONSTRAINT notification_channels_channel_id_key UNIQUE (channel_id)
+);
+
+-- 36. promotions
+CREATE TABLE public.promotions (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    headline text NOT NULL,
+    subtext text NOT NULL DEFAULT ''::text,
+    cta_label text NOT NULL DEFAULT 'Shop now'::text,
+    image_url text NOT NULL DEFAULT ''::text,
+    background text NOT NULL DEFAULT 'brand'::text,
+    badge text NOT NULL DEFAULT ''::text,
+    sort_order integer NOT NULL DEFAULT 0,
+    is_active boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    start_at timestamp with time zone,
+    end_at timestamp with time zone,
+    action_type text NOT NULL DEFAULT 'OPEN_SCREEN'::text,
+    action_config jsonb NOT NULL DEFAULT '{}'::jsonb,
+    CONSTRAINT promotions_pkey PRIMARY KEY (id)
+);
+
+-- 37. push_notifications
+CREATE TABLE public.push_notifications (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    title text NOT NULL,
+    body text NOT NULL,
+    data jsonb,
+    sent_at timestamp with time zone DEFAULT now(),
+    sent_by uuid,
+    audience_count integer,
+    status text DEFAULT 'sent'::text,
+    image_url text,
+    small_icon text,
+    large_icon text,
+    big_picture text,
+    deep_link text,
+    action_buttons jsonb,
+    sound text,
+    badge_count integer,
+    schedule_at timestamp with time zone,
+    audience text DEFAULT 'all'::text,
+    CONSTRAINT push_notifications_pkey PRIMARY KEY (id),
+    CONSTRAINT push_notifications_sent_by_fkey FOREIGN KEY (sent_by) REFERENCES auth.users(id)
+);
+
+-- 38. search_synonyms
+CREATE TABLE public.search_synonyms (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    keyword character varying NOT NULL,
+    synonyms text[] NOT NULL DEFAULT '{}'::text[],
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+    CONSTRAINT search_synonyms_pkey PRIMARY KEY (id),
+    CONSTRAINT search_synonyms_keyword_key UNIQUE (keyword)
+);
+
+-- 39. smart_collections
+CREATE TABLE public.smart_collections (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    description text DEFAULT ''::text,
+    filter_config jsonb NOT NULL DEFAULT '{}'::jsonb,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT smart_collections_pkey PRIMARY KEY (id)
+);
+
+-- 40. stores
+CREATE TABLE public.stores (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    image_url text NOT NULL,
+    description text,
+    theme_bg text NOT NULL,
+    theme_border text NOT NULL,
+    theme_text text NOT NULL,
+    theme_accent text NOT NULL,
+    product_ids jsonb NOT NULL,
+    sort_order integer DEFAULT 0,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    banner_image_url text,
+    button_style text DEFAULT 'brand'::text,
+    primary_color text DEFAULT '#10b981'::text,
+    secondary_color text DEFAULT '#059669'::text,
+    text_color text DEFAULT '#064e3b'::text,
+    border_color text DEFAULT '#a7f3d0'::text,
+    config jsonb DEFAULT '{"hero": {"image": "", "title": "", "ctaLink": "/categories", "ctaText": "Shop Now", "enabled": true, "subtitle": "", "ctaBgColor": "#ffffff", "gradientTo": "#16a34a", "ctaTextColor": "#065f46", "gradientFrom": "#065f46"}, "bulkDeal": {"cta": "", "tag": "", "icon": "Package", "title": "", "enabled": false, "subtitle": "", "ctaBgColor": "#ffffff", "ctaTextColor": "#065f46"}, "trending": {"title": "Top categories", "ctaText": "Browse all categories", "enabled": false, "subtitle": "Jump straight to what customers are buying most", "ctaBgColor": "#ffffff", "iconButtons": [], "ctaTextColor": "#065f46"}, "badgeText": "STORE", "badgeColor": "#fbbf24", "categories": [], "highlights": [], "tintOpacity": 50}'::jsonb,
+    rating text,
+    orders text,
+    store_icon text,
+    features jsonb DEFAULT '[]'::jsonb,
+    premium_badge jsonb DEFAULT '{"icon": "Sparkles", "label": "PREMIUM", "sublabel": "QUALITY"}'::jsonb,
+    badge_text text DEFAULT 'STORE'::text,
+    badge_color text DEFAULT '#fbbf24'::text,
+    CONSTRAINT stores_pkey PRIMARY KEY (id)
+);
+
+-- 41. system_settings
+CREATE TABLE public.system_settings (
+    key text NOT NULL,
+    value jsonb NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT system_settings_pkey PRIMARY KEY (key)
+);
+
+-- 42. trusted_brands
+CREATE TABLE public.trusted_brands (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    logo_url text NOT NULL,
+    sort_order integer DEFAULT 0,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    primary_color character varying(20) DEFAULT '#3B82F6'::character varying,
+    secondary_color character varying(20) DEFAULT '#1E40AF'::character varying,
+    product_images jsonb DEFAULT '[]'::jsonb,
+    tagline text,
+    categories text[],
+    bottom_label text,
+    bottom_icon text,
+    description text,
+    config jsonb DEFAULT '{}'::jsonb,
+    CONSTRAINT trusted_brands_pkey PRIMARY KEY (id),
+    CONSTRAINT trusted_brands_bottom_icon_check CHECK ((bottom_icon = ANY (ARRAY['shield'::text, 'crown'::text, 'leaf'::text])))
+);
+
+-- 43. user_push_subscriptions
+CREATE TABLE public.user_push_subscriptions (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL,
+    onesignal_player_id text NOT NULL,
+    device_info jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT user_push_subscriptions_pkey PRIMARY KEY (id),
+    CONSTRAINT user_push_subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- 44. user_roles
+CREATE TABLE public.user_roles (
+    user_id uuid NOT NULL,
+    role app_role NOT NULL DEFAULT 'customer'::app_role,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    CONSTRAINT user_roles_pkey PRIMARY KEY (user_id),
+    CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- 45. warehouse_sync_signals
+CREATE TABLE public.warehouse_sync_signals (
+    id integer NOT NULL DEFAULT 1,
+    last_updated timestamp with time zone DEFAULT now(),
+    CONSTRAINT warehouse_sync_signals_pkey PRIMARY KEY (id)
+);

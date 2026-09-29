@@ -1,0 +1,190 @@
+Run this query to safely aggregate and sort all index definitions into a single cell:sql
+SELECT string_agg(indexdef || ';', E'\n\n' ORDER BY tablename, indexname) AS all_index_definitions
+FROM pg_indexes
+WHERE schemaname IN ('public', 'auth_helpers');
+
+
+Run this query to build the full definitions and aggregate them into a single text cell:sql
+SELECT string_agg(
+    'CREATE POLICY ' || quote_ident(policyname) || 
+    ' ON ' || quote_ident(schemaname) || '.' || quote_ident(tablename) ||
+    ' AS ' || permissive ||
+    ' FOR ' || cmd ||
+    ' TO ' || roles_list ||
+    CASE WHEN qual IS NOT NULL THEN ' USING (' || qual || ')' ELSE '' END ||
+    CASE WHEN with_check IS NOT NULL THEN ' WITH CHECK (' || with_check || ')' ELSE '' END || ';',
+    E'\n\n'
+) AS all_rls_definitions
+FROM (
+    SELECT 
+        schemaname, 
+        tablename, 
+        policyname, 
+        permissive, 
+        cmd,
+        qual,
+        with_check,
+        array_to_string(roles, ', ') AS roles_list
+    FROM pg_policies
+    WHERE schemaname IN ('public', 'auth_helpers')
+) sub;
+
+
+Run this query to fetch all ENUM definitions concatenated into a single cell:
+
+SELECT string_agg(
+    'CREATE TYPE ' || n.nspname || '.' || t.typname || ' AS ENUM (' || 
+    (
+        SELECT string_agg('''' || e.enumlabel || '''', ', ' ORDER BY e.enumsortorder)
+        FROM pg_enum e
+        WHERE e.enumtypid = t.oid
+    ) || ');', 
+    E'\n\n'
+) AS all_enum_definitions
+FROM pg_type t
+JOIN pg_namespace n ON t.typnamespace = n.oid
+WHERE n.nspname IN ('public', 'auth_helpers')
+  AND t.typtype = 'e'; -- 'e' filters strictly for enum types
+
+
+Run this query to get one single cell containing all trigger definitions from the public and auth_helpers schemas:sql
+
+
+SELECT string_agg(pg_get_triggerdef(t.oid) || ';', E'\n\n') AS all_trigger_definitions
+FROM pg_trigger t
+JOIN pg_class c ON t.tgrelid = c.oid
+JOIN pg_namespace n ON c.relnamespace = n.oid
+WHERE n.nspname IN ('public', 'auth_helpers')
+  AND t.tgisinternal = false -- Exclude internal triggers (like foreign key constraints)
+
+
+
+Run the following query to get one single cell containing all the definitions:
+
+SELECT string_agg(pg_get_functiondef(p.oid) || ';', E'\n\n') AS all_definitions
+FROM pg_proc p
+JOIN pg_namespace n ON p.pronamespace = n.oid
+WHERE n.nspname IN ('public', 'auth_helpers')
+  AND p.prolang IN (SELECT oid FROM pg_language WHERE lanname NOT IN ('c', 'internal'));
+
+
+This query uses a Common Table Expression (CTE) to pull column structures and table constraints dynamically, then stitches them into a standard CREATE TABLE syntax, grouping everything into a single text block:
+
+WITH table_elements AS (
+    -- 1. Gather all individual table column definitions
+    SELECT 
+        c.oid AS table_oid,
+        n.nspname AS schema_name,
+        c.relname AS table_name,
+        a.attnum AS ordinal_position,
+        '    ' || quote_ident(a.attname) || ' ' || 
+        format_type(a.atttypid, a.atttypmod) || 
+        CASE WHEN a.attnotnull THEN ' NOT NULL' ELSE '' END || 
+        CASE WHEN d.adbin IS NOT NULL THEN ' DEFAULT ' || pg_get_expr(d.adbin, d.adrelid) ELSE '' END AS element_def
+    FROM pg_class c
+    JOIN pg_namespace n ON c.relnamespace = n.oid
+    JOIN pg_attribute a ON a.attrelid = c.oid
+    LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
+    WHERE n.nspname IN ('public', 'auth_helpers')
+      AND c.relkind = 'r' -- Filter for standard physical tables only
+      AND a.attnum > 0 
+      AND NOT a.attisdropped
+
+    UNION ALL
+
+    -- 2. Gather all table constraints (Primary Keys, Foreign Keys, Unique, Checks)
+    SELECT 
+        c.oid AS table_oid,
+        n.nspname AS schema_name,
+        c.relname AS table_name,
+        10000 + row_number() OVER (PARTITION BY c.oid ORDER BY con.oid) AS ordinal_position,
+        '    CONSTRAINT ' || quote_ident(con.conname) || ' ' || pg_get_constraintdef(con.oid) AS element_def
+    FROM pg_constraint con
+    JOIN pg_class c ON con.conrelid = c.oid
+    JOIN pg_namespace n ON c.relnamespace = n.oid
+    WHERE n.nspname IN ('public', 'auth_helpers')
+),
+reconstructed_tables AS (
+    -- Assemble columns & constraints into individual CREATE TABLE blocks
+    SELECT 
+        schema_name,
+        table_name,
+        'CREATE TABLE ' || quote_ident(schema_name) || '.' || quote_ident(table_name) || ' (' || E'\n' ||
+        string_agg(element_def, ',' || E'\n' ORDER BY ordinal_position) || E'\n' ||
+        ');' AS table_ddl
+    FROM table_elements
+    GROUP BY schema_name, table_name
+)
+-- Aggregate all table blocks into a single massive cell block
+SELECT string_agg(table_ddl, E'\n\n' ORDER BY schema_name, table_name) AS all_table_definitions
+FROM reconstructed_tables;
+
+
+Query to fetch all storage bucket
+
+SELECT string_agg(
+    'INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types, avif_autodetection) VALUES ('
+    || quote_literal(id) || ', '
+    || quote_literal(name) || ', '
+    || public::text || ', '
+    || COALESCE(file_size_limit::text, 'NULL') || ', '
+    || COALESCE(quote_literal(allowed_mime_types::text) || '::text[]', 'NULL') || ', '
+    || COALESCE(avif_autodetection::text, 'false')
+    || ') ON CONFLICT (id) DO NOTHING;',
+    E'\n\n' ORDER BY id
+) AS all_bucket_definitions
+FROM storage.buckets;
+
+
+query to fetch bucket rls 
+
+SELECT string_agg(
+    'CREATE POLICY ' || quote_ident(policyname)
+    || ' ON ' || quote_ident(schemaname) || '.' || quote_ident(tablename)
+    || ' AS ' || permissive
+    || ' FOR ' || cmd
+    || ' TO ' || array_to_string(roles, ', ')
+    || CASE WHEN qual IS NOT NULL THEN ' USING (' || qual || ')' ELSE '' END
+    || CASE WHEN with_check IS NOT NULL THEN ' WITH CHECK (' || with_check || ')' ELSE '' END
+    || ';',
+    E'\n\n' ORDER BY tablename, policyname
+) AS all_storage_rls_definitions
+FROM pg_policies
+WHERE schemaname = 'storage';
+
+
+query to check the extensions
+
+SELECT
+    e.extname,
+    n.nspname AS schema,
+    e.extversion
+FROM pg_extension e
+JOIN pg_namespace n ON n.oid = e.extnamespace
+ORDER BY e.extname;
+
+
+check  all reatime 
+
+SELECT
+    schemaname,
+    tablename
+FROM pg_publication_tables
+WHERE pubname = 'supabase_realtime'
+ORDER BY schemaname, tablename;
+
+
+check the cron Job
+
+SELECT
+    jobid,
+    schedule,
+    command,
+    nodename,
+    nodeport,
+    database,
+    username,
+    active,
+    jobname
+FROM cron.job
+ORDER BY jobid;

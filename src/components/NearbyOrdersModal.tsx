@@ -33,7 +33,7 @@ interface NearbyOrdersModalProps {
   driverId: string;
   driverName: string;
   onClose: () => void;
-  onAssigned: () => void;
+  onAssigned: (assignedOrderIds?: string[]) => void;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -42,6 +42,13 @@ const STATUS_STYLES: Record<string, string> = {
   packed: 'bg-emerald-100 text-emerald-950 border-emerald-300',
   ready_for_pickup: 'bg-sky-50 text-sky-800 border-sky-200',
 };
+
+const STATUS_PILLS: { id: string; label: string }[] = [
+  { id: 'pending', label: 'Pending' },
+  { id: 'confirmed', label: 'Confirmed' },
+  { id: 'packed', label: 'Packed' },
+  { id: 'ready_for_pickup', label: 'Ready for Pickup' },
+];
 
 const canBeSelected = (status: string) => status === 'packed' || status === 'ready_for_pickup';
 
@@ -59,6 +66,7 @@ export function NearbyOrdersModal({
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set([referenceOrderId]));
+  const [statusFilter, setStatusFilter] = useState<string>('packed');
 
   // Load nearby orders using the configured radius
   const loadNearby = async (overrideRadius?: number) => {
@@ -101,10 +109,32 @@ export function NearbyOrdersModal({
     });
   };
 
+  // Per-status totals (independent of the active filter — so users can see what's available)
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      pending: 0,
+      confirmed: 0,
+      packed: 0,
+      ready_for_pickup: 0,
+    };
+    for (const o of nearby) {
+      if (counts[o.status] !== undefined) counts[o.status] += 1;
+    }
+    return counts;
+  }, [nearby]);
+
+  // Orders visible under the current filter
+  const filteredNearby = useMemo(
+    () => nearby.filter((o) => o.status === statusFilter),
+    [nearby, statusFilter]
+  );
+
   const selectableCount = useMemo(
     () => nearby.filter((o) => canBeSelected(o.status)).length,
     [nearby]
   );
+
+  const activePillLabel = STATUS_PILLS.find((p) => p.id === statusFilter)?.label ?? statusFilter;
 
   const handleApplyRadius = () => {
     if (!Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm > 100) return;
@@ -139,7 +169,7 @@ export function NearbyOrdersModal({
         return;
       }
 
-      onAssigned();
+      onAssigned(idsToAssign);
       onClose();
 
       if (totalSkipped > 0) {
@@ -205,6 +235,38 @@ export function NearbyOrdersModal({
           </span>
         </div>
 
+        {/* Status filter pills */}
+        <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 shrink-0">
+            Status
+          </span>
+          {STATUS_PILLS.map((pill) => {
+            const isActive = statusFilter === pill.id;
+            const count = statusCounts[pill.id] ?? 0;
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => setStatusFilter(pill.id)}
+                className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black transition-all ${
+                  isActive
+                    ? 'bg-[#0a382c] text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <span>{pill.label}</span>
+                <span
+                  className={`text-[10px] font-black px-1.5 rounded-full ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-white text-slate-500'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-2.5">
           {/* Reference order card (always selected, not user-deselectable) */}
@@ -235,18 +297,31 @@ export function NearbyOrdersModal({
               <AlertTriangle size={26} className="text-red-500" />
               <p className="text-xs font-bold text-red-700">{error}</p>
             </div>
-          ) : nearby.length === 0 ? (
+          ) : filteredNearby.length === 0 ? (
             <div className="py-10 flex flex-col items-center gap-2 text-center">
               <Package size={30} className="text-slate-300" />
-              <p className="text-xs font-bold text-slate-600">
-                No orders within {radiusKm} km
-              </p>
-              <p className="text-[11px] text-slate-400">
-                Try increasing the radius above.
-              </p>
+              {nearby.length === 0 ? (
+                <>
+                  <p className="text-xs font-bold text-slate-600">
+                    No orders within {radiusKm} km
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Try increasing the radius above.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-bold text-slate-600">
+                    No {activePillLabel.toLowerCase()} orders in this radius
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Try another status filter or increase the radius.
+                  </p>
+                </>
+              )}
             </div>
           ) : (
-            nearby.map((o) => {
+            filteredNearby.map((o) => {
               const selectable = canBeSelected(o.status);
               const selected = selectedIds.has(o.id);
               const statusClass = STATUS_STYLES[o.status] || 'bg-slate-100 text-slate-700 border-slate-200';

@@ -289,7 +289,7 @@ BEGIN
 
   RETURN v_order_id;
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.confirm_order(p_order_id uuid)
@@ -327,7 +327,7 @@ BEGIN
       updated_at = now() 
   WHERE id = p_order_id;
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.cancel_order_warehouse(p_order_id uuid, p_reason text DEFAULT 'Cancelled by warehouse manager'::text)
@@ -387,4 +387,4 @@ BEGIN
     'stock_restored', (v_current_status IN ('pending', 'confirmed', 'packed', 'ready_for_pickup', 'out_for_delivery'))
   );
 END;
-$function$
+$function$;

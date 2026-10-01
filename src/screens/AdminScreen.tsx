@@ -23,6 +23,7 @@ import {
   BookOpen,
   CreditCard,
   HelpCircle,
+  Globe,
 } from 'lucide-react';
 import { PushNotificationSender } from '@/components/Admin/PushNotificationSender';
 import InvoiceSettings from '@/components/InvoiceSettings';
@@ -52,6 +53,7 @@ import SynonymsManager from '@/components/Admin/SynonymsManager';
 import RefundManager from '@/components/Admin/RefundManager';
 import AdminSettingsManager from '@/components/Admin/AdminSettingsManager';
 import FaqsManager from '@/components/Admin/FaqsManager';
+import { SiteContentEditor } from '@/components/Admin/SiteContentEditor';
 
 interface AdminScreenProps {
   onBack: () => void;
@@ -61,6 +63,7 @@ type Tab =
   | 'dashboard'
   | 'homeSections'
   | 'banners'
+  | 'siteContent'
   | 'stores'
   | 'storeContent'
   | 'brandContent'
@@ -84,7 +87,7 @@ type Tab =
   | 'synonyms'
   | 'refunds'
   | 'settings'
-  | 'faqs';    
+  | 'faqs';
 
 export function AdminScreen({ onBack }: AdminScreenProps) {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -134,6 +137,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
 
   const tabs: { id: Tab; label: string; icon: any }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'siteContent', label: 'Site Content', icon: Globe },
     { id: 'homeSections', label: 'Home Sections', icon: LayoutGrid },
     { id: 'banners', label: 'Banners', icon: Tag },
     { id: 'stores', label: 'Stores', icon: Store },
@@ -222,6 +226,7 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
       {/* Main content */}
       <div className="flex-1 space-y-4">
         {tab === 'dashboard' && <Dashboard onNavigateToTab={(tabId: Tab) => setTab(tabId)} />}
+        {tab === 'siteContent' && <SiteContentEditor />}
         {tab === 'homeSections' && <SectionsManager />}
         {tab === 'banners' && <BannersManager />}
         {tab === 'stores' && <StoresManager />}
@@ -252,4 +257,3 @@ export function AdminScreen({ onBack }: AdminScreenProps) {
     </div>
   );
 }
-

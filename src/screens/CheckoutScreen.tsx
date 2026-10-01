@@ -336,9 +336,16 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
 
   const handleDeliveryTypeChange = async (type: 'standard' | 'express') => {
     setDeliveryType(type);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) supabase.from('profiles').update({ delivery_type: type }).eq('id', user.id).then();
+    try {
+      const { error } = await supabase.rpc('update_profile', {
+        p_delivery_type: type,
+      });
+      if (error) throw error;
+    } catch (e) {
+      console.warn('Failed to update delivery preference via RPC:', e);
+    }
   };
+
 
   useEffect(() => {
     if (!isNative && typeof window !== 'undefined' && !window.Razorpay) {

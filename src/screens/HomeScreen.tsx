@@ -432,14 +432,15 @@ export function HomeScreen({
   const handleDeliveryModeToggle = useCallback(async (mode: 'standard' | 'express') => {
     setDeliveryMode(mode);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('profiles').update({ delivery_type: mode }).eq('id', user.id);
-      }
+      const { error } = await supabase.rpc('update_profile', {
+        p_delivery_type: mode,
+      });
+      if (error) throw error;
     } catch (e) {
-      console.warn('Failed to update delivery preference:', e);
+      console.warn('Failed to update delivery preference via RPC:', e);
     }
   }, []);
+
 
   const bottomPopupBanner = useMemo(() => {
     return Array.isArray(banners) ? banners.find((b) => b?.position === 'bottom_popup') : null;

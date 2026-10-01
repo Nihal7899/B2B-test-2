@@ -388,3 +388,41 @@ BEGIN
   );
 END;
 $function$;
+
+
+CREATE OR REPLACE FUNCTION public.update_profile(
+  p_full_name TEXT DEFAULT NULL,
+  p_personal_name TEXT DEFAULT NULL,
+  p_registration_status TEXT DEFAULT NULL,
+  p_staff_registration_status TEXT DEFAULT NULL,
+  p_delivery_type TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+BEGIN
+  v_user_id := auth.uid();
+
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  UPDATE public.profiles
+  SET
+    full_name = COALESCE(p_full_name, full_name),
+    personal_name = COALESCE(p_personal_name, personal_name),
+    registration_status = COALESCE(p_registration_status, registration_status),
+    staff_registration_status = COALESCE(p_staff_registration_status, staff_registration_status),
+    delivery_type = COALESCE(p_delivery_type, delivery_type),
+    updated_at = NOW()
+  WHERE id = v_user_id;
+
+  RETURN jsonb_build_object('success', true);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.update_profile(TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;

@@ -33,17 +33,13 @@ export function StaffRegistrationModal({ isOpen, onSuccess }: StaffRegistrationM
     setError('');
 
     try {
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          full_name: trimmedFull,
-          personal_name: trimmedPersonal,
-          staff_registration_status: 'registered',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
+      const { error: rpcError } = await supabase.rpc('update_profile', {
+        p_full_name: trimmedFull,
+        p_personal_name: trimmedPersonal,
+        p_staff_registration_status: 'registered',
+      });
 
-      if (updateError) throw updateError;
+      if (rpcError) throw rpcError;
 
       await refreshProfile();
       onSuccess?.();

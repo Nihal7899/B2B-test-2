@@ -13,7 +13,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { useAuth } from '@/auth';
-import { updateProfile } from '@/services/catalog';
+import { supabase } from '@/lib/supabase';
 import {
   fetchBusinesses,
   createBusiness,
@@ -159,11 +159,13 @@ export function BusinessRegistrationScreen({
 
     try {
       if (profile?.registration_status !== 'registered') {
-        await updateProfile({
-          personal_name: personalName || profile?.personal_name || '',
-          full_name: personalName || profile?.full_name || '',
-          registration_status: 'registered',
+        const { error: rpcError } = await supabase.rpc('update_profile', {
+          p_personal_name: personalName || profile?.personal_name || '',
+          p_full_name: personalName || profile?.full_name || '',
+          p_registration_status: 'registered',
         });
+
+        if (rpcError) throw rpcError;
         await refreshProfile();
       }
 
@@ -244,9 +246,6 @@ export function BusinessRegistrationScreen({
     return parts.join(', ');
   };
 
-  // ───────────────────────────────────────────────────────────
-  // FORM MODE
-  // ───────────────────────────────────────────────────────────
   if (mode === 'form') {
     const isEdit = !!form.id;
     return (
@@ -318,7 +317,6 @@ export function BusinessRegistrationScreen({
             </div>
           </div>
 
-          {/* Billing address block */}
           <div className="border-t border-ink-100 pt-4">
             <div className="flex items-center gap-1.5 mb-2">
               <MapPin size={13} className="text-brand-600" />
@@ -450,9 +448,6 @@ export function BusinessRegistrationScreen({
     );
   }
 
-  // ───────────────────────────────────────────────────────────
-  // LIST MODE
-  // ───────────────────────────────────────────────────────────
   return (
     <div className="safe-top px-4 pb-6 space-y-4 max-w-lg mx-auto">
       <div className="flex items-center gap-3">

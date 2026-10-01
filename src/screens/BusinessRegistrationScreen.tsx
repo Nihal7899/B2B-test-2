@@ -71,6 +71,9 @@ const EMPTY_FORM: FormState = {
   pincode: '',
 };
 
+const INPUT_CLS =
+  'w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none transition-shadow focus:border-emerald-700 focus:ring-2 focus:ring-emerald-50';
+
 export function BusinessRegistrationScreen({
   onBack,
   onRegistered,
@@ -246,6 +249,7 @@ export function BusinessRegistrationScreen({
     return parts.join(', ');
   };
 
+  /* ─────────────────── FORM VIEW ─────────────────── */
   if (mode === 'form') {
     const isEdit = !!form.id;
     return (
@@ -253,7 +257,7 @@ export function BusinessRegistrationScreen({
         <div className="flex items-center gap-3">
           <button
             onClick={() => setMode('list')}
-            className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center"
+            className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center text-ink-600 shadow-xs active:scale-95 transition-transform"
           >
             <ArrowLeft size={18} />
           </button>
@@ -277,7 +281,7 @@ export function BusinessRegistrationScreen({
                 value={personalName}
                 onChange={(e) => setPersonalName(e.target.value)}
                 placeholder="Enter your full name"
-                className="mt-1.5 w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+                className={`mt-1.5 ${INPUT_CLS}`}
               />
             </div>
           )}
@@ -292,7 +296,7 @@ export function BusinessRegistrationScreen({
                 value={form.businessName}
                 onChange={(e) => setForm({ ...form, businessName: e.target.value })}
                 placeholder="e.g. ABC Foods"
-                className="w-full h-11 rounded-xl border border-ink-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+                className={`${INPUT_CLS} pl-9`}
               />
             </div>
           </div>
@@ -307,8 +311,8 @@ export function BusinessRegistrationScreen({
                   onClick={() => setForm({ ...form, businessType: type })}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                     form.businessType === type
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-ink-50 text-ink-600 border border-ink-200'
+                      ? 'bg-emerald-900 text-white shadow-xs'
+                      : 'bg-ink-50 text-ink-600 border border-ink-200 hover:bg-ink-100'
                   }`}
                 >
                   {type}
@@ -318,8 +322,8 @@ export function BusinessRegistrationScreen({
           </div>
 
           <div className="border-t border-ink-100 pt-4">
-            <div className="flex items-center gap-1.5 mb-2">
-              <MapPin size={13} className="text-brand-600" />
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <MapPin size={13} className="text-emerald-800" />
               <label className="text-xs font-bold text-ink-700">
                 Billing address <span className="text-red-500">*</span>
               </label>
@@ -330,32 +334,32 @@ export function BusinessRegistrationScreen({
                 value={form.addressLine1}
                 onChange={(e) => setForm({ ...form, addressLine1: e.target.value })}
                 placeholder="Address line 1 *"
-                className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+                className={INPUT_CLS}
               />
               <input
                 value={form.addressLine2}
                 onChange={(e) => setForm({ ...form, addressLine2: e.target.value })}
                 placeholder="Address line 2 (optional)"
-                className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+                className={INPUT_CLS}
               />
               <input
                 value={form.landmark}
                 onChange={(e) => setForm({ ...form, landmark: e.target.value })}
                 placeholder="Landmark (optional)"
-                className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+                className={INPUT_CLS}
               />
               <div className="grid grid-cols-2 gap-2.5">
                 <input
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
                   placeholder="City *"
-                  className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+                  className={INPUT_CLS}
                 />
                 <input
                   value={form.state}
                   onChange={(e) => setForm({ ...form, state: e.target.value })}
                   placeholder="State *"
-                  className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+                  className={INPUT_CLS}
                 />
               </div>
               <input
@@ -365,7 +369,7 @@ export function BusinessRegistrationScreen({
                 }
                 placeholder="Pincode *"
                 inputMode="numeric"
-                className="w-full h-11 rounded-xl border border-ink-200 px-3 text-sm tracking-wider outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+                className={`${INPUT_CLS} tracking-wider`}
               />
             </div>
           </div>
@@ -378,8 +382,8 @@ export function BusinessRegistrationScreen({
                 onClick={() => setForm({ ...form, gstRegistered: true })}
                 className={`flex-1 h-11 rounded-xl text-sm font-bold border-2 transition-colors ${
                   form.gstRegistered
-                    ? 'border-brand-500 bg-brand-50 text-brand-700'
-                    : 'border-ink-200 text-ink-500'
+                    ? 'border-emerald-700 bg-emerald-50 text-emerald-900'
+                    : 'border-ink-200 text-ink-500 hover:bg-ink-50'
                 }`}
               >
                 Yes
@@ -389,8 +393,8 @@ export function BusinessRegistrationScreen({
                 onClick={() => setForm({ ...form, gstRegistered: false, gstin: '' })}
                 className={`flex-1 h-11 rounded-xl text-sm font-bold border-2 transition-colors ${
                   !form.gstRegistered
-                    ? 'border-brand-500 bg-brand-50 text-brand-700'
-                    : 'border-ink-200 text-ink-500'
+                    ? 'border-emerald-700 bg-emerald-50 text-emerald-900'
+                    : 'border-ink-200 text-ink-500 hover:bg-ink-50'
                 }`}
               >
                 No
@@ -410,7 +414,7 @@ export function BusinessRegistrationScreen({
                     setForm({ ...form, gstin: e.target.value.toUpperCase().slice(0, 15) })
                   }
                   placeholder="15-digit GSTIN"
-                  className="flex-1 h-11 rounded-xl border border-ink-200 px-3 text-sm uppercase tracking-wider outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-50"
+                  className={`flex-1 h-11 rounded-xl border border-ink-200 px-3 text-sm uppercase tracking-wider outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-50`}
                 />
                 <div className="h-11 px-3 rounded-xl bg-ink-50 border border-ink-200 text-[11px] font-bold text-ink-500 flex items-center gap-1">
                   <ShieldCheck size={13} /> {form.gstin.length}/15
@@ -419,41 +423,52 @@ export function BusinessRegistrationScreen({
             </div>
           )}
 
-          <label className="flex items-start gap-2 text-xs text-ink-700 pt-2 border-t border-ink-100">
+          <label className="flex items-start gap-2 text-xs text-ink-700 pt-3 border-t border-ink-100 cursor-pointer">
             <input
               type="checkbox"
               checked={form.isDefault}
               onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
-              className="mt-0.5 accent-brand-600"
+              className="mt-0.5 accent-emerald-900"
             />
             <span>
-              <span className="font-bold">Set as default billing profile</span>
+              <span className="font-bold text-ink-800">Set as default billing profile</span>
               <span className="block text-[11px] text-ink-400 mt-0.5">
                 This business will be preselected at checkout.
               </span>
             </span>
           </label>
 
-          {error && <p className="text-xs text-red-500 text-center">{error}</p>}
+          {error && (
+            <p className="text-xs text-red-500 text-center bg-red-50 border border-red-100 rounded-lg py-2 px-3">
+              {error}
+            </p>
+          )}
         </div>
 
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft disabled:opacity-60"
+          className="w-full h-12 rounded-xl bg-emerald-900 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft disabled:opacity-60 active:scale-[0.99] transition-transform"
         >
-          {saving ? <Loader2 size={17} className="animate-spin" /> : <><Check size={17} /> {isEdit ? 'Save changes' : 'Add business'}</>}
+          {saving ? (
+            <Loader2 size={17} className="animate-spin" />
+          ) : (
+            <>
+              <Check size={17} /> {isEdit ? 'Save changes' : 'Add business'}
+            </>
+          )}
         </button>
       </div>
     );
   }
 
+  /* ─────────────────── LIST VIEW ─────────────────── */
   return (
     <div className="safe-top px-4 pb-6 space-y-4 max-w-lg mx-auto">
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center"
+          className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center text-ink-600 shadow-xs active:scale-95 transition-transform"
         >
           <ArrowLeft size={18} />
         </button>
@@ -464,21 +479,21 @@ export function BusinessRegistrationScreen({
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" />
+        <div className="flex justify-center py-16">
+          <div className="h-8 w-8 rounded-full border-2 border-emerald-200 border-t-emerald-900 animate-spin" />
         </div>
       ) : businesses.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600">
+        <div className="flex flex-col items-center justify-center min-h-[55vh] text-center">
+          <div className="h-20 w-20 rounded-3xl bg-emerald-50 flex items-center justify-center text-emerald-900">
             <Building2 size={36} strokeWidth={1.5} />
           </div>
           <h2 className="text-lg font-extrabold text-ink-900 mt-5">No businesses yet</h2>
-          <p className="text-sm text-ink-500 mt-1 max-w-[260px]">
+          <p className="text-sm text-ink-500 mt-1 max-w-[270px]">
             Add your first business to get GST invoices and streamline checkout.
           </p>
           <button
             onClick={startCreate}
-            className="mt-5 h-11 px-5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center gap-2"
+            className="mt-6 h-12 px-6 rounded-xl bg-emerald-900 text-white text-sm font-bold flex items-center gap-2 shadow-soft active:scale-[0.98] transition-transform"
           >
             <Plus size={17} /> Add business
           </button>
@@ -489,40 +504,36 @@ export function BusinessRegistrationScreen({
             {businesses.map((b) => (
               <div
                 key={b.id}
-                className={`bg-white border rounded-2xl p-3.5 shadow-card ${
-                  b.is_default ? 'border-brand-400 ring-2 ring-brand-100/60' : 'border-ink-100'
+                className={`bg-white border rounded-2xl p-3.5 shadow-card transition-all ${
+                  b.is_default
+                    ? 'border-emerald-400 ring-2 ring-emerald-100/60'
+                    : 'border-ink-100'
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className="h-10 w-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">
-                      <Building2 size={18} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-bold text-ink-800 truncate">
-                          {b.business_name}
-                        </p>
-                        {b.is_default && (
-                          <span className="text-[9px] font-black uppercase bg-brand-600 text-white rounded-full px-2 py-0.5 flex items-center gap-1">
-                            <Star size={9} fill="white" /> Default
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-ink-500 mt-0.5">{b.business_type || '—'}</p>
-                      {formatAddress(b) && (
-                        <p className="text-[11px] text-ink-600 mt-1 leading-snug">
-                          {formatAddress(b)}
-                        </p>
-                      )}
-                      {b.gst_registered && b.gstin ? (
-                        <p className="text-[11px] text-ink-600 mt-1 font-mono tracking-wide">
-                          GSTIN: <span className="font-bold">{b.gstin}</span>
-                        </p>
-                      ) : (
-                        <p className="text-[11px] text-ink-400 mt-1">Not GST registered</p>
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-900 flex items-center justify-center shrink-0">
+                    <Building2 size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold text-ink-800 truncate">{b.business_name}</p>
+                      {b.is_default && (
+                        <span className="text-[9px] font-black uppercase bg-emerald-900 text-white rounded-full px-2 py-0.5 flex items-center gap-1">
+                          <Star size={9} fill="white" /> Default
+                        </span>
                       )}
                     </div>
+                    <p className="text-[11px] text-ink-500 mt-0.5">{b.business_type || '—'}</p>
+                    {formatAddress(b) && (
+                      <p className="text-[11px] text-ink-600 mt-1 leading-snug">{formatAddress(b)}</p>
+                    )}
+                    {b.gst_registered && b.gstin ? (
+                      <p className="text-[11px] text-ink-600 mt-1 font-mono tracking-wide">
+                        GSTIN: <span className="font-bold">{b.gstin}</span>
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-ink-400 mt-1">Not GST registered</p>
+                    )}
                   </div>
                 </div>
 
@@ -530,20 +541,20 @@ export function BusinessRegistrationScreen({
                   {!b.is_default && (
                     <button
                       onClick={() => void handleSetDefault(b)}
-                      className="flex-1 h-8 px-3 rounded-lg bg-brand-50 text-brand-700 text-[11px] font-bold flex items-center justify-center gap-1 hover:bg-brand-100"
+                      className="flex-1 h-8 px-3 rounded-lg bg-emerald-50 text-emerald-800 text-[11px] font-bold flex items-center justify-center gap-1 hover:bg-emerald-100 transition-colors"
                     >
                       <Star size={12} /> Set Default
                     </button>
                   )}
                   <button
                     onClick={() => startEdit(b)}
-                    className="h-8 px-3 rounded-lg border border-ink-200 text-ink-700 text-[11px] font-bold flex items-center gap-1 hover:bg-ink-50"
+                    className="h-8 px-3 rounded-lg border border-ink-200 text-ink-700 text-[11px] font-bold flex items-center gap-1 hover:bg-ink-50 transition-colors"
                   >
                     <Pencil size={12} /> Edit
                   </button>
                   <button
                     onClick={() => setConfirmDeleteId(b.id)}
-                    className="h-8 w-8 rounded-lg border border-red-200 text-red-600 flex items-center justify-center hover:bg-red-50"
+                    className="h-8 w-8 rounded-lg border border-red-200 text-red-600 flex items-center justify-center hover:bg-red-50 transition-colors"
                   >
                     <Trash2 size={13} />
                   </button>
@@ -554,7 +565,7 @@ export function BusinessRegistrationScreen({
 
           <button
             onClick={startCreate}
-            className="w-full h-12 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50 text-brand-700 text-sm font-bold flex items-center justify-center gap-2"
+            className="w-full h-12 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50 text-emerald-800 text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
             <Plus size={17} /> Add another business
           </button>
@@ -562,22 +573,22 @@ export function BusinessRegistrationScreen({
       )}
 
       {confirmDeleteId && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-3 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
                 <Trash2 size={18} />
               </div>
               <div className="flex-1">
                 <h3 className="text-sm font-bold text-ink-900">Delete business?</h3>
-                <p className="text-xs text-ink-500 mt-1">
+                <p className="text-xs text-ink-500 mt-1 leading-relaxed">
                   This cannot be undone. Past invoices that already reference this business will
                   keep the snapshot they were created with.
                 </p>
               </div>
               <button
                 onClick={() => setConfirmDeleteId(null)}
-                className="text-ink-400 shrink-0"
+                className="text-ink-400 shrink-0 hover:text-ink-600 transition-colors"
               >
                 <X size={18} />
               </button>
@@ -585,14 +596,14 @@ export function BusinessRegistrationScreen({
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setConfirmDeleteId(null)}
-                className="flex-1 h-10 rounded-xl bg-ink-100 text-ink-700 text-xs font-bold"
+                className="flex-1 h-11 rounded-xl bg-ink-100 text-ink-700 text-xs font-bold hover:bg-ink-200 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => void handleConfirmDelete()}
                 disabled={deletingId === confirmDeleteId}
-                className="flex-1 h-10 rounded-xl bg-red-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-60"
+                className="flex-1 h-11 rounded-xl bg-red-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-60 hover:bg-red-700 transition-colors"
               >
                 {deletingId === confirmDeleteId ? (
                   <Loader2 size={14} className="animate-spin" />

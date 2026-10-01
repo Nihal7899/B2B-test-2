@@ -25,6 +25,9 @@ const EMPTY_FORM = {
   is_default: false,
 };
 
+const INPUT_CLS =
+  'w-full h-11 rounded-xl border border-ink-200 px-3 text-sm outline-none transition-shadow focus:border-emerald-700 focus:ring-2 focus:ring-emerald-50';
+
 export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
   const [addresses, setAddresses] = useState<DbAddress[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +53,7 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
       ...f,
       latitude: loc.latitude,
       longitude: loc.longitude,
-      line2: loc.line1 || f.line2, // Updated to populate line 2 instead of line 1
+      line2: loc.line1 || f.line2,
       city: loc.city || f.city,
       state: loc.state || f.state,
       postal_code: loc.postal_code || f.postal_code,
@@ -81,13 +84,10 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
 
   const handleSetDefault = async (addr: DbAddress) => {
     try {
-      // Find current default and unset it
       const currentDefault = addresses.find((a) => a.is_default);
       if (currentDefault && currentDefault.id !== addr.id) {
         await supabase.from('addresses').update({ is_default: false }).eq('id', currentDefault.id);
       }
-      
-      // Set new default
       await supabase.from('addresses').update({ is_default: true }).eq('id', addr.id);
       await load();
     } catch (err) {
@@ -108,7 +108,6 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
       let lat = form.latitude;
       let lng = form.longitude;
 
-      // If no lat/lng, geocode the address
       if (lat === null || lng === null) {
         const fullAddress = `${form.line1}, ${form.city}, ${form.state} ${form.postal_code}`;
         const { data, error } = await supabase.functions.invoke('maps', {
@@ -132,7 +131,6 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
         }));
       }
 
-      // Check delivery range
       const inRange = await checkPointInDeliveryRange(lat!, lng!);
       if (!inRange) {
         setError('This address is outside our delivery area. Please choose another location.');
@@ -155,7 +153,6 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
         is_default: form.is_default,
       };
 
-      // Unset previous default if this new/updated address is being set as default
       if (form.is_default) {
         const currentDefault = addresses.find((a) => a.is_default);
         if (currentDefault && currentDefault.id !== form.id) {
@@ -163,7 +160,6 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
         }
       }
 
-      // Explicitly UPDATE if we have an ID to prevent duplicates, otherwise INSERT
       if (form.id) {
         const { error: updateError } = await supabase
           .from('addresses')
@@ -192,7 +188,13 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
     await load();
   };
 
-  if (loading) return <div className="flex items-center justify-center min-h-[50vh]"><div className="h-8 w-8 rounded-full border-2 border-brand-200 border-t-brand-600 animate-spin" /></div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="h-8 w-8 rounded-full border-2 border-emerald-200 border-t-emerald-900 animate-spin" />
+      </div>
+    );
+  }
 
   if (showPicker) {
     return (
@@ -204,9 +206,14 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
   }
 
   return (
-    <div className="safe-top px-4 pb-6 space-y-4">
+    <div className="safe-top px-4 pb-6 space-y-4 max-w-lg mx-auto">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center"><ArrowLeft size={18} /></button>
+        <button
+          onClick={onBack}
+          className="h-9 w-9 rounded-xl bg-white border border-ink-200 flex items-center justify-center text-ink-600 shadow-xs active:scale-95 transition-transform"
+        >
+          <ArrowLeft size={18} />
+        </button>
         <div>
           <h1 className="text-xl font-extrabold text-ink-900 tracking-tight">Delivery addresses</h1>
           <p className="text-xs text-ink-500 mt-0.5">Manage your delivery locations</p>
@@ -214,91 +221,231 @@ export function AddressesScreen({ onBack, onSaved }: AddressesScreenProps) {
       </div>
 
       {addresses.length === 0 && !showForm ? (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-          <div className="h-20 w-20 rounded-3xl bg-brand-50 flex items-center justify-center text-brand-600"><MapPin size={36} strokeWidth={1.5} /></div>
+        <div className="flex flex-col items-center justify-center min-h-[55vh] text-center">
+          <div className="h-20 w-20 rounded-3xl bg-emerald-50 flex items-center justify-center text-emerald-900">
+            <MapPin size={36} strokeWidth={1.5} />
+          </div>
           <h2 className="text-lg font-extrabold text-ink-900 mt-5">No addresses saved</h2>
-          <p className="text-sm text-ink-500 mt-1 max-w-[250px]">Add a delivery address to start placing orders.</p>
-          <div className="mt-5 flex flex-col gap-2 w-full max-w-[280px]">
-            <button onClick={() => setShowPicker(true)} className="h-11 px-5 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"><Navigation size={17} /> Pick on map</button>
-            <button onClick={() => setShowForm(true)} className="h-11 px-5 rounded-xl border-2 border-ink-200 text-ink-700 text-sm font-bold flex items-center justify-center gap-2"><Plus size={17} /> Enter manually</button>
+          <p className="text-sm text-ink-500 mt-1 max-w-[260px]">
+            Add a delivery address to start placing orders.
+          </p>
+          <div className="mt-6 flex flex-col gap-2 w-full max-w-[280px]">
+            <button
+              onClick={() => setShowPicker(true)}
+              className="h-12 rounded-xl bg-emerald-900 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft active:scale-[0.98] transition-transform"
+            >
+              <Navigation size={17} /> Pick on map
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="h-12 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50 text-emerald-800 text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            >
+              <Plus size={17} /> Enter manually
+            </button>
           </div>
         </div>
       ) : showForm ? (
         <div className="space-y-3">
-          <div className="bg-white border border-ink-100 rounded-2xl p-4 space-y-3 shadow-card">
+          <div className="bg-white border border-ink-100 rounded-2xl p-4 space-y-3.5 shadow-card">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-ink-900">{form.id ? 'Edit address' : 'New address'}</h2>
-              <button onClick={() => { setShowForm(false); setForm({ ...EMPTY_FORM }); }} className="text-xs font-bold text-ink-400">Cancel</button>
+              <h2 className="text-sm font-bold text-ink-900">
+                {form.id ? 'Edit address' : 'New address'}
+              </h2>
+              <button
+                onClick={() => { setShowForm(false); setForm({ ...EMPTY_FORM }); }}
+                className="text-xs font-bold text-ink-400 hover:text-ink-600 transition-colors"
+              >
+                Cancel
+              </button>
             </div>
 
-            <button onClick={() => setShowPicker(true)} className="w-full h-11 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50 text-brand-700 text-sm font-bold flex items-center justify-center gap-2">
-              <MapPin size={16} /> {form.latitude ? 'Change location on map' : 'Pick location on map'}
+            <button
+              onClick={() => setShowPicker(true)}
+              className="w-full h-12 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50 text-emerald-800 text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
+            >
+              <MapPin size={16} />
+              {form.latitude ? 'Change location on map' : 'Pick location on map'}
             </button>
 
             {form.latitude && form.longitude && (
-              <div className="rounded-xl bg-brand-50 border border-brand-100 p-2.5 flex items-center gap-2">
-                <MapPin size={15} className="text-brand-600" />
-                <p className="text-xs text-brand-800">Location set: {form.latitude.toFixed(4)}, {form.longitude.toFixed(4)}</p>
+              <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-2.5 flex items-center gap-2">
+                <MapPin size={15} className="text-emerald-800 shrink-0" />
+                <p className="text-xs text-emerald-900 font-medium">
+                  Location set · {form.latitude.toFixed(4)}, {form.longitude.toFixed(4)}
+                </p>
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-2">
-              <input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Label (Home, Shop)" className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
-              <input value={form.recipient_name} onChange={(e) => setForm({ ...form, recipient_name: e.target.value })} placeholder="Recipient name *" className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
+            <div className="grid grid-cols-2 gap-2.5">
+              <input
+                value={form.label}
+                onChange={(e) => setForm({ ...form, label: e.target.value })}
+                placeholder="Label (Home, Shop)"
+                className={INPUT_CLS}
+              />
+              <input
+                value={form.recipient_name}
+                onChange={(e) => setForm({ ...form, recipient_name: e.target.value })}
+                placeholder="Recipient name *"
+                className={INPUT_CLS}
+              />
             </div>
-            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone number *" className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
-            <input value={form.line1} onChange={(e) => setForm({ ...form, line1: e.target.value })} placeholder="Address line 1 *" className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
-            <input value={form.line2} onChange={(e) => setForm({ ...form, line2: e.target.value })} placeholder="Address line 2 (optional)" className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
-            <div className="grid grid-cols-3 gap-2">
-              <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="City *" className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
-              <input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="State *" className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
-              <input value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} placeholder="PIN *" className="h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500" />
+            <input
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              placeholder="Phone number *"
+              inputMode="tel"
+              className={INPUT_CLS}
+            />
+            <input
+              value={form.line1}
+              onChange={(e) => setForm({ ...form, line1: e.target.value })}
+              placeholder="Address line 1 *"
+              className={INPUT_CLS}
+            />
+            <input
+              value={form.line2}
+              onChange={(e) => setForm({ ...form, line2: e.target.value })}
+              placeholder="Address line 2 (optional)"
+              className={INPUT_CLS}
+            />
+            <div className="grid grid-cols-3 gap-2.5">
+              <input
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+                placeholder="City *"
+                className={INPUT_CLS}
+              />
+              <input
+                value={form.state}
+                onChange={(e) => setForm({ ...form, state: e.target.value })}
+                placeholder="State *"
+                className={INPUT_CLS}
+              />
+              <input
+                value={form.postal_code}
+                onChange={(e) => setForm({ ...form, postal_code: e.target.value })}
+                placeholder="PIN *"
+                inputMode="numeric"
+                className={`${INPUT_CLS} tracking-wider`}
+              />
             </div>
-            <label className="flex items-center gap-2 text-sm text-ink-700">
-              <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} className="accent-brand-600" /> 
-              Set as default address
+
+            <label className="flex items-start gap-2 text-xs text-ink-700 pt-3 border-t border-ink-100 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_default}
+                onChange={(e) => setForm({ ...form, is_default: e.target.checked })}
+                className="mt-0.5 accent-emerald-900"
+              />
+              <span>
+                <span className="font-bold text-ink-800">Set as default address</span>
+                <span className="block text-[11px] text-ink-400 mt-0.5">
+                  This address will be preselected at checkout.
+                </span>
+              </span>
             </label>
-            {error && <p className="text-xs text-red-500">{error}</p>}
-            <button onClick={handleSave} disabled={saving} className="w-full h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2">{saving ? <Loader2 size={17} className="animate-spin" /> : <><Check size={17} /> Save address</>}</button>
+
+            {error && (
+              <p className="text-xs text-red-500 text-center bg-red-50 border border-red-100 rounded-lg py-2 px-3">
+                {error}
+              </p>
+            )}
+
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full h-12 rounded-xl bg-emerald-900 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft disabled:opacity-60 active:scale-[0.99] transition-transform"
+            >
+              {saving ? (
+                <Loader2 size={17} className="animate-spin" />
+              ) : (
+                <>
+                  <Check size={17} /> Save address
+                </>
+              )}
+            </button>
           </div>
         </div>
       ) : (
         <>
           <div className="space-y-2.5">
             {addresses.map((addr) => (
-              <div key={addr.id} className="bg-white border border-ink-100 rounded-2xl p-3.5 shadow-card">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                    <div className="h-9 w-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0"><MapPin size={17} /></div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-ink-800">{addr.label}</p>
-                        {addr.is_default && <span className="text-[9px] font-bold bg-brand-100 text-brand-700 rounded-full px-2 py-0.5">DEFAULT</span>}
-                      </div>
-                      <p className="text-xs text-ink-600 mt-1 leading-relaxed">{addr.line1}{addr.line2 ? `, ${addr.line2}` : ''}, {addr.city}, {addr.state} - {addr.postal_code}</p>
-                      <p className="text-[11px] text-ink-400 mt-1">{addr.recipient_name} · {addr.phone}</p>
-                      {addr.latitude && addr.longitude && <p className="text-[10px] text-brand-600 mt-1 flex items-center gap-1"><Navigation size={11} /> GPS location set</p>}
+              <div
+                key={addr.id}
+                className={`bg-white border rounded-2xl p-3.5 shadow-card transition-all ${
+                  addr.is_default
+                    ? 'border-emerald-400 ring-2 ring-emerald-100/60'
+                    : 'border-ink-100'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-900 flex items-center justify-center shrink-0">
+                    <MapPin size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-bold text-ink-800 truncate">{addr.label}</p>
+                      {addr.is_default && (
+                        <span className="text-[9px] font-black uppercase bg-emerald-900 text-white rounded-full px-2 py-0.5">
+                          Default
+                        </span>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!addr.is_default && (
-                      <button 
-                        onClick={() => handleSetDefault(addr)} 
-                        className="px-2 py-1 text-[10px] font-bold text-brand-600 bg-brand-50 rounded-lg hover:bg-brand-100 transition-colors mr-1"
-                      >
-                        Set Default
-                      </button>
+                    <p className="text-[11px] text-ink-600 mt-1 leading-snug">
+                      {addr.line1}
+                      {addr.line2 ? `, ${addr.line2}` : ''}, {addr.city}, {addr.state} - {addr.postal_code}
+                    </p>
+                    <p className="text-[11px] text-ink-400 mt-1">
+                      {addr.recipient_name} · {addr.phone}
+                    </p>
+                    {addr.latitude && addr.longitude && (
+                      <p className="text-[10px] font-bold text-emerald-800 mt-1.5 flex items-center gap-1">
+                        <Navigation size={10} /> GPS location set
+                      </p>
                     )}
-                    <button onClick={() => handleEdit(addr)} className="p-2 text-ink-400 hover:text-brand-600 transition-colors"><Pencil size={15} /></button>
-                    <button onClick={() => void handleDelete(addr.id)} className="p-2 text-ink-400 hover:text-red-500 transition-colors"><Trash2 size={15} /></button>
                   </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-ink-100">
+                  {!addr.is_default && (
+                    <button
+                      onClick={() => void handleSetDefault(addr)}
+                      className="flex-1 h-8 px-3 rounded-lg bg-emerald-50 text-emerald-800 text-[11px] font-bold flex items-center justify-center gap-1 hover:bg-emerald-100 transition-colors"
+                    >
+                      <Check size={12} /> Set Default
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleEdit(addr)}
+                    className="h-8 px-3 rounded-lg border border-ink-200 text-ink-700 text-[11px] font-bold flex items-center gap-1 hover:bg-ink-50 transition-colors"
+                  >
+                    <Pencil size={12} /> Edit
+                  </button>
+                  <button
+                    onClick={() => void handleDelete(addr.id)}
+                    className="h-8 w-8 rounded-lg border border-red-200 text-red-600 flex items-center justify-center hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowPicker(true)} className="flex-1 h-12 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"><MapPin size={17} /> Pick on map</button>
-            <button onClick={() => setShowForm(true)} className="flex-1 h-12 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50 text-brand-700 text-sm font-bold flex items-center justify-center gap-2"><Plus size={17} /> Enter manually</button>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setShowPicker(true)}
+              className="flex-1 h-12 rounded-xl bg-emerald-900 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-soft active:scale-[0.98] transition-transform"
+            >
+              <MapPin size={17} /> Pick on map
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex-1 h-12 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50 text-emerald-800 text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            >
+              <Plus size={17} /> Enter manually
+            </button>
           </div>
         </>
       )}

@@ -426,3 +426,38 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.update_profile(TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
+
+
+
+
+-- 2. RPC to fetch only valid, active promos (handles dates and limits automatically)
+CREATE OR REPLACE FUNCTION public.get_active_promos()
+RETURNS SETOF public.promo_codes
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT *
+  FROM public.promo_codes
+  WHERE is_active = true
+    AND (start_date IS NULL OR start_date <= now())
+    AND (end_date IS NULL OR end_date >= now())
+    AND (usage_limit IS NULL OR used_count < usage_limit)
+  ORDER BY discount_value DESC;
+$$;
+
+-- 3. RPC to fetch a specific promo for checkout validation
+CREATE OR REPLACE FUNCTION public.get_promo_by_code(p_code TEXT)
+RETURNS SETOF public.promo_codes
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT *
+  FROM public.promo_codes
+  WHERE code = p_code
+  LIMIT 1;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_active_promos() TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.get_promo_by_code(TEXT) TO authenticated, anon;

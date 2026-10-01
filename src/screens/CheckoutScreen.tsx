@@ -298,25 +298,20 @@ export function CheckoutScreen({ cart, onBack, onOrderPlaced, onAddAddress }: Ch
   }, [refreshAddresses]);
 
   // Load available promo codes
+   // Load available promos
   useEffect(() => {
     void (async () => {
       try {
-        const { data } = await supabase
-          .from('promo_codes')
-          .select('*')
-          .eq('is_active', true)
-          .order('discount_value', { ascending: false });
-        const now = Date.now();
-        const filtered = ((data as PromoCode[]) || []).filter((p) => {
-          if (p.start_date && new Date(p.start_date).getTime() > now) return false;
-          if (p.end_date && new Date(p.end_date).getTime() < now) return false;
-          if (p.usage_limit != null && p.used_count >= p.usage_limit) return false;
-          return true;
-        });
-        setAvailablePromos(filtered);
-      } catch {}
+        const { data, error } = await supabase.rpc('get_active_promos');
+        if (!error && data) {
+          setAvailablePromos(data as PromoCode[]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch promos:', err);
+      }
     })();
   }, []);
+
 
   useEffect(() => {
     const sync = async () => {

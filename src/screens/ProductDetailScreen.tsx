@@ -149,17 +149,15 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
   // --- Fetch & filter applicable promo codes ---
   const loadProductPromos = useCallback(async (prod: Product) => {
     try {
-      const { data } = await supabase
-        .from('promo_codes')
-        .select('*')
-        .eq('is_active', true);
+      const { data, error } = await supabase.rpc('get_active_promos');
+      if (error || !data) {
+        setApplicablePromos([]);
+        return;
+      }
 
-      const now = Date.now();
-      const filtered = ((data as PromoCode[]) || []).filter((p) => {
-        if (p.start_date && new Date(p.start_date).getTime() > now) return false;
-        if (p.end_date && new Date(p.end_date).getTime() < now) return false;
-        if (p.usage_limit != null && p.used_count >= p.usage_limit) return false;
-
+      const promos = data as PromoCode[];
+      
+      const filtered = promos.filter((p) => {
         if (p.applies_to === 'all') return true;
         if (p.applies_to === 'product') {
           return (p.applies_to_ids || []).includes(prod.id);
@@ -183,6 +181,7 @@ export function ProductDetailScreen({ productId, onBack, onProduct: _onProduct }
       setApplicablePromos([]);
     }
   }, []);
+
 
   useEffect(() => {
     const handleScroll = () => {

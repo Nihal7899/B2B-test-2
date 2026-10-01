@@ -1239,14 +1239,15 @@ export async function validatePromoCode(
   items: CartItem[]
 ): Promise<{ valid: boolean; discount: number; promoId?: string; error?: string }> {
   const { data: promo, error } = await supabase
-    .from('promo_codes')
-    .select('*')
-    .eq('code', code)
+    .rpc('get_promo_by_code', { p_code: code })
     .maybeSingle();
 
   if (error || !promo) return { valid: false, discount: 0, error: 'Invalid promo code' };
 
   const p = promo as PromoCode;
+  
+  // Note: The RPC fetches the raw code, so we still enforce business logic here
+  // (Alternatively, you could move ALL of this into PL/pgSQL, but keeping it in TS is easier for cart matching)
   if (!p.is_active) return { valid: false, discount: 0, error: 'Promo code is inactive' };
   if (p.start_date && new Date(p.start_date) > new Date()) return { valid: false, discount: 0, error: 'Promo code not yet active' };
   if (p.end_date && new Date(p.end_date) < new Date()) return { valid: false, discount: 0, error: 'Promo code has expired' };
@@ -1254,14 +1255,16 @@ export async function validatePromoCode(
   if (p.min_order_value > 0 && subtotal < p.min_order_value) {
     return { valid: false, discount: 0, error: `Minimum order value ₹${p.min_order_value} required before tax` };
   }
+  
   if (p.applies_to === 'category' && p.applies_to_ids?.length) {
-    const itemCategories = items.map(i => i.product.category);
-    const allowed = p.applies_to_ids.some(id => itemCategories.includes(id));
+    const itemCategories = items.map((i) => i.product.category_id); // Ensure you are matching category_id
+    const allowed = p.applies_to_ids.some((id) => itemCategories.includes(id));
     if (!allowed) return { valid: false, discount: 0, error: 'Promo code does not apply to items in your cart' };
   }
+  
   if (p.applies_to === 'product' && p.applies_to_ids?.length) {
-    const productIds = items.map(i => i.product.id);
-    const allowed = p.applies_to_ids.some(id => productIds.includes(id));
+    const productIds = items.map((i) => i.product.id);
+    const allowed = p.applies_to_ids.some((id) => productIds.includes(id));
     if (!allowed) return { valid: false, discount: 0, error: 'Promo code does not apply to items in your cart' };
   }
 
@@ -1278,6 +1281,7 @@ export async function validatePromoCode(
 
   return { valid: true, discount, promoId: p.id };
 }
+
 
 // ================================================================
 // DELIVERY ZONES & CHARGES (using RPC)

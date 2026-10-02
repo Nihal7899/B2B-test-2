@@ -341,11 +341,12 @@ export const AppLoader = React.memo(function AppLoader({
               fill="none"
             >
               <defs>
-                <linearGradient id="greenBody" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stopColor="#097C44"/>
-                  <stop offset=".55" stopColor="#04572F"/>
-                  <stop offset="1" stopColor="#023D20"/>
+                {/* Minimalized subtle dark green gradient for cargo box */}
+                <linearGradient id="greenBody" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stopColor="#065C33"/>
+                  <stop offset="1" stopColor="#044727"/>
                 </linearGradient>
+                
                 <linearGradient id="greenCab" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0" stopColor="#55D16D"/>
                   <stop offset=".42" stopColor="#39BA53"/>

@@ -240,6 +240,39 @@ export async function fetchCategories(): Promise<{ categories: Category[]; slugM
   return { categories, slugMap };
 }
 
+// ----- CATEGORY ORDER HELPERS (used by CategoriesManager reorder buttons) -----
+
+/**
+ * Set an explicit sort_order value for a single category.
+ * Because HomeScreen and CategoriesScreen both order by `sort_order`,
+ * the new order appears on the storefront on the next refresh.
+ */
+export async function updateCategoryOrder(
+  id: string,
+  sortOrder: number
+): Promise<void> {
+  const { error } = await supabase
+    .from('categories')
+    .update({ sort_order: sortOrder })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/**
+ * Atomically swap the sort_order values between two categories.
+ * Used by the up/down arrow buttons in CategoriesManager.
+ */
+export async function swapCategoryOrder(
+  categoryA: { id: string; sort_order: number },
+  categoryB: { id: string; sort_order: number }
+): Promise<void> {
+  if (categoryA.id === categoryB.id) return;
+  await Promise.all([
+    updateCategoryOrder(categoryA.id, categoryB.sort_order),
+    updateCategoryOrder(categoryB.id, categoryA.sort_order),
+  ]);
+}
+
 // ----- FETCH PRODUCTS -----
 export async function fetchProducts(): Promise<{ products: Product[]; categoryMap: Record<string, string> }> {
   const { data: catData } = await supabase

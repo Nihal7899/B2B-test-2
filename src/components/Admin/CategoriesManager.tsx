@@ -1,8 +1,25 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, Save, ChevronDown, ChevronRight, ImageIcon, Search } from 'lucide-react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Loader2,
+  Save,
+  ChevronDown,
+  ChevronRight,
+  ImageIcon,
+  Search,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { DbCategory, Subcategory } from '@/types';
-import { uploadCategoryImage, deleteCategoryImage } from '@/services/catalog';
+import {
+  uploadCategoryImage,
+  deleteCategoryImage,
+  swapCategoryOrder,
+} from '@/services/catalog';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
@@ -16,7 +33,9 @@ export default function CategoriesManager() {
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
   const [editingCategory, setEditingCategory] = useState<DbCategory | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
+  const [toasts, setToasts] = useState<
+    Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>
+  >([]);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     categoryId?: string;
@@ -42,7 +61,7 @@ export default function CategoriesManager() {
     ]);
     setCategories((catData as DbCategory[]) ?? []);
     const subMap: Record<string, Subcategory[]> = {};
-    (subData as Subcategory[] || []).forEach(s => {
+    ((subData as Subcategory[]) || []).forEach((s) => {
       if (!subMap[s.category_id]) subMap[s.category_id] = [];
       subMap[s.category_id].push(s);
     });
@@ -50,7 +69,9 @@ export default function CategoriesManager() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleDeleteClick = (id: string) => {
     setConfirmDialog({
@@ -78,7 +99,7 @@ export default function CategoriesManager() {
   };
 
   const toggleExpand = (id: string) => {
-    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleEdit = (cat: DbCategory) => {
@@ -102,8 +123,54 @@ export default function CategoriesManager() {
     addToast('Category saved successfully', 'success');
   };
 
-  const filteredCategories = categories.filter(cat =>
+  const filteredCategories = categories.filter((cat) =>
     cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  /**
+   * Reorder categories by swapping `sort_order` with the adjacent row.
+   * Because `fetchCategories()` on the storefront already orders by
+   * `sort_order`, this immediately affects HomeScreen & CategoriesScreen.
+   */
+  const handleReorder = useCallback(
+    async (cat: DbCategory, direction: 'up' | 'down') => {
+      const idx = filteredCategories.findIndex((c) => c.id === cat.id);
+      if (idx === -1) return;
+
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= filteredCategories.length) return;
+
+      const targetCat = filteredCategories[swapIdx];
+
+      // Optimistic UI update
+      setCategories((prev) => {
+        const next = [...prev];
+        const aIdx = next.findIndex((c) => c.id === cat.id);
+        const bIdx = next.findIndex((c) => c.id === targetCat.id);
+        if (aIdx !== -1 && bIdx !== -1) {
+          const tmp = next[aIdx].sort_order;
+          next[aIdx] = { ...next[aIdx], sort_order: next[bIdx].sort_order };
+          next[bIdx] = { ...next[bIdx], sort_order: tmp };
+        }
+        return next;
+      });
+
+      try {
+        await swapCategoryOrder(
+          { id: cat.id, sort_order: cat.sort_order ?? 0 },
+          { id: targetCat.id, sort_order: targetCat.sort_order ?? 0 }
+        );
+        // Re-fetch to keep things consistent even if server had stale data
+        await load();
+        addToast('Category order updated', 'success');
+      } catch (err) {
+        console.error(err);
+        addToast('Failed to reorder categories', 'error');
+        await load();
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filteredCategories, load]
   );
 
   if (loading) return <Loader2 className="animate-spin mx-auto text-brand-600" size={24} />;
@@ -123,7 +190,12 @@ export default function CategoriesManager() {
     <div className="space-y-3">
       <ToastContainer>
         {toasts.map((t) => (
-          <Toast key={t.id} message={t.message} type={t.type} onClose={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))} />
+          <Toast
+            key={t.id}
+            message={t.message}
+            type={t.type}
+            onClose={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))}
+          />
         ))}
       </ToastContainer>
 
@@ -145,23 +217,55 @@ export default function CategoriesManager() {
         <Plus size={16} /> Add category
       </button>
 
-      {filteredCategories.map((cat) => (
-        <div key={cat.id} className="bg-white border border-ink-100 rounded-2xl overflow-hidden shadow-card">
+      {filteredCategories.map((cat, i) => (
+        <div
+          key={cat.id}
+          className="bg-white border border-ink-100 rounded-2xl overflow-hidden shadow-card"
+        >
           <div className="flex flex-wrap items-center gap-3 p-4">
-            {cat.image_url && <CachedImage src={cat.image_url} alt="" className="h-12 w-12 rounded-xl object-cover flex-shrink-0" />}
+            {cat.image_url && (
+              <CachedImage
+                src={cat.image_url}
+                alt=""
+                className="h-12 w-12 rounded-xl object-cover flex-shrink-0"
+              />
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-ink-800 truncate">{cat.name}</p>
-              <p className="text-xs text-ink-500">/{cat.slug} · Order {cat.sort_order}</p>
+              <p className="text-xs text-ink-500">
+                /{cat.slug} · Order {cat.sort_order}
+              </p>
               <div className="mt-1 flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold text-ink-500 bg-ink-100 rounded px-1.5 py-0.5">
+                  Order: {cat.sort_order}
+                </span>
                 <span className="text-xs text-ink-500">Background:</span>
                 <div
                   className="h-5 w-12 rounded border border-ink-200 flex-shrink-0"
                   style={{ background: cat.gradient || '#10b981' }}
                 />
-                <span className="text-[10px] text-ink-400 truncate max-w-[120px]">{cat.gradient?.slice(0, 40)}</span>
+                <span className="text-[10px] text-ink-400 truncate max-w-[120px]">
+                  {cat.gradient?.slice(0, 40)}
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+              <button
+                onClick={() => void handleReorder(cat, 'up')}
+                disabled={i === 0}
+                className="h-8 w-8 rounded-lg bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-30"
+                title="Move up in Home & Categories order"
+              >
+                <ArrowUp size={14} />
+              </button>
+              <button
+                onClick={() => void handleReorder(cat, 'down')}
+                disabled={i === filteredCategories.length - 1}
+                className="h-8 w-8 rounded-lg bg-ink-50 text-ink-600 flex items-center justify-center disabled:opacity-30"
+                title="Move down in Home & Categories order"
+              >
+                <ArrowDown size={14} />
+              </button>
               <button
                 onClick={() => toggleExpand(cat.id)}
                 className="h-8 w-8 rounded-lg bg-gray-50 text-gray-500 flex items-center justify-center"
@@ -174,7 +278,10 @@ export default function CategoriesManager() {
               >
                 <Pencil size={14} />
               </button>
-              <button onClick={() => handleDeleteClick(cat.id)} className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
+              <button
+                onClick={() => handleDeleteClick(cat.id)}
+                className="h-8 w-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center"
+              >
                 <Trash2 size={14} />
               </button>
             </div>
@@ -184,11 +291,15 @@ export default function CategoriesManager() {
               <h4 className="text-xs font-bold text-ink-600 mb-2">Subcategories</h4>
               {subcategories[cat.id]?.length ? (
                 <div className="space-y-1">
-                  {subcategories[cat.id].map(s => (
+                  {subcategories[cat.id].map((s) => (
                     <div key={s.id} className="flex items-center gap-2 text-xs flex-wrap">
                       <span className="text-ink-700">{s.name}</span>
                       <span className="text-ink-400">/ {s.slug}</span>
-                      <span className={`ml-auto ${s.is_active ? 'text-green-500' : 'text-red-400'}`}>
+                      <span
+                        className={`ml-auto ${
+                          s.is_active ? 'text-green-500' : 'text-red-400'
+                        }`}
+                      >
                         {s.is_active ? 'active' : 'inactive'}
                       </span>
                     </div>
@@ -199,7 +310,9 @@ export default function CategoriesManager() {
               )}
               <button
                 onClick={() => {
-                  alert('Open subcategory manager (you can add a link to the Subcategories tab)');
+                  alert(
+                    'Open subcategory manager (you can add a link to the Subcategories tab)'
+                  );
                 }}
                 className="mt-2 text-xs font-semibold text-brand-600"
               >
@@ -215,7 +328,9 @@ export default function CategoriesManager() {
         title={confirmDialog.title}
         message={confirmDialog.message}
         onConfirm={handleConfirmDelete}
-        onCancel={() => setConfirmDialog({ isOpen: false, categoryId: undefined, title: '', message: '' })}
+        onCancel={() =>
+          setConfirmDialog({ isOpen: false, categoryId: undefined, title: '', message: '' })
+        }
       />
     </div>
   );
@@ -265,16 +380,19 @@ function CategoryForm({
   const [uploadStatus, setUploadStatus] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(initial?.image_url ?? '');
-  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(initial?.image_url ?? null);
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(
+    initial?.image_url ?? null
+  );
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
   };
 
-  const previewStyle = bgType === 'solid'
-    ? { backgroundColor: solidColor }
-    : { background: `linear-gradient(to right, ${gradientFrom}, ${gradientTo})` };
+  const previewStyle =
+    bgType === 'solid'
+      ? { backgroundColor: solidColor }
+      : { background: `linear-gradient(to right, ${gradientFrom}, ${gradientTo})` };
 
   const handleSave = async () => {
     if (!form.name || !form.slug) {
@@ -301,7 +419,7 @@ function CategoryForm({
         setUploadStatus('Uploading...');
         setUploadProgress(30);
         const url = await uploadCategoryImage(compressed, (p) => {
-          const overall = 30 + (p * 0.7);
+          const overall = 30 + p * 0.7;
           setUploadProgress(Math.min(100, overall));
           setUploadStatus(`Uploading... ${Math.round(overall)}%`);
         });
@@ -315,7 +433,10 @@ function CategoryForm({
         setUploading(false);
       }
 
-      const gradientValue = bgType === 'solid' ? solidColor : `linear-gradient(to right, ${gradientFrom}, ${gradientTo})`;
+      const gradientValue =
+        bgType === 'solid'
+          ? solidColor
+          : `linear-gradient(to right, ${gradientFrom}, ${gradientTo})`;
       const payload = { ...form, gradient: gradientValue, image_url: newImageUrl };
 
       if (initial) {
@@ -336,14 +457,24 @@ function CategoryForm({
   };
 
   if (uploading) {
-    return <UploadProgress progress={uploadProgress} statusText={uploadStatus} isComplete={uploadProgress >= 100} />;
+    return (
+      <UploadProgress
+        progress={uploadProgress}
+        statusText={uploadStatus}
+        isComplete={uploadProgress >= 100}
+      />
+    );
   }
 
   return (
     <div className="bg-white border border-brand-200 rounded-2xl p-4 space-y-4 shadow-card">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-ink-900">{initial ? 'Edit' : 'New'} category</h3>
-        <button onClick={onClose}><X size={16} className="text-ink-400" /></button>
+        <h3 className="text-sm font-bold text-ink-900">
+          {initial ? 'Edit' : 'New'} category
+        </h3>
+        <button onClick={onClose}>
+          <X size={16} className="text-ink-400" />
+        </button>
       </div>
 
       <div>
@@ -359,7 +490,9 @@ function CategoryForm({
         <label className="block text-xs font-bold text-ink-600 mb-1">Slug *</label>
         <input
           value={form.slug}
-          onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+          onChange={(e) =>
+            setForm({ ...form, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })
+          }
           placeholder="e.g. vegetables-fruits"
           className="w-full h-10 rounded-xl border border-ink-200 px-3 text-sm outline-none focus:border-brand-500"
         />
@@ -392,7 +525,11 @@ function CategoryForm({
         </div>
         {previewUrl && (
           <div className="relative mt-2">
-            <CachedImage src={previewUrl} alt="Preview" className="h-20 w-full rounded-xl object-cover" />
+            <CachedImage
+              src={previewUrl}
+              alt="Preview"
+              className="h-20 w-full rounded-xl object-cover"
+            />
             {selectedFile && (
               <span className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
                 New
@@ -412,7 +549,8 @@ function CategoryForm({
                 checked={bgType === 'solid'}
                 onChange={() => setBgType('solid')}
                 className="accent-brand-600"
-              /> Solid
+              />{' '}
+              Solid
             </label>
             <label className="flex items-center gap-1 text-sm">
               <input
@@ -420,7 +558,8 @@ function CategoryForm({
                 checked={bgType === 'gradient'}
                 onChange={() => setBgType('gradient')}
                 className="accent-brand-600"
-              /> Gradient
+              />{' '}
+              Gradient
             </label>
           </div>
         </div>
@@ -521,7 +660,8 @@ function CategoryForm({
               checked={form.is_active}
               onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
               className="accent-brand-600"
-            /> Active
+            />{' '}
+            Active
           </label>
         </div>
       </div>
@@ -531,7 +671,13 @@ function CategoryForm({
         disabled={saving}
         className="w-full h-11 rounded-xl bg-brand-600 text-white text-sm font-bold flex items-center justify-center gap-2"
       >
-        {saving ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save</>}
+        {saving ? (
+          <Loader2 size={16} className="animate-spin" />
+        ) : (
+          <>
+            <Save size={16} /> Save
+          </>
+        )}
       </button>
     </div>
   );

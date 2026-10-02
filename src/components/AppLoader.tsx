@@ -341,12 +341,6 @@ export const AppLoader = React.memo(function AppLoader({
               fill="none"
             >
               <defs>
-                {/* Minimalized subtle dark green gradient for cargo box */}
-                <linearGradient id="greenBody" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stopColor="#065C33"/>
-                  <stop offset="1" stopColor="#044727"/>
-                </linearGradient>
-                
                 <linearGradient id="greenCab" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0" stopColor="#55D16D"/>
                   <stop offset=".42" stopColor="#39BA53"/>
@@ -462,18 +456,29 @@ export const AppLoader = React.memo(function AppLoader({
                     </g>
                   </g>
                 </g>
+                
+                {/* ========================================================= */}
+                {/* CLEAN SOLID GREEN CARGO BOX                               */}
+                {/* ========================================================= */}
                 <g id="cargo-container">
-                  <path d="M252 94Q252 72 274 72H850Q872 72 872 95V517Q872 538 850 538H272Q248 538 248 515V118Q248 94 252 94Z" fill="url(#greenBody)" stroke="#022915" strokeWidth="8"/>
+                  {/* Solid dark green fill to make the logo pop cleanly */}
+                  <path d="M252 94Q252 72 274 72H850Q872 72 872 95V517Q872 538 850 538H272Q248 538 248 515V118Q248 94 252 94Z" fill="#065C33" stroke="#022915" strokeWidth="8"/>
+                  
+                  {/* Top Highlight */}
                   <path d="M269 99H850" stroke="#B7F4D2" strokeWidth="6" strokeLinecap="round" opacity=".58"/>
+                  
+                  {/* Left edge highlight */}
                   <path d="M270 122V485" stroke="#D6F8E5" strokeWidth="3" opacity=".12"/>
-                  <path d="M250 447C415 415 604 385 752 419C809 432 843 407 871 367V516H250Z" fill="#000000" opacity=".3"/>
+                  
+                  {/* Inner top horizontal highlight */}
                   <path d="M267 148H516" stroke="#E4FFF0" strokeWidth="5" strokeLinecap="round" opacity=".1"/>
-                  <path d="M272 500Q440 464 622 482Q754 495 855 455" fill="none" stroke="#6CE6A6" strokeWidth="5" opacity=".32"/>
+                  
+                  {/* Right edge shadow for 3D depth */}
                   <path d="M838 108V505" stroke="#064F34" strokeWidth="5" opacity=".34"/>
                 </g>
                 
                 {/* ========================================================= */}
-                {/* REPLACED SVG LOGO                                         */}
+                {/* SVG LOGO                                                  */}
                 {/* ========================================================= */}
                 <g transform="translate(450, 180) scale(0.18)">
                   <path fill="#89c74e" d="M534 458C407 466 305 522 228 621 169 698 140 785 140 884 140 1000 176 1098 249 1176 321 1251 414 1298 531 1309 616 1317 699 1297 759 1247L797 1219 705 1055 701 1055C658 1092 608 1111 555 1111 442 1111 345 1016 345 884 345 755 440 656 571 656 624 656 667 673 696 706L710 720 813 559 775 527C707 475 623 449 534 458Z"/>

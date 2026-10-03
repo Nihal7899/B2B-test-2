@@ -80,6 +80,8 @@ import { getOrFetchHomeData, getHomeDataSync } from '@/services/homePreload';
 import { startContinuousLocationWatch, stopContinuousLocationWatch } from '@/services/location';
 import HelpCenterScreen from '@/screens/HelpCenterScreen';
 import { GSTReportScreen } from '@/screens/GSTReportScreen';
+import { Network } from '@capacitor/network';
+import { NoInternet } from '@/components/NoInternet';
 
 // ----------------------------------------------------
 // CURRENT APP VERSION CONSTANT
@@ -221,6 +223,34 @@ function App() {
     const cache = getHomeDataSync();
     return !Boolean(cache && cache._userId);
   });
+
+  // --- NETWORK STATE ---
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    let listenerHandle: { remove: () => void } | null = null;
+
+    const initNetworkCheck = async () => {
+      try {
+        const status = await Network.getStatus();
+        setIsOnline(status.connected);
+
+        listenerHandle = await Network.addListener('networkStatusChange', (status) => {
+          setIsOnline(status.connected);
+        });
+      } catch (err) {
+        console.warn('Network check initialization failed:', err);
+      }
+    };
+
+    void initNetworkCheck();
+
+    return () => {
+      if (listenerHandle) {
+        listenerHandle.remove();
+      }
+    };
+  }, []);
 
   // --- APP UPDATE STATE ---
   const [versionData, setVersionData] = useState<AppVersionData | null>(null);
@@ -873,6 +903,21 @@ function App() {
             isReady={isHomeReady}
             onFinish={() => {
               setShowSplash(false);
+            }}
+          />
+        )}
+
+        {/* GLOBAL NO INTERNET OVERLAY */}
+        {!isOnline && (
+          <NoInternet
+            fullScreen={true}
+            onRetry={async () => {
+              try {
+                const status = await Network.getStatus();
+                setIsOnline(status.connected);
+              } catch (err) {
+                console.warn('Manual network check failed', err);
+              }
             }}
           />
         )}

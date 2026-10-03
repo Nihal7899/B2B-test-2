@@ -10,7 +10,7 @@ import {
   deleteBrandImage,
   fetchDistinctBrands,
 } from '@/services/catalog';
-import type { TrustedBrand } from '@/types';
+import type { TrustedBrand, BrandCardConfig } from '@/types';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { UploadProgress } from '@/components/ui/UploadProgress';
@@ -28,6 +28,207 @@ interface BrandWithColors extends TrustedBrand {
   description?: string;
 }
 
+/* Shared class names — keeps fields consistent and non-overlapping on mobile */
+const inputClass =
+  'w-full min-w-0 rounded-lg border border-ink-200 bg-white p-2 text-sm outline-none focus:border-brand-500';
+const labelClass = 'mb-1 block text-sm font-medium text-ink-700';
+
+/* ------------------------------------------------------------------ */
+/*  Brand Card Style Editor                                            */
+/* ------------------------------------------------------------------ */
+function BrandStyleEditor({
+  config,
+  onChange,
+}: {
+  config: BrandCardConfig;
+  onChange: (c: BrandCardConfig) => void;
+}) {
+  const set = (patch: Partial<BrandCardConfig>) => onChange({ ...config, ...patch });
+  return (
+    <div className="mt-1 grid grid-cols-1 gap-3 rounded-lg border border-ink-200 bg-ink-50/40 p-3 md:grid-cols-2">
+      <div className="min-w-0">
+        <label className={labelClass}>Tagline Y Offset (px)</label>
+        <input
+          type="number"
+          value={config.taglineOffsetY ?? -3}
+          onChange={(e) => set({ taglineOffsetY: Number(e.target.value) })}
+          className={inputClass}
+        />
+        <p className="mt-1 text-[11px] text-ink-400">Negative = up. Default -3.</p>
+      </div>
+      <div className="min-w-0">
+        <label className={labelClass}>Categories Y Offset (px)</label>
+        <input
+          type="number"
+          value={config.categoryOffsetY ?? 3}
+          onChange={(e) => set({ categoryOffsetY: Number(e.target.value) })}
+          className={inputClass}
+        />
+        <p className="mt-1 text-[11px] text-ink-400">Positive = down. Default +3.</p>
+      </div>
+      <div className="min-w-0">
+        <label className={labelClass}>Cylinder Shadow Opacity (0–1)</label>
+        <input
+          type="number"
+          step="0.05"
+          min={0}
+          max={1}
+          value={config.cylinderShadowOpacity ?? 0.3}
+          onChange={(e) => set({ cylinderShadowOpacity: Number(e.target.value) })}
+          className={inputClass}
+        />
+      </div>
+      <div className="min-w-0">
+        <label className={labelClass}>Cylinder Shadow Blur (px)</label>
+        <input
+          type="number"
+          value={config.cylinderShadowBlur ?? 20}
+          onChange={(e) => set({ cylinderShadowBlur: Number(e.target.value) })}
+          className={inputClass}
+        />
+      </div>
+
+      <div className="min-w-0">
+        <label className={labelClass}>Bottom Pill BG</label>
+        <input
+          value={config.pillBgColor ?? ''}
+          onChange={(e) => set({ pillBgColor: e.target.value })}
+          className={inputClass}
+          placeholder="rgba(0,0,0,0.75)"
+        />
+      </div>
+      <div className="min-w-0">
+        <label className={labelClass}>Bottom Pill Text</label>
+        <input
+          value={config.pillTextColor ?? ''}
+          onChange={(e) => set({ pillTextColor: e.target.value })}
+          className={inputClass}
+          placeholder="#ffffff"
+        />
+      </div>
+      <div className="min-w-0">
+        <label className={labelClass}>Bottom Pill Border</label>
+        <input
+          value={config.pillBorderColor ?? ''}
+          onChange={(e) => set({ pillBorderColor: e.target.value })}
+          className={inputClass}
+          placeholder="rgba(255,255,255,0.2)"
+        />
+      </div>
+
+      <div className="min-w-0">
+        <label className={labelClass}>Category Pill BG</label>
+        <input
+          value={config.categoryPillBg ?? ''}
+          onChange={(e) => set({ categoryPillBg: e.target.value })}
+          className={inputClass}
+          placeholder="rgba(0,0,0,0.2)"
+        />
+      </div>
+      <div className="min-w-0">
+        <label className={labelClass}>Category Pill Text</label>
+        <input
+          value={config.categoryPillText ?? ''}
+          onChange={(e) => set({ categoryPillText: e.target.value })}
+          className={inputClass}
+          placeholder="#ffffff"
+        />
+      </div>
+      <div className="min-w-0">
+        <label className={labelClass}>Category Pill Border</label>
+        <input
+          value={config.categoryPillBorder ?? ''}
+          onChange={(e) => set({ categoryPillBorder: e.target.value })}
+          className={inputClass}
+          placeholder="rgba(255,255,255,0.25)"
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Shared editable fields (used by both Add and Edit forms)           */
+/* ------------------------------------------------------------------ */
+function BrandEditableFields({
+  brand,
+  setBrand,
+}: {
+  brand: Partial<BrandWithColors>;
+  setBrand: (b: any) => void;
+}) {
+  return (
+    <>
+      <div className="min-w-0">
+        <label className={labelClass}>Tagline (below name)</label>
+        <input
+          value={brand.tagline || ''}
+          onChange={(e) => setBrand({ ...brand, tagline: e.target.value })}
+          className={inputClass}
+          placeholder="e.g. Goodness of Purity"
+        />
+      </div>
+      <div className="min-w-0">
+        <label className={labelClass}>Categories (comma separated, max 3)</label>
+        <input
+          value={(brand.categories || []).join(', ')}
+          onChange={(e) => {
+            const items = e.target.value.split(/\s*,\s*/).filter(Boolean);
+            setBrand({ ...brand, categories: items.slice(0, 3) });
+          }}
+          className={inputClass}
+          placeholder="e.g. Dairy, Butter, Ice Cream"
+        />
+      </div>
+      <div className="min-w-0">
+        <label className={labelClass}>Bottom Label</label>
+        <input
+          value={brand.bottom_label || ''}
+          onChange={(e) => setBrand({ ...brand, bottom_label: e.target.value })}
+          className={inputClass}
+          placeholder="e.g. Trusted by Generations"
+        />
+      </div>
+      <div className="min-w-0">
+        <label className={labelClass}>Bottom Icon</label>
+        <select
+          value={brand.bottom_icon || 'shield'}
+          onChange={(e) =>
+            setBrand({ ...brand, bottom_icon: e.target.value as any })
+          }
+          className={inputClass}
+        >
+          <option value="shield">Shield</option>
+          <option value="crown">Crown</option>
+          <option value="leaf">Leaf</option>
+        </select>
+      </div>
+      <div className="min-w-0 md:col-span-2">
+        <label className={labelClass}>Description</label>
+        <textarea
+          value={brand.description || ''}
+          onChange={(e) => setBrand({ ...brand, description: e.target.value })}
+          className={`${inputClass} resize-none`}
+          rows={3}
+          placeholder="Tell the story of this brand..."
+        />
+      </div>
+
+      {/* Card style — now its own column */}
+      <div className="min-w-0 md:col-span-2">
+        <label className={labelClass}>Card Style</label>
+        <BrandStyleEditor
+          config={brand.card_config || {}}
+          onChange={(c) => setBrand({ ...brand, card_config: c })}
+        />
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Edit form                                                          */
+/* ------------------------------------------------------------------ */
 function BrandEditForm({
   brand,
   onSave,
@@ -57,93 +258,30 @@ function BrandEditForm({
     setProductPreview(URL.createObjectURL(file));
   };
 
-  const renderEditableFields = (
-    brand: Partial<BrandWithColors>,
-    setBrand: (b: any) => void
-  ) => (
-    <>
-      <div>
-        <label>Tagline (below name)</label>
-        <input
-          value={brand.tagline || ''}
-          onChange={(e) => setBrand({ ...brand, tagline: e.target.value })}
-          className="w-full border rounded p-2"
-          placeholder="e.g. Goodness of Purity"
-        />
-      </div>
-      <div>
-        <label>Categories (comma separated, max 3)</label>
-        <input
-          value={(brand.categories || []).join(', ')}
-          onChange={(e) => {
-            const raw = e.target.value;
-            const items = raw.split(/\s*,\s*/).filter(Boolean);
-            setBrand({ ...brand, categories: items.slice(0, 3) });
-          }}
-          className="w-full border rounded p-2"
-          placeholder="e.g. Dairy, Butter, Ice Cream"
-        />
-      </div>
-      <div>
-        <label>Bottom Label</label>
-        <input
-          value={brand.bottom_label || ''}
-          onChange={(e) => setBrand({ ...brand, bottom_label: e.target.value })}
-          className="w-full border rounded p-2"
-          placeholder="e.g. Trusted by Generations"
-        />
-      </div>
-      <div>
-        <label>Bottom Icon</label>
-        <select
-          value={brand.bottom_icon || 'shield'}
-          onChange={(e) =>
-            setBrand({ ...brand, bottom_icon: e.target.value as any })
-          }
-          className="w-full border rounded p-2"
-        >
-          <option value="shield">Shield</option>
-          <option value="crown">Crown</option>
-          <option value="leaf">Leaf</option>
-        </select>
-      </div>
-      <div>
-        <label>Description</label>
-        <textarea
-          value={brand.description || ''}
-          onChange={(e) => setBrand({ ...brand, description: e.target.value })}
-          className="w-full border rounded p-2"
-          rows={3}
-          placeholder="Tell the story of this brand..."
-        />
-      </div>
-    </>
-  );
-
   const handleSave = () => {
     onSave(editBrand, pendingLogoFile, pendingProductFile);
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="space-y-3">
-        <div>
-          <label className="block text-sm font-medium">Name *</label>
-          <div className="flex gap-2">
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+      {/* ---------------- Left: fields ---------------- */}
+      <div className="min-w-0 space-y-3">
+        {/* Name + copy */}
+        <div className="min-w-0">
+          <label className={labelClass}>Name *</label>
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input
               value={editBrand.name}
               onChange={(e) => setEditBrand({ ...editBrand, name: e.target.value })}
-              className="flex-1 border rounded p-2"
+              className={`${inputClass} sm:flex-1`}
             />
             <select
               value=""
               onChange={(e) => {
                 const selected = e.target.value;
-                if (selected) {
-                  setEditBrand({ ...editBrand, name: selected });
-                }
+                if (selected) setEditBrand({ ...editBrand, name: selected });
               }}
-              className="border rounded p-2 text-sm"
+              className="w-full shrink-0 rounded-lg border border-ink-200 p-2 text-sm outline-none focus:border-brand-500 sm:w-40"
               title="Copy name from product brand"
             >
               <option value="">📋 Copy</option>
@@ -156,28 +294,30 @@ function BrandEditForm({
           </div>
         </div>
 
-        <div>
-          <label>Sort Order</label>
+        {/* Sort order */}
+        <div className="min-w-0">
+          <label className={labelClass}>Sort Order</label>
           <input
             type="number"
             value={editBrand.sort_order}
             onChange={(e) =>
               setEditBrand({ ...editBrand, sort_order: Number(e.target.value) })
             }
-            className="w-full border rounded p-2"
+            className={inputClass}
           />
         </div>
 
-        <div>
-          <label>Primary Color</label>
-          <div className="flex gap-2">
+        {/* Primary colour */}
+        <div className="min-w-0">
+          <label className={labelClass}>Primary Color</label>
+          <div className="flex items-center gap-2">
             <input
               type="color"
               value={editBrand.primary_color}
               onChange={(e) =>
                 setEditBrand({ ...editBrand, primary_color: e.target.value })
               }
-              className="h-10 w-10 p-1 border rounded"
+              className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-ink-200 p-1"
             />
             <input
               type="text"
@@ -185,21 +325,22 @@ function BrandEditForm({
               onChange={(e) =>
                 setEditBrand({ ...editBrand, primary_color: e.target.value })
               }
-              className="flex-1 border rounded p-2"
+              className={`${inputClass} flex-1`}
             />
           </div>
         </div>
 
-        <div>
-          <label>Secondary Color</label>
-          <div className="flex gap-2">
+        {/* Secondary colour */}
+        <div className="min-w-0">
+          <label className={labelClass}>Secondary Color</label>
+          <div className="flex items-center gap-2">
             <input
               type="color"
               value={editBrand.secondary_color}
               onChange={(e) =>
                 setEditBrand({ ...editBrand, secondary_color: e.target.value })
               }
-              className="h-10 w-10 p-1 border rounded"
+              className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-ink-200 p-1"
             />
             <input
               type="text"
@@ -207,23 +348,24 @@ function BrandEditForm({
               onChange={(e) =>
                 setEditBrand({ ...editBrand, secondary_color: e.target.value })
               }
-              className="flex-1 border rounded p-2"
+              className={`${inputClass} flex-1`}
             />
           </div>
         </div>
 
-        <div>
-          <label>Logo</label>
-          <div className="flex gap-2">
+        {/* Logo */}
+        <div className="min-w-0">
+          <label className={labelClass}>Logo</label>
+          <div className="flex items-center gap-2">
             <input
               value={editBrand.logo_url}
               onChange={(e) => {
                 setEditBrand({ ...editBrand, logo_url: e.target.value });
                 setLogoPreview(e.target.value);
               }}
-              className="flex-1 border rounded p-2"
+              className={`${inputClass} flex-1`}
             />
-            <label className="cursor-pointer bg-ink-100 p-2 rounded">
+            <label className="shrink-0 cursor-pointer rounded-lg bg-ink-100 p-2">
               <Upload size={16} />
               <input
                 type="file"
@@ -237,22 +379,23 @@ function BrandEditForm({
             </label>
           </div>
           {logoPreview && (
-            <div className="mt-2">
+            <div className="mt-2 flex items-center gap-2">
               <CachedImage
                 src={logoPreview}
                 alt="Logo preview"
-                className="h-16 w-16 rounded object-cover"
+                className="h-16 w-16 shrink-0 rounded object-cover"
               />
               {pendingLogoFile && (
-                <span className="text-xs text-green-600 ml-2">Pending upload</span>
+                <span className="text-xs text-green-600">Pending upload</span>
               )}
             </div>
           )}
         </div>
 
-        <div>
-          <label>Product Image</label>
-          <div className="flex gap-2">
+        {/* Product image */}
+        <div className="min-w-0">
+          <label className={labelClass}>Product Image</label>
+          <div className="flex items-center gap-2">
             <input
               value={editBrand.product_images?.[0] || ''}
               onChange={(e) => {
@@ -260,9 +403,9 @@ function BrandEditForm({
                 setEditBrand({ ...editBrand, product_images: imgs });
                 setProductPreview(e.target.value);
               }}
-              className="flex-1 border rounded p-2"
+              className={`${inputClass} flex-1`}
             />
-            <label className="cursor-pointer bg-ink-100 p-2 rounded">
+            <label className="shrink-0 cursor-pointer rounded-lg bg-ink-100 p-2">
               <Upload size={16} />
               <input
                 type="file"
@@ -276,78 +419,91 @@ function BrandEditForm({
             </label>
           </div>
           {productPreview && (
-            <div className="mt-2">
+            <div className="mt-2 flex items-center gap-2">
               <CachedImage
                 src={productPreview}
                 alt="Product preview"
-                className="h-16 w-16 rounded object-cover"
+                className="h-16 w-16 shrink-0 rounded object-cover"
               />
               {pendingProductFile && (
-                <span className="text-xs text-green-600 ml-2">Pending upload</span>
+                <span className="text-xs text-green-600">Pending upload</span>
               )}
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1">
+        {/* Active */}
+        <div className="min-w-0">
+          <label className="flex items-center gap-2 text-sm font-medium text-ink-700">
             <input
               type="checkbox"
               checked={editBrand.is_active}
               onChange={(e) =>
                 setEditBrand({ ...editBrand, is_active: e.target.checked })
               }
-            />{' '}
+            />
             Active
           </label>
         </div>
 
-        {renderEditableFields(editBrand, setEditBrand)}
+        <BrandEditableFields brand={editBrand} setBrand={setEditBrand} />
 
-        <div className="flex justify-end gap-2 mt-4">
+        {/* Actions */}
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 border rounded"
+            className="w-full rounded-lg border px-4 py-2 text-sm sm:w-auto"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-brand-600 text-white rounded flex items-center gap-1"
+            className="flex w-full items-center justify-center gap-1 rounded-lg bg-brand-600 px-4 py-2 text-sm text-white sm:w-auto"
           >
             <Save size={16} /> Save
           </button>
         </div>
       </div>
 
-      <div className="flex justify-center items-center bg-gray-50 rounded-xl p-4">
-        <BrandCard
-          brandName={editBrand.name}
-          primaryColor={editBrand.primary_color}
-          secondaryColor={editBrand.secondary_color}
-          logoUrl={logoPreview || editBrand.logo_url || 'https://via.placeholder.com/100'}
-          productImage={
-            productPreview ||
-            editBrand.product_images?.[0] ||
-            'https://via.placeholder.com/120/CCCCCC/999999?text=Product'
-          }
-          tagline={editBrand.tagline}
-          categories={editBrand.categories}
-          bottomLabel={editBrand.bottom_label}
-          bottomIcon={editBrand.bottom_icon}
-        />
+      {/* ---------------- Right: preview ---------------- */}
+      <div className="flex min-w-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50 p-4">
+        <div className="w-full max-w-full overflow-x-auto">
+          <div className="mx-auto w-fit">
+            <BrandCard
+              brandName={editBrand.name}
+              primaryColor={editBrand.primary_color}
+              secondaryColor={editBrand.secondary_color}
+              logoUrl={logoPreview || editBrand.logo_url || 'https://via.placeholder.com/100'}
+              productImage={
+                productPreview ||
+                editBrand.product_images?.[0] ||
+                'https://via.placeholder.com/120/CCCCCC/999999?text=Product'
+              }
+              tagline={editBrand.tagline}
+              categories={editBrand.categories}
+              bottomLabel={editBrand.bottom_label}
+              bottomIcon={editBrand.bottom_icon}
+              config={editBrand.card_config || undefined}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Main manager                                                       */
+/* ------------------------------------------------------------------ */
 export default function BrandsManager() {
   const [brands, setBrands] = useState<BrandWithColors[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [productBrands, setProductBrands] = useState<string[]>([]);
-  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>>([]);
+  const [toasts, setToasts] = useState<
+    Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' | 'info' }>
+  >([]);
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     brandId?: string;
@@ -441,7 +597,7 @@ export default function BrandsManager() {
         setUploadStatus('Uploading logo...');
         setUploadProgress(30);
         const url = await uploadBrandImage(compressed, updatedBrand.id, 'logo_url', (p) => {
-          const overall = 30 + (p * 0.7);
+          const overall = 30 + p * 0.7;
           setUploadProgress(Math.min(100, overall));
           setUploadStatus(`Uploading logo... ${Math.round(overall)}%`);
         });
@@ -464,7 +620,7 @@ export default function BrandsManager() {
         setUploadStatus('Uploading product image...');
         setUploadProgress(30);
         const url = await uploadBrandImage(compressed, updatedBrand.id, 'product_images', (p) => {
-          const overall = 30 + (p * 0.7);
+          const overall = 30 + p * 0.7;
           setUploadProgress(Math.min(100, overall));
           setUploadStatus(`Uploading product image... ${Math.round(overall)}%`);
         });
@@ -493,6 +649,9 @@ export default function BrandsManager() {
         bottom_label: finalBrand.bottom_label,
         bottom_icon: finalBrand.bottom_icon,
         description: finalBrand.description,
+        card_config: finalBrand.card_config || {},   // ← NEW COLUMN
+        // NOTE: we intentionally do NOT send `config` here —
+        // that column belongs to BrandConfigManager.
       });
       setEditingId(null);
       await loadBrands();
@@ -520,6 +679,7 @@ export default function BrandsManager() {
     bottom_label: 'Premium Quality',
     bottom_icon: 'shield',
     description: '',
+    card_config: {},   // ← NEW COLUMN
   });
 
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
@@ -562,7 +722,7 @@ export default function BrandsManager() {
         setUploadStatus('Uploading logo...');
         setUploadProgress(30);
         const url = await uploadBrandImage(compressed, null, 'logo_url', (p) => {
-          const overall = 30 + (p * 0.7);
+          const overall = 30 + p * 0.7;
           setUploadProgress(Math.min(100, overall));
           setUploadStatus(`Uploading logo... ${Math.round(overall)}%`);
         });
@@ -583,7 +743,7 @@ export default function BrandsManager() {
         setUploadStatus('Uploading product image...');
         setUploadProgress(30);
         const url = await uploadBrandImage(compressed, null, 'product_images', (p) => {
-          const overall = 30 + (p * 0.7);
+          const overall = 30 + p * 0.7;
           setUploadProgress(Math.min(100, overall));
           setUploadStatus(`Uploading product image... ${Math.round(overall)}%`);
         });
@@ -606,6 +766,7 @@ export default function BrandsManager() {
         bottom_label: newBrand.bottom_label,
         bottom_icon: newBrand.bottom_icon,
         description: newBrand.description,
+        card_config: newBrand.card_config || {},   // ← NEW COLUMN
       });
       setNewBrand({
         name: '',
@@ -620,6 +781,7 @@ export default function BrandsManager() {
         bottom_label: 'Premium Quality',
         bottom_icon: 'shield',
         description: '',
+        card_config: {},
       });
       setShowAddForm(false);
       await loadBrands();
@@ -634,87 +796,36 @@ export default function BrandsManager() {
     }
   };
 
-  const renderEditableFields = (
-    brand: Partial<BrandWithColors>,
-    setBrand: (b: any) => void
-  ) => (
-    <>
-      <div>
-        <label>Tagline (below name)</label>
-        <input
-          value={brand.tagline || ''}
-          onChange={(e) => setBrand({ ...brand, tagline: e.target.value })}
-          className="w-full border rounded p-2"
-          placeholder="e.g. Goodness of Purity"
-        />
-      </div>
-      <div>
-        <label>Categories (comma separated, max 3)</label>
-        <input
-          value={(brand.categories || []).join(', ')}
-          onChange={(e) => {
-            const raw = e.target.value;
-            const items = raw.split(/\s*,\s*/).filter(Boolean);
-            setBrand({ ...brand, categories: items.slice(0, 3) });
-          }}
-          className="w-full border rounded p-2"
-          placeholder="e.g. Dairy, Butter, Ice Cream"
-        />
-      </div>
-      <div>
-        <label>Bottom Label</label>
-        <input
-          value={brand.bottom_label || ''}
-          onChange={(e) => setBrand({ ...brand, bottom_label: e.target.value })}
-          className="w-full border rounded p-2"
-          placeholder="e.g. Trusted by Generations"
-        />
-      </div>
-      <div>
-        <label>Bottom Icon</label>
-        <select
-          value={brand.bottom_icon || 'shield'}
-          onChange={(e) =>
-            setBrand({ ...brand, bottom_icon: e.target.value as any })
-          }
-          className="w-full border rounded p-2"
-        >
-          <option value="shield">Shield</option>
-          <option value="crown">Crown</option>
-          <option value="leaf">Leaf</option>
-        </select>
-      </div>
-      <div>
-        <label>Description</label>
-        <textarea
-          value={brand.description || ''}
-          onChange={(e) => setBrand({ ...brand, description: e.target.value })}
-          className="w-full border rounded p-2"
-          rows={3}
-          placeholder="Tell the story of this brand..."
-        />
-      </div>
-    </>
-  );
-
-  const filteredBrands = brands.filter(b =>
+  const filteredBrands = brands.filter((b) =>
     b.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (loading) return <Loader2 className="animate-spin mx-auto" />;
 
   if (uploading) {
-    return <UploadProgress progress={uploadProgress} statusText={uploadStatus} isComplete={uploadProgress >= 100} />;
+    return (
+      <UploadProgress
+        progress={uploadProgress}
+        statusText={uploadStatus}
+        isComplete={uploadProgress >= 100}
+      />
+    );
   }
 
   return (
     <div className="space-y-6">
       <ToastContainer>
         {toasts.map((t) => (
-          <Toast key={t.id} message={t.message} type={t.type} onClose={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))} />
+          <Toast
+            key={t.id}
+            message={t.message}
+            type={t.type}
+            onClose={() => setToasts((prev) => prev.filter((toast) => toast.id !== t.id))}
+          />
         ))}
       </ToastContainer>
 
+      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
         <input
@@ -722,40 +833,39 @@ export default function BrandsManager() {
           placeholder="Search brands..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full h-10 rounded-xl border border-ink-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500"
+          className="h-10 w-full rounded-xl border border-ink-200 pl-9 pr-3 text-sm outline-none focus:border-brand-500"
         />
       </div>
 
       <button
         onClick={() => setShowAddForm(true)}
-        className="w-full h-12 rounded-xl bg-brand-600 text-white font-bold flex items-center justify-center gap-2"
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 font-bold text-white"
       >
         <Plus size={16} /> Add Brand
       </button>
 
+      {/* -------------------- Add form -------------------- */}
       {showAddForm && (
-        <div className="bg-white border rounded-2xl p-4 shadow-card">
-          <div className="flex items-center justify-between mb-3">
+        <div className="overflow-hidden rounded-2xl border bg-white p-4 shadow-card">
+          <div className="mb-3 flex items-center justify-between">
             <h3 className="font-bold">New Brand</h3>
             <button onClick={() => setShowAddForm(false)} className="text-ink-400">
               <X size={20} />
             </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block font-medium text-sm text-ink-700 mb-1">
-                Quick import from product brands
-              </label>
-              <div className="flex gap-2">
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* Quick import */}
+            <div className="col-span-1 min-w-0 md:col-span-2">
+              <label className={labelClass}>Quick import from product brands</label>
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <select
                   value=""
                   onChange={(e) => {
                     const selected = e.target.value;
-                    if (selected) {
-                      setNewBrand((prev) => ({ ...prev, name: selected }));
-                    }
+                    if (selected) setNewBrand((prev) => ({ ...prev, name: selected }));
                   }}
-                  className="flex-1 border rounded p-2"
+                  className={`${inputClass} sm:flex-1`}
                 >
                   <option value="">-- select a product brand --</option>
                   {productBrands.map((b) => (
@@ -767,47 +877,50 @@ export default function BrandsManager() {
                 <button
                   type="button"
                   onClick={() => setNewBrand((prev) => ({ ...prev, name: '' }))}
-                  className="px-3 py-2 bg-ink-100 rounded text-sm"
+                  className="w-full shrink-0 rounded-lg bg-ink-100 px-3 py-2 text-sm sm:w-auto"
                 >
                   Clear
                 </button>
               </div>
-              <p className="text-xs text-ink-400 mt-1">
+              <p className="mt-1 text-xs text-ink-400">
                 Selecting a brand will fill the <strong>Name</strong> field below.
               </p>
             </div>
 
-            <div>
-              <label>Name *</label>
+            {/* Name */}
+            <div className="min-w-0">
+              <label className={labelClass}>Name *</label>
               <input
                 value={newBrand.name}
                 onChange={(e) => setNewBrand({ ...newBrand, name: e.target.value })}
-                className="w-full border rounded p-2"
+                className={inputClass}
               />
             </div>
 
-            <div>
-              <label>Sort Order</label>
+            {/* Sort order */}
+            <div className="min-w-0">
+              <label className={labelClass}>Sort Order</label>
               <input
                 type="number"
                 value={newBrand.sort_order}
                 onChange={(e) =>
                   setNewBrand({ ...newBrand, sort_order: Number(e.target.value) })
                 }
-                className="w-full border rounded p-2"
+                className={inputClass}
               />
             </div>
 
-            <div>
-              <label>Primary Color</label>
-              <div className="flex gap-2">
+            {/* Primary colour */}
+            <div className="min-w-0">
+              <label className={labelClass}>Primary Color</label>
+              <div className="flex items-center gap-2">
                 <input
                   type="color"
                   value={newBrand.primary_color}
                   onChange={(e) =>
                     setNewBrand({ ...newBrand, primary_color: e.target.value })
                   }
-                  className="h-10 w-10 p-1 border rounded"
+                  className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-ink-200 p-1"
                 />
                 <input
                   type="text"
@@ -815,21 +928,22 @@ export default function BrandsManager() {
                   onChange={(e) =>
                     setNewBrand({ ...newBrand, primary_color: e.target.value })
                   }
-                  className="flex-1 border rounded p-2"
+                  className={`${inputClass} flex-1`}
                 />
               </div>
             </div>
 
-            <div>
-              <label>Secondary Color</label>
-              <div className="flex gap-2">
+            {/* Secondary colour */}
+            <div className="min-w-0">
+              <label className={labelClass}>Secondary Color</label>
+              <div className="flex items-center gap-2">
                 <input
                   type="color"
                   value={newBrand.secondary_color}
                   onChange={(e) =>
                     setNewBrand({ ...newBrand, secondary_color: e.target.value })
                   }
-                  className="h-10 w-10 p-1 border rounded"
+                  className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-ink-200 p-1"
                 />
                 <input
                   type="text"
@@ -837,14 +951,15 @@ export default function BrandsManager() {
                   onChange={(e) =>
                     setNewBrand({ ...newBrand, secondary_color: e.target.value })
                   }
-                  className="flex-1 border rounded p-2"
+                  className={`${inputClass} flex-1`}
                 />
               </div>
             </div>
 
-            <div>
-              <label>Logo</label>
-              <div className="flex gap-2 items-center">
+            {/* Logo */}
+            <div className="min-w-0">
+              <label className={labelClass}>Logo</label>
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={newBrand.logo_url}
@@ -852,9 +967,9 @@ export default function BrandsManager() {
                     setNewBrand({ ...newBrand, logo_url: e.target.value });
                     setLogoPreview(e.target.value);
                   }}
-                  className="flex-1 border rounded p-2"
+                  className={`${inputClass} flex-1`}
                 />
-                <label className="cursor-pointer bg-ink-100 p-2 rounded">
+                <label className="shrink-0 cursor-pointer rounded-lg bg-ink-100 p-2">
                   <Upload size={16} />
                   <input
                     type="file"
@@ -868,16 +983,23 @@ export default function BrandsManager() {
                 </label>
               </div>
               {logoPreview && (
-                <div className="mt-2">
-                  <CachedImage src={logoPreview} alt="Logo preview" className="h-16 w-16 rounded object-cover" />
-                  {pendingLogoFile && <span className="text-xs text-green-600 ml-2">Pending upload</span>}
+                <div className="mt-2 flex items-center gap-2">
+                  <CachedImage
+                    src={logoPreview}
+                    alt="Logo preview"
+                    className="h-16 w-16 shrink-0 rounded object-cover"
+                  />
+                  {pendingLogoFile && (
+                    <span className="text-xs text-green-600">Pending upload</span>
+                  )}
                 </div>
               )}
             </div>
 
-            <div>
-              <label>Product Image</label>
-              <div className="flex gap-2 items-center">
+            {/* Product image */}
+            <div className="min-w-0">
+              <label className={labelClass}>Product Image</label>
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={newBrand.product_images?.[0] || ''}
@@ -886,9 +1008,9 @@ export default function BrandsManager() {
                     setNewBrand({ ...newBrand, product_images: imgs });
                     setProductPreview(e.target.value);
                   }}
-                  className="flex-1 border rounded p-2"
+                  className={`${inputClass} flex-1`}
                 />
-                <label className="cursor-pointer bg-ink-100 p-2 rounded">
+                <label className="shrink-0 cursor-pointer rounded-lg bg-ink-100 p-2">
                   <Upload size={16} />
                   <input
                     type="file"
@@ -902,65 +1024,85 @@ export default function BrandsManager() {
                 </label>
               </div>
               {productPreview && (
-                <div className="mt-2">
-                  <CachedImage src={productPreview} alt="Product preview" className="h-16 w-16 rounded object-cover" />
-                  {pendingProductFile && <span className="text-xs text-green-600 ml-2">Pending upload</span>}
+                <div className="mt-2 flex items-center gap-2">
+                  <CachedImage
+                    src={productPreview}
+                    alt="Product preview"
+                    className="h-16 w-16 shrink-0 rounded object-cover"
+                  />
+                  {pendingProductFile && (
+                    <span className="text-xs text-green-600">Pending upload</span>
+                  )}
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1">
+            {/* Active */}
+            <div className="min-w-0">
+              <label className="flex items-center gap-2 text-sm font-medium text-ink-700">
                 <input
                   type="checkbox"
                   checked={newBrand.is_active}
                   onChange={(e) =>
                     setNewBrand({ ...newBrand, is_active: e.target.checked })
                   }
-                />{' '}
+                />
                 Active
               </label>
             </div>
 
-            {renderEditableFields(newBrand, setNewBrand)}
+            <BrandEditableFields brand={newBrand} setBrand={setNewBrand} />
 
-            <div className="flex justify-end gap-2 col-span-2">
+            {/* Actions */}
+            <div className="col-span-1 flex flex-col-reverse gap-2 md:col-span-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => setShowAddForm(false)}
-                className="px-4 py-2 border rounded"
+                className="w-full rounded-lg border px-4 py-2 text-sm sm:w-auto"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreate}
-                className="px-4 py-2 bg-brand-600 text-white rounded"
+                className="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm text-white sm:w-auto"
               >
                 Create
               </button>
             </div>
           </div>
 
-          <div className="mt-4 flex justify-center">
-            <BrandCard
-              brandName={newBrand.name || 'Preview'}
-              primaryColor={newBrand.primary_color || '#3B82F6'}
-              secondaryColor={newBrand.secondary_color || '#1E40AF'}
-              logoUrl={logoPreview || newBrand.logo_url || 'https://via.placeholder.com/100'}
-              productImage={productPreview || newBrand.product_images?.[0] || 'https://via.placeholder.com/120/CCCCCC/999999?text=Product'}
-              tagline={newBrand.tagline}
-              categories={newBrand.categories}
-              bottomLabel={newBrand.bottom_label}
-              bottomIcon={newBrand.bottom_icon}
-            />
+          {/* Preview */}
+          <div className="mt-4 flex justify-center overflow-x-auto">
+            <div className="mx-auto w-fit">
+              <BrandCard
+                brandName={newBrand.name || 'Preview'}
+                primaryColor={newBrand.primary_color || '#3B82F6'}
+                secondaryColor={newBrand.secondary_color || '#1E40AF'}
+                logoUrl={logoPreview || newBrand.logo_url || 'https://via.placeholder.com/100'}
+                productImage={
+                  productPreview ||
+                  newBrand.product_images?.[0] ||
+                  'https://via.placeholder.com/120/CCCCCC/999999?text=Product'
+                }
+                tagline={newBrand.tagline}
+                categories={newBrand.categories}
+                bottomLabel={newBrand.bottom_label}
+                bottomIcon={newBrand.bottom_icon}
+                config={newBrand.card_config || undefined}
+              />
+            </div>
           </div>
         </div>
       )}
 
+      {/* -------------------- Brand list -------------------- */}
       <div className="space-y-4">
         {filteredBrands.map((brand) => {
           const isEditing = editingId === brand.id;
           return (
-            <div key={brand.id} className="bg-white border rounded-2xl p-4 shadow-card">
+            <div
+              key={brand.id}
+              className="overflow-hidden rounded-2xl border bg-white p-4 shadow-card"
+            >
               {isEditing ? (
                 <BrandEditForm
                   brand={brand}
@@ -969,47 +1111,50 @@ export default function BrandsManager() {
                   productBrands={productBrands}
                 />
               ) : (
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg">{brand.name}</h3>
-                    <p className="text-sm text-ink-500">
-                      Order: {brand.sort_order}
-                    </p>
-                    <p className="text-sm">
-                      {brand.is_active ? 'Active' : 'Inactive'}
-                    </p>
+                <div className="flex flex-col items-stretch gap-4 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="break-words text-lg font-bold">{brand.name}</h3>
+                    <p className="text-sm text-ink-500">Order: {brand.sort_order}</p>
+                    <p className="text-sm">{brand.is_active ? 'Active' : 'Inactive'}</p>
                     {brand.description && (
-                      <p className="text-sm text-ink-600 mt-1 line-clamp-2">
+                      <p className="mt-1 line-clamp-2 text-sm text-ink-600">
                         {brand.description}
                       </p>
                     )}
-                    <div className="flex gap-2 mt-2">
+                    <div className="mt-2 flex flex-wrap gap-2">
                       <button
                         onClick={() => setEditingId(brand.id)}
-                        className="px-3 py-1 bg-brand-50 text-brand-600 rounded"
+                        className="rounded bg-brand-50 px-3 py-1 text-sm text-brand-600"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDeleteClick(brand.id)}
-                        className="px-3 py-1 bg-red-50 text-red-500 rounded"
+                        className="rounded bg-red-50 px-3 py-1 text-sm text-red-500"
                       >
                         Delete
                       </button>
                     </div>
                   </div>
-                  <div className="flex-shrink-0">
-                    <BrandCard
-                      brandName={brand.name}
-                      primaryColor={brand.primary_color}
-                      secondaryColor={brand.secondary_color}
-                      logoUrl={brand.logo_url}
-                      productImage={brand.product_images?.[0] || 'https://via.placeholder.com/120/CCCCCC/999999?text=Product'}
-                      tagline={brand.tagline}
-                      categories={brand.categories}
-                      bottomLabel={brand.bottom_label}
-                      bottomIcon={brand.bottom_icon}
-                    />
+
+                  <div className="flex shrink-0 justify-center overflow-x-auto">
+                    <div className="w-fit">
+                      <BrandCard
+                        brandName={brand.name}
+                        primaryColor={brand.primary_color}
+                        secondaryColor={brand.secondary_color}
+                        logoUrl={brand.logo_url}
+                        productImage={
+                          brand.product_images?.[0] ||
+                          'https://via.placeholder.com/120/CCCCCC/999999?text=Product'
+                        }
+                        tagline={brand.tagline}
+                        categories={brand.categories}
+                        bottomLabel={brand.bottom_label}
+                        bottomIcon={brand.bottom_icon}
+                        config={brand.card_config || undefined}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1023,7 +1168,9 @@ export default function BrandsManager() {
         title={confirmDialog.title}
         message={confirmDialog.message}
         onConfirm={handleConfirmDelete}
-        onCancel={() => setConfirmDialog({ isOpen: false, brandId: undefined, title: '', message: '' })}
+        onCancel={() =>
+          setConfirmDialog({ isOpen: false, brandId: undefined, title: '', message: '' })
+        }
       />
     </div>
   );

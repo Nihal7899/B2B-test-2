@@ -347,7 +347,8 @@ export interface TrustedBrand {
   bottom_label?: string;
   bottom_icon?: 'shield' | 'crown' | 'leaf';
   description?: string;
-  config?: any;
+  config?: any;                // ← content only (highlights/categories/bulkDeal/trending)
+  card_config?: BrandCardConfig; // ← NEW: card style only
 }
 
 export interface DeliveryRange {

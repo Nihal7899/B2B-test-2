@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { TrustedBrand } from '@/types';
+import type { TrustedBrand, BrandCardConfig } from '@/types';
 import { CachedImage } from '@/components/CachedImage';
 
 interface BrandCardProps {
@@ -13,6 +13,7 @@ interface BrandCardProps {
   categories?: string[];
   bottomLabel?: string;
   bottomIcon?: 'shield' | 'crown' | 'leaf';
+  config?: BrandCardConfig;
   onClick?: () => void;
 }
 
@@ -21,6 +22,19 @@ const DEFAULT_CONTENT = {
   categories: ['Premium', 'Quality', 'Trusted'],
   bottomLabel: 'Premium Quality',
   bottomIcon: 'shield' as const,
+};
+
+const DEFAULT_CONFIG: Required<BrandCardConfig> = {
+  taglineOffsetY: -3,
+  categoryOffsetY: 3,
+  cylinderShadowOpacity: 0.3,
+  cylinderShadowBlur: 20,
+  pillBgColor: 'rgba(0,0,0,0.75)',
+  pillTextColor: '#ffffff',
+  pillBorderColor: 'rgba(255,255,255,0.2)',
+  categoryPillBg: 'rgba(0,0,0,0.2)',
+  categoryPillText: '#ffffff',
+  categoryPillBorder: 'rgba(255,255,255,0.25)',
 };
 
 const getBrandContent = (props: BrandCardProps) => ({
@@ -125,6 +139,11 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
   } = props;
 
   const content = useMemo(() => getBrandContent(props), [props]);
+  const cfg = useMemo<Required<BrandCardConfig>>(
+    () => ({ ...DEFAULT_CONFIG, ...(props.config || {}) }),
+    [props.config]
+  );
+
   const image =
     productImages.find(Boolean) ||
     productImage ||
@@ -172,7 +191,7 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
           `,
         }}
       />
-      
+
       <svg
         className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]"
         viewBox="0 0 180 270"
@@ -218,20 +237,33 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
         >
           {brandName}
         </h3>
+        {/* Tagline — offset controlled by cfg.taglineOffsetY (default -3px = 3px up) */}
         <p
           className="mt-1 truncate text-[9px] font-medium"
-          style={{ color: textColor, opacity: 0.86 }}
+          style={{
+            color: textColor,
+            opacity: 0.86,
+            transform: `translateY(${cfg.taglineOffsetY}px)`,
+          }}
         >
           {content.tagline}
         </p>
       </div>
 
-      {/* Category Pills */}
-      <div className="absolute left-2 right-2 top-[115px] z-30 flex justify-center gap-1.5">
+      {/* Category Pills — offset controlled by cfg.categoryOffsetY (default +3px = 3px down) */}
+      <div
+        className="absolute left-2 right-2 top-[115px] z-30 flex justify-center gap-1.5"
+        style={{ transform: `translateY(${cfg.categoryOffsetY}px)` }}
+      >
         {content.categories.slice(0, 3).map((cat) => (
           <span
             key={cat}
-            className="rounded-full border border-white/25 bg-black/20 px-2 py-[2px] text-[6.5px] font-semibold tracking-wide text-white"
+            className="rounded-full border px-2 py-[2px] text-[6.5px] font-semibold tracking-wide"
+            style={{
+              backgroundColor: cfg.categoryPillBg,
+              color: cfg.categoryPillText,
+              borderColor: cfg.categoryPillBorder,
+            }}
           >
             {cat}
           </span>
@@ -253,9 +285,10 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
           }}
         />
         <div
-          className="absolute top-0 left-0 w-full h-[70px] rounded-[50%] shadow-[inset_0_10px_20px_rgba(0,0,0,0.3)]"
+          className="absolute top-0 left-0 w-full h-[70px] rounded-[50%]"
           style={{
             background: `linear-gradient(to bottom, ${primaryColor} 0%, ${secondaryColor} 100%)`,
+            boxShadow: `inset 0 10px ${cfg.cylinderShadowBlur}px rgba(0,0,0,${cfg.cylinderShadowOpacity})`,
           }}
         />
       </div>
@@ -270,15 +303,19 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
         />
       </div>
 
-      {/* Bottom Pill Badge */}
+      {/* Bottom Pill Badge — colors controlled via cfg.pill* */}
       <div
         className="
           absolute bottom-[8px] left-1/2 z-40
           flex h-[24px] w-auto min-w-[130px] max-w-[90%] -translate-x-1/2
           items-center justify-center gap-1.5
-          rounded-full border border-white/20 bg-black/75 px-3
-          text-white shadow-sm
+          rounded-full border px-3 shadow-sm
         "
+        style={{
+          backgroundColor: cfg.pillBgColor,
+          color: cfg.pillTextColor,
+          borderColor: cfg.pillBorderColor,
+        }}
       >
         <BottomIcon type={content.bottomIcon} />
         <span className="truncate text-[6.5px] font-semibold tracking-[0.03em]">
@@ -319,6 +356,7 @@ export const BrandCarousel = React.memo(function BrandCarousel({
             categories={brand.categories}
             bottomLabel={brand.bottom_label}
             bottomIcon={brand.bottom_icon}
+            config={brand.card_config || undefined}
             onClick={() => onBrandClick?.(brand)}
           />
         </div>

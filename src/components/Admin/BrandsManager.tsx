@@ -128,6 +128,30 @@ function BrandStyleEditor({
 
   return (
     <div className="mt-1 grid grid-cols-1 gap-3 rounded-lg border border-ink-200 bg-ink-50/40 p-3 md:grid-cols-2">
+      {/* Text colors */}
+      <div className="min-w-0">
+        <label className={labelClass}>Name Color</label>
+        <ColorWithInput
+          value={config.nameColor ?? ''}
+          onChange={(v) => set({ nameColor: v })}
+          placeholder="Auto (contrast)"
+        />
+        <p className="mt-1 text-[11px] text-ink-400">
+          Empty = auto contrast from background.
+        </p>
+      </div>
+      <div className="min-w-0">
+        <label className={labelClass}>Tagline Color</label>
+        <ColorWithInput
+          value={config.taglineColor ?? ''}
+          onChange={(v) => set({ taglineColor: v })}
+          placeholder="Auto (contrast)"
+        />
+        <p className="mt-1 text-[11px] text-ink-400">
+          Empty = auto contrast from background.
+        </p>
+      </div>
+
       {/* Shadow controls — sliders */}
       <div className="min-w-0 md:col-span-2">
         <label className={labelClass}>Cylinder Shadow Opacity</label>

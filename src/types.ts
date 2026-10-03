@@ -432,6 +432,8 @@ export interface Faq {
 }
 
 export interface BrandCardConfig {
+  nameColor?: string;        // ← NEW
+  taglineColor?: string;     // ← NEW
   cylinderShadowOpacity?: number;
   cylinderShadowBlur?: number;
   pillBgColor?: string;

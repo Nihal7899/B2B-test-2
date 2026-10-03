@@ -24,9 +24,9 @@ const DEFAULT_CONTENT = {
   bottomIcon: 'shield' as const,
 };
 
-// taglineOffsetY and categoryOffsetY are hardcoded below; only visual
-// styling knobs remain configurable.
 const DEFAULT_CONFIG: Required<BrandCardConfig> = {
+  nameColor: '',             // empty = fall back to auto-contrast
+  taglineColor: '',          // empty = fall back to auto-contrast
   cylinderShadowOpacity: 0.3,
   cylinderShadowBlur: 20,
   pillBgColor: 'rgba(0,0,0,0.75)',
@@ -71,58 +71,24 @@ const getLuminance = (hex: string) => {
 const BottomIcon = React.memo(({ type }: { type: 'shield' | 'crown' | 'leaf' }) => {
   if (type === 'crown') {
     return (
-      <svg
-        viewBox="0 0 24 24"
-        className="h-[13px] w-[13px]"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      >
-        <path
-          d="m3 7 4 4 5-7 5 7 4-4-2 11H5L3 7Z"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <svg viewBox="0 0 24 24" className="h-[13px] w-[13px]" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="m3 7 4 4 5-7 5 7 4-4-2 11H5L3 7Z" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M5 21h14" strokeLinecap="round" />
       </svg>
     );
   }
   if (type === 'leaf') {
     return (
-      <svg
-        viewBox="0 0 24 24"
-        className="h-[14px] w-[14px]"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      >
-        <path
-          d="M20 4C11 4 5 7 5 13c0 3 2 5 5 5 6 0 9-6 10-14Z"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <svg viewBox="0 0 24 24" className="h-[14px] w-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M20 4C11 4 5 7 5 13c0 3 2 5 5 5 6 0 9-6 10-14Z" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M4 21c3-6 7-9 13-12" strokeLinecap="round" />
       </svg>
     );
   }
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[13px] w-[13px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path
-        d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6l8-3Z"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="m8.5 12 2.2 2.2 4.8-5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg viewBox="0 0 24 24" className="h-[13px] w-[13px]" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6l8-3Z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="m8.5 12 2.2 2.2 4.8-5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 });
@@ -150,7 +116,13 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
     'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product';
 
   const isLightBackground = useMemo(() => getLuminance(primaryColor) > 0.68, [primaryColor]);
-  const textColor = isLightBackground ? '#111827' : '#ffffff';
+
+  // Auto-contrast fallback (used when no explicit color is configured)
+  const autoTextColor = isLightBackground ? '#111827' : '#ffffff';
+
+  // Explicit overrides — if the admin has picked a color, use it; else auto.
+  const nameColor = cfg.nameColor || autoTextColor;
+  const taglineColor = cfg.taglineColor || autoTextColor;
 
   return (
     <div
@@ -229,7 +201,7 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
         <h3
           className="truncate text-[18px] font-extrabold leading-tight tracking-[-0.035em]"
           style={{
-            color: textColor,
+            color: nameColor,
             textShadow: isLightBackground
               ? '0 1px 2px rgba(255,255,255,0.5)'
               : '0 2px 7px rgba(0,0,0,0.22)',
@@ -237,11 +209,10 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
         >
           {brandName}
         </h3>
-        {/* Tagline — hardcoded 3px up */}
         <p
           className="mt-1 truncate text-[9px] font-medium"
           style={{
-            color: textColor,
+            color: taglineColor,
             opacity: 0.86,
             transform: 'translateY(-3px)',
           }}
@@ -274,15 +245,11 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
       <div className="absolute bottom-[-15px] left-1/2 z-10 h-[100px] w-[110%] -translate-x-1/2 pointer-events-none">
         <div
           className="absolute top-[30px] left-0 w-full h-[70px] rounded-[50%]"
-          style={{
-            background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)`,
-          }}
+          style={{ background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }}
         />
         <div
           className="absolute top-[35px] left-0 w-full h-[30px]"
-          style={{
-            background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)`,
-          }}
+          style={{ background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} 45%, ${secondaryColor} 100%)` }}
         />
         <div
           className="absolute top-0 left-0 w-full h-[70px] rounded-[50%]"
@@ -293,9 +260,7 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
         />
       </div>
 
-      {/* Product Image — height reduced 50% → 40% so it no longer
-          reaches up into the tagline/category pill area.
-          Width untouched (still 75%). */}
+      {/* Product Image */}
       <div className="absolute bottom-[30px] left-1/2 z-20 h-[40%] w-[75%] -translate-x-1/2 transition-transform duration-300 group-hover:-translate-y-1 pointer-events-auto">
         <CachedImage
           src={image}
@@ -305,7 +270,7 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
         />
       </div>
 
-      {/* Bottom Pill Badge — colors controlled via cfg.pill* */}
+      {/* Bottom Pill Badge */}
       <div
         className="
           absolute bottom-[8px] left-1/2 z-40

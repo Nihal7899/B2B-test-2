@@ -34,6 +34,87 @@ const inputClass =
 const labelClass = 'mb-1 block text-sm font-medium text-ink-700';
 
 /* ------------------------------------------------------------------ */
+/*  Small helpers                                                      */
+/* ------------------------------------------------------------------ */
+
+/** Extracts a hex color from any `#rrggbb` / `#rgb` / `rgba(...)` string. */
+function toHexColor(value: string): string {
+  if (!value) return '#000000';
+  if (value.startsWith('#') && (value.length === 7 || value.length === 4)) {
+    return value.length === 4
+      ? `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`
+      : value.slice(0, 7);
+  }
+  const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (m) {
+    const hex = (n: number) => n.toString(16).padStart(2, '0');
+    return `#${hex(Number(m[1]))}${hex(Number(m[2]))}${hex(Number(m[3]))}`;
+  }
+  return '#000000';
+}
+
+/** Color picker + text input, side by side. Picker writes hex; text allows anything (rgba etc.). */
+function ColorWithInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="color"
+        value={toHexColor(value)}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-10 w-12 shrink-0 cursor-pointer rounded-lg border border-ink-200 p-1"
+      />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${inputClass} flex-1`}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+/** Range slider + numeric read-out. */
+function SliderInput({
+  value,
+  onChange,
+  min,
+  max,
+  step,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  min: number;
+  max: number;
+  step: number;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="flex-1 accent-brand-600"
+      />
+      <span className="min-w-[52px] shrink-0 text-right font-mono text-xs text-ink-600">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Brand Card Style Editor                                            */
 /* ------------------------------------------------------------------ */
 function BrandStyleEditor({
@@ -44,102 +125,79 @@ function BrandStyleEditor({
   onChange: (c: BrandCardConfig) => void;
 }) {
   const set = (patch: Partial<BrandCardConfig>) => onChange({ ...config, ...patch });
+
   return (
     <div className="mt-1 grid grid-cols-1 gap-3 rounded-lg border border-ink-200 bg-ink-50/40 p-3 md:grid-cols-2">
-      <div className="min-w-0">
-        <label className={labelClass}>Tagline Y Offset (px)</label>
-        <input
-          type="number"
-          value={config.taglineOffsetY ?? -3}
-          onChange={(e) => set({ taglineOffsetY: Number(e.target.value) })}
-          className={inputClass}
-        />
-        <p className="mt-1 text-[11px] text-ink-400">Negative = up. Default -3.</p>
-      </div>
-      <div className="min-w-0">
-        <label className={labelClass}>Categories Y Offset (px)</label>
-        <input
-          type="number"
-          value={config.categoryOffsetY ?? 3}
-          onChange={(e) => set({ categoryOffsetY: Number(e.target.value) })}
-          className={inputClass}
-        />
-        <p className="mt-1 text-[11px] text-ink-400">Positive = down. Default +3.</p>
-      </div>
-      <div className="min-w-0">
-        <label className={labelClass}>Cylinder Shadow Opacity (0–1)</label>
-        <input
-          type="number"
-          step="0.05"
+      {/* Shadow controls — sliders */}
+      <div className="min-w-0 md:col-span-2">
+        <label className={labelClass}>Cylinder Shadow Opacity</label>
+        <SliderInput
+          value={config.cylinderShadowOpacity ?? 0.3}
+          onChange={(n) => set({ cylinderShadowOpacity: n })}
           min={0}
           max={1}
-          value={config.cylinderShadowOpacity ?? 0.3}
-          onChange={(e) => set({ cylinderShadowOpacity: Number(e.target.value) })}
-          className={inputClass}
+          step={0.05}
         />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 md:col-span-2">
         <label className={labelClass}>Cylinder Shadow Blur (px)</label>
-        <input
-          type="number"
+        <SliderInput
           value={config.cylinderShadowBlur ?? 20}
-          onChange={(e) => set({ cylinderShadowBlur: Number(e.target.value) })}
-          className={inputClass}
+          onChange={(n) => set({ cylinderShadowBlur: n })}
+          min={0}
+          max={60}
+          step={1}
         />
       </div>
 
+      {/* Bottom pill */}
       <div className="min-w-0">
-        <label className={labelClass}>Bottom Pill BG</label>
-        <input
+        <label className={labelClass}>Bottom Pill Background</label>
+        <ColorWithInput
           value={config.pillBgColor ?? ''}
-          onChange={(e) => set({ pillBgColor: e.target.value })}
-          className={inputClass}
+          onChange={(v) => set({ pillBgColor: v })}
           placeholder="rgba(0,0,0,0.75)"
         />
       </div>
       <div className="min-w-0">
         <label className={labelClass}>Bottom Pill Text</label>
-        <input
+        <ColorWithInput
           value={config.pillTextColor ?? ''}
-          onChange={(e) => set({ pillTextColor: e.target.value })}
-          className={inputClass}
+          onChange={(v) => set({ pillTextColor: v })}
           placeholder="#ffffff"
         />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 md:col-span-2">
         <label className={labelClass}>Bottom Pill Border</label>
-        <input
+        <ColorWithInput
           value={config.pillBorderColor ?? ''}
-          onChange={(e) => set({ pillBorderColor: e.target.value })}
-          className={inputClass}
+          onChange={(v) => set({ pillBorderColor: v })}
           placeholder="rgba(255,255,255,0.2)"
         />
       </div>
 
+      {/* Category pills */}
       <div className="min-w-0">
-        <label className={labelClass}>Category Pill BG</label>
-        <input
+        <label className={labelClass}>Category Pill Background</label>
+        <ColorWithInput
           value={config.categoryPillBg ?? ''}
-          onChange={(e) => set({ categoryPillBg: e.target.value })}
-          className={inputClass}
+          onChange={(v) => set({ categoryPillBg: v })}
           placeholder="rgba(0,0,0,0.2)"
         />
       </div>
       <div className="min-w-0">
         <label className={labelClass}>Category Pill Text</label>
-        <input
+        <ColorWithInput
           value={config.categoryPillText ?? ''}
-          onChange={(e) => set({ categoryPillText: e.target.value })}
-          className={inputClass}
+          onChange={(v) => set({ categoryPillText: v })}
           placeholder="#ffffff"
         />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 md:col-span-2">
         <label className={labelClass}>Category Pill Border</label>
-        <input
+        <ColorWithInput
           value={config.categoryPillBorder ?? ''}
-          onChange={(e) => set({ categoryPillBorder: e.target.value })}
-          className={inputClass}
+          onChange={(v) => set({ categoryPillBorder: v })}
           placeholder="rgba(255,255,255,0.25)"
         />
       </div>
@@ -214,7 +272,7 @@ function BrandEditableFields({
         />
       </div>
 
-      {/* Card style — now its own column */}
+      {/* Card style — stored in its own `card_config` column */}
       <div className="min-w-0 md:col-span-2">
         <label className={labelClass}>Card Style</label>
         <BrandStyleEditor
@@ -649,9 +707,9 @@ export default function BrandsManager() {
         bottom_label: finalBrand.bottom_label,
         bottom_icon: finalBrand.bottom_icon,
         description: finalBrand.description,
-        card_config: finalBrand.card_config || {},   // ← NEW COLUMN
-        // NOTE: we intentionally do NOT send `config` here —
-        // that column belongs to BrandConfigManager.
+        card_config: finalBrand.card_config || {},   // ← separate column
+        // NOTE: `config` is intentionally omitted — that column is owned
+        // exclusively by BrandConfigManager.
       });
       setEditingId(null);
       await loadBrands();
@@ -679,7 +737,7 @@ export default function BrandsManager() {
     bottom_label: 'Premium Quality',
     bottom_icon: 'shield',
     description: '',
-    card_config: {},   // ← NEW COLUMN
+    card_config: {},
   });
 
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
@@ -766,7 +824,7 @@ export default function BrandsManager() {
         bottom_label: newBrand.bottom_label,
         bottom_icon: newBrand.bottom_icon,
         description: newBrand.description,
-        card_config: newBrand.card_config || {},   // ← NEW COLUMN
+        card_config: newBrand.card_config || {},   // ← separate column
       });
       setNewBrand({
         name: '',

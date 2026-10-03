@@ -430,3 +430,14 @@ export interface Faq {
   created_at: string;
   updated_at: string;
 }
+
+export interface BrandCardConfig {
+  cylinderShadowOpacity?: number;
+  cylinderShadowBlur?: number;
+  pillBgColor?: string;
+  pillTextColor?: string;
+  pillBorderColor?: string;
+  categoryPillBg?: string;
+  categoryPillText?: string;
+  categoryPillBorder?: string;
+}

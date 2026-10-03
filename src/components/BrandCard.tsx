@@ -24,9 +24,9 @@ const DEFAULT_CONTENT = {
   bottomIcon: 'shield' as const,
 };
 
+// taglineOffsetY and categoryOffsetY are hardcoded below; only visual
+// styling knobs remain configurable.
 const DEFAULT_CONFIG: Required<BrandCardConfig> = {
-  taglineOffsetY: -3,
-  categoryOffsetY: 3,
   cylinderShadowOpacity: 0.3,
   cylinderShadowBlur: 20,
   pillBgColor: 'rgba(0,0,0,0.75)',
@@ -237,23 +237,23 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
         >
           {brandName}
         </h3>
-        {/* Tagline — offset controlled by cfg.taglineOffsetY (default -3px = 3px up) */}
+        {/* Tagline — hardcoded 3px up */}
         <p
           className="mt-1 truncate text-[9px] font-medium"
           style={{
             color: textColor,
             opacity: 0.86,
-            transform: `translateY(${cfg.taglineOffsetY}px)`,
+            transform: 'translateY(-3px)',
           }}
         >
           {content.tagline}
         </p>
       </div>
 
-      {/* Category Pills — offset controlled by cfg.categoryOffsetY (default +3px = 3px down) */}
+      {/* Category Pills — hardcoded 3px down */}
       <div
         className="absolute left-2 right-2 top-[115px] z-30 flex justify-center gap-1.5"
-        style={{ transform: `translateY(${cfg.categoryOffsetY}px)` }}
+        style={{ transform: 'translateY(3px)' }}
       >
         {content.categories.slice(0, 3).map((cat) => (
           <span
@@ -293,8 +293,10 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
         />
       </div>
 
-      {/* Product Image */}
-      <div className="absolute bottom-[30px] left-1/2 z-20 h-[50%] w-[75%] -translate-x-1/2 transition-transform duration-300 group-hover:-translate-y-1 pointer-events-auto">
+      {/* Product Image — height reduced 50% → 40% so it no longer
+          reaches up into the tagline/category pill area.
+          Width untouched (still 75%). */}
+      <div className="absolute bottom-[30px] left-1/2 z-20 h-[40%] w-[75%] -translate-x-1/2 transition-transform duration-300 group-hover:-translate-y-1 pointer-events-auto">
         <CachedImage
           src={image}
           alt={`${brandName} product`}

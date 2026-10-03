@@ -83,6 +83,12 @@ function ColorWithInput({
 }
 
 /** Range slider + numeric read-out. */
+/** Range slider + numeric read-out.
+ *  - `onMouseDown preventDefault` stops the slider from grabbing focus on desktop.
+ *  - `onClick preventDefault` blocks the synthetic click that fires after touchend
+ *    on mobile (that ghost click is what was focusing the next text box and
+ *    popping open the phone keyboard).
+ */
 function SliderInput({
   value,
   onChange,
@@ -105,6 +111,8 @@ function SliderInput({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => e.preventDefault()}
         className="flex-1 accent-brand-600"
       />
       <span className="min-w-[52px] shrink-0 text-right font-mono text-xs text-ink-600">
@@ -150,6 +158,26 @@ function BrandStyleEditor({
         <p className="mt-1 text-[11px] text-ink-400">
           Empty = auto contrast from background.
         </p>
+      </div>
+
+      {/* Geometric pattern */}
+      <div className="min-w-0 md:col-span-2">
+        <label className={labelClass}>Geometric Pattern Color</label>
+        <ColorWithInput
+          value={config.geometryColor ?? ''}
+          onChange={(v) => set({ geometryColor: v })}
+          placeholder="white"
+        />
+      </div>
+      <div className="min-w-0 md:col-span-2">
+        <label className={labelClass}>Geometric Pattern Opacity</label>
+        <SliderInput
+          value={config.geometryOpacity ?? 0.13}
+          onChange={(n) => set({ geometryOpacity: n })}
+          min={0}
+          max={1}
+          step={0.01}
+        />
       </div>
 
       {/* Shadow controls — sliders */}

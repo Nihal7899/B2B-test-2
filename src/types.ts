@@ -432,8 +432,10 @@ export interface Faq {
 }
 
 export interface BrandCardConfig {
-  nameColor?: string;        // ← NEW
-  taglineColor?: string;     // ← NEW
+  nameColor?: string;
+  taglineColor?: string;
+  geometryColor?: string;      // ← NEW (default 'white')
+  geometryOpacity?: number;    // ← NEW (default 0.13, 0–1)
   cylinderShadowOpacity?: number;
   cylinderShadowBlur?: number;
   pillBgColor?: string;

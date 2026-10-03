@@ -1,3 +1,4 @@
+// src/components/Admin/SiteContentEditor.tsx
 import { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Save, Loader2, Plus, Trash2, ChevronDown, ChevronUp, Upload, Image as ImageIcon,
@@ -6,6 +7,10 @@ import {
 import { CachedImage } from '@/components/CachedImage';
 import { IconPicker } from './IconPicker';
 import { supabase } from '@/lib/supabase';
+import { Toast, ToastContainer } from '@/components/ui/Toast';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { UploadProgress } from '@/components/ui/UploadProgress';
+import { compressImage } from '@/lib/imageUtils';
 import {
   fetchSiteContent, saveSiteContent, uploadSiteAsset, invalidateSiteContent,
   DEFAULT_HERO_CONFIG, DEFAULT_FOOTER_CONFIG, DEFAULT_ABOUT_CONFIG,
@@ -15,12 +20,25 @@ import {
 
 /* ============================ helpers ============================ */
 
+type ToastType = 'success' | 'error' | 'warning' | 'info';
+type Folder = 'hero' | 'about';
+
+type UploadHandler = (
+  file: File,
+  folder: Folder,
+  applyUrl: (url: string) => void,
+) => Promise<void>;
+
 function useCategories() {
   const [cats, setCats] = useState<{ id: string; name: string; slug: string }[]>([]);
   useEffect(() => {
     let active = true;
-    supabase.from('categories').select('id, name, slug').eq('is_active', true)
-      .order('sort_order').then(({ data }) => {
+    supabase
+      .from('categories')
+      .select('id, name, slug')
+      .eq('is_active', true)
+      .order('sort_order')
+      .then(({ data }) => {
         if (active && data) setCats(data as any);
       });
     return () => { active = false; };
@@ -81,25 +99,14 @@ function SectionHeader({
 /* ============================ image uploader ============================ */
 
 function ImageUploader({
-  value, onChange, folder, label,
-}: { value: string; onChange: (url: string) => void; folder: 'hero' | 'about'; label?: string }) {
+  value, onChange, onPick, label,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+  onPick: (file: File) => void;
+  label?: string;
+}) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-
-  const handleFile = async (file: File) => {
-    setUploading(true);
-    setProgress(0);
-    try {
-      const url = await uploadSiteAsset(file, folder, setProgress);
-      onChange(url);
-    } catch (e) {
-      console.error(e);
-      alert('Upload failed. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   return (
     <div>
@@ -120,18 +127,17 @@ function ImageUploader({
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) handleFile(f);
+              if (f) onPick(f);
               e.target.value = '';
             }}
           />
           <button
             type="button"
-            disabled={uploading}
             onClick={() => fileRef.current?.click()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#02402c] text-white text-xs font-bold hover:bg-[#03543a] disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#02402c] text-white text-xs font-bold hover:bg-[#03543a]"
           >
-            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-            {uploading ? `Uploading ${Math.round(progress)}%` : 'Upload image'}
+            <Upload className="w-3.5 h-3.5" />
+            Upload image
           </button>
           <input
             type="text"
@@ -148,13 +154,31 @@ function ImageUploader({
 
 /* ============================ HERO EDITOR ============================ */
 
-function HeroEditor({ config, setConfig }: { config: HeroConfig; setConfig: (c: HeroConfig) => void }) {
+function HeroEditor({
+  config, setConfig, uploadImage,
+}: {
+  config: HeroConfig;
+  setConfig: (c: HeroConfig) => void;
+  uploadImage: UploadHandler;
+}) {
   const [open, setOpen] = useState<Record<string, boolean>>({
     badge: true, slides: true, ctas: false, stats: false, features: false,
   });
   const upd = (patch: Partial<HeroConfig>) => setConfig({ ...config, ...patch });
   const updEnabled = (k: keyof HeroConfig['enabled'], v: boolean) =>
     upd({ enabled: { ...config.enabled, [k]: v } });
+
+  const updateSlide = (idx: number, patch: Partial<HeroConfig['slides'][number]>) => {
+    const arr = [...config.slides];
+    arr[idx] = { ...arr[idx], ...patch };
+    upd({ slides: arr });
+  };
+
+  const updateFeature = (idx: number, patch: Partial<HeroConfig['features'][number]>) => {
+    const arr = [...config.features];
+    arr[idx] = { ...arr[idx], ...patch };
+    upd({ features: arr });
+  };
 
   return (
     <div className="space-y-4">
@@ -225,23 +249,17 @@ function HeroEditor({ config, setConfig }: { config: HeroConfig; setConfig: (c: 
                 </div>
                 <ImageUploader
                   value={s.image}
-                  onChange={(url) => {
-                    const arr = [...config.slides];
-                    arr[i] = { ...arr[i], image: url };
-                    upd({ slides: arr });
-                  }}
-                  folder="hero"
+                  onChange={(url) => updateSlide(i, { image: url })}
+                  onPick={(file) =>
+                    uploadImage(file, 'hero', (url) => updateSlide(i, { image: url }))
+                  }
                   label="Image"
                 />
                 <Field label="Title">
                   <input
                     className={inputCls}
                     value={s.title}
-                    onChange={(e) => {
-                      const arr = [...config.slides];
-                      arr[i] = { ...arr[i], title: e.target.value };
-                      upd({ slides: arr });
-                    }}
+                    onChange={(e) => updateSlide(i, { title: e.target.value })}
                   />
                 </Field>
                 <Field label="Subtitle">
@@ -249,11 +267,7 @@ function HeroEditor({ config, setConfig }: { config: HeroConfig; setConfig: (c: 
                     rows={2}
                     className={inputCls}
                     value={s.subtitle}
-                    onChange={(e) => {
-                      const arr = [...config.slides];
-                      arr[i] = { ...arr[i], subtitle: e.target.value };
-                      upd({ slides: arr });
-                    }}
+                    onChange={(e) => updateSlide(i, { subtitle: e.target.value })}
                   />
                 </Field>
               </div>
@@ -285,7 +299,9 @@ function HeroEditor({ config, setConfig }: { config: HeroConfig; setConfig: (c: 
                 <span className="text-[11px] font-black text-slate-500">PRIMARY</span>
                 <button
                   onClick={() => updEnabled('primaryCta', !config.enabled.primaryCta)}
-                  className={`text-[10px] font-bold px-2 py-1 rounded ${config.enabled.primaryCta ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}
+                  className={`text-[10px] font-bold px-2 py-1 rounded ${
+                    config.enabled.primaryCta ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                  }`}
                 >
                   {config.enabled.primaryCta ? 'VISIBLE' : 'HIDDEN'}
                 </button>
@@ -310,7 +326,9 @@ function HeroEditor({ config, setConfig }: { config: HeroConfig; setConfig: (c: 
                 <span className="text-[11px] font-black text-slate-500">SECONDARY</span>
                 <button
                   onClick={() => updEnabled('secondaryCta', !config.enabled.secondaryCta)}
-                  className={`text-[10px] font-bold px-2 py-1 rounded ${config.enabled.secondaryCta ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}
+                  className={`text-[10px] font-bold px-2 py-1 rounded ${
+                    config.enabled.secondaryCta ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                  }`}
                 >
                   {config.enabled.secondaryCta ? 'VISIBLE' : 'HIDDEN'}
                 </button>
@@ -409,33 +427,21 @@ function HeroEditor({ config, setConfig }: { config: HeroConfig; setConfig: (c: 
                 </div>
                 <IconPicker
                   value={f.icon}
-                  onChange={(key) => {
-                    const arr = [...config.features];
-                    arr[i] = { ...arr[i], icon: key };
-                    upd({ features: arr });
-                  }}
+                  onChange={(key) => updateFeature(i, { icon: key })}
                   label="Icon"
                 />
                 <Field label="Title">
                   <input
                     className={inputCls}
                     value={f.title}
-                    onChange={(e) => {
-                      const arr = [...config.features];
-                      arr[i] = { ...arr[i], title: e.target.value };
-                      upd({ features: arr });
-                    }}
+                    onChange={(e) => updateFeature(i, { title: e.target.value })}
                   />
                 </Field>
                 <Field label="Description">
                   <input
                     className={inputCls}
                     value={f.desc}
-                    onChange={(e) => {
-                      const arr = [...config.features];
-                      arr[i] = { ...arr[i], desc: e.target.value };
-                      upd({ features: arr });
-                    }}
+                    onChange={(e) => updateFeature(i, { desc: e.target.value })}
                   />
                 </Field>
               </div>
@@ -549,11 +555,10 @@ function FooterEditor({ config, setConfig }: { config: FooterConfig; setConfig: 
                     onChange={(e) => updateGroup(gi, { title: e.target.value })}
                   />
                   <button
-                    onClick={() => {
-                      const enabled = !g.enabled;
-                      updateGroup(gi, { enabled });
-                    }}
-                    className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${g.enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}
+                    onClick={() => updateGroup(gi, { enabled: !g.enabled })}
+                    className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${
+                      g.enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                    }`}
                     title={g.enabled ? 'Visible' : 'Hidden'}
                   >
                     {g.enabled ? <Eye size={14} /> : <EyeOff size={14} />}
@@ -585,7 +590,11 @@ function FooterEditor({ config, setConfig }: { config: FooterConfig; setConfig: 
                       max={12}
                       className={inputCls}
                       value={g.categoryLimit}
-                      onChange={(e) => updateGroup(gi, { categoryLimit: Math.max(1, Math.min(12, Number(e.target.value) || 1)) })}
+                      onChange={(e) =>
+                        updateGroup(gi, {
+                          categoryLimit: Math.max(1, Math.min(12, Number(e.target.value) || 1)),
+                        })
+                      }
                     />
                     <p className="text-[10px] text-slate-400 mt-1">
                       Categories are pulled live from your store. Clicking navigates to that category page.
@@ -632,7 +641,9 @@ function FooterEditor({ config, setConfig }: { config: FooterConfig; setConfig: 
                           </select>
                           <input
                             className={inputCls}
-                            placeholder={lnk.type === 'route' ? '/help' : lnk.type === 'external' ? 'https://...' : 'category-id'}
+                            placeholder={
+                              lnk.type === 'route' ? '/help' : lnk.type === 'external' ? 'https://...' : 'category-id'
+                            }
                             value={lnk.value}
                             onChange={(e) => {
                               const links = [...g.links];
@@ -644,7 +655,9 @@ function FooterEditor({ config, setConfig }: { config: FooterConfig; setConfig: 
                       </div>
                     ))}
                     <button
-                      onClick={() => updateGroup(gi, { links: [...g.links, { label: 'New link', type: 'route', value: '/' }] })}
+                      onClick={() =>
+                        updateGroup(gi, { links: [...g.links, { label: 'New link', type: 'route', value: '/' }] })
+                      }
                       className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md border-2 border-dashed border-slate-200 hover:border-[#89c74e] text-slate-600 hover:text-[#02402c] text-[11px] font-bold"
                     >
                       <Plus size={12} /> Add link
@@ -658,7 +671,14 @@ function FooterEditor({ config, setConfig }: { config: FooterConfig; setConfig: 
                 upd({
                   linkGroups: [
                     ...config.linkGroups,
-                    { id: `group-${Date.now()}`, title: 'New group', enabled: true, source: 'custom', categoryLimit: 5, links: [] },
+                    {
+                      id: `group-${Date.now()}`,
+                      title: 'New group',
+                      enabled: true,
+                      source: 'custom',
+                      categoryLimit: 5,
+                      links: [],
+                    },
                   ],
                 })
               }
@@ -715,7 +735,13 @@ function FooterEditor({ config, setConfig }: { config: FooterConfig; setConfig: 
 
 /* ============================ ABOUT EDITOR ============================ */
 
-function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c: AboutConfig) => void }) {
+function AboutEditor({
+  config, setConfig, uploadImage,
+}: {
+  config: AboutConfig;
+  setConfig: (c: AboutConfig) => void;
+  uploadImage: UploadHandler;
+}) {
   const [open, setOpen] = useState<Record<string, boolean>>({
     hero: true, statsBar: false, mission: false, vision: false,
     journey: false, values: false, impact: false, quote: false, cta: false,
@@ -723,6 +749,24 @@ function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c
   const upd = (patch: Partial<AboutConfig>) => setConfig({ ...config, ...patch });
   const updEnabled = (k: keyof AboutConfig['enabled'], v: boolean) =>
     upd({ enabled: { ...config.enabled, [k]: v } });
+
+  const updateValue = (idx: number, patch: Partial<AboutConfig['values']['items'][number]>) => {
+    const arr = [...config.values.items];
+    arr[idx] = { ...arr[idx], ...patch };
+    upd({ values: { ...config.values, items: arr } });
+  };
+
+  const updateImpactStat = (idx: number, patch: Partial<AboutConfig['impact']['stats'][number]>) => {
+    const arr = [...config.impact.stats];
+    arr[idx] = { ...arr[idx], ...patch };
+    upd({ impact: { ...config.impact, stats: arr } });
+  };
+
+  const updateMilestone = (idx: number, patch: Partial<AboutConfig['journey']['milestones'][number]>) => {
+    const arr = [...config.journey.milestones];
+    arr[idx] = { ...arr[idx], ...patch };
+    upd({ journey: { ...config.journey, milestones: arr } });
+  };
 
   return (
     <div className="space-y-4">
@@ -752,7 +796,9 @@ function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c
             <ImageUploader
               value={config.hero.image}
               onChange={(url) => upd({ hero: { ...config.hero, image: url } })}
-              folder="about"
+              onPick={(file) =>
+                uploadImage(file, 'about', (url) => upd({ hero: { ...config.hero, image: url } }))
+              }
               label="Background image"
             />
           </div>
@@ -791,7 +837,9 @@ function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c
                   }}
                 />
                 <button
-                  onClick={() => upd({ statsBar: { stats: config.statsBar.stats.filter((_, j) => j !== i) } })}
+                  onClick={() =>
+                    upd({ statsBar: { stats: config.statsBar.stats.filter((_, j) => j !== i) } })
+                  }
                   className="w-8 h-8 shrink-0 rounded-md bg-red-50 text-red-500 flex items-center justify-center"
                 >
                   <Trash2 size={12} />
@@ -799,7 +847,9 @@ function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c
               </div>
             ))}
             <button
-              onClick={() => upd({ statsBar: { stats: [...config.statsBar.stats, { value: '0', label: 'New stat' }] } })}
+              onClick={() =>
+                upd({ statsBar: { stats: [...config.statsBar.stats, { value: '0', label: 'New stat' }] } })
+              }
               className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-slate-200 hover:border-[#89c74e] text-xs font-bold text-slate-600"
             >
               <Plus size={14} /> Add stat
@@ -873,20 +923,12 @@ function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c
                   <input
                     className={`${inputCls} max-w-[90px]`}
                     value={m.year}
-                    onChange={(e) => {
-                      const arr = [...config.journey.milestones];
-                      arr[i] = { ...arr[i], year: e.target.value };
-                      upd({ journey: { ...config.journey, milestones: arr } });
-                    }}
+                    onChange={(e) => updateMilestone(i, { year: e.target.value })}
                   />
                   <input
                     className={inputCls}
                     value={m.title}
-                    onChange={(e) => {
-                      const arr = [...config.journey.milestones];
-                      arr[i] = { ...arr[i], title: e.target.value };
-                      upd({ journey: { ...config.journey, milestones: arr } });
-                    }}
+                    onChange={(e) => updateMilestone(i, { title: e.target.value })}
                   />
                   <button
                     onClick={() => {
@@ -902,11 +944,7 @@ function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c
                   rows={2}
                   className={inputCls}
                   value={m.desc}
-                  onChange={(e) => {
-                    const arr = [...config.journey.milestones];
-                    arr[i] = { ...arr[i], desc: e.target.value };
-                    upd({ journey: { ...config.journey, milestones: arr } });
-                  }}
+                  onChange={(e) => updateMilestone(i, { desc: e.target.value })}
                 />
               </div>
             ))}
@@ -915,7 +953,10 @@ function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c
                 upd({
                   journey: {
                     ...config.journey,
-                    milestones: [...config.journey.milestones, { year: '2026', title: 'New milestone', desc: 'Description' }],
+                    milestones: [
+                      ...config.journey.milestones,
+                      { year: '2026', title: 'New milestone', desc: 'Description' },
+                    ],
                   },
                 })
               }
@@ -952,7 +993,9 @@ function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-black text-slate-500">VALUE {i + 1}</span>
                   <button
-                    onClick={() => upd({ values: { ...config.values, items: config.values.items.filter((_, j) => j !== i) } })}
+                    onClick={() =>
+                      upd({ values: { ...config.values, items: config.values.items.filter((_, j) => j !== i) } })
+                    }
                     className="w-7 h-7 rounded-md bg-red-50 text-red-500 flex items-center justify-center"
                   >
                     <Trash2 size={12} />
@@ -960,37 +1003,30 @@ function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c
                 </div>
                 <IconPicker
                   value={v.icon}
-                  onChange={(k) => {
-                    const arr = [...config.values.items];
-                    arr[i] = { ...arr[i], icon: k };
-                    upd({ values: { ...config.values, items: arr } });
-                  }}
+                  onChange={(k) => updateValue(i, { icon: k })}
                   label="Icon"
                 />
                 <input
                   className={inputCls}
                   value={v.title}
-                  onChange={(e) => {
-                    const arr = [...config.values.items];
-                    arr[i] = { ...arr[i], title: e.target.value };
-                    upd({ values: { ...config.values, items: arr } });
-                  }}
+                  onChange={(e) => updateValue(i, { title: e.target.value })}
                 />
                 <textarea
                   rows={2}
                   className={inputCls}
                   value={v.desc}
-                  onChange={(e) => {
-                    const arr = [...config.values.items];
-                    arr[i] = { ...arr[i], desc: e.target.value };
-                    upd({ values: { ...config.values, items: arr } });
-                  }}
+                  onChange={(e) => updateValue(i, { desc: e.target.value })}
                 />
               </div>
             ))}
             <button
               onClick={() =>
-                upd({ values: { ...config.values, items: [...config.values.items, { icon: 'star', title: 'New value', desc: 'Description' }] } })
+                upd({
+                  values: {
+                    ...config.values,
+                    items: [...config.values.items, { icon: 'star', title: 'New value', desc: 'Description' }],
+                  },
+                })
               }
               className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-slate-200 hover:border-[#89c74e] text-xs font-bold text-slate-600"
             >
@@ -1020,7 +1056,9 @@ function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c
             <ImageUploader
               value={config.impact.image}
               onChange={(url) => upd({ impact: { ...config.impact, image: url } })}
-              folder="about"
+              onPick={(file) =>
+                uploadImage(file, 'about', (url) => upd({ impact: { ...config.impact, image: url } }))
+              }
               label="Section image"
             />
             <div className="grid grid-cols-2 gap-2">
@@ -1036,46 +1074,37 @@ function AboutEditor({ config, setConfig }: { config: AboutConfig; setConfig: (c
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-black text-slate-500">STAT {i + 1}</span>
                   <button
-                    onClick={() => upd({ impact: { ...config.impact, stats: config.impact.stats.filter((_, j) => j !== i) } })}
+                    onClick={() =>
+                      upd({ impact: { ...config.impact, stats: config.impact.stats.filter((_, j) => j !== i) } })
+                    }
                     className="w-7 h-7 rounded-md bg-red-50 text-red-500 flex items-center justify-center"
                   >
                     <Trash2 size={12} />
                   </button>
                 </div>
-                <IconPicker
-                  value={s.icon}
-                  onChange={(k) => {
-                    const arr = [...config.impact.stats];
-                    arr[i] = { ...arr[i], icon: k };
-                    upd({ impact: { ...config.impact, stats: arr } });
-                  }}
-                  label="Icon"
-                />
+                <IconPicker value={s.icon} onChange={(k) => updateImpactStat(i, { icon: k })} label="Icon" />
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     className={inputCls}
                     value={s.value}
-                    onChange={(e) => {
-                      const arr = [...config.impact.stats];
-                      arr[i] = { ...arr[i], value: e.target.value };
-                      upd({ impact: { ...config.impact, stats: arr } });
-                    }}
+                    onChange={(e) => updateImpactStat(i, { value: e.target.value })}
                   />
                   <input
                     className={inputCls}
                     value={s.label}
-                    onChange={(e) => {
-                      const arr = [...config.impact.stats];
-                      arr[i] = { ...arr[i], label: e.target.value };
-                      upd({ impact: { ...config.impact, stats: arr } });
-                    }}
+                    onChange={(e) => updateImpactStat(i, { label: e.target.value })}
                   />
                 </div>
               </div>
             ))}
             <button
               onClick={() =>
-                upd({ impact: { ...config.impact, stats: [...config.impact.stats, { icon: 'star', value: '0', label: 'New stat' }] } })
+                upd({
+                  impact: {
+                    ...config.impact,
+                    stats: [...config.impact.stats, { icon: 'star', value: '0', label: 'New stat' }],
+                  },
+                })
               }
               className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-slate-200 hover:border-[#89c74e] text-xs font-bold text-slate-600"
             >
@@ -1147,12 +1176,40 @@ export function SiteContentEditor() {
   const [tab, setTab] = useState<SiteSection>('hero');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   const [hero, setHero] = useState<HeroConfig>(DEFAULT_HERO_CONFIG);
   const [footer, setFooter] = useState<FooterConfig>(DEFAULT_FOOTER_CONFIG);
   const [about, setAbout] = useState<AboutConfig>(DEFAULT_ABOUT_CONFIG);
 
+  // Toasts
+  const [toasts, setToasts] = useState<
+    Array<{ id: string; message: string; type: ToastType }>
+  >([]);
+  const addToast = useCallback((message: string, type: ToastType) => {
+    const id = Date.now().toString() + Math.random().toString(36).slice(2, 5);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+  }, []);
+
+  // Upload state (mirrors BrandsManager)
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
+
+  // Confirm dialog (for reset)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  /* ----------- load ----------- */
   const reload = useCallback(async () => {
     setLoading(true);
     try {
@@ -1164,39 +1221,123 @@ export function SiteContentEditor() {
       setHero(h);
       setFooter(f);
       setAbout(a);
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to load site content', 'error');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addToast]);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
+  /* ----------- upload image (with compression + progress) ----------- */
+  const uploadImage: UploadHandler = useCallback(
+    async (file, folder, applyUrl) => {
+      setUploading(true);
+      setUploadProgress(0);
+      setUploadStatus('Compressing image...');
+
+      try {
+        // Fake compression progress (matches BrandsManager pattern)
+        for (let i = 0; i <= 6; i++) {
+          setUploadProgress(Math.min(30, (i / 6) * 30));
+          await new Promise((r) => setTimeout(r, 70));
+        }
+
+        const compressed = await compressImage(file);
+
+        setUploadStatus('Uploading image...');
+        setUploadProgress(30);
+
+        const url = await uploadSiteAsset(compressed, folder, (p) => {
+          const overall = 30 + p * 0.7;
+          setUploadProgress(Math.min(100, overall));
+          setUploadStatus(`Uploading... ${Math.round(overall)}%`);
+        });
+
+        setUploadProgress(100);
+        setUploadStatus('Upload complete');
+
+        applyUrl(url);
+        addToast('Image uploaded successfully', 'success');
+      } catch (err) {
+        console.error(err);
+        addToast('Image upload failed. Please try again.', 'error');
+      } finally {
+        setUploading(false);
+        setUploadProgress(0);
+        setUploadStatus('');
+      }
+    },
+    [addToast],
+  );
+
+  /* ----------- save ----------- */
   const handleSave = async () => {
     setSaving(true);
     try {
       const payload = tab === 'hero' ? hero : tab === 'footer' ? footer : about;
       await saveSiteContent(tab, payload);
       invalidateSiteContent(tab);
-      window.dispatchEvent(new CustomEvent('site-content-updated', { detail: { section: tab } }));
-      setSavedAt(Date.now());
-      setTimeout(() => setSavedAt(null), 2000);
-    } catch (e) {
-      console.error(e);
-      alert('Save failed. Please try again.');
+      window.dispatchEvent(
+        new CustomEvent('site-content-updated', { detail: { section: tab } }),
+      );
+      addToast(
+        `${tab === 'hero' ? 'Hero' : tab === 'footer' ? 'Footer' : 'About'} content saved`,
+        'success',
+      );
+    } catch (err) {
+      console.error(err);
+      addToast('Save failed. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  /* ----------- reset ----------- */
   const handleResetDefaults = () => {
-    if (!confirm('Reset current tab to default content? This will only apply on save.')) return;
-    if (tab === 'hero') setHero(DEFAULT_HERO_CONFIG);
-    if (tab === 'footer') setFooter(DEFAULT_FOOTER_CONFIG);
-    if (tab === 'about') setAbout(DEFAULT_ABOUT_CONFIG);
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Reset to defaults',
+      message:
+        'Reset the current tab to default content? This will only take effect after you click Save.',
+      onConfirm: () => {
+        if (tab === 'hero') setHero(DEFAULT_HERO_CONFIG);
+        if (tab === 'footer') setFooter(DEFAULT_FOOTER_CONFIG);
+        if (tab === 'about') setAbout(DEFAULT_ABOUT_CONFIG);
+        addToast('Reset to defaults. Click Save to apply.', 'info');
+        setConfirmDialog((d) => ({ ...d, isOpen: false }));
+      },
+    });
   };
+
+  /* ----------- full-screen upload progress (matches BrandsManager) ----------- */
+  if (uploading) {
+    return (
+      <UploadProgress
+        progress={uploadProgress}
+        statusText={uploadStatus}
+        isComplete={uploadProgress >= 100}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <ToastContainer>
+        {toasts.map((t) => (
+          <Toast
+            key={t.id}
+            message={t.message}
+            type={t.type}
+            onClose={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
+          />
+        ))}
+      </ToastContainer>
+
       {/* Sticky top bar */}
       <div className="sticky top-0 z-40 bg-white border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3">
@@ -1240,7 +1381,7 @@ export function SiteContentEditor() {
             className="px-4 py-2 rounded-lg bg-[#02402c] hover:bg-[#03543a] text-white text-xs font-black flex items-center gap-1.5 disabled:opacity-50"
           >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-            {saving ? 'Saving…' : savedAt ? 'Saved ✓' : 'Save'}
+            {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>
@@ -1251,13 +1392,21 @@ export function SiteContentEditor() {
             <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading content…
           </div>
         ) : tab === 'hero' ? (
-          <HeroEditor config={hero} setConfig={setHero} />
+          <HeroEditor config={hero} setConfig={setHero} uploadImage={uploadImage} />
         ) : tab === 'footer' ? (
           <FooterEditor config={footer} setConfig={setFooter} />
         ) : (
-          <AboutEditor config={about} setConfig={setAbout} />
+          <AboutEditor config={about} setConfig={setAbout} uploadImage={uploadImage} />
         )}
       </div>
+
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog((d) => ({ ...d, isOpen: false }))}
+      />
     </div>
   );
 }

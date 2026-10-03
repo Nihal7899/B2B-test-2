@@ -9,9 +9,9 @@ import { useCart } from '@/store';
 import { getStoreIcon } from '@/data/storeIcons';
 import { CachedImage } from '@/components/CachedImage';
 import { AppLoader } from '@/components/AppLoader';
+
 function renderIcon(iconName: string, className: string = "h-6 w-6", color?: string) {
   if (iconName?.startsWith('http') || iconName?.startsWith('data:')) {
-    // Replaced raw <img> with CachedImage
     return <CachedImage src={iconName} alt="icon" className={className + " object-contain"} />;
   }
   const Icon = getStoreIcon(iconName);
@@ -93,7 +93,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
     openBrand: (b: any) => navigate(`/brand?id=${b.id}`),
     openStore: (s: any) => navigate(`/store?storeId=${s.id}`),
     navigate: (path) => navigate(path),
-    setFilterConfig: () => {}, 
+    setFilterConfig: () => {},
     setFilterTitle: () => {},
   }), [navigate]);
 
@@ -117,7 +117,6 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
     };
   }, [loadWishlist]);
 
-  // Background Data Refresh Logic
   const refreshBrandData = useCallback(async (silent = false) => {
     if (!brandId) return;
     try {
@@ -137,12 +136,10 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
     }
   }, [brandId, navigate]);
 
-  // Initial Load
   useEffect(() => {
     void refreshBrandData(false);
   }, [refreshBrandData]);
 
-  // Background Fetch Event Listeners (Keepalive & Visibility)
   useEffect(() => {
     let active = true;
     const expectedKey = `brand|${brandId}`;
@@ -224,11 +221,26 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
     bottom_icon = 'shield',
     description,
     config = {},
+    card_config = {},
   } = brand;
 
   const primaryRgb = hexToRgb(primary_color);
   const isLightBackground = getLuminance(primary_color) > 0.68;
   const textColor = isLightBackground ? '#111827' : '#ffffff';
+
+  /* ------------------------------------------------------------------ */
+  /*  Card-style overrides (mirror BrandCard's behaviour exactly)        */
+  /* ------------------------------------------------------------------ */
+  const cardNameColor = card_config.nameColor || textColor;
+  const cardTaglineColor = card_config.taglineColor || textColor;
+  const cardGeometryColor = card_config.geometryColor || 'white';
+  const cardGeometryOpacity = card_config.geometryOpacity ?? 0.13;
+  const cardPillBg = card_config.pillBgColor || 'rgba(0,0,0,0.30)';
+  const cardPillText = card_config.pillTextColor || '#ffffff';
+  const cardPillBorder = card_config.pillBorderColor || 'rgba(255,255,255,0.20)';
+  const cardCategoryPillBg = card_config.categoryPillBg || 'rgba(255,255,255,0.10)';
+  const cardCategoryPillText = card_config.categoryPillText || textColor;
+  const cardCategoryPillBorder = card_config.categoryPillBorder || 'rgba(255,255,255,0.25)';
 
   const highlights = config.highlights || [];
   const categories = config.categories || [];
@@ -285,16 +297,24 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
           style={{ background: `rgba(${primaryRgb.r},${primaryRgb.g},${primaryRgb.b},0.35)` }}
         />
         <div className="absolute -right-10 top-20 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
-        <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]" viewBox="0 0 180 270" preserveAspectRatio="none">
-          <circle cx="-10" cy="50" r="50" fill="none" stroke="white" strokeWidth="1" />
-          <circle cx="-10" cy="50" r="36" fill="none" stroke="white" strokeWidth="1" />
-          <circle cx="190" cy="74" r="34" fill="none" stroke="white" strokeWidth="1" />
-          <path d="M-20 158 C40 126 90 153 205 112" fill="none" stroke="white" strokeWidth="1.2" />
-          <path d="M-20 165 C45 133 97 160 205 120" fill="none" stroke="white" strokeWidth="0.8" />
-          <circle cx="150" cy="34" r="2" fill="white" />
-          <circle cx="162" cy="43" r="1.5" fill="white" />
-          <circle cx="141" cy="44" r="1" fill="white" />
+
+        {/* Geometric pattern — color + opacity from card_config */}
+        <svg
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          style={{ opacity: cardGeometryOpacity }}
+          viewBox="0 0 180 270"
+          preserveAspectRatio="none"
+        >
+          <circle cx="-10" cy="50" r="50" fill="none" stroke={cardGeometryColor} strokeWidth="1" />
+          <circle cx="-10" cy="50" r="36" fill="none" stroke={cardGeometryColor} strokeWidth="1" />
+          <circle cx="190" cy="74" r="34" fill="none" stroke={cardGeometryColor} strokeWidth="1" />
+          <path d="M-20 158 C40 126 90 153 205 112" fill="none" stroke={cardGeometryColor} strokeWidth="1.2" />
+          <path d="M-20 165 C45 133 97 160 205 120" fill="none" stroke={cardGeometryColor} strokeWidth="0.8" />
+          <circle cx="150" cy="34" r="2" fill={cardGeometryColor} />
+          <circle cx="162" cy="43" r="1.5" fill={cardGeometryColor} />
+          <circle cx="141" cy="44" r="1" fill={cardGeometryColor} />
         </svg>
+
         <div className="absolute right-3 top-3 z-10 grid grid-cols-3 gap-[3px] opacity-25">
           {Array.from({ length: 9 }).map((_, i) => (
             <span key={i} className="h-[2.5px] w-[2.5px] rounded-full bg-white" />
@@ -309,25 +329,72 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
           <ArrowLeft size={20} />
         </button>
 
-        <div className="relative z-20 flex flex-col items-center text-center" style={{ color: textColor }}>
+        <div className="relative z-20 flex flex-col items-center text-center">
           <div className="h-24 w-24 rounded-2xl border-2 border-white/40 bg-white p-2 shadow-lg mb-4 mt-6 flex items-center justify-center">
-            {/* Replaced raw <img> with CachedImage */}
             <CachedImage src={logo_url} alt={name} className="max-h-full max-w-full object-contain" />
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight">{name}</h1>
-          {tagline && <p className="mt-1 text-sm opacity-90">{tagline}</p>}
+
+          {/* Name — uses card_config.nameColor */}
+          <h1
+            className="text-3xl font-extrabold tracking-tight"
+            style={{
+              color: cardNameColor,
+              textShadow: isLightBackground
+                ? '0 1px 2px rgba(255,255,255,0.5)'
+                : '0 2px 7px rgba(0,0,0,0.22)',
+            }}
+          >
+            {name}
+          </h1>
+
+          {/* Tagline — uses card_config.taglineColor */}
+          {tagline && (
+            <p
+              className="mt-1 text-sm"
+              style={{ color: cardTaglineColor, opacity: 0.9 }}
+            >
+              {tagline}
+            </p>
+          )}
+
+          {/* Category chips — use card_config.categoryPill* */}
           {brandCategories.length > 0 && (
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               {brandCategories.slice(0, 3).map((cat) => (
-                <span key={cat} className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
+                <span
+                  key={cat}
+                  className="rounded-full border px-3 py-1 text-xs font-semibold backdrop-blur-sm"
+                  style={{
+                    backgroundColor: cardCategoryPillBg,
+                    color: cardCategoryPillText,
+                    borderColor: cardCategoryPillBorder,
+                  }}
+                >
                   {cat}
                 </span>
               ))}
             </div>
           )}
-          {description && <p className="mt-4 max-w-md text-sm leading-relaxed opacity-95">{description}</p>}
+
+          {description && (
+            <p
+              className="mt-4 max-w-md text-sm leading-relaxed"
+              style={{ color: cardTaglineColor, opacity: 0.95 }}
+            >
+              {description}
+            </p>
+          )}
+
+          {/* Bottom pill — uses card_config.pill* */}
           {(bottom_label || bottom_icon) && (
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-black/30 px-4 py-1.5 text-white backdrop-blur-md border border-white/20">
+            <div
+              className="mt-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 backdrop-blur-md border"
+              style={{
+                backgroundColor: cardPillBg,
+                color: cardPillText,
+                borderColor: cardPillBorder,
+              }}
+            >
               <BottomIcon type={bottom_icon} />
               <span className="text-xs font-semibold">{bottom_label}</span>
             </div>
@@ -360,7 +427,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
         </div>
       )}
 
-      <div 
+      <div
         className="sticky top-0 z-30 bg-gray-50/95 px-4 pb-3 mt-5 backdrop-blur-lg"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
       >
@@ -579,7 +646,7 @@ function BrandScreenContent({ brandId }: { brandId: string }) {
 
 export const BrandScreen = React.memo(() => {
   const [searchParams] = useSearchParams();
-  const [brandId] = useState(() => searchParams.get('id')); // Already correctly frozen
+  const [brandId] = useState(() => searchParams.get('id'));
   const navigate = useNavigate();
 
   if (!brandId) {

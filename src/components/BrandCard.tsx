@@ -25,8 +25,10 @@ const DEFAULT_CONTENT = {
 };
 
 const DEFAULT_CONFIG: Required<BrandCardConfig> = {
-  nameColor: '',             // empty = fall back to auto-contrast
-  taglineColor: '',          // empty = fall back to auto-contrast
+  nameColor: '',
+  taglineColor: '',
+  geometryColor: 'white',
+  geometryOpacity: 0.13,
   cylinderShadowOpacity: 0.3,
   cylinderShadowBlur: 20,
   pillBgColor: 'rgba(0,0,0,0.75)',
@@ -116,11 +118,7 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
     'https://via.placeholder.com/240x240/CCCCCC/999999?text=Product';
 
   const isLightBackground = useMemo(() => getLuminance(primaryColor) > 0.68, [primaryColor]);
-
-  // Auto-contrast fallback (used when no explicit color is configured)
   const autoTextColor = isLightBackground ? '#111827' : '#ffffff';
-
-  // Explicit overrides — if the admin has picked a color, use it; else auto.
   const nameColor = cfg.nameColor || autoTextColor;
   const taglineColor = cfg.taglineColor || autoTextColor;
 
@@ -164,16 +162,18 @@ export const BrandCard = React.memo(function BrandCard(props: BrandCardProps) {
         }}
       />
 
+      {/* Geometric decoration — color + opacity now configurable */}
       <svg
-        className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.13]"
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        style={{ opacity: cfg.geometryOpacity }}
         viewBox="0 0 180 270"
         preserveAspectRatio="none"
       >
-        <circle cx="-10" cy="50" r="50" fill="none" stroke="white" strokeWidth="1" />
-        <circle cx="-10" cy="50" r="36" fill="none" stroke="white" strokeWidth="1" />
-        <circle cx="190" cy="74" r="34" fill="none" stroke="white" strokeWidth="1" />
-        <path d="M-20 158 C40 126 90 153 205 112" fill="none" stroke="white" strokeWidth="1.2" />
-        <path d="M-20 165 C45 133 97 160 205 120" fill="none" stroke="white" strokeWidth="0.8" />
+        <circle cx="-10" cy="50" r="50" fill="none" stroke={cfg.geometryColor} strokeWidth="1" />
+        <circle cx="-10" cy="50" r="36" fill="none" stroke={cfg.geometryColor} strokeWidth="1" />
+        <circle cx="190" cy="74" r="34" fill="none" stroke={cfg.geometryColor} strokeWidth="1" />
+        <path d="M-20 158 C40 126 90 153 205 112" fill="none" stroke={cfg.geometryColor} strokeWidth="1.2" />
+        <path d="M-20 165 C45 133 97 160 205 120" fill="none" stroke={cfg.geometryColor} strokeWidth="0.8" />
       </svg>
 
       {/* Logo */}

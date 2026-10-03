@@ -507,6 +507,87 @@ const CityscapeBackground = ({ layer, night = false }: { layer: CityLayer; night
 );
 
 
+/**
+ * CafKart warehouse - the starting point. Same 1200x650 coordinate space as the city tiles
+ * (ground line y=430) so it sits on the sidewalk. It is NOT part of the looping tiles: it is
+ * rendered once and slides away at road speed as the truck drives off.
+ * part="body" is the building; part="glow" are the lit windows / open dock (drawn above the tint).
+ */
+const Warehouse = ({ part, night = false }: { part: 'body' | 'glow'; night?: boolean }) => (
+  <svg viewBox="0 0 1200 650" className="h-full w-auto block" aria-hidden="true">
+    <defs>
+<g id="map-pin"><path d="M15,0 C6.7,0 0,6.7 0,15 C0,26.2 15,42 15,42 C15,42 30,26.2 30,15 C30,6.7 23.3,0 15,0 Z" fill="#65B874"/><circle cx="15" cy="14" r="6" fill="#DFF0E2"/></g>
+<g id="fire-hydrant"><rect x="-6" y="0" width="12" height="25" fill="#E53935" rx="3"/><path d="M-8,3 Q0,-4 8,3 Z" fill="#D32F2F"/><rect x="-8" y="5" width="16" height="4" fill="#B71C1C" rx="1"/><rect x="-10" y="21" width="20" height="4" fill="#B71C1C" rx="1"/><circle cx="0" cy="11" r="5" fill="#D32F2F"/><circle cx="0" cy="11" r="2.5" fill="#FFCDD2"/><circle cx="-7" cy="11" r="2.5" fill="#C62828"/><circle cx="7" cy="11" r="2.5" fill="#C62828"/></g>
+<linearGradient id="hillGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#D3EAD8"/><stop offset="1" stopColor="#E4F2E7"/></linearGradient>
+<linearGradient id="roadGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#DDEFE0"/><stop offset="1" stopColor="#CBE6D0"/></linearGradient>
+<radialGradient id="lampGlow"><stop offset="0" stopColor="#FFE9A0" stopOpacity="0.95"/><stop offset="1" stopColor="#FFD54F" stopOpacity="0"/></radialGradient>
+</defs><defs><pattern id="corr" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="2" height="12" fill="#A5D2AE" opacity=".55"/></pattern></defs>
+    {part === 'body' ? (
+      <>
+        <rect x="40" y="296" width="360" height="134" fill="#B3DABB"/>
+        <rect x="40" y="296" width="360" height="134" fill="url(#corr)"/>
+        <rect x="40" y="410" width="360" height="20" fill="#A5D2AE"/>
+        <rect x="372" y="296" width="28" height="134" fill="#9CCBA6"/>
+        <polygon points="28,300 58,262 382,262 412,300" fill="#8CC498"/>
+        <polygon points="58,262 382,262 392,274 48,274" fill="#7FBF8B"/>
+        <rect x="24" y="296" width="392" height="8" rx="3" fill="#75B484"/>
+        <rect x="110" y="250" width="34" height="14" rx="3" fill="#A5D2AE"/><rect x="114" y="253" width="26" height="6" rx="2" fill="#E8F4EA"/>
+        <rect x="170" y="250" width="34" height="14" rx="3" fill="#A5D2AE"/><rect x="174" y="253" width="26" height="6" rx="2" fill="#E8F4EA"/>
+        <rect x="230" y="250" width="34" height="14" rx="3" fill="#A5D2AE"/><rect x="234" y="253" width="26" height="6" rx="2" fill="#E8F4EA"/>
+        <rect x="318" y="238" width="10" height="26" fill="#75B484"/><rect x="314" y="232" width="18" height="8" rx="2" fill="#6BB07A"/>
+        <g transform="translate(212 186) scale(1.3)"><use href="#map-pin" x="0" y="0"/></g>
+        <rect x="62" y="306" width="316" height="58" rx="10" fill="#1E6B3A" stroke="#F4FAF5" strokeWidth="3"/>
+        <rect x="68" y="312" width="304" height="46" rx="7" fill="none" stroke="#3D9A57" strokeWidth="1.5"/>
+        <g transform="translate(78 315) scale(0.0285) translate(8 8)"><CafKartMark /></g>
+        <text x="132" y="349" fontFamily="Verdana, Trebuchet MS, sans-serif" fontSize="36" fontWeight="800" letterSpacing="0.5" fill="#fff">Caf<tspan fill="#89c74e">Kart</tspan></text>
+        <text x="302" y="340" fontFamily="Verdana, sans-serif" fontSize="8" fontWeight="700" letterSpacing="2" fill="#BFE5C6">WAREHOUSE</text>
+        <rect x="66" y="376" width="15" height="9" rx="1.5" fill="#E8F4EA"/>
+        <rect x="88" y="376" width="15" height="9" rx="1.5" fill="#E8F4EA"/>
+        <rect x="110" y="376" width="15" height="9" rx="1.5" fill="#E8F4EA"/>
+        <rect x="132" y="376" width="15" height="9" rx="1.5" fill="#E8F4EA"/>
+        <rect x="154" y="376" width="15" height="9" rx="1.5" fill="#E8F4EA"/>
+        <rect x="176" y="376" width="15" height="9" rx="1.5" fill="#E8F4EA"/>
+        <rect x="198" y="376" width="15" height="9" rx="1.5" fill="#E8F4EA"/>
+        <rect x="220" y="376" width="15" height="9" rx="1.5" fill="#E8F4EA"/>
+        <rect x="238" y="364" width="150" height="9" rx="2" fill="#6BB07A"/>
+        <path d="M238,373 h150 v5 h-150z" fill="#4F9A63"/>
+        <rect x="246" y="380" width="64" height="52" fill="#8CC498"/>
+        <rect x="250" y="384" width="56" height="46" fill="#5E8F6A"/>
+        <rect x="256" y="410" width="18" height="20" fill="#C8935A" stroke="#8A5A2B" strokeWidth="1.5"/><rect x="276" y="402" width="22" height="28" fill="#D9A066" stroke="#8B5E34" strokeWidth="1.5"/>
+        <rect x="250" y="384" width="56" height="9" fill="#E3EEE5"/>
+        <line x1="250" y1="384" x2="306" y2="384" stroke="#B9CBBE" strokeWidth="1"/>
+        <line x1="250" y1="387" x2="306" y2="387" stroke="#B9CBBE" strokeWidth="1"/>
+        <line x1="250" y1="390" x2="306" y2="390" stroke="#B9CBBE" strokeWidth="1"/>
+        <rect x="270" y="372" width="16" height="9" rx="2" fill="#F4FAF5" stroke="#6BB07A" strokeWidth="1"/><text x="278" y="379.5" textAnchor="middle" fontFamily="Verdana, sans-serif" fontSize="7" fontWeight="700" fill="#3E8E50">1</text>
+        <rect x="246" y="424" width="6" height="8" fill="#2F2F2F"/><rect x="304" y="424" width="6" height="8" fill="#2F2F2F"/>
+        <rect x="318" y="380" width="64" height="52" fill="#8CC498"/>
+        <rect x="322" y="384" width="56" height="46" fill="#DDEFE1"/>
+        <line x1="322" y1="389.0" x2="378" y2="389.0" stroke="#B9D6BF" strokeWidth="1.6"/>
+        <line x1="322" y1="394.5" x2="378" y2="394.5" stroke="#B9D6BF" strokeWidth="1.6"/>
+        <line x1="322" y1="400.0" x2="378" y2="400.0" stroke="#B9D6BF" strokeWidth="1.6"/>
+        <line x1="322" y1="405.5" x2="378" y2="405.5" stroke="#B9D6BF" strokeWidth="1.6"/>
+        <line x1="322" y1="411.0" x2="378" y2="411.0" stroke="#B9D6BF" strokeWidth="1.6"/>
+        <line x1="322" y1="416.5" x2="378" y2="416.5" stroke="#B9D6BF" strokeWidth="1.6"/>
+        <line x1="322" y1="422.0" x2="378" y2="422.0" stroke="#B9D6BF" strokeWidth="1.6"/>
+        <line x1="322" y1="427.5" x2="378" y2="427.5" stroke="#B9D6BF" strokeWidth="1.6"/>
+        <rect x="342" y="372" width="16" height="9" rx="2" fill="#F4FAF5" stroke="#6BB07A" strokeWidth="1"/><text x="350" y="379.5" textAnchor="middle" fontFamily="Verdana, sans-serif" fontSize="7" fontWeight="700" fill="#3E8E50">2</text>
+        <rect x="318" y="424" width="6" height="8" fill="#2F2F2F"/><rect x="376" y="424" width="6" height="8" fill="#2F2F2F"/>
+        <rect x="240" y="430" width="148" height="3" fill="#2F3B33"/>
+        <rect x="236" y="352" width="8" height="5" rx="1" fill="#6BB07A"/>
+        <rect x="392" y="352" width="8" height="5" rx="1" fill="#6BB07A"/>
+        <circle className={night ? 'lamp-glow-on' : 'lamp-glow'} cx="240" cy="360" r="30" fill="url(#lampGlow)"/><circle className={night ? 'lamp-glow-on' : 'lamp-glow'} cx="396" cy="360" r="30" fill="url(#lampGlow)"/>
+        <rect x="2" y="424" width="62" height="6" fill="#8B5E34"/>
+        <rect x="6" y="398" width="26" height="26" fill="#D9A066" stroke="#8B5E34" strokeWidth="2"/><rect x="16.4" y="398" width="5.2" height="26" fill="#F1D7A8" opacity=".7"/><rect x="34" y="398" width="26" height="26" fill="#E0A85B" stroke="#A8702A" strokeWidth="2"/><rect x="44.4" y="398" width="5.2" height="26" fill="#F1D7A8" opacity=".7"/><rect x="14" y="372" width="30" height="26" fill="#C8935A" stroke="#8A5A2B" strokeWidth="2"/><rect x="26.0" y="372" width="6.0" height="26" fill="#F1D7A8" opacity=".7"/>
+        <g transform="translate(90 430)"><rect x="0" y="-26" width="46" height="18" rx="4" fill="#F6B93B"/><rect x="26" y="-44" width="4" height="22" fill="#6B7C70"/><path d="M6 -26 L6 -44 L28 -44 L28 -26" fill="none" stroke="#6B7C70" strokeWidth="3"/><rect x="30" y="-44" width="3" height="40" fill="#4C5A50"/><path d="M33 -6 h26 v3 h-26z" fill="#4C5A50"/><rect x="38" y="-14" width="18" height="12" fill="#D9A066" stroke="#8B5E34" strokeWidth="1.5"/><circle cx="10" cy="-4" r="7" fill="#3A3A3A"/><circle cx="10" cy="-4" r="2.5" fill="#999"/><circle cx="36" cy="-4" r="6" fill="#3A3A3A"/><circle cx="36" cy="-4" r="2" fill="#999"/></g>
+      </>
+    ) : (
+      <>
+        <g fill="#FFE08A"><rect x="66" y="376" width="15" height="9" rx="1.5"/><rect x="88" y="376" width="15" height="9" rx="1.5"/><rect x="110" y="376" width="15" height="9" rx="1.5"/><rect x="132" y="376" width="15" height="9" rx="1.5"/><rect x="154" y="376" width="15" height="9" rx="1.5"/><rect x="176" y="376" width="15" height="9" rx="1.5"/><rect x="198" y="376" width="15" height="9" rx="1.5"/><rect x="220" y="376" width="15" height="9" rx="1.5"/><rect x="250" y="384" width="56" height="9" opacity=".95"/></g>
+      </>
+    )}
+  </svg>
+);
+
 // ---------------------------------------------------------------------------
 // Truck add-ons. They are authored in the truck-body IMAGE's own pixel space
 // (roof line y ≈ 4, cargo box x ≈ 3 → 938, side panel x 54→890 / y 54→393) and
@@ -772,6 +853,21 @@ const TruckGroceries = () => (
   </g>
 );
 
+/** CafKart logo mark (viewBox "-8 -8 1552 1552"). Shared by the truck panel and the warehouse board. */
+const CafKartMark = () => (
+  <>
+    <path
+      fill="#89c74e"
+      d="M534 458C407 466 305 522 228 621 169 698 140 785 140 884 140 1000 176 1098 249 1176 321 1251 414 1298 531 1309 616 1317 699 1297 759 1247L797 1219 705 1055 701 1055C658 1092 608 1111 555 1111 442 1111 345 1016 345 884 345 755 440 656 571 656 624 656 667 673 696 706L710 720 813 559 775 527C707 475 623 449 534 458Z"
+    />
+    <path
+      fill="#fff"
+      d="M1297.4 385.9 1273.7 382.4C1196 369 1121 388 1060 415 980 451 925 506 886 588 855 654 839 721 837 787L837 1466 839 1471 1034 1334 1034 917 1239 915 1238 742 1037 742C1038 720 1043 699 1048 689 1068 638 1107 604 1173 577 1213 562 1263 562 1302 570L1321 573 1323 573 1323.7 390.6Z"
+    />
+    <circle cx="842" cy="245.5" r="165.5" fill="#89c74e" />
+  </>
+);
+
 /**
  * Brand logo printed on the cargo-box side panel (panel ≈ x 54→890, y 54→393).
  * Rendered AFTER the truck-body image so it sits on top of the box.
@@ -783,15 +879,7 @@ const TruckLogo = () => (
     shapeRendering="geometricPrecision"
     transform="translate(324.2 66.5) scale(0.199742) translate(8 8)"
   >
-    <path
-      fill="#89c74e"
-      d="M534 458C407 466 305 522 228 621 169 698 140 785 140 884 140 1000 176 1098 249 1176 321 1251 414 1298 531 1309 616 1317 699 1297 759 1247L797 1219 705 1055 701 1055C658 1092 608 1111 555 1111 442 1111 345 1016 345 884 345 755 440 656 571 656 624 656 667 673 696 706L710 720 813 559 775 527C707 475 623 449 534 458Z"
-    />
-    <path
-      fill="#fff"
-      d="M1297.4 385.9 1273.7 382.4C1196 369 1121 388 1060 415 980 451 925 506 886 588 855 654 839 721 837 787L837 1466 839 1471 1034 1334 1034 917 1239 915 1238 742 1037 742C1038 720 1043 699 1048 689 1068 638 1107 604 1173 577 1213 562 1263 562 1302 570L1321 573 1323 573 1323.7 390.6Z"
-    />
-    <circle cx="842" cy="245.5" r="165.5" fill="#89c74e" />
+    <CafKartMark />
   </g>
   </g>
 );
@@ -982,6 +1070,26 @@ export const AppLoader = React.memo(function AppLoader({
               <CityscapeBackground layer="glow" />
               <CityscapeBackground layer="glow" />
               <CityscapeBackground layer="glow" />
+            </div>
+          </div>
+
+          {/* CafKart warehouse (starting point). Body sits above the tint, so it gets its own dusk/night shading. */}
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none z-[7]">
+            <div className="h-full w-max anim-warehouse">
+              <div
+                className={`h-full ${isDark ? '' : 'anim-wh-dusk'}`}
+                style={isDark ? { filter: 'brightness(0.5) saturate(0.85)' } : undefined}
+              >
+                <Warehouse part="body" night={isDark} />
+              </div>
+            </div>
+          </div>
+          <div
+            className={`absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none z-[8] ${isDark ? '' : 'anim-win-glow'}`}
+            style={{ filter: 'drop-shadow(0 0 5px rgba(255,213,79,0.8))' }}
+          >
+            <div className="h-full w-max anim-warehouse">
+              <Warehouse part="glow" />
             </div>
           </div>
 
@@ -1251,6 +1359,16 @@ export const AppLoader = React.memo(function AppLoader({
         }
         .animate-truck-enter { animation: truckEnter 1.1s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
 
+        /* ---- Warehouse slides away at road speed (2 tiles / 24s = 12s per tile) ---- */
+        @keyframes warehouseDepart { from { transform: translateX(0); } to { transform: translateX(-200%); } }
+        .anim-warehouse { animation: warehouseDepart 24s linear forwards; }
+        @keyframes whDusk {
+          0%, 55% { filter: none; }
+          82% { filter: sepia(0.35) saturate(1.3) brightness(0.92); }
+          100% { filter: none; }
+        }
+        .anim-wh-dusk { animation: whDusk 24s ease-in-out infinite; }
+
         /* ---- Day -> sunset cycle (24s). Windows light up at dusk. ---- */
         @keyframes sunsetSky {
           0%, 52% { opacity: 0; }
@@ -1352,7 +1470,7 @@ export const AppLoader = React.memo(function AppLoader({
         .loader-paused, .loader-paused * { animation-play-state: paused !important; }
 
         @media (prefers-reduced-motion: reduce) {
-          .truck-bounce, .g-pop, .g-tease, .sparkle, .leaf-fall, .dust-puff, .speed-streak, .truck-shadow, .fruit-hop, .steam, .exhaust-puff, .beam, .head-glow, .tail-glow, .anim-bird, .bird-wing, .anim-star, .animate-mini-truck, .quote-shimmer, .animate-truck-enter, .animate-word, .animate-badge-float { animation: none; }
+          .truck-bounce, .g-pop, .g-tease, .sparkle, .leaf-fall, .dust-puff, .speed-streak, .truck-shadow, .fruit-hop, .steam, .exhaust-puff, .beam, .head-glow, .tail-glow, .anim-wh-dusk, .anim-warehouse, .anim-bird, .bird-wing, .anim-star, .animate-mini-truck, .quote-shimmer, .animate-truck-enter, .animate-word, .animate-badge-float { animation: none; }
         }
 
         @keyframes quoteFade {
